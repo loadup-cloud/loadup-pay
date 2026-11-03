@@ -23,27 +23,39 @@ public final class PaymentCaptureContracts {
         require(value != null);
         text(value.captureId(), 64);
         text(value.nativeTaskId(), 64);
-        require(value.channel() == Channel.WECHAT && value.billDate() != null
-                && value.billDate().getYear() >= 1970 && value.billDate().getYear() <= 9998
+        require(value.channel() == Channel.WECHAT
+                && value.billDate() != null
+                && value.billDate().getYear() >= 1970
+                && value.billDate().getYear() <= 9998
                 && "wechat-trade-all-20260116".equals(value.statementProfile()));
         hash(value.accountScopeHash());
         try {
-            require(value.systemZone() != null && ZoneId.of(value.systemZone()).getId().equals(value.systemZone()));
+            require(value.systemZone() != null
+                    && ZoneId.of(value.systemZone()).getId().equals(value.systemZone()));
         } catch (DateTimeException invalid) {
             throw new CommonException(PaymentResultCodeEnum.INVALID_ARGUMENT);
         }
-        require(value.state() != null && value.nativeStatus() != null
-                && Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(value.nativeStatus())
-                && value.attempts() != null && value.maxAttempts() != null
-                && value.attempts() >= 0 && value.maxAttempts() >= 1 && value.attempts() <= value.maxAttempts());
+        require(value.state() != null
+                && value.nativeStatus() != null
+                && Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED")
+                        .contains(value.nativeStatus())
+                && value.attempts() != null
+                && value.maxAttempts() != null
+                && value.attempts() >= 0
+                && value.maxAttempts() >= 1
+                && value.attempts() <= value.maxAttempts());
         boolean initial = value.state() == PaymentCaptureState.INIT;
         boolean sealed = value.state() == PaymentCaptureState.SEALED;
         boolean blocked = value.state() == PaymentCaptureState.BLOCKED;
         require(value.version() == (initial ? 0 : 1)
-                && initial == (value.startedAt() == null) && initial == (value.finishedAt() == null)
-                && sealed == (value.paymentCount() != null) && sealed == (value.paymentAmountMinor() != null)
-                && sealed == (value.refundCount() != null) && sealed == (value.refundAmountMinor() != null)
-                && sealed == (value.contentHash() != null) && blocked == (value.blocker() != null)
+                && initial == (value.startedAt() == null)
+                && initial == (value.finishedAt() == null)
+                && sealed == (value.paymentCount() != null)
+                && sealed == (value.paymentAmountMinor() != null)
+                && sealed == (value.refundCount() != null)
+                && sealed == (value.refundAmountMinor() != null)
+                && sealed == (value.contentHash() != null)
+                && blocked == (value.blocker() != null)
                 && blocked == (value.blockerSubjectId() != null));
         if (!initial) {
             timestamp(value.startedAt());
@@ -52,8 +64,10 @@ public final class PaymentCaptureContracts {
         }
         if (sealed) {
             hash(value.contentHash());
-            require(value.paymentCount() >= 0 && value.refundCount() >= 0
-                    && value.paymentAmountMinor() >= value.paymentCount() && value.refundAmountMinor() >= value.refundCount()
+            require(value.paymentCount() >= 0
+                    && value.refundCount() >= 0
+                    && value.paymentAmountMinor() >= value.paymentCount()
+                    && value.refundAmountMinor() >= value.refundCount()
                     && (value.paymentCount() == 0) == (value.paymentAmountMinor() == 0)
                     && (value.refundCount() == 0) == (value.refundAmountMinor() == 0));
             try {
@@ -68,10 +82,12 @@ public final class PaymentCaptureContracts {
         return value;
     }
 
-    public static PageDTO<PaymentLedgerLineDTO> page(PageDTO<PaymentLedgerLineDTO> page, PaymentCaptureLinesQuery query) {
+    public static PageDTO<PaymentLedgerLineDTO> page(
+            PageDTO<PaymentLedgerLineDTO> page, PaymentCaptureLinesQuery query) {
         require(page != null && page.getData() != null && page.getPageInfo() != null && query != null);
         var info = page.getPageInfo();
-        require(info.pageSize() <= 100 && info.pageIndex() == query.page().longValue()
+        require(info.pageSize() <= 100
+                && info.pageIndex() == query.page().longValue()
                 && info.pageSize() == query.size().longValue());
         try {
             long offset = Math.multiplyExact(info.pageIndex() - 1, info.pageSize());
@@ -89,8 +105,13 @@ public final class PaymentCaptureContracts {
     }
 
     public static void line(PaymentLedgerLineDTO value) {
-        require(value != null && value.ordinal() >= 1 && value.amountMinor() >= 1 && value.sourceVersion() >= 0
-                && "CNY".equals(value.currency()) && value.kind() != null && value.status() != null
+        require(value != null
+                && value.ordinal() >= 1
+                && value.amountMinor() >= 1
+                && value.sourceVersion() >= 0
+                && "CNY".equals(value.currency())
+                && value.kind() != null
+                && value.status() != null
                 && (value.kind() == PaymentLedgerKind.REFUND) == (value.channelRefundNo() != null)
                 && (value.kind() != PaymentLedgerKind.PAYMENT || value.status() == PaymentLedgerStatus.SUCCEEDED));
         text(value.channelTransactionNo(), 128);
@@ -104,8 +125,10 @@ public final class PaymentCaptureContracts {
     }
 
     static void timestamp(OffsetDateTime value) {
-        require(value != null && value.getNano() % 1000 == 0
-                && value.toEpochSecond() >= -62135596800L && value.toEpochSecond() <= 253402300799L);
+        require(value != null
+                && value.getNano() % 1000 == 0
+                && value.toEpochSecond() >= -62135596800L
+                && value.toEpochSecond() <= 253402300799L);
     }
 
     static void hash(String value) {
@@ -113,7 +136,9 @@ public final class PaymentCaptureContracts {
     }
 
     static void text(String value, int limit) {
-        require(value != null && !value.isBlank() && value.length() <= limit
+        require(value != null
+                && !value.isBlank()
+                && value.length() <= limit
                 && value.chars().noneMatch(Character::isISOControl));
     }
 

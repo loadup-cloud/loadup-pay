@@ -10,8 +10,8 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.result.FailureResponse;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.result.PageResponse;
-import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
@@ -43,16 +43,44 @@ class PaymentHttpEvidenceContractTest {
 
     private PaymentCaptureDTO capture(PaymentCaptureState state, Long count, Long amount) {
         boolean initial = state == PaymentCaptureState.INIT;
-        return new PaymentCaptureDTO("capture", Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 11, 2),
-                "wechat-trade-all-20260116", ZoneId.systemDefault().getId(), state,
-                initial ? null : time, initial ? null : time.plusSeconds(1), count, amount, count, amount,
-                initial ? null : "b".repeat(64), null, null, initial ? 0 : 1, "task", "PENDING", 0, 5);
+        return new PaymentCaptureDTO(
+                "capture",
+                Channel.WECHAT,
+                "a".repeat(64),
+                LocalDate.of(2026, 11, 2),
+                "wechat-trade-all-20260116",
+                ZoneId.systemDefault().getId(),
+                state,
+                initial ? null : time,
+                initial ? null : time.plusSeconds(1),
+                count,
+                amount,
+                count,
+                amount,
+                initial ? null : "b".repeat(64),
+                null,
+                null,
+                initial ? 0 : 1,
+                "task",
+                "PENDING",
+                0,
+                5);
     }
 
     private PaymentLedgerLineDTO line(long ordinal) {
-        return new PaymentLedgerLineDTO(ordinal, PaymentLedgerKind.PAYMENT, "channel-transaction", null,
-                "merchant-payment", 9007199254740993L, "CNY", PaymentLedgerStatus.SUCCEEDED,
-                time, "payment", "evidence", 2);
+        return new PaymentLedgerLineDTO(
+                ordinal,
+                PaymentLedgerKind.PAYMENT,
+                "channel-transaction",
+                null,
+                "merchant-payment",
+                9007199254740993L,
+                "CNY",
+                PaymentLedgerStatus.SUCCEEDED,
+                time,
+                "payment",
+                "evidence",
+                2);
     }
 
     @Test
@@ -61,15 +89,18 @@ class PaymentHttpEvidenceContractTest {
         var decoded = json.readValue(json.writeValueAsBytes(initial), PaymentCaptureDTO.class);
         assertThat(PaymentCaptureContracts.capture(decoded)).isEqualTo(initial);
         var sealed = capture(PaymentCaptureState.SEALED, 0L, 0L);
-        assertThat(PaymentCaptureContracts.capture(json.readValue(json.writeValueAsBytes(sealed), PaymentCaptureDTO.class)))
+        assertThat(PaymentCaptureContracts.capture(
+                        json.readValue(json.writeValueAsBytes(sealed), PaymentCaptureDTO.class)))
                 .isEqualTo(sealed);
         assertThatThrownBy(() -> PaymentCaptureContracts.capture(capture(PaymentCaptureState.SEALED, null, null)))
                 .isInstanceOf(RuntimeException.class);
         var missingVersion = json.valueToTree(initial).deepCopy();
         ((tools.jackson.databind.node.ObjectNode) missingVersion).remove("version");
-        assertThatThrownBy(() -> json.treeToValue(missingVersion, PaymentCaptureDTO.class)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> json.treeToValue(missingVersion, PaymentCaptureDTO.class))
+                .isInstanceOf(RuntimeException.class);
         ((tools.jackson.databind.node.ObjectNode) missingVersion).putNull("version");
-        assertThatThrownBy(() -> json.treeToValue(missingVersion, PaymentCaptureDTO.class)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> json.treeToValue(missingVersion, PaymentCaptureDTO.class))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -78,14 +109,20 @@ class PaymentHttpEvidenceContractTest {
         var wire = json.writeValueAsBytes(PageResponse.of(page));
         var decoded = json.readValue(wire, PaymentCapturePageResponse.class);
         assertThat(decoded.data()).hasSize(1);
-        assertThat(PaymentCaptureContracts.page(new PageDTO<>(decoded.data(), decoded.pageInfo()),
-                new PaymentCaptureLinesQuery("capture", 2, 1)).getData()).containsExactly(line(2));
-        assertThatThrownBy(() -> PaymentCaptureContracts.page(PageDTO.of(List.of(line(1)), 2L, 2, 1),
-                new PaymentCaptureLinesQuery("capture", 2, 1))).isInstanceOf(RuntimeException.class);
+        assertThat(PaymentCaptureContracts.page(
+                                new PageDTO<>(decoded.data(), decoded.pageInfo()),
+                                new PaymentCaptureLinesQuery("capture", 2, 1))
+                        .getData())
+                .containsExactly(line(2));
+        assertThatThrownBy(() -> PaymentCaptureContracts.page(
+                        PageDTO.of(List.of(line(1)), 2L, 2, 1), new PaymentCaptureLinesQuery("capture", 2, 1)))
+                .isInstanceOf(RuntimeException.class);
         var malformed = json.valueToTree(line(1)).deepCopy();
         ((tools.jackson.databind.node.ObjectNode) malformed).remove("sourceVersion");
-        assertThatThrownBy(() -> json.treeToValue(malformed, PaymentLedgerLineDTO.class)).isInstanceOf(RuntimeException.class);
-        var failure = json.readValue(json.writeValueAsBytes(FailureResponse.of(PaymentResultCodeEnum.INVALID_STATE, "trace")),
+        assertThatThrownBy(() -> json.treeToValue(malformed, PaymentLedgerLineDTO.class))
+                .isInstanceOf(RuntimeException.class);
+        var failure = json.readValue(
+                json.writeValueAsBytes(FailureResponse.of(PaymentResultCodeEnum.INVALID_STATE, "trace")),
                 PaymentCapturePageResponse.class);
         assertThat(failure.result().getCode()).isEqualTo(PaymentResultCodeEnum.INVALID_STATE.getCode());
         assertThat(failure.data()).isNull();
@@ -96,17 +133,32 @@ class PaymentHttpEvidenceContractTest {
     void statementJsonRetainsBytesMicrosecondInstantsAndContentIntegrity() throws Exception {
         byte[] content = "original-statement-bytes".getBytes(StandardCharsets.UTF_8);
         byte[] evidence = "original-provider-evidence".getBytes(StandardCharsets.UTF_8);
-        var dto = new PaymentStatementDTO("binding", Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 11, 2),
-                "wechat-trade-all-20260116", "wechat-tradebill-grant-v1", "b".repeat(64), hash("SHA-256", evidence),
-                "SHA1", hash("SHA-1", content), hash("SHA-256", content), time, time.plusSeconds(1), evidence, content);
-        var decoded = PaymentEvidenceContracts.statement(json.readValue(json.writeValueAsBytes(dto), PaymentStatementDTO.class));
+        var dto = new PaymentStatementDTO(
+                "binding",
+                Channel.WECHAT,
+                "a".repeat(64),
+                LocalDate.of(2026, 11, 2),
+                "wechat-trade-all-20260116",
+                "wechat-tradebill-grant-v1",
+                "b".repeat(64),
+                hash("SHA-256", evidence),
+                "SHA1",
+                hash("SHA-1", content),
+                hash("SHA-256", content),
+                time,
+                time.plusSeconds(1),
+                evidence,
+                content);
+        var decoded = PaymentEvidenceContracts.statement(
+                json.readValue(json.writeValueAsBytes(dto), PaymentStatementDTO.class));
         assertThat(decoded.content()).isEqualTo(content);
         assertThat(decoded.evidence()).isEqualTo(evidence);
         assertThat(decoded.receivedAt().toInstant()).isEqualTo(time.toInstant());
         assertThat(decoded.toString()).doesNotContain("original-statement-bytes", "original-provider-evidence");
         var tampered = (tools.jackson.databind.node.ObjectNode) json.valueToTree(dto);
         tampered.put("contentSha256", "0".repeat(64));
-        assertThatThrownBy(() -> json.treeToValue(tampered, PaymentStatementDTO.class)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> json.treeToValue(tampered, PaymentStatementDTO.class))
+                .isInstanceOf(RuntimeException.class);
     }
 
     private static String hash(String algorithm, byte[] bytes) throws Exception {
@@ -115,12 +167,34 @@ class PaymentHttpEvidenceContractTest {
 
     @Test
     void verificationRetainsExactMinorUnitsAndItsOriginalQueryWithoutCreatingAnExecutionReceipt() {
-        var request = new PaymentVerificationQuery("source-request", Channel.WECHAT, "a".repeat(64),
-                PaymentLedgerKind.PAYMENT, "merchant-payment", "channel", null);
-        var dto = new PaymentVerificationDTO(request, PaymentVerificationDisposition.OBSERVED, "binding", "payment",
-                "attempt", null, 2L, "SUCCEEDED", PaymentVerificationOutcome.SUCCEEDED,
-                Money.ofMinor(9007199254740993L, "CNY"), "channel", null, time, "b".repeat(64), time, time.plusSeconds(1), null);
-        var decoded = PaymentEvidenceContracts.verification(json.readValue(json.writeValueAsBytes(dto), PaymentVerificationDTO.class));
+        var request = new PaymentVerificationQuery(
+                "source-request",
+                Channel.WECHAT,
+                "a".repeat(64),
+                PaymentLedgerKind.PAYMENT,
+                "merchant-payment",
+                "channel",
+                null);
+        var dto = new PaymentVerificationDTO(
+                request,
+                PaymentVerificationDisposition.OBSERVED,
+                "binding",
+                "payment",
+                "attempt",
+                null,
+                2L,
+                "SUCCEEDED",
+                PaymentVerificationOutcome.SUCCEEDED,
+                Money.ofMinor(9007199254740993L, "CNY"),
+                "channel",
+                null,
+                time,
+                "b".repeat(64),
+                time,
+                time.plusSeconds(1),
+                null);
+        var decoded = PaymentEvidenceContracts.verification(
+                json.readValue(json.writeValueAsBytes(dto), PaymentVerificationDTO.class));
         assertThat(decoded.request()).isEqualTo(request);
         assertThat(decoded.amount().getCent()).isEqualTo(9007199254740993L);
         assertThat(decoded.amount().getCurrencyValue()).isEqualTo("CNY");
@@ -129,14 +203,22 @@ class PaymentHttpEvidenceContractTest {
 
     @Test
     void sensitiveInteractionUsesItsExplicitSubtypeOnTheWireAndStaysHiddenInDiagnostics() {
-        var command = new PaymentInputPrepareCommand("payment", "order", "allocation", "merchant", 100, "CNY",
-                "input-key", new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.PAYMENT_CODE),
+        var command = new PaymentInputPrepareCommand(
+                "payment",
+                "order",
+                "allocation",
+                "merchant",
+                100,
+                "CNY",
+                "input-key",
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.PAYMENT_CODE),
                 new PaymentCodeInteractionDTO("synthetic-short-lived-code"));
         var decoded = json.readValue(json.writeValueAsBytes(command), PaymentInputPrepareCommand.class);
         assertThat(decoded.interaction()).isEqualTo(command.interaction());
         assertThat(decoded.toString()).doesNotContain("synthetic-short-lived-code");
         var malformed = (tools.jackson.databind.node.ObjectNode) json.valueToTree(command);
         ((tools.jackson.databind.node.ObjectNode) malformed.get("interaction")).put("type", "java.lang.Runtime");
-        assertThatThrownBy(() -> json.treeToValue(malformed, PaymentInputPrepareCommand.class)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> json.treeToValue(malformed, PaymentInputPrepareCommand.class))
+                .isInstanceOf(RuntimeException.class);
     }
 }

@@ -44,7 +44,10 @@ class PaymentEvidenceHttpClientTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-02T04:00:00Z"), ZoneOffset.UTC);
     private final PaymentCaptureHttpService captures = mock(PaymentCaptureHttpService.class);
     private final PaymentStatementHttpService statements = mock(PaymentStatementHttpService.class);
-    @TempDir Path directory;
+
+    @TempDir
+    Path directory;
+
     private PaymentCaptureHttpClient captureClient;
     private PaymentStatementHttpClient statementClient;
 
@@ -52,11 +55,25 @@ class PaymentEvidenceHttpClientTest {
     void start() throws Exception {
         var tokenFile = directory.resolve("service.jwt");
         var encoder = Base64.getUrlEncoder().withoutPadding();
-        var claims = Map.of("tenant_id", "tenant", "principal_type", "SERVICE", "sub", "reconciliation",
-                "service_id", "reconciliation", "aud", List.of("payment"),
-                "exp", clock.instant().getEpochSecond() + 300, "token_use", "access");
-        Files.writeString(tokenFile, encoder.encodeToString(json.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                + encoder.encodeToString(json.writeValueAsBytes(claims)) + ".c3ludGhldGlj");
+        var claims = Map.of(
+                "tenant_id",
+                "tenant",
+                "principal_type",
+                "SERVICE",
+                "sub",
+                "reconciliation",
+                "service_id",
+                "reconciliation",
+                "aud",
+                List.of("payment"),
+                "exp",
+                clock.instant().getEpochSecond() + 300,
+                "token_use",
+                "access");
+        Files.writeString(
+                tokenFile,
+                encoder.encodeToString(json.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
+                        + encoder.encodeToString(json.writeValueAsBytes(claims)) + ".c3ludGhldGlj");
         var properties = new ReconciliationPaymentProperties("tenant", "reconciliation", "payment", tokenFile);
         captureClient = new PaymentCaptureHttpClient(captures, properties, json, clock);
         statementClient = new PaymentStatementHttpClient(statements, properties, json, clock);
@@ -65,25 +82,46 @@ class PaymentEvidenceHttpClientTest {
     @Test
     void pageFailureKeepsTheOriginalBusinessMappingWhileMalformedSuccessIsADependencyFailure() {
         var query = new PaymentCaptureLinesQuery("capture", 2, 1);
-        when(captures.lines(anyString(), any())).thenReturn(new PaymentCapturePageResponse(
-                Result.buildFailure(PaymentResultCodeEnum.INVALID_STATE), null, null));
-        assertSame(ReconciliationResultCodeEnum.INPUT_NOT_SEALED,
-                assertThrows(CommonException.class, () -> captureClient.lines("tenant", query)).getResultCode());
-        var row = new PaymentLedgerLineDTO(1, PaymentLedgerKind.PAYMENT, "channel", null, "merchant-payment",
-                100, "CNY", PaymentLedgerStatus.SUCCEEDED, OffsetDateTime.now(clock), "payment", "receipt", 1);
-        when(captures.lines(anyString(), any())).thenReturn(new PaymentCapturePageResponse(
-                Result.buildSuccess(), List.of(row), new PageInfo(2L, 1L, 2L)));
-        assertSame(ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> captureClient.lines("tenant", query)).getResultCode());
+        when(captures.lines(anyString(), any()))
+                .thenReturn(new PaymentCapturePageResponse(
+                        Result.buildFailure(PaymentResultCodeEnum.INVALID_STATE), null, null));
+        assertSame(
+                ReconciliationResultCodeEnum.INPUT_NOT_SEALED,
+                assertThrows(CommonException.class, () -> captureClient.lines("tenant", query))
+                        .getResultCode());
+        var row = new PaymentLedgerLineDTO(
+                1,
+                PaymentLedgerKind.PAYMENT,
+                "channel",
+                null,
+                "merchant-payment",
+                100,
+                "CNY",
+                PaymentLedgerStatus.SUCCEEDED,
+                OffsetDateTime.now(clock),
+                "payment",
+                "receipt",
+                1);
+        when(captures.lines(anyString(), any()))
+                .thenReturn(
+                        new PaymentCapturePageResponse(Result.buildSuccess(), List.of(row), new PageInfo(2L, 1L, 2L)));
+        assertSame(
+                ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> captureClient.lines("tenant", query))
+                        .getResultCode());
     }
 
     @Test
     void aStatementNotReadyIsPreservedButTransportOrAuthenticationFailureIsNot() {
-        when(statements.download(anyString(), any())).thenReturn(new SuccessResponse<>(
-                Result.buildFailure(PaymentResultCodeEnum.STATEMENT_NOT_READY), null));
-        assertSame(ReconciliationResultCodeEnum.STATEMENT_NOT_READY,
-                assertThrows(CommonException.class, () -> statementClient.download("tenant", null)).getResultCode());
-        when(statements.download(anyString(), any())).thenThrow(new IllegalStateException("loadup-result-code=PAYMENT_STATEMENT_NOT_READY"));
+        when(statements.download(anyString(), any()))
+                .thenReturn(
+                        new SuccessResponse<>(Result.buildFailure(PaymentResultCodeEnum.STATEMENT_NOT_READY), null));
+        assertSame(
+                ReconciliationResultCodeEnum.STATEMENT_NOT_READY,
+                assertThrows(CommonException.class, () -> statementClient.download("tenant", null))
+                        .getResultCode());
+        when(statements.download(anyString(), any()))
+                .thenThrow(new IllegalStateException("loadup-result-code=PAYMENT_STATEMENT_NOT_READY"));
         var error = assertThrows(CommonException.class, () -> statementClient.download("tenant", null));
         assertSame(ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
         assertNull(error.getCause());
@@ -94,8 +132,10 @@ class PaymentEvidenceHttpClientTest {
         assertThrows(CommonException.class, () -> captureClient.detail("another", "capture"));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertSame(ReconciliationResultCodeEnum.INVALID_STATE,
-                    assertThrows(CommonException.class, () -> statementClient.download("tenant", null)).getResultCode());
+            assertSame(
+                    ReconciliationResultCodeEnum.INVALID_STATE,
+                    assertThrows(CommonException.class, () -> statementClient.download("tenant", null))
+                            .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }

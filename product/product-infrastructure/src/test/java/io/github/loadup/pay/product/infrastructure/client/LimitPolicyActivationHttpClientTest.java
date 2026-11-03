@@ -2,8 +2,8 @@ package io.github.loadup.pay.product.infrastructure.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -11,11 +11,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.result.Result;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
-import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.commons.result.Result;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -79,7 +79,8 @@ class LimitPolicyActivationHttpClientTest {
     void aRemoteBusinessFailureIsNotAnActivationAck() throws Exception {
         var file = directory.resolve("token");
         Files.writeString(file, "header.payload.signature");
-        doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.POLICY_CONFLICT), null))
+        doAnswer(invocation ->
+                        new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.POLICY_CONFLICT), null))
                 .when(limitCenterHttp)
                 .activate(anyString(), isNull());
         assertThrows(CommonException.class, () -> client(file).activate("tenant", null));

@@ -24,9 +24,7 @@ import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.client.http.CustomerHttpService;
 import io.github.loadup.pay.product.app.security.ProductActor;
 import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
-
 import java.util.Set;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -43,9 +41,13 @@ class CustomerEligibilityHttpLookupTest {
     }
 
     private MerchantEligibilityDTO allowed(String payee) {
-        return new MerchantEligibilityDTO(true, "ALLOWED",
+        return new MerchantEligibilityDTO(
+                true,
+                "ALLOWED",
                 new MerchantProfileDTO(payee, "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
-                1, "grant", 1L);
+                1,
+                "grant",
+                1L);
     }
 
     private void respond(MerchantEligibilityDTO value) {
@@ -56,16 +58,19 @@ class CustomerEligibilityHttpLookupTest {
     void delegatesTokenPerRequestAndAcceptsOnlyFactsForTheExpectedPayee() {
         respond(allowed("merchant"));
         assertTrue(lookup.authorizeNewOrder("tenant", "merchant").allowed());
-        verify(http).authorize(eq("Bearer " + TOKEN), argThat(command ->
-                command.payeeMerchantId().equals("merchant") && command.action().name().equals("CREATE_ORDER")));
+        verify(http)
+                .authorize(
+                        eq("Bearer " + TOKEN),
+                        argThat(command -> command.payeeMerchantId().equals("merchant")
+                                && command.action().name().equals("CREATE_ORDER")));
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "another-merchant"));
     }
 
     @Test
     void wrongTenantMissingAudienceAndActiveTransactionsPreventNetworkAccess() {
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("another-tenant", "merchant"));
-        var missingAudience = new CustomerEligibilityHttpLookup(http, () ->
-                new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()));
+        var missingAudience = new CustomerEligibilityHttpLookup(
+                http, () -> new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()));
         assertThrows(CommonException.class, () -> missingAudience.authorizeNewOrder("tenant", "merchant"));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
@@ -74,15 +79,17 @@ class CustomerEligibilityHttpLookupTest {
 
     @Test
     void onlyWhitelistedNotFoundBecomesABusinessDenial() {
-        when(http.authorize(anyString(), any())).thenReturn(new SuccessResponse<>(
-                Result.buildFailure(CustomerResultCodeEnum.NOT_FOUND), null));
-        assertEquals(CustomerResultCodeEnum.NOT_FOUND.getCode(),
+        when(http.authorize(anyString(), any()))
+                .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.NOT_FOUND), null));
+        assertEquals(
+                CustomerResultCodeEnum.NOT_FOUND.getCode(),
                 lookup.authorizeNewOrder("tenant", "merchant").reasonCode());
-        when(http.authorize(anyString(), any())).thenReturn(new SuccessResponse<>(
-                Result.buildFailure(CustomerResultCodeEnum.ACTION_FORBIDDEN), null));
+        when(http.authorize(anyString(), any()))
+                .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.ACTION_FORBIDDEN), null));
         var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
         assertSame(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
-        respond(new MerchantEligibilityDTO(false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null));
+        respond(new MerchantEligibilityDTO(
+                false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null));
         assertFalse(lookup.authorizeNewOrder("tenant", "merchant").allowed());
     }
 

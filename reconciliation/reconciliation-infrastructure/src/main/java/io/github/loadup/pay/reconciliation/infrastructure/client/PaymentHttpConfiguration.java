@@ -13,10 +13,12 @@ public class PaymentHttpConfiguration {
     public PaymentCaptureHttpService paymentCaptureHttpService(HttpTemplate http) {
         return http.serviceClient("payment", PaymentCaptureHttpService.class);
     }
+
     @Bean
     public PaymentStatementHttpService paymentStatementHttpService(HttpTemplate http) {
         return http.serviceClient("payment-statements", PaymentStatementHttpService.class);
     }
+
     @Bean
     public PaymentVerificationHttpService paymentVerificationHttpService(HttpTemplate http) {
         return http.serviceClient("payment", PaymentVerificationHttpService.class);

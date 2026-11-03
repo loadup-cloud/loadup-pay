@@ -6,8 +6,8 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO;
@@ -43,24 +43,18 @@ public class PaymentAcquireHttpClient implements PaymentAcquireClient {
 
     @Override
     public PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event) {
-        return exchange(
-                tenant,
-                authorization -> acquireHttp.paymentOutcome(authorization, event));
+        return exchange(tenant, authorization -> acquireHttp.paymentOutcome(authorization, event));
     }
 
     @Override
     public FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(
-                tenant,
-                authorization -> acquireHttp.feeRefund(authorization, event));
+        return exchange(tenant, authorization -> acquireHttp.feeRefund(authorization, event));
     }
 
     @Override
     public RefundNotificationAckDTO acceptRefundNotification(
             String tenant, EventEnvelope<RefundMerchantEventDTO> event) {
-        return exchange(
-                tenant,
-                authorization -> acquireHttp.refundNotification(authorization, event));
+        return exchange(tenant, authorization -> acquireHttp.refundNotification(authorization, event));
     }
 
     private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call) {

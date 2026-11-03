@@ -19,8 +19,9 @@
  */
 package io.github.loadup.pay.reconciliation.client.dto;
 
-import io.github.loadup.commons.json.ToStringAsJson;
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
+
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationBatchTaskDTO(

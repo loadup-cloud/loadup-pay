@@ -16,12 +16,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
-import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.client.http.PaymentHttpService;
-import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -99,9 +99,7 @@ class PaymentEvidenceHttpClientTest {
                 new PaymentEvidenceProperties("tenant", "limitcenter", "payment", tokenFile),
                 clock);
         doAnswer(invocation -> {
-                    assertEquals(
-                            "Bearer " + Files.readString(tokenFile),
-                            invocation.getArgument(0, String.class));
+                    assertEquals("Bearer " + Files.readString(tokenFile), invocation.getArgument(0, String.class));
                     return SuccessResponse.of(facts);
                 })
                 .when(paymentHttp)

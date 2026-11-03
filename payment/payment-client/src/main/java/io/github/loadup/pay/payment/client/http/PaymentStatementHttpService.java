@@ -3,7 +3,6 @@ package io.github.loadup.pay.payment.client.http;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.payment.client.dto.PaymentStatementDTO;
 import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;

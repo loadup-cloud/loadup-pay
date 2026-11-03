@@ -11,13 +11,13 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
-import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 import io.github.loadup.pay.payment.client.http.PaymentCaptureHttpService;
+import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 import io.github.loadup.pay.payment.client.support.PaymentCaptureContracts;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentCaptures;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
@@ -47,7 +47,8 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
     public PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command) {
         return call(
                 tenant,
-                authorization -> PaymentCaptureContracts.capture(HttpServiceResponses.requiredData(paymentCaptureHttp.create(authorization, command))));
+                authorization -> PaymentCaptureContracts.capture(
+                        HttpServiceResponses.requiredData(paymentCaptureHttp.create(authorization, command))));
     }
 
     @Override
@@ -55,28 +56,28 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
             String tenant, io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command) {
         return call(
                 tenant,
-                authorization -> PaymentCaptureContracts.capture(HttpServiceResponses.requiredData(paymentCaptureHttp.retry(authorization, command))));
+                authorization -> PaymentCaptureContracts.capture(
+                        HttpServiceResponses.requiredData(paymentCaptureHttp.retry(authorization, command))));
     }
 
     @Override
     public PaymentCaptureDTO detail(String tenant, String captureId) {
         return call(
                 tenant,
-                authorization -> PaymentCaptureContracts.capture(HttpServiceResponses.requiredData(paymentCaptureHttp.detail(authorization, new IdQuery(captureId)))));
+                authorization -> PaymentCaptureContracts.capture(HttpServiceResponses.requiredData(
+                        paymentCaptureHttp.detail(authorization, new IdQuery(captureId)))));
     }
 
     @Override
     public PageDTO<PaymentLedgerLineDTO> lines(String tenant, PaymentCaptureLinesQuery query) {
-        return call(
-                tenant,
-                authorization -> {
-                    var response = paymentCaptureHttp.lines(authorization, query);
-                    if (response == null) {
-                        throw new CommonException(DEPENDENCY_UNAVAILABLE);
-                    }
-                    var data = HttpServiceResponses.requiredData(new SuccessResponse<>(response.result(), response.data()));
-                    return PaymentCaptureContracts.page(new PageDTO<>(data, response.pageInfo()), query);
-                });
+        return call(tenant, authorization -> {
+            var response = paymentCaptureHttp.lines(authorization, query);
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
+            var data = HttpServiceResponses.requiredData(new SuccessResponse<>(response.result(), response.data()));
+            return PaymentCaptureContracts.page(new PageDTO<>(data, response.pageInfo()), query);
+        });
     }
 
     private <R> R call(String tenant, Function<String, R> request) {
@@ -87,8 +88,8 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            var result = request.apply("Bearer " +
-                    tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()));
+            var result = request.apply("Bearer "
+                    + tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()));
             if (result == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }

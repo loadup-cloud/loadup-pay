@@ -17,14 +17,12 @@ import io.github.loadup.pay.customer.client.facade.MerchantEligibilityFacade;
 import io.github.loadup.pay.customer.client.http.CustomerHttpService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.Filter;
-
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
@@ -47,11 +45,17 @@ class MerchantEligibilityHttpSecurityTest {
                     "loadup.security.resource-server.audience=customer");
 
     private static String token(KeyPair key, String audience, String use, Instant expires) throws Exception {
-        var claims = new JWTClaimsSet.Builder().subject("app").issuer("https://issuer.test")
-                .audience(audience).issueTime(Date.from(Instant.now().minusSeconds(10)))
-                .expirationTime(Date.from(expires)).claim("token_use", use)
-                .claim("tenant_id", "trusted-tenant").claim("principal_type", "MERCHANT_APP")
-                .claim("merchant_id", "merchant").build();
+        var claims = new JWTClaimsSet.Builder()
+                .subject("app")
+                .issuer("https://issuer.test")
+                .audience(audience)
+                .issueTime(Date.from(Instant.now().minusSeconds(10)))
+                .expirationTime(Date.from(expires))
+                .claim("token_use", use)
+                .claim("tenant_id", "trusted-tenant")
+                .claim("principal_type", "MERCHANT_APP")
+                .claim("merchant_id", "merchant")
+                .build();
         var jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims);
         jwt.sign(new RSASSASigner(key.getPrivate()));
         return jwt.serialize();
@@ -63,27 +67,37 @@ class MerchantEligibilityHttpSecurityTest {
             var keys = context.getBean(KeyPair.class);
             var otherKey = KeyPairGenerator.getInstance("RSA").generateKeyPair();
             var calls = context.getBean(AtomicInteger.class);
-            MockMvc mvc = MockMvcBuilders.standaloneSetup(new MerchantEligibilityController(
-                            context.getBean(MerchantEligibilityFacade.class)))
-                    .addFilters(context.getBean("springSecurityFilterChain", Filter.class)).build();
+            MockMvc mvc = MockMvcBuilders.standaloneSetup(
+                            new MerchantEligibilityController(context.getBean(MerchantEligibilityFacade.class)))
+                    .addFilters(context.getBean("springSecurityFilterChain", Filter.class))
+                    .build();
             String[] invalid = {
-                    "invalid",
-                    token(otherKey, "customer", "access", Instant.now().plusSeconds(300)),
-                    token(keys, "other", "access", Instant.now().plusSeconds(300)),
-                    token(keys, "customer", "refresh", Instant.now().plusSeconds(300)),
-                    token(keys, "customer", "access", Instant.now().minusSeconds(300))
+                "invalid",
+                token(otherKey, "customer", "access", Instant.now().plusSeconds(300)),
+                token(keys, "other", "access", Instant.now().plusSeconds(300)),
+                token(keys, "customer", "refresh", Instant.now().plusSeconds(300)),
+                token(keys, "customer", "access", Instant.now().minusSeconds(300))
             };
             for (String bearer : invalid) {
                 var response = mvc.perform(post(CustomerHttpService.AUTHORIZE_PATH)
                                 .header("Authorization", "Bearer " + bearer)
                                 .contentType("application/json")
                                 .content("{\"payeeMerchantId\":\"merchant\",\"action\":\"CREATE_ORDER\"}"))
-                        .andExpect(status().isOk()).andReturn().getResponse();
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse();
                 assertThat(response.getContentAsString()).contains("UNAUTHENTICATED");
             }
             assertThat(calls.get()).isZero();
             mvc.perform(post(CustomerHttpService.AUTHORIZE_PATH)
-                            .header("Authorization", "Bearer " + token(keys, "customer", "access", Instant.now().plusSeconds(300)))
+                            .header(
+                                    "Authorization",
+                                    "Bearer "
+                                            + token(
+                                                    keys,
+                                                    "customer",
+                                                    "access",
+                                                    Instant.now().plusSeconds(300)))
                             .header("X-Tenant-Id", "forged-tenant")
                             .contentType("application/json")
                             .content("{\"payeeMerchantId\":\"merchant\",\"action\":\"CREATE_ORDER\"}"))
@@ -104,7 +118,8 @@ class MerchantEligibilityHttpSecurityTest {
 
         @Bean
         JwtDecoder decoder(KeyPair keys) {
-            return NimbusJwtDecoder.withPublicKey((RSAPublicKey) keys.getPublic()).build();
+            return NimbusJwtDecoder.withPublicKey((RSAPublicKey) keys.getPublic())
+                    .build();
         }
 
         @Bean

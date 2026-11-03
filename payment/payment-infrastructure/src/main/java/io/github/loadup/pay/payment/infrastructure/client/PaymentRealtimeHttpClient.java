@@ -6,8 +6,8 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
@@ -41,23 +41,17 @@ public class PaymentRealtimeHttpClient implements PaymentRealtimeClient {
 
     @Override
     public ProjectionAckDTO apply(String tenant, EventEnvelope<PaymentSnapshotEventDTO> event) {
-        return exchange(
-                tenant,
-                authorization -> realtimeHttp.payment(authorization, event));
+        return exchange(tenant, authorization -> realtimeHttp.payment(authorization, event));
     }
 
     @Override
     public ProjectionAckDTO applyRefund(String tenant, EventEnvelope<RefundSnapshotEventDTO> event) {
-        return exchange(
-                tenant,
-                authorization -> realtimeHttp.refund(authorization, event));
+        return exchange(tenant, authorization -> realtimeHttp.refund(authorization, event));
     }
 
     @Override
     public ProjectionAckDTO applyRefundSummary(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(
-                tenant,
-                authorization -> realtimeHttp.refundSummary(authorization, event));
+        return exchange(tenant, authorization -> realtimeHttp.refundSummary(authorization, event));
     }
 
     private ProjectionAckDTO exchange(String tenant, Function<String, SuccessResponse<ProjectionAckDTO>> call) {

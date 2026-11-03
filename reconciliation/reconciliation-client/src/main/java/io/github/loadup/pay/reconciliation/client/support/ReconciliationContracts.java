@@ -14,7 +14,9 @@ public final class ReconciliationContracts {
     }
 
     public static void text(String value, int limit) {
-        require(value != null && !value.isBlank() && value.length() <= limit
+        require(value != null
+                && !value.isBlank()
+                && value.length() <= limit
                 && value.chars().noneMatch(Character::isISOControl));
     }
 

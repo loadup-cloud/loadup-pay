@@ -9,8 +9,8 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PA
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.acquire.app.port.PaymentAcceptanceClient;
 import io.github.loadup.pay.acquire.app.port.PaymentClosureClient;
 import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
@@ -27,9 +27,9 @@ import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.http.PaymentHttpService;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
-import io.github.loadup.pay.payment.client.http.PaymentHttpService;
 import java.time.Clock;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
@@ -37,7 +37,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
-public class PaymentAcceptanceHttpClient implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
+public class PaymentAcceptanceHttpClient
+        implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
     private final PaymentTransportProperties properties;
     private final AcquireServiceTokenReader tokens;
     private final PaymentHttpService paymentHttp;
@@ -56,91 +57,58 @@ public class PaymentAcceptanceHttpClient implements PaymentAcceptanceClient, Pay
 
     @Override
     public PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.inputPrepare(authorization, command),
-                true);
+        return exchange(tenant, authorization -> paymentHttp.inputPrepare(authorization, command), true);
     }
 
     @Override
     public PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.inputLookup(authorization, query),
-                true);
+        return exchange(tenant, authorization -> paymentHttp.inputLookup(authorization, query), true);
     }
 
     @Override
     public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(
             String tenant, io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.inputExpire(authorization, command),
-                true);
+        return exchange(tenant, authorization -> paymentHttp.inputExpire(authorization, command), true);
     }
 
     @Override
     public PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.accept(authorization, command),
-                true);
+        return exchange(tenant, authorization -> paymentHttp.accept(authorization, command), true);
     }
 
     @Override
     public PaymentExecutionDTO detail(String tenant, String paymentId) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.detail(authorization, new IdQuery(paymentId)),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.detail(authorization, new IdQuery(paymentId)), false);
     }
 
     @Override
     public PaymentOutcomeDTO outcome(String tenant, String paymentId) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.outcome(authorization, new IdQuery(paymentId)),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.outcome(authorization, new IdQuery(paymentId)), false);
     }
 
     @Override
     public PaymentSettlementFactsDTO facts(String tenant, String paymentId) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)), false);
     }
 
     @Override
     public OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.refundSummary(authorization, new IdQuery(orderId)),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.refundSummary(authorization, new IdQuery(orderId)), false);
     }
 
     @Override
     public ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.fenceParent(authorization, command),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.fenceParent(authorization, command), false);
     }
 
     @Override
     public PaymentCloseDTO close(String tenant, PaymentCloseCommand command) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.close(authorization, command),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.close(authorization, command), false);
     }
 
     @Override
     public ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.parentFenceStatus(authorization, query),
-                false);
+        return exchange(tenant, authorization -> paymentHttp.parentFenceStatus(authorization, query), false);
     }
 
     private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call, boolean guarded) {

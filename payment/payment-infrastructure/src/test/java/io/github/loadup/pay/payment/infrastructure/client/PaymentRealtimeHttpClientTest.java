@@ -10,15 +10,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.result.Result;
-import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
-import io.github.loadup.pay.realtime.client.http.RealtimeHttpService;
+import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.result.Result;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
@@ -27,6 +26,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentRealtimeProperties;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.pay.realtime.client.http.RealtimeHttpService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -157,9 +157,7 @@ class PaymentRealtimeHttpClientTest {
                 new ProjectionAckDTO("refund-delivery", "refund-change", "payment", "refund", 0, 0, "APPLIED", true);
         var summaryAck =
                 new ProjectionAckDTO("summary-delivery", "summary-change", "payment", "order", 1, 1, "APPLIED", true);
-        doAnswer(invocation -> SuccessResponse.of(refundAck))
-                .when(realtimeHttp)
-                .refund(anyString(), any());
+        doAnswer(invocation -> SuccessResponse.of(refundAck)).when(realtimeHttp).refund(anyString(), any());
         doAnswer(invocation -> SuccessResponse.of(summaryAck))
                 .when(realtimeHttp)
                 .refundSummary(anyString(), any());

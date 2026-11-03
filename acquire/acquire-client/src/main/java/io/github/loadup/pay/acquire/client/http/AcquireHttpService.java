@@ -1,14 +1,13 @@
 package io.github.loadup.pay.acquire.client.http;
 
-import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
-import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
-import io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -23,13 +22,16 @@ public interface AcquireHttpService {
 
     @PostExchange(PAYMENT_OUTCOME_PATH)
     SuccessResponse<PaymentOutcomeAckDTO> paymentOutcome(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody EventEnvelope<PaymentOutcomeEventDTO> request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody EventEnvelope<PaymentOutcomeEventDTO> request);
 
     @PostExchange(FEE_REFUND_PATH)
     SuccessResponse<FeeRefundAckDTO> feeRefund(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody EventEnvelope<OrderRefundSummaryEventDTO> request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody EventEnvelope<OrderRefundSummaryEventDTO> request);
 
     @PostExchange(REFUND_NOTIFICATION_PATH)
     SuccessResponse<RefundNotificationAckDTO> refundNotification(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody EventEnvelope<RefundMerchantEventDTO> request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody EventEnvelope<RefundMerchantEventDTO> request);
 }

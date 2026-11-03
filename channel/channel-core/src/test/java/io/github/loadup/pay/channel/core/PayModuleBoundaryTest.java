@@ -115,7 +115,8 @@ class PayModuleBoundaryTest {
         var errors = new ArrayList<String>();
         String normalizedPath = "/" + path.replace('\\', '/');
         boolean httpContract = module.layer().equals("client") && normalizedPath.contains("/client/http/");
-        String technicalSource = httpContract ? HTTP_CONTRACT_TYPE.matcher(source).replaceAll("") : source;
+        String technicalSource =
+                httpContract ? HTTP_CONTRACT_TYPE.matcher(source).replaceAll("") : source;
         if ((module.layer().equals("domain") || module.layer().equals("client"))
                 && TECHNICAL_IMPLEMENTATION.matcher(technicalSource).find()) {
             errors.add(
@@ -133,7 +134,8 @@ class PayModuleBoundaryTest {
             boolean publicEnum = layer.equals("domain")
                     && "model".equals(role)
                     && PUBLIC_DOMAIN_ENUMS.contains(owner + "." + references.group(4));
-            if (layer.equals("client") && "http".equals(role)
+            if (layer.equals("client")
+                    && "http".equals(role)
                     && Set.of("domain", "app").contains(module.layer())) {
                 errors.add("TRANSPORT_IN_BUSINESS: HTTP contracts belong in adapters/ports");
             }
@@ -145,8 +147,7 @@ class PayModuleBoundaryTest {
                     errors.add("TRANSPORT_IN_BUSINESS: protocol clients belong in adapters/ports");
                 }
             } else {
-                if (!publicEnum
-                        && !allowedOwnLayer(module.layer(), layer)) {
+                if (!publicEnum && !allowedOwnLayer(module.layer(), layer)) {
                     errors.add("OWN_LAYER: " + module.layer() + " -> " + layer);
                 }
                 var normalized = "/" + path.replace('\\', '/');
@@ -236,19 +237,45 @@ class PayModuleBoundaryTest {
 
     @Test
     void declarativeHttpContractsRemainAtTheTransportBoundary() {
-        assertAllowed("payment", "client", "client/http/PaymentHttpService.java",
+        assertAllowed(
+                "payment",
+                "client",
+                "client/http/PaymentHttpService.java",
                 "org.springframework.web.service.annotation.PostExchange method; org.springframework.http.HttpHeaders headers;");
-        assertRejected("payment", "client", "client/dto/Payment.java",
-                "org.springframework.web.service.annotation.PostExchange method;", "TECHNICAL_IMPLEMENTATION");
-        assertRejected("payment", "client", "client/http/PaymentHttpService.java",
-                "org.springframework.web.client.RestClient client;", "TECHNICAL_IMPLEMENTATION");
-        assertRejected("payment", "client", "client/http/PaymentHttpService.java",
-                "org.springframework.stereotype.Component bean;", "TECHNICAL_IMPLEMENTATION");
-        assertRejected("acquire", "app", "service/Payment.java",
-                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;", "TRANSPORT_IN_BUSINESS");
-        assertRejected("payment", "domain", "model/Payment.java",
-                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;", "TRANSPORT_IN_BUSINESS");
-        assertAllowed("acquire", "infrastructure", "client/PaymentHttpClient.java",
+        assertRejected(
+                "payment",
+                "client",
+                "client/dto/Payment.java",
+                "org.springframework.web.service.annotation.PostExchange method;",
+                "TECHNICAL_IMPLEMENTATION");
+        assertRejected(
+                "payment",
+                "client",
+                "client/http/PaymentHttpService.java",
+                "org.springframework.web.client.RestClient client;",
+                "TECHNICAL_IMPLEMENTATION");
+        assertRejected(
+                "payment",
+                "client",
+                "client/http/PaymentHttpService.java",
+                "org.springframework.stereotype.Component bean;",
+                "TECHNICAL_IMPLEMENTATION");
+        assertRejected(
+                "acquire",
+                "app",
+                "service/Payment.java",
+                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;",
+                "TRANSPORT_IN_BUSINESS");
+        assertRejected(
+                "payment",
+                "domain",
+                "model/Payment.java",
+                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;",
+                "TRANSPORT_IN_BUSINESS");
+        assertAllowed(
+                "acquire",
+                "infrastructure",
+                "client/PaymentHttpClient.java",
                 "io.github.loadup.pay.payment.client.http.PaymentHttpService client;");
     }
 

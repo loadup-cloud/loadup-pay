@@ -5,7 +5,6 @@ import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionComman
 import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitExpireCommand;
-import io.github.loadup.pay.limitcenter.client.query.LimitOperationQuery;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
@@ -16,12 +15,13 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
-import io.github.loadup.pay.limitcenter.client.facade.LimitPolicyFacade;
-import io.github.loadup.pay.limitcenter.client.facade.LimitReservationFacade;
 import io.github.loadup.pay.limitcenter.client.facade.LimitExecutionFacade;
-import io.github.loadup.pay.limitcenter.client.facade.LimitSettlementFacade;
+import io.github.loadup.pay.limitcenter.client.facade.LimitPolicyFacade;
 import io.github.loadup.pay.limitcenter.client.facade.LimitRefundFacade;
+import io.github.loadup.pay.limitcenter.client.facade.LimitReservationFacade;
+import io.github.loadup.pay.limitcenter.client.facade.LimitSettlementFacade;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
+import io.github.loadup.pay.limitcenter.client.query.LimitOperationQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -77,7 +77,8 @@ public class LimitCenterController {
 
     @PostMapping(LimitCenterHttpService.VERIFY_PATH)
     @Operation(summary = "Verify a limit operation using verified service identity")
-    public SuccessResponse<LimitExecutionVerificationDTO> verify(@Valid @RequestBody LimitExecutionVerifyCommand request) {
+    public SuccessResponse<LimitExecutionVerificationDTO> verify(
+            @Valid @RequestBody LimitExecutionVerifyCommand request) {
         return SuccessResponse.of(limitExecution.verifyExecution(request));
     }
 

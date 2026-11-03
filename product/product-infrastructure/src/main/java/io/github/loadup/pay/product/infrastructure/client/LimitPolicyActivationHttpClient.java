@@ -42,8 +42,7 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            return HttpServiceResponses.requiredData(
-                    limitCenterHttp.activate("Bearer " + credential(), command));
+            return HttpServiceResponses.requiredData(limitCenterHttp.activate("Bearer " + credential(), command));
         } catch (RuntimeException invalid) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

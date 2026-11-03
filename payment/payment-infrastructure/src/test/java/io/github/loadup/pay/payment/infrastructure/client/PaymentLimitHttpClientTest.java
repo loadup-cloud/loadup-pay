@@ -18,18 +18,18 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.result.Result;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
+import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
+import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
-import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
-import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
-import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.commons.result.Result;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,8 +119,7 @@ class PaymentLimitHttpClientTest {
                 .confirm(anyString(), any());
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(
-                            new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
+                    return SuccessResponse.of(new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
                 })
                 .when(limitCenterHttp)
                 .release(anyString(), any());
@@ -161,9 +160,7 @@ class PaymentLimitHttpClientTest {
                 1000,
                 true);
         doAnswer(invocation -> {
-                    assertEquals(
-                            "Bearer " + Files.readString(tokenFile),
-                            invocation.getArgument(0, String.class));
+                    assertEquals("Bearer " + Files.readString(tokenFile), invocation.getArgument(0, String.class));
                     return SuccessResponse.of(ack);
                 })
                 .when(limitCenterHttp)
@@ -201,7 +198,9 @@ class PaymentLimitHttpClientTest {
 
     @Test
     void limitRejectionCannotBeInterpretedAsSuccessfulSettlement() {
-        doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.EXCEEDED), null)).when(limitCenterHttp).confirm(anyString(), any());
+        doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.EXCEEDED), null))
+                .when(limitCenterHttp)
+                .confirm(anyString(), any());
         assertSame(
                 io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
                 assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
@@ -211,20 +210,33 @@ class PaymentLimitHttpClientTest {
     @Test
     void onlyTheExistingLimitFailureWhitelistIsMappedToLocalBusinessCodes() {
         var mappings = Map.of(
-                LimitCenterResultCodeEnum.EXCEEDED, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
-                LimitCenterResultCodeEnum.RESERVATION_EXPIRED, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED,
-                LimitCenterResultCodeEnum.EXECUTION_FENCED, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
-                LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT,
+                LimitCenterResultCodeEnum.EXCEEDED,
+                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
+                LimitCenterResultCodeEnum.RESERVATION_EXPIRED,
+                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED,
+                LimitCenterResultCodeEnum.EXECUTION_FENCED,
+                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
+                LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT,
+                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT,
                 LimitCenterResultCodeEnum.ACTION_FORBIDDEN, DEPENDENCY_UNAVAILABLE);
         mappings.forEach((remote, local) -> {
             doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(remote), null))
-                    .when(limitCenterHttp).confirm(anyString(), any());
-            assertSame(local, assertThrows(CommonException.class, () -> client.confirm("tenant", confirm)).getResultCode());
+                    .when(limitCenterHttp)
+                    .confirm(anyString(), any());
+            assertSame(
+                    local,
+                    assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                            .getResultCode());
         });
-        doAnswer(invocation -> { throw new IllegalStateException("loadup-result-code=LIMIT_EXCEEDED"); })
-                .when(limitCenterHttp).confirm(anyString(), any());
-        assertSame(DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm)).getResultCode());
+        doAnswer(invocation -> {
+                    throw new IllegalStateException("loadup-result-code=LIMIT_EXCEEDED");
+                })
+                .when(limitCenterHttp)
+                .confirm(anyString(), any());
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                        .getResultCode());
     }
 
     @Test

@@ -8,5 +8,4 @@ import java.util.Collection;
 
 /** Reads the standard flat page envelope or an HTTP-200 failure before validating its result. */
 @JsonIgnoreProperties({"traceId"})
-public record PaymentCapturePageResponse(
-        Result result, Collection<PaymentLedgerLineDTO> data, PageInfo pageInfo) {}
+public record PaymentCapturePageResponse(Result result, Collection<PaymentLedgerLineDTO> data, PageInfo pageInfo) {}

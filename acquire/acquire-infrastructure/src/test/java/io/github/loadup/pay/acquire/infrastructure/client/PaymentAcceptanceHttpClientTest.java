@@ -22,6 +22,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.commons.result.Result;
+import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpCallException;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProperties;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
@@ -29,16 +33,12 @@ import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.http.PaymentHttpService;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
-import io.github.loadup.pay.payment.client.http.PaymentHttpService;
-import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.commons.result.Result;
-import io.github.loadup.components.http.HttpCallException;
-import io.github.loadup.components.http.HttpServiceResponses;
-import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -71,19 +71,19 @@ class PaymentAcceptanceHttpClientTest {
 
     private static RuntimeException remoteFailure(String code) {
         var result = java.util.Arrays.stream(PaymentResultCodeEnum.values())
-                .filter(value -> value.getCode().equals(code)).findFirst().orElse(PaymentResultCodeEnum.ACTION_FORBIDDEN);
-        return assertThrows(HttpCallException.class, () -> HttpServiceResponses.requiredData(
-                new SuccessResponse<>(Result.buildFailure(result), null)));
+                .filter(value -> value.getCode().equals(code))
+                .findFirst()
+                .orElse(PaymentResultCodeEnum.ACTION_FORBIDDEN);
+        return assertThrows(
+                HttpCallException.class,
+                () -> HttpServiceResponses.requiredData(new SuccessResponse<>(Result.buildFailure(result), null)));
     }
 
     @BeforeEach
     void setup() throws Exception {
         tokenFile = directory.resolve("payment.jwt");
         client = new PaymentAcceptanceHttpClient(
-                paymentHttp,
-                mapper,
-                new PaymentTransportProperties("tenant", "acquire", "payment", tokenFile),
-                clock);
+                paymentHttp, mapper, new PaymentTransportProperties("tenant", "acquire", "payment", tokenFile), clock);
         writeToken(claims());
         var result = new PaymentExecutionDTO(
                 "payment",
@@ -149,9 +149,7 @@ class PaymentAcceptanceHttpClientTest {
                 null,
                 0,
                 OffsetDateTime.now(clock));
-        doReturn(SuccessResponse.of(execution))
-                .when(paymentHttp)
-                .detail(anyString(), any());
+        doReturn(SuccessResponse.of(execution)).when(paymentHttp).detail(anyString(), any());
         assertEquals("payment", client.detail("tenant", "payment").paymentId());
         verify(paymentHttp).detail(anyString(), eq(new IdQuery("payment")));
     }
@@ -159,9 +157,7 @@ class PaymentAcceptanceHttpClientTest {
     @Test
     void refundAuthorityReadsTheOrderSummaryThroughItsDedicatedOperation() {
         var summary = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
-        doReturn(SuccessResponse.of(summary))
-                .when(paymentHttp)
-                .refundSummary(anyString(), any());
+        doReturn(SuccessResponse.of(summary)).when(paymentHttp).refundSummary(anyString(), any());
         assertEquals(summary, client.refundSummary("tenant", "order"));
         verify(paymentHttp).refundSummary(anyString(), eq(new IdQuery("order")));
     }
@@ -180,8 +176,7 @@ class PaymentAcceptanceHttpClientTest {
                 "proof",
                 2,
                 OffsetDateTime.now(clock));
-        doReturn(SuccessResponse.of(
-                        new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
+        doReturn(SuccessResponse.of(new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
                 .when(paymentHttp)
                 .facts(anyString(), any());
         var facts = client.facts("tenant", "payment");
@@ -288,9 +283,7 @@ class PaymentAcceptanceHttpClientTest {
                         io.github.loadup.commons.payment.Channel.WECHAT,
                         io.github.loadup.commons.payment.PaymentMethod.H5));
         var absent = new PaymentInputLookupDTO(false, null);
-        doReturn(SuccessResponse.of(absent))
-                .when(paymentHttp)
-                .inputLookup(anyString(), any());
+        doReturn(SuccessResponse.of(absent)).when(paymentHttp).inputLookup(anyString(), any());
         assertEquals(absent, client.lookupInput("tenant", query));
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentHttp).inputLookup(anyString(), any());
         assertSame(
@@ -308,9 +301,7 @@ class PaymentAcceptanceHttpClientTest {
     void inputExpiryUsesItsTypedOperationAndFailureNeverFabricatesAClosure() {
         var expire = mock(io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand.class);
         var active = new PaymentInputExpiryDTO("payment", "order", PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
-        doReturn(SuccessResponse.of(active))
-                .when(paymentHttp)
-                .inputExpire(anyString(), any());
+        doReturn(SuccessResponse.of(active)).when(paymentHttp).inputExpire(anyString(), any());
         assertEquals(active, client.expireInput("tenant", expire));
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentHttp).inputExpire(anyString(), any());
         assertSame(

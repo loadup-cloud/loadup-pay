@@ -3,7 +3,6 @@ package io.github.loadup.pay.payment.client.http;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
 import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -16,5 +15,6 @@ public interface PaymentVerificationHttpService {
 
     @PostExchange(VERIFY_PATH)
     SuccessResponse<PaymentVerificationDTO> verify(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody PaymentVerificationQuery request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody PaymentVerificationQuery request);
 }

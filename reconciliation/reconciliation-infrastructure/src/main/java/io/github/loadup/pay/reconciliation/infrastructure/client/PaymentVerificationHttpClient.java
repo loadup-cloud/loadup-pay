@@ -6,10 +6,10 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
-import io.github.loadup.pay.payment.client.support.PaymentEvidenceContracts;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
-import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.client.http.PaymentVerificationHttpService;
+import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
+import io.github.loadup.pay.payment.client.support.PaymentEvidenceContracts;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentVerification;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
 import java.time.Clock;
@@ -42,8 +42,11 @@ public class PaymentVerificationHttpClient implements ReconciliationPaymentVerif
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            var value = HttpServiceResponses.requiredData(paymentVerificationHttp.verify("Bearer " +
-                    tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()), query));
+            var value = HttpServiceResponses.requiredData(paymentVerificationHttp.verify(
+                    "Bearer "
+                            + tokens.read(
+                                    tenant, properties.serviceId(), properties.audience(), properties.tokenFile()),
+                    query));
             return PaymentEvidenceContracts.verification(value);
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

@@ -2,9 +2,9 @@ package io.github.loadup.pay.payment.adapter.web;
 
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
-import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.client.facade.PaymentVerificationFacade;
 import io.github.loadup.pay.payment.client.http.PaymentVerificationHttpService;
+import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -17,8 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentVerificationController {
     private final PaymentVerificationFacade paymentVerification;
 
-    public PaymentVerificationController(
-            PaymentVerificationFacade paymentVerification) {
+    public PaymentVerificationController(PaymentVerificationFacade paymentVerification) {
         this.paymentVerification = paymentVerification;
     }
 

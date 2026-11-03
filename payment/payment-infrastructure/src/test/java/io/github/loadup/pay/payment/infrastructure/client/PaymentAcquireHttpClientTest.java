@@ -14,15 +14,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.result.Result;
-import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
-import io.github.loadup.pay.acquire.client.http.AcquireHttpService;
+import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.result.Result;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.pay.acquire.client.http.AcquireHttpService;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
@@ -106,10 +106,7 @@ class PaymentAcquireHttpClientTest {
         tokenFile = directory.resolve("acquire.jwt");
         token(claims());
         client = new PaymentAcquireHttpClient(
-                acquireHttp,
-                mapper,
-                new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile),
-                clock);
+                acquireHttp, mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(
@@ -140,9 +137,7 @@ class PaymentAcquireHttpClientTest {
                 OffsetDateTime.now(clock),
                 new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
         var ack = new FeeRefundAckDTO("fee-delivery", "fee-business", "order", 3, 4, true);
-        doAnswer(invocation -> SuccessResponse.of(ack))
-                .when(acquireHttp)
-                .feeRefund(anyString(), any());
+        doAnswer(invocation -> SuccessResponse.of(ack)).when(acquireHttp).feeRefund(anyString(), any());
         assertEquals(ack, client.acceptFeeRefund("tenant", fee));
         verify(acquireHttp).feeRefund(anyString(), any());
     }
@@ -187,7 +182,9 @@ class PaymentAcquireHttpClientTest {
 
     @Test
     void transportFailureDoesNotBecomeAValidSemanticAck() {
-        doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(CommonResultCodeEnum.ACCESS_DENIED), null)).when(acquireHttp).paymentOutcome(anyString(), any());
+        doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(CommonResultCodeEnum.ACCESS_DENIED), null))
+                .when(acquireHttp)
+                .paymentOutcome(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> client.accept("tenant", event))

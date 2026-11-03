@@ -19,10 +19,11 @@
  */
 package io.github.loadup.pay.reconciliation.client.dto;
 
-import io.github.loadup.commons.json.ToStringAsJson;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.hash;
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.text;
-import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.hash;
+
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -70,8 +71,10 @@ public record ReconciliationInputDTO(
         text(parserRevision, 64);
         hash(artifactSha256);
         hash(normalizedSha256);
-        require(paymentCount >= 0 && refundCount >= 0
-                && paymentAmountMinor >= paymentCount && refundAmountMinor >= refundCount
+        require(paymentCount >= 0
+                && refundCount >= 0
+                && paymentAmountMinor >= paymentCount
+                && refundAmountMinor >= refundCount
                 && (paymentCount == 0) == (paymentAmountMinor == 0)
                 && (refundCount == 0) == (refundAmountMinor == 0));
         try {

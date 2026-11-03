@@ -83,9 +83,9 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
                 }
             } else if (!(CustomerResultCodeEnum.ACTION_FORBIDDEN.getCode().equals(data.reasonCode())
-                    || CustomerResultCodeEnum.MERCHANT_INACTIVE
-                    .getCode()
-                    .equals(data.reasonCode()))
+                            || CustomerResultCodeEnum.MERCHANT_INACTIVE
+                                    .getCode()
+                                    .equals(data.reasonCode()))
                     || data.merchant() != null
                     || data.grantId() != null
                     || data.grantVersion() != null) {
@@ -94,7 +94,8 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
             return data;
         } catch (RuntimeException failure) {
             if (CustomerResultCodeEnum.NOT_FOUND.getCode().equals(HttpServiceResponses.resultCode(failure))) {
-                return new MerchantEligibilityDTO(false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
+                return new MerchantEligibilityDTO(
+                        false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
             }
             // Never expose remote descriptions or arbitrary codes.
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

@@ -9,11 +9,16 @@ public final class PaymentEvidenceContracts {
     private PaymentEvidenceContracts() {}
 
     public static PaymentStatementDTO statement(PaymentStatementDTO value) {
-        PaymentCaptureContracts.require(value != null && value.channel() == Channel.WECHAT
-                && value.billDate() != null && value.billDate().getYear() >= 1970 && value.billDate().getYear() <= 9998
+        PaymentCaptureContracts.require(value != null
+                && value.channel() == Channel.WECHAT
+                && value.billDate() != null
+                && value.billDate().getYear() >= 1970
+                && value.billDate().getYear() <= 9998
                 && "wechat-trade-all-20260116".equals(value.statementProfile())
-                && "wechat-tradebill-grant-v1".equals(value.format()) && "SHA1".equals(value.officialHashType())
-                && value.officialHash() != null && value.officialHash().matches("[0-9a-f]{40}"));
+                && "wechat-tradebill-grant-v1".equals(value.format())
+                && "SHA1".equals(value.officialHashType())
+                && value.officialHash() != null
+                && value.officialHash().matches("[0-9a-f]{40}"));
         PaymentCaptureContracts.text(value.bindingRevisionId(), 64);
         PaymentCaptureContracts.hash(value.accountScopeHash());
         PaymentCaptureContracts.timestamp(value.receivedAt());
@@ -25,8 +30,12 @@ public final class PaymentEvidenceContracts {
         PaymentCaptureContracts.require(value != null);
         PaymentCaptureContracts.timestamp(value.startedAt());
         PaymentCaptureContracts.timestamp(value.finishedAt());
-        if (value.succeededAt() != null) { PaymentCaptureContracts.timestamp(value.succeededAt()); }
-        if (value.acceptedAt() != null) { PaymentCaptureContracts.timestamp(value.acceptedAt()); }
+        if (value.succeededAt() != null) {
+            PaymentCaptureContracts.timestamp(value.succeededAt());
+        }
+        if (value.acceptedAt() != null) {
+            PaymentCaptureContracts.timestamp(value.acceptedAt());
+        }
         return value;
     }
 }

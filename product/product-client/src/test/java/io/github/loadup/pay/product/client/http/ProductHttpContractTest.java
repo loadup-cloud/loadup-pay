@@ -25,8 +25,21 @@ class ProductHttpContractTest {
         var decoded = json.readValue(json.writeValueAsBytes(command), OrderAdmissionAuthorizeCommand.class);
         assertThat(decoded).isEqualTo(command);
         assertThat(decoded.requestedDueAt().toInstant()).isEqualTo(due.toInstant());
-        var denial = new OrderAdmissionDTO("admission", "order", "merchant", AdmissionDecision.DENIED,
-                "PRODUCT_CONTRACT_UNAVAILABLE", command.requestDigest(), null, null, null, null, null, due, null, null);
+        var denial = new OrderAdmissionDTO(
+                "admission",
+                "order",
+                "merchant",
+                AdmissionDecision.DENIED,
+                "PRODUCT_CONTRACT_UNAVAILABLE",
+                command.requestDigest(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                due,
+                null,
+                null);
         var reply = json.readValue(json.writeValueAsBytes(denial), OrderAdmissionDTO.class);
         assertThat(reply.decision()).isEqualTo(AdmissionDecision.DENIED);
         assertThat(reply.revision()).isNull();
@@ -38,8 +51,13 @@ class ProductHttpContractTest {
 
     @Test
     void feeRatesKeepDecimalPrecisionAndNullableCapsAcrossJson() {
-        var fee = new FeeTermsDTO(new BigDecimal("0.123456789012345678901234567890"),
-                0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.NO_RETURN);
+        var fee = new FeeTermsDTO(
+                new BigDecimal("0.123456789012345678901234567890"),
+                0,
+                RoundingMode.HALF_UP,
+                0,
+                null,
+                FeeRefundPolicy.NO_RETURN);
         var decoded = json.readValue(json.writeValueAsBytes(fee), FeeTermsDTO.class);
         assertThat(decoded.rate()).isEqualByComparingTo(fee.rate());
         assertThat(decoded.maximumMinor()).isNull();

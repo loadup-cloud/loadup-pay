@@ -6,8 +6,8 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
@@ -50,16 +50,12 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
 
     @Override
     public PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)));
+        return exchange(tenant, authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)));
     }
 
     @Override
     public RefundSettlementFactsDTO refundFacts(String tenant, String refundId) {
-        return exchange(
-                tenant,
-                authorization -> paymentHttp.refundFacts(authorization, new IdQuery(refundId)));
+        return exchange(tenant, authorization -> paymentHttp.refundFacts(authorization, new IdQuery(refundId)));
     }
 
     private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call) {

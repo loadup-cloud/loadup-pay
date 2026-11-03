@@ -16,13 +16,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
-import io.github.loadup.pay.product.client.http.ProductHttpService;
-import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
-import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.client.http.ProductHttpService;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -38,12 +38,22 @@ class OrderAdmissionHttpClientTest {
     @Test
     void propagatesTheDelegatedTokenPerHttpRequest() {
         doAnswer(invocation -> {
-                    assertEquals(
-                            "Bearer " + TOKEN,
-                            invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(new OrderAdmissionDTO("admission", "order", "merchant",
-                            AdmissionDecision.DENIED, "PRODUCT_CONTRACT_UNAVAILABLE", "b".repeat(64),
-                            null, null, null, null, null, null, null, null));
+                    assertEquals("Bearer " + TOKEN, invocation.getArgument(0, String.class));
+                    return SuccessResponse.of(new OrderAdmissionDTO(
+                            "admission",
+                            "order",
+                            "merchant",
+                            AdmissionDecision.DENIED,
+                            "PRODUCT_CONTRACT_UNAVAILABLE",
+                            "b".repeat(64),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null));
                 })
                 .when(productHttp)
                 .authorize(anyString(), any());
@@ -53,7 +63,9 @@ class OrderAdmissionHttpClientTest {
     @Test
     void authenticationFailureIsADependencyFailureRatherThanAPersistableContractDenial() {
         doAnswer(invocation -> {
-                    return new SuccessResponse<>(Result.buildFailure(io.github.loadup.commons.enums.CommonResultCodeEnum.UNAUTHENTICATED), null);
+                    return new SuccessResponse<>(
+                            Result.buildFailure(io.github.loadup.commons.enums.CommonResultCodeEnum.UNAUTHENTICATED),
+                            null);
                 })
                 .when(productHttp)
                 .authorize(anyString(), any());

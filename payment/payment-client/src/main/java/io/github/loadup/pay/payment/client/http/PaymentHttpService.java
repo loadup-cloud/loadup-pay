@@ -1,26 +1,25 @@
 package io.github.loadup.pay.payment.client.http;
 
-import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
-import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
-import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
-import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
-
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -45,15 +44,18 @@ public interface PaymentHttpService {
 
     @PostExchange(INPUT_PREPARE_PATH)
     SuccessResponse<PaymentInputDTO> inputPrepare(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody PaymentInputPrepareCommand request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody PaymentInputPrepareCommand request);
 
     @PostExchange(INPUT_LOOKUP_PATH)
     SuccessResponse<PaymentInputLookupDTO> inputLookup(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody PaymentInputLookupQuery request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody PaymentInputLookupQuery request);
 
     @PostExchange(INPUT_EXPIRE_PATH)
     SuccessResponse<PaymentInputExpiryDTO> inputExpire(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody PaymentInputExpireCommand request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody PaymentInputExpireCommand request);
 
     @PostExchange(ACCEPT_PATH)
     SuccessResponse<PaymentExecutionDTO> accept(
@@ -77,15 +79,18 @@ public interface PaymentHttpService {
 
     @PostExchange(FENCE_PARENT_PATH)
     SuccessResponse<ParentFenceDTO> fenceParent(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody ParentPaymentFenceCommand request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody ParentPaymentFenceCommand request);
 
     @PostExchange(PARENT_FENCE_STATUS_PATH)
     SuccessResponse<ParentFenceDTO> parentFenceStatus(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody ParentFenceStatusQuery request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody ParentFenceStatusQuery request);
 
     @PostExchange(START_ATTEMPT_PATH)
     SuccessResponse<PaymentExecutionDTO> startAttempt(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization, @RequestBody PaymentAttemptStartCommand request);
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestBody PaymentAttemptStartCommand request);
 
     @PostExchange(REFUND_SUMMARY_PATH)
     SuccessResponse<OrderRefundSummaryEventDTO> refundSummary(

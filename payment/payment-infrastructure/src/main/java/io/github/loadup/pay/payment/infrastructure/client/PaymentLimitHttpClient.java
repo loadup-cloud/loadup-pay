@@ -9,8 +9,8 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LI
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
@@ -38,10 +38,7 @@ public class PaymentLimitHttpClient implements PaymentLimitClient {
     private final LimitCenterHttpService limitCenterHttp;
 
     public PaymentLimitHttpClient(
-            LimitCenterHttpService limitCenterHttp,
-            JsonMapper mapper,
-            PaymentLimitProperties properties,
-            Clock clock) {
+            LimitCenterHttpService limitCenterHttp, JsonMapper mapper, PaymentLimitProperties properties, Clock clock) {
         this.limitCenterHttp = limitCenterHttp;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
@@ -54,44 +51,32 @@ public class PaymentLimitHttpClient implements PaymentLimitClient {
 
     @Override
     public LimitReservationDTO reserve(String tenant, LimitReserveCommand command) {
-        return exchange(
-                tenant,
-                authorization -> limitCenterHttp.reserve(authorization, command));
+        return exchange(tenant, authorization -> limitCenterHttp.reserve(authorization, command));
     }
 
     @Override
     public LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command) {
-        return exchange(
-                tenant,
-                authorization -> limitCenterHttp.begin(authorization, command));
+        return exchange(tenant, authorization -> limitCenterHttp.begin(authorization, command));
     }
 
     @Override
     public LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command) {
-        return exchange(
-                tenant,
-                authorization -> limitCenterHttp.verify(authorization, command));
+        return exchange(tenant, authorization -> limitCenterHttp.verify(authorization, command));
     }
 
     @Override
     public LimitReservationDTO confirm(String tenant, LimitConfirmCommand command) {
-        return exchange(
-                tenant,
-                authorization -> limitCenterHttp.confirm(authorization, command));
+        return exchange(tenant, authorization -> limitCenterHttp.confirm(authorization, command));
     }
 
     @Override
     public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
-        return exchange(
-                tenant,
-                authorization -> limitCenterHttp.release(authorization, command));
+        return exchange(tenant, authorization -> limitCenterHttp.release(authorization, command));
     }
 
     @Override
     public LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command) {
-        return exchange(
-                tenant,
-                authorization -> limitCenterHttp.restoreRefund(authorization, command));
+        return exchange(tenant, authorization -> limitCenterHttp.restoreRefund(authorization, command));
     }
 
     private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call) {

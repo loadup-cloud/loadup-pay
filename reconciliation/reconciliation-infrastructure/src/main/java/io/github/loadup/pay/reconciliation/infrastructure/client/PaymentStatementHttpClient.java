@@ -9,10 +9,10 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
-import io.github.loadup.pay.payment.client.support.PaymentEvidenceContracts;
 import io.github.loadup.pay.payment.client.dto.PaymentStatementDTO;
-import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
 import io.github.loadup.pay.payment.client.http.PaymentStatementHttpService;
+import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
+import io.github.loadup.pay.payment.client.support.PaymentEvidenceContracts;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentStatements;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
 import java.time.Clock;
@@ -45,8 +45,11 @@ public class PaymentStatementHttpClient implements ReconciliationPaymentStatemen
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            var value = HttpServiceResponses.requiredData(paymentStatementHttp.download("Bearer " +
-                    tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()), query));
+            var value = HttpServiceResponses.requiredData(paymentStatementHttp.download(
+                    "Bearer "
+                            + tokens.read(
+                                    tenant, properties.serviceId(), properties.audience(), properties.tokenFile()),
+                    query));
             return PaymentEvidenceContracts.statement(value);
         } catch (RuntimeException failure) {
             throw new CommonException(
