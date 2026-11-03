@@ -52,7 +52,6 @@ loadup:
       max-size: 32MB
   http:
     client:
-      tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
     clients:
       realtime:
         base-url: ${REALTIME_BASE_URL:http://realtime:8080}

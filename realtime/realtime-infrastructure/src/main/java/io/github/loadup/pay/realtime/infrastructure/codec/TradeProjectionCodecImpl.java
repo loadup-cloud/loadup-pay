@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.realtime.infrastructure.codec;
 
+import io.github.loadup.commons.util.TenantUtil;
+
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
@@ -139,7 +141,8 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
     }
 
     @Override
-    public String requestDigest(String tenant, String service, EventEnvelope<?> event, String factsHash) {
+    public String requestDigest(String service, EventEnvelope<?> event, String factsHash) {
+        String tenant = TenantUtil.getTenantId();
         var data = new StringBuilder();
         for (var field : List.of(
                 "realtime-delivery-v1",

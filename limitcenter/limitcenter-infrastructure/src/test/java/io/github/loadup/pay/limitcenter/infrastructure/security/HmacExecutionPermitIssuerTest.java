@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservation;
@@ -60,7 +61,8 @@ class HmacExecutionPermitIssuerTest {
 
     String issue(
             HmacExecutionPermitIssuer issuer, String tenant, StoredLimitReservation stored, String key, long epoch) {
-        return issuer.issue(tenant, stored, "attempt", epoch, "request", key);
+        return TenantUtil.callWithTenant(
+                tenant, () -> issuer.issue(stored, "attempt", epoch, "request", key));
     }
 
     @Test

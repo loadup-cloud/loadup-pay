@@ -19,7 +19,7 @@ import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateComman
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
 
 public interface PolicyPublicationCodec {
-    String encode(String tenant, LimitPolicyActivateCommand command);
+    String encode(LimitPolicyActivateCommand command);
 
-    LimitPolicyActivateCommand decode(String tenant, PolicyPublication publication);
+    LimitPolicyActivateCommand decode(PolicyPublication publication);
 }

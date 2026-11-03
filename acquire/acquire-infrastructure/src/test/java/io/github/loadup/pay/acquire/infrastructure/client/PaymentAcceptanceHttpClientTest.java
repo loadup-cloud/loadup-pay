@@ -97,7 +97,7 @@ class PaymentAcceptanceHttpClientTest {
         client = new PaymentAcceptanceHttpClient(
                 paymentHttp,
                 (service, audience) -> credential,
-                new PaymentTransportProperties("tenant", "acquire", "payment"));
+                new PaymentTransportProperties("acquire", "payment"));
         writeToken(claims());
         var result = new PaymentExecutionDTO(
                 "payment",

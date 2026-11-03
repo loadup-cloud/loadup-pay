@@ -135,9 +135,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
             // Public evidence identifiers never establish proof of a previous channel attempt's final outcome.
             var next = stored.transitionTo(value.beginExecution(command.attemptId(), now));
             String key = permits.activeKeyId();
-            String permit = permits.issue(
-                    actor.tenantId(),
-                    next,
+            String permit = permits.issue(next,
                     command.attemptId(),
                     next.reservation().executionEpoch(),
                     command.requestKey(),
@@ -276,9 +274,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     }
 
     private String issue(LimitActor actor, StoredLimitReservation stored, LimitExecutionGrant grant) {
-        return permits.issue(
-                actor.tenantId(),
-                stored,
+        return permits.issue(stored,
                 grant.attemptId(),
                 grant.executionEpoch(),
                 grant.requestKey(),

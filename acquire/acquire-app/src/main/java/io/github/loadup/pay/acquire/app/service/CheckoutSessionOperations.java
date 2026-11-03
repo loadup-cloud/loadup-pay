@@ -220,7 +220,7 @@ public class CheckoutSessionOperations {
         return converter.toCheckout(
                 ordersConverter.toDTO(order, now()),
                 stored.session().id(),
-                presentation.url(actor.tenantId(), order.order().id(), token),
+                presentation.url(order.order().id(), token),
                 stored.session().expiresAt());
     }
 

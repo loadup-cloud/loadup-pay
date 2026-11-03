@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.product.infrastructure.codec;
 
+import io.github.loadup.commons.util.TenantUtil;
+
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
@@ -36,7 +38,8 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
         this.validator = validator;
     }
 
-    private void check(String tenant, LimitPolicyActivateCommand value) {
+    private void check(LimitPolicyActivateCommand value) {
+        String tenant = TenantUtil.getTenantId();
         if (value == null
                 || !validator.validate(value).isEmpty()
                 || value.policyVersion() != 1
@@ -49,16 +52,16 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
     }
 
     @Override
-    public String encode(String tenant, LimitPolicyActivateCommand value) {
-        check(tenant, value);
+    public String encode(LimitPolicyActivateCommand value) {
+        check(value);
         return json.writeValueAsString(value);
     }
 
     @Override
-    public LimitPolicyActivateCommand decode(String tenant, PolicyPublication publication) {
+    public LimitPolicyActivateCommand decode(PolicyPublication publication) {
         try {
             var value = json.readValue(publication.activationPayload(), LimitPolicyActivateCommand.class);
-            check(tenant, value);
+            check(value);
             if (!value.policyId().equals(publication.policyId())
                     || value.policyVersion() != publication.policyVersion()
                     || !value.policyHash().equals(publication.policyHash())

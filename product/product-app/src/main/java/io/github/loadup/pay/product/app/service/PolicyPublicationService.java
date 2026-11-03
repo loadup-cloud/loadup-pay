@@ -161,7 +161,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                     activation.policyId(),
                     activation.policyVersion(),
                     activation.policyHash(),
-                    codec.encode(actor.tenantId(), activation),
+                    codec.encode(activation),
                     "INIT",
                     null,
                     now,
@@ -189,7 +189,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                 command.expectedSnapshotHash(),
                 command.payeeMerchantId(),
                 command.productScopeKey());
-        codec.decode(tenant, stored);
+        codec.decode(stored);
         return stored;
     }
 
@@ -199,7 +199,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var stored = publications.findById(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            codec.decode(actor.tenantId(), stored);
+            codec.decode(stored);
             return present(actor.tenantId(), stored);
         });
     }
@@ -215,7 +215,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             DomainChecks.text(command.reason(), 512);
             var stored =
                     publications.findById(command.publicationId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            codec.decode(actor.tenantId(), stored);
+            codec.decode(stored);
             var queue = queue(stored);
             // Framework replay uses its own audited transaction; never nest it inside a publication write transaction.
             if (!"FAILED".equals(queue.status())
@@ -240,7 +240,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         if (!publicationId.equals(stored.id()) || !eventId.equals(stored.outboxEventId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var command = codec.decode(tenant, stored);
+        var command = codec.decode(stored);
         if ("ACTIVE".equals(stored.state())) {
             return;
         }

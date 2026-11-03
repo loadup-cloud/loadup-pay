@@ -126,7 +126,7 @@ class ChannelBindingServiceTest {
                 .thenAnswer(call -> Optional.ofNullable(receipts.get(call.getArgument(1))));
         when(store.revision(anyString())).thenAnswer(call -> Optional.ofNullable(revisions.get(call.getArgument(0))));
         when(codec.accountScopeHash(any(), any())).thenReturn("a".repeat(64));
-        when(codec.requestDigest(anyString(), anyString(), anyString(), any())).thenReturn("b".repeat(64));
+        when(codec.requestDigest(anyString(), anyString(), any())).thenReturn("b".repeat(64));
         when(codec.encodeIdentity(any())).thenReturn("typed-identity-payload");
         when(codec.checksum(anyString())).thenReturn("c".repeat(64));
         doAnswer(call -> {
@@ -228,7 +228,7 @@ class ChannelBindingServiceTest {
     void sameKeyCannotChangePayloadOrOperationKind() {
         service.publish(publish("first", 0, "v1", 100));
         var changed = publish("first", 0, "v1", 50);
-        when(codec.requestDigest("tenant", "pay-ops", "PUBLISH", changed)).thenReturn("d".repeat(64));
+        when(codec.requestDigest("pay-ops", "PUBLISH", changed)).thenReturn("d".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.publish(changed))

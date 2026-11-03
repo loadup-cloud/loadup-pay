@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
@@ -104,10 +105,14 @@ class RoutingProfileCodecImplTest {
 
     @Test
     void requestDigestSeparatesTenantCallerKeyAndDefinition() {
-        String digest = codec.requestDigest("tenant", "pay-ops", "publish", "a".repeat(64));
-        assertNotEquals(digest, codec.requestDigest("other-tenant", "pay-ops", "publish", "a".repeat(64)));
-        assertNotEquals(digest, codec.requestDigest("tenant", "other-service", "publish", "a".repeat(64)));
-        assertNotEquals(digest, codec.requestDigest("tenant", "pay-ops", "other-key", "a".repeat(64)));
-        assertNotEquals(digest, codec.requestDigest("tenant", "pay-ops", "publish", "b".repeat(64)));
+        String digest = digest("tenant", "pay-ops", "publish", "a".repeat(64));
+        assertNotEquals(digest, digest("other-tenant", "pay-ops", "publish", "a".repeat(64)));
+        assertNotEquals(digest, digest("tenant", "other-service", "publish", "a".repeat(64)));
+        assertNotEquals(digest, digest("tenant", "pay-ops", "other-key", "a".repeat(64)));
+        assertNotEquals(digest, digest("tenant", "pay-ops", "publish", "b".repeat(64)));
+    }
+
+    private String digest(String tenant, String caller, String key, String contentHash) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.requestDigest(caller, key, contentHash));
     }
 }

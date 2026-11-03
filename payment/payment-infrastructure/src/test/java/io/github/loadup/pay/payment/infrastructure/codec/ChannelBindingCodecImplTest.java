@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
@@ -102,8 +103,8 @@ class ChannelBindingCodecImplTest {
         var first = command(new LinkedHashSet<>(List.of(PaymentMethod.H5, PaymentMethod.JSAPI)));
         var second = command(new LinkedHashSet<>(List.of(PaymentMethod.JSAPI, PaymentMethod.H5)));
         assertEquals(
-                codec.requestDigest("tenant", "pay-ops", "PUBLISH", first),
-                codec.requestDigest("tenant", "pay-ops", "PUBLISH", second));
+                requestDigest("tenant", "pay-ops", "PUBLISH", first),
+                requestDigest("tenant", "pay-ops", "PUBLISH", second));
     }
 
     ChannelBindingPublishCommand command(Set<PaymentMethod> methods) {
@@ -119,5 +120,9 @@ class ChannelBindingCodecImplTest {
                 100,
                 "publish",
                 0);
+    }
+
+    private String requestDigest(String tenant, String service, String kind, Object command) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.requestDigest(service, kind, command));
     }
 }

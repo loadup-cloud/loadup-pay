@@ -24,5 +24,5 @@ public interface RoutingProfileCodec {
 
     String checksum(String payload);
 
-    String requestDigest(String tenantId, String callerServiceId, String requestKey, String contentHash);
+    String requestDigest(String callerServiceId, String requestKey, String contentHash);
 }

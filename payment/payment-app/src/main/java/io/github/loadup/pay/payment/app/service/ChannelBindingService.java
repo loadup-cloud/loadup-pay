@@ -96,7 +96,7 @@ public class ChannelBindingService implements ChannelBindingFacade {
                     command,
                     "candidate",
                     codec.accountScopeHash(command.channel(), converter.toIdentity(command.identity())));
-            String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), "PUBLISH", command);
+            String digest = codec.requestDigest(actor.serviceId(), "PUBLISH", command);
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var prior = store.lock(command.payeeMerchantId(), command.bindingCode());
                 if (prior.isPresent()) {
@@ -187,7 +187,7 @@ public class ChannelBindingService implements ChannelBindingFacade {
             DomainChecks.id(payee);
             DomainChecks.id(bindingCode);
             DomainChecks.text(key, 128);
-            String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), kind, command);
+            String digest = codec.requestDigest(actor.serviceId(), kind, command);
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var head = store.lock(payee, bindingCode).orElseThrow(() -> new CommonException(NOT_FOUND));
                 var prior = store.receipt(head.id(), key);

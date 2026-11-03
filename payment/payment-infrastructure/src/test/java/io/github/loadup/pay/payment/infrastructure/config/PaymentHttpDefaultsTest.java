@@ -26,7 +26,6 @@ class PaymentHttpDefaultsTest {
     void bindsActualPaymentSettingsWithoutPerTargetProperties() {
         var environment = new MockEnvironment().withProperty("spring.application.name", "payment");
         var settings = new PaymentPersistenceConfiguration().paymentLimitProperties(environment);
-        assertThat(settings.tenantId()).isEqualTo("__default__");
         assertThat(settings.serviceId()).isEqualTo("payment");
         assertThat(settings.audience()).isEqualTo("limitcenter");
     }
@@ -35,8 +34,8 @@ class PaymentHttpDefaultsTest {
     void invalidOverrideIdentifiesTheFieldWithoutDisclosingItsValue() {
         var environment = new MockEnvironment()
                 .withProperty("spring.application.name", "payment")
-                .withProperty("loadup.modules.payment.limitcenter.tenant-id", "");
+                .withProperty("loadup.modules.payment.limitcenter.service-id", "");
         assertThatThrownBy(() -> new PaymentPersistenceConfiguration().paymentLimitProperties(environment))
-                .hasRootCauseMessage("loadup.modules.payment.limitcenter.tenant-id is missing or blank");
+                .hasRootCauseMessage("loadup.modules.payment.limitcenter.service-id is missing or blank");
     }
 }

@@ -20,11 +20,9 @@ import io.github.loadup.commons.validation.DomainChecks;
 import jakarta.validation.constraints.NotBlank;
 
 public record AcquireRealtimeProperties(
-        @NotBlank String tenantId,
         @NotBlank String serviceId,
         @NotBlank String audience) {
     public AcquireRealtimeProperties {
-        DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         DomainChecks.text(audience, 128);
     }

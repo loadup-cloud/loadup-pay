@@ -18,6 +18,7 @@ package io.github.loadup.pay.limitcenter.infrastructure.security;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.pay.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
@@ -43,12 +44,12 @@ public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
 
     @Override
     public String issue(
-            String tenant,
             StoredLimitReservation stored,
             String attemptId,
             long executionEpoch,
             String requestKey,
             String permitKeyId) {
+        String tenant = TenantUtil.getTenantId();
         String secret = properties.keys().get(permitKeyId);
         if (secret == null) {
             throw new CommonException(PERMIT_UNAVAILABLE);

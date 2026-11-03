@@ -82,8 +82,7 @@ class CustomerEligibilityHttpLookupTest {
     }
 
     @Test
-    void wrongTenantMissingAudienceAndActiveTransactionsPreventNetworkAccess() {
-        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
+    void missingAudienceAndActiveTransactionsPreventNetworkAccess() {
         var missingAudience = new CustomerEligibilityHttpLookup(
                 http, () -> new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()));
         assertThrows(CommonException.class, () -> missingAudience.authorizeNewOrder("merchant"));

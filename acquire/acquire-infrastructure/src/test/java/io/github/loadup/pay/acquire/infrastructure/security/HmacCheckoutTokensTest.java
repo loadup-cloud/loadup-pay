@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
@@ -139,7 +140,8 @@ class HmacCheckoutTokensTest {
     @Test
     void pageOriginIsServerControlledAndCapabilitiesRemainOnlyInTheFragment() {
         var presentation = new CheckoutPresentationImpl(properties("v1", Map.of("v1", oldSecret)));
-        var url = URI.create(presentation.url("tenant", "order", "synthetic-capability"));
+        var url = URI.create(TenantUtil.callWithTenant(
+                "tenant", () -> presentation.url("order", "synthetic-capability")));
         assertNull(url.getQuery());
         assertTrue(url.getFragment().contains("synthetic-capability"));
         assertEquals("https://pay.example", presentation.allowedOrigin());

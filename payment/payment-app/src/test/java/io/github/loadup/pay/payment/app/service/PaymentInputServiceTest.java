@@ -125,8 +125,8 @@ class PaymentInputServiceTest {
         when(cipher.newReference()).thenReturn("opaque-reference");
         when(cipher.activeFingerprintKeyId()).thenReturn("v1");
         when(cipher.lifetime()).thenReturn(Duration.ofSeconds(120));
-        when(cipher.fingerprint(eq("tenant"), eq("acquire"), any(), eq("v1"))).thenReturn("a".repeat(64));
-        when(cipher.encrypt(eq("tenant"), eq("acquire"), eq("opaque-reference"), any()))
+        when(cipher.fingerprint(eq("acquire"), any(), eq("v1"))).thenReturn("a".repeat(64));
+        when(cipher.encrypt(eq("acquire"), eq("opaque-reference"), any()))
                 .thenAnswer(call -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                     return new EncryptedPaymentInput("payment-input", 2, "vault:v2:c3ludGhldGlj");
@@ -157,7 +157,7 @@ class PaymentInputServiceTest {
                         .getResultCode());
         assertNull(persisted.get());
         verify(store, never()).insert(any());
-        verify(cipher).encrypt("tenant", "acquire", "opaque-reference", command);
+        verify(cipher).encrypt("acquire", "opaque-reference", command);
     }
 
     @Test
@@ -169,7 +169,7 @@ class PaymentInputServiceTest {
                 .requireNew(any(), any(), any());
         assertEquals(first, service.prepare(command));
         verifyNoInteractions(publication);
-        verify(cipher, never()).encrypt(anyString(), anyString(), anyString(), any());
+        verify(cipher, never()).encrypt(anyString(), anyString(), any());
     }
 
     @Test
@@ -189,7 +189,7 @@ class PaymentInputServiceTest {
         var first = service.prepare(command);
         clearInvocations(cipher, store);
         assertEquals(first, service.prepare(command));
-        verify(cipher, never()).encrypt(anyString(), anyString(), anyString(), any());
+        verify(cipher, never()).encrypt(anyString(), anyString(), any());
         verify(store, never()).insert(any());
         assertEquals(1, manager.commits);
     }
@@ -210,15 +210,15 @@ class PaymentInputServiceTest {
                 "acquire");
         when(cipher.activeFingerprintKeyId()).thenReturn("v2");
         assertEquals(first, later.prepare(command));
-        verify(cipher, times(2)).fingerprint("tenant", "acquire", command, "v1");
-        verify(cipher, never()).fingerprint(anyString(), anyString(), any(), eq("v2"));
+        verify(cipher, times(2)).fingerprint("acquire", command, "v1");
+        verify(cipher, never()).fingerprint(anyString(), any(), eq("v2"));
     }
 
     @Test
     void changedSensitiveValueWithTheSamePaymentCannotReplaceTheOriginal() {
         service.prepare(command);
         var changed = command(PaymentMethod.PAYMENT_CODE, new PaymentCodeInteractionDTO("another-synthetic-code"));
-        when(cipher.fingerprint("tenant", "acquire", changed, "v1")).thenReturn("b".repeat(64));
+        when(cipher.fingerprint("acquire", changed, "v1")).thenReturn("b".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.prepare(changed))
@@ -237,7 +237,7 @@ class PaymentInputServiceTest {
         assertEquals("opaque-reference", service.prepare(command).inputRef());
         assertEquals(1, manager.rollbacks);
         assertEquals(1, manager.commits);
-        verify(cipher, times(1)).encrypt(anyString(), anyString(), anyString(), any());
+        verify(cipher, times(1)).encrypt(anyString(), anyString(), any());
     }
 
     @Test
@@ -269,7 +269,7 @@ class PaymentInputServiceTest {
         assertEquals(LocalDateTime.now(clock).plusSeconds(120), persisted.get().expiresAt());
         assertEquals(PaymentInputState.INIT, persisted.get().state());
         assertEquals(1, manager.commits);
-        verify(cipher).encrypt(eq("tenant"), eq("acquire"), eq("opaque-reference"), eq(h5));
+        verify(cipher).encrypt(eq("acquire"), eq("opaque-reference"), eq(h5));
     }
 
     @Test
@@ -278,14 +278,14 @@ class PaymentInputServiceTest {
         service.prepare(original);
 
         var changedIp = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.11", H5SceneType.WAP));
-        when(cipher.fingerprint("tenant", "acquire", changedIp, "v1")).thenReturn("b".repeat(64));
+        when(cipher.fingerprint("acquire", changedIp, "v1")).thenReturn("b".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.prepare(changedIp))
                         .getResultCode());
 
         var changedScene = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.ANDROID));
-        when(cipher.fingerprint("tenant", "acquire", changedScene, "v1")).thenReturn("c".repeat(64));
+        when(cipher.fingerprint("acquire", changedScene, "v1")).thenReturn("c".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.prepare(changedScene))

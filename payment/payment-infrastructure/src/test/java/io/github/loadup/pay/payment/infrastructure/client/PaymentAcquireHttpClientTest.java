@@ -115,7 +115,7 @@ class PaymentAcquireHttpClientTest {
         client = new PaymentAcquireHttpClient(
                 acquireHttp,
                 (service, audience) -> credential,
-                new PaymentAcquireProperties("tenant", "payment", "acquire"));
+                new PaymentAcquireProperties("payment", "acquire"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(

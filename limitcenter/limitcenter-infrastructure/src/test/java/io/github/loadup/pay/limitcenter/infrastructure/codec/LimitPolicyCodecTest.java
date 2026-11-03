@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.pay.limitcenter.app.converter.LimitConverterImpl;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
@@ -94,7 +95,7 @@ class LimitPolicyCodecTest {
     @Test
     void largeIntegerThresholdAndActivationMicrosecondsSurviveStorage() {
         var row = row();
-        var value = codec.decode("tenant", row);
+        var value = codec.decode(row);
         assertEquals(9007199254740993L, value.rules().getFirst().threshold());
         assertEquals(row.getActivatedAt(), value.activatedAt());
     }
@@ -103,8 +104,8 @@ class LimitPolicyCodecTest {
     void tamperingWithThresholdOrTenantDoesNotYieldAnActivatedPolicy() {
         var row = row();
         row.setCompiledRules(row.getCompiledRules().replace("9007199254740993", "9007199254740992"));
-        assertThrows(CommonException.class, () -> codec.decode("tenant", row));
-        assertThrows(CommonException.class, () -> codec.decode("different-tenant", row()));
+        assertThrows(CommonException.class, () -> codec.decode(row));
+        assertThrows(CommonException.class, () -> codec.decode(row()));
     }
 
     @Test
@@ -112,5 +113,10 @@ class LimitPolicyCodecTest {
         var row = row();
         row.setCompiledRules("synthetic-private-policy");
         assertFalse(row.toString().contains("synthetic-private-policy"));
+    }
+
+    private io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy decode(
+            String tenant, io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitPolicyRevisionDO row) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.decode(row));
     }
 }

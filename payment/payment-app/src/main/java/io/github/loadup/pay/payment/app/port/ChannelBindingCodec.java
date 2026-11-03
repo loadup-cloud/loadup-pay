@@ -25,7 +25,7 @@ public interface ChannelBindingCodec {
 
     String checksum(String payload);
 
-    String requestDigest(String tenant, String service, String kind, Object command);
+    String requestDigest(String service, String kind, Object command);
 
     String accountScopeHash(Channel channel, ChannelAccountIdentity identity);
 }

@@ -123,7 +123,7 @@ class CheckoutSessionServiceTest {
                                 .digest(((String) c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
         when(tokens.matches(anyString(), any())).thenReturn(true);
         when(presentation.allowedOrigin()).thenReturn(ORIGIN);
-        when(presentation.url(anyString(), anyString(), anyString()))
+        when(presentation.url(anyString(), anyString()))
                 .thenAnswer(c -> ORIGIN + "/checkout#tenant=" + c.getArgument(0) + "&order=" + c.getArgument(1)
                         + "&token=" + c.getArgument(2));
         when(sessions.findRequest(eq("order"), anyString()))

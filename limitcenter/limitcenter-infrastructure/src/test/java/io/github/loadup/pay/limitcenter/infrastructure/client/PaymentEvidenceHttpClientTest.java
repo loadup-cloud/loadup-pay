@@ -104,7 +104,7 @@ class PaymentEvidenceHttpClientTest {
         client = new PaymentEvidenceHttpClient(
                 paymentHttp,
                 (service, audience) -> credential,
-                new PaymentEvidenceProperties("tenant", "limitcenter", "payment"));
+                new PaymentEvidenceProperties("limitcenter", "payment"));
         doAnswer(invocation -> {
                     assertEquals("Bearer " + credential, invocation.getArgument(0, String.class));
                     return SuccessResponse.of(facts);

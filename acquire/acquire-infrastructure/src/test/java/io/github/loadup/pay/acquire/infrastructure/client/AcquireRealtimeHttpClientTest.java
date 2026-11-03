@@ -107,7 +107,7 @@ class AcquireRealtimeHttpClientTest {
         client = new AcquireRealtimeHttpClient(
                 realtimeHttp,
                 (service, audience) -> credential,
-                new AcquireRealtimeProperties("tenant", "acquire", "realtime"));
+                new AcquireRealtimeProperties("acquire", "realtime"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(

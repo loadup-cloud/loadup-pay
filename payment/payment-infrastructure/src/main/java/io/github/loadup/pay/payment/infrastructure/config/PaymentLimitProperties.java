@@ -20,11 +20,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record PaymentLimitProperties(
-        @NotBlank @Size(max = 64) String tenantId,
         @NotBlank @Size(max = 64) String serviceId,
         @NotBlank @Size(max = 128) String audience) {
     public PaymentLimitProperties {
-        requireText("tenant-id", tenantId, 64);
         requireText("service-id", serviceId, 64);
         requireText("audience", audience, 128);
     }

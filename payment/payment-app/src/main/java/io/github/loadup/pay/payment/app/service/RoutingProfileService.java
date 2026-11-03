@@ -96,7 +96,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
             DomainChecks.text(command.requestKey(), 128);
             var spec = converter.toSpec(command.spec());
             String hash = codec.checksum(codec.encode(spec));
-            String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), command.requestKey(), hash);
+            String digest = codec.requestDigest(actor.serviceId(), command.requestKey(), hash);
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var prior = profiles.findRequest(actor.serviceId(), command.requestKey());
                 if (prior.isPresent()) {

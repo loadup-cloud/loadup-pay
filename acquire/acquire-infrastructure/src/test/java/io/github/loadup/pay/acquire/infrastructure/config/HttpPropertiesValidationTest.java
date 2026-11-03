@@ -33,10 +33,10 @@ class HttpPropertiesValidationTest {
                 .withUserConfiguration(MethodValidationConfiguration.class)
                 .withBean(
                         PaymentTransportProperties.class,
-                        () -> new PaymentTransportProperties("__default__", "acquire", "payment"))
+                        () -> new PaymentTransportProperties("acquire", "payment"))
                 .withBean(
                         AcquireRealtimeProperties.class,
-                        () -> new AcquireRealtimeProperties("__default__", "acquire", "realtime"))
+                        () -> new AcquireRealtimeProperties("acquire", "realtime"))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(AopUtils.isAopProxy(context.getBean(PaymentTransportProperties.class)))
@@ -48,7 +48,7 @@ class HttpPropertiesValidationTest {
 
     @Test
     void constructorStillRejectsInvalidSettings() {
-        assertThatThrownBy(() -> new PaymentTransportProperties("", "acquire", "payment"))
+        assertThatThrownBy(() -> new PaymentTransportProperties("", "payment"))
                 .isInstanceOf(DomainViolation.class);
     }
 

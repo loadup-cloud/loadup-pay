@@ -62,7 +62,7 @@ class PaymentEvidenceHttpClientTest {
     @BeforeEach
     void start() throws Exception {
         ServiceAccessTokens tokens = (service, audience) -> "header.payload.signature";
-        var properties = new ReconciliationPaymentProperties("tenant", "reconciliation", "payment");
+        var properties = new ReconciliationPaymentProperties("reconciliation", "payment");
         captureClient = new PaymentCaptureHttpClient(captures, properties, tokens);
         statementClient = new PaymentStatementHttpClient(statements, properties, tokens);
     }

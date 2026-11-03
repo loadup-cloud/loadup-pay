@@ -54,7 +54,6 @@ loadup:
       max-size: 1MB
   http:
     client:
-      tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
     clients:
       limitcenter:
         base-url: ${LIMITCENTER_BASE_URL:http://limitcenter:8080}

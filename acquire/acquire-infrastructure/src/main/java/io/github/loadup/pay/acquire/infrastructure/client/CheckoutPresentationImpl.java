@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.client;
 
+import io.github.loadup.commons.util.TenantUtil;
+
 import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
 import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
 import java.net.URLEncoder;
@@ -41,8 +43,8 @@ public class CheckoutPresentationImpl implements CheckoutPresentation {
     }
 
     @Override
-    public String url(String tenant, String order, String token) {
-        return properties.pageUrl().toASCIIString() + "#tenant=" + encode(tenant) + "&order=" + encode(order)
+    public String url(String order, String token) {
+        return properties.pageUrl().toASCIIString() + "#tenant=" + encode(TenantUtil.getTenantId()) + "&order=" + encode(order)
                 + "&token=" + encode(token);
     }
 

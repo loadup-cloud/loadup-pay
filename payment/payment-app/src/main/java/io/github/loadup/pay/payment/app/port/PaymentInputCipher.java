@@ -28,9 +28,9 @@ public interface PaymentInputCipher {
 
     String newReference();
 
-    String fingerprint(String tenant, String service, PaymentInputPrepareCommand command, String keyId);
+    String fingerprint(String service, PaymentInputPrepareCommand command, String keyId);
 
-    EncryptedPaymentInput encrypt(String tenant, String service, String inputRef, PaymentInputPrepareCommand command);
+    EncryptedPaymentInput encrypt(String service, String inputRef, PaymentInputPrepareCommand command);
 
-    PaymentInteractionDTO decrypt(String tenant, PaymentInput stored);
+    PaymentInteractionDTO decrypt(PaymentInput stored);
 }

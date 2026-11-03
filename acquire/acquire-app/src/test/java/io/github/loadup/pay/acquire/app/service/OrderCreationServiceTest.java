@@ -223,7 +223,7 @@ class OrderCreationServiceTest {
         when(tokens.hash(anyString())).thenReturn("e".repeat(64));
         when(tokens.matches(anyString(), any())).thenReturn(true);
         when(presentation.allowedOrigin()).thenReturn("https://pay.example");
-        when(presentation.url(anyString(), anyString(), anyString()))
+        when(presentation.url(anyString(), anyString()))
                 .thenAnswer(c -> "https://pay.example/checkout#token=" + c.getArgument(2));
         when(sessions.find(anyString())).thenAnswer(c -> Optional.ofNullable(session.get()));
         doAnswer(c -> {

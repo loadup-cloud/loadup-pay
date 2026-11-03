@@ -24,7 +24,6 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitPolicyGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy;
@@ -116,7 +115,7 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     @Override
     public Optional<ActivatedLimitPolicy> findRevision(String policy, int revision) {
         var query = QueryWrapper.create().eq("policy_id", policy).eq("policy_version", revision);
-        return Optional.ofNullable(getOne(query)).map(row -> codec.decode(TenantContext.tenantId(), row));
+        return Optional.ofNullable(getOne(query)).map(row -> codec.decode(row));
     }
 
     @Override

@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import java.time.OffsetDateTime;
@@ -56,28 +57,30 @@ class PaymentEventCodecImplTest {
     @Test
     void digestBindsTenantServiceAndDeliveryIdentity() {
         var e = event("delivery", "operation", 1000, at);
-        String digest = codec.digest("tenant", "payment", e);
-        assertNotEquals(digest, codec.digest("other-tenant", "payment", e));
-        assertNotEquals(digest, codec.digest("tenant", "other-service", e));
-        assertNotEquals(digest, codec.digest("tenant", "payment", event("other-delivery", "operation", 1000, at)));
+        String digest = digest("tenant", "payment", e);
+        assertNotEquals(digest, digest("other-tenant", "payment", e));
+        assertNotEquals(digest, digest("tenant", "other-service", e));
+        assertNotEquals(digest, digest("tenant", "payment", event("other-delivery", "operation", 1000, at)));
     }
 
     @Test
     void financialFieldsAndOriginalEnvelopeTimeCannotChangeOnTheSameDelivery() {
-        String digest = codec.digest("tenant", "payment", event("delivery", "operation", 1000, at));
-        assertNotEquals(digest, codec.digest("tenant", "payment", event("delivery", "operation", 999, at)));
-        assertNotEquals(digest, codec.digest("tenant", "payment", event("delivery", "other-operation", 1000, at)));
+        String digest = digest("tenant", "payment", event("delivery", "operation", 1000, at));
+        assertNotEquals(digest, digest("tenant", "payment", event("delivery", "operation", 999, at)));
+        assertNotEquals(digest, digest("tenant", "payment", event("delivery", "other-operation", 1000, at)));
         assertNotEquals(
-                digest, codec.digest("tenant", "payment", event("delivery", "operation", 1000, at.plusSeconds(1))));
+                digest, digest("tenant", "payment", event("delivery", "operation", 1000, at.plusSeconds(1))));
     }
 
     @Test
     void equivalentOffsetTimesAreNormalizedBeforeDigesting() {
         assertEquals(
-                codec.digest("tenant", "payment", event("delivery", "operation", 1000, at)),
-                codec.digest(
-                        "tenant",
-                        "payment",
+                digest("tenant", "payment", event("delivery", "operation", 1000, at)),
+                digest("tenant", "payment",
                         event("delivery", "operation", 1000, at.withOffsetSameInstant(ZoneOffset.UTC))));
+    }
+
+    private String digest(String tenant, String service, EventEnvelope<PaymentOutcomeEventDTO> event) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.digest(service, event));
     }
 }

@@ -149,7 +149,7 @@ class RoutingProfileServiceTest {
         binding("binding-primary", "primary");
         when(codec.encode(any())).thenReturn("canonical-profile");
         when(codec.checksum(anyString())).thenReturn("a".repeat(64));
-        when(codec.requestDigest(anyString(), anyString(), anyString(), anyString()))
+        when(codec.requestDigest(anyString(), anyString(), anyString()))
                 .thenReturn("b".repeat(64));
         when(profiles.find(anyString())).thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(0))));
         when(profiles.findRequest(anyString(), anyString()))

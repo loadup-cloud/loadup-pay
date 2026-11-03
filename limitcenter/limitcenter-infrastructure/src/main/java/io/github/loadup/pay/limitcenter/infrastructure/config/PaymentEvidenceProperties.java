@@ -21,11 +21,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record PaymentEvidenceProperties(
-        @NotBlank @Size(max = 64) String tenantId,
         @NotBlank @Size(max = 64) String serviceId,
         @NotBlank @Size(max = 128) String audience) {
     public PaymentEvidenceProperties {
-        DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         DomainChecks.text(audience, 128);
     }

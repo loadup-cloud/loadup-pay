@@ -18,9 +18,8 @@ package io.github.loadup.pay.product.infrastructure.config;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-public record PolicyPublicationTransportProperties(String tenantId, String serviceId, String audience) {
+public record PolicyPublicationTransportProperties(String serviceId, String audience) {
     public PolicyPublicationTransportProperties {
-        DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         DomainChecks.text(audience, 128);
     }

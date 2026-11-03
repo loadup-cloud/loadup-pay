@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRuleDTO;
 import io.github.loadup.pay.limitcenter.client.support.LimitPolicyHash;
@@ -93,18 +94,18 @@ class PolicyPublicationCodecImplTest {
 
     @Test
     void theFrozenCommandRetainsIntegersAboveDoublePrecision() {
-        var value = codec.decode("tenant", stored(codec.encode("tenant", command())));
+        var value = codec.decode(stored(codec.encode(command())));
         assertEquals(9007199254740993L, value.rules().getFirst().threshold());
         assertEquals(command().policyHash(), value.policyHash());
     }
 
     @Test
     void mutatedPayloadOrTenantCannotBeUsedAsTheFrozenActivationIntent() {
-        var payload = codec.encode("tenant", command());
-        assertThrows(CommonException.class, () -> codec.decode("other-tenant", stored(payload)));
+        var payload = codec.encode(command());
+        assertThrows(CommonException.class, () -> codec.decode(stored(payload)));
         assertThrows(
                 CommonException.class,
-                () -> codec.decode("tenant", stored(payload.replace("9007199254740993", "9007199254740992"))));
+                () -> codec.decode(stored(payload.replace("9007199254740993", "9007199254740992"))));
     }
 
     @Test
@@ -119,6 +120,14 @@ class PolicyPublicationCodecImplTest {
                 original.refundAmountRestore(),
                 original.refundCountRestore(),
                 rules);
-        assertThrows(CommonException.class, () -> codec.encode("tenant", incomplete));
+        assertThrows(CommonException.class, () -> codec.encode(incomplete));
+    }
+
+    private String encode(String tenant, LimitPolicyActivateCommand command) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.encode(command));
+    }
+
+    private LimitPolicyActivateCommand decode(String tenant, io.github.loadup.pay.product.domain.model.PolicyPublication value) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.decode(value));
     }
 }

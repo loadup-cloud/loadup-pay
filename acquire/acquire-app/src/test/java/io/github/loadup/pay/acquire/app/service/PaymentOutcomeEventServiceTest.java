@@ -263,7 +263,7 @@ class PaymentOutcomeEventServiceTest {
         when(intents.decode(any())).thenAnswer(c -> command);
         when(admissions.decodeAdmission(anyString(), anyString())).thenReturn(admission());
         when(events.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.getArgument(0))));
-        when(digests.digest(anyString(), anyString(), any()))
+        when(digests.digest(anyString(), any()))
                 .thenAnswer(c -> "%064x"
                         .formatted(Integer.toUnsignedLong(
                                 Objects.hash(c.getArgument(0), c.getArgument(1), c.getArgument(2)))));

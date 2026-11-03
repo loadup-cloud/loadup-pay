@@ -266,7 +266,7 @@ class FinancialPersistenceIT {
             assertTrue(payments.lockPayment(command.paymentId()).isEmpty());
             return true;
         });
-        verify(remote.cipher, times(2)).encrypt(eq(tenant), eq("acquire"), anyString(), eq(command));
+        verify(remote.cipher, times(2)).encrypt(eq("acquire"), anyString(), eq(command));
         verify(remote.channels, never()).submit(any());
     }
 
@@ -607,8 +607,8 @@ class FinancialPersistenceIT {
             when(cipher.newReference()).thenAnswer(call -> id("input"));
             when(cipher.activeFingerprintKeyId()).thenReturn("v1");
             when(cipher.lifetime()).thenReturn(Duration.ofMinutes(2));
-            when(cipher.fingerprint(anyString(), anyString(), any(), eq("v1"))).thenReturn("e".repeat(64));
-            when(cipher.encrypt(anyString(), anyString(), anyString(), any())).thenAnswer(call -> {
+            when(cipher.fingerprint(anyString(), any(), eq("v1"))).thenReturn("e".repeat(64));
+            when(cipher.encrypt(anyString(), anyString(), any())).thenAnswer(call -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                 var pause = inputPause.getAndSet(null);
                 if (pause != null) {

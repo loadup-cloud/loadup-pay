@@ -20,7 +20,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.port.RoutingProfileCodec;
 import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
@@ -94,9 +93,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
             var spec = codec.decode(row.getSpecPayload(), row.getContentHash());
             if (!spec.profileRef().equals(row.getProfileRef())
                     || !spec.payeeMerchantId().equals(row.getPayeeMerchantId())
-                    || !codec.requestDigest(
-                                    TenantContext.tenantId(),
-                                    row.getCallerServiceId(),
+                    || !codec.requestDigest(row.getCallerServiceId(),
                                     row.getRequestKey(),
                                     row.getContentHash())
                             .equals(row.getRequestDigest())) {
@@ -119,9 +116,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         }
         String payload = codec.encode(profile.spec());
         if (!codec.checksum(payload).equals(profile.contentHash())
-                || !codec.requestDigest(
-                                TenantContext.tenantId(),
-                                profile.callerServiceId(),
+                || !codec.requestDigest(profile.callerServiceId(),
                                 profile.requestKey(),
                                 profile.contentHash())
                         .equals(profile.requestDigest())) {

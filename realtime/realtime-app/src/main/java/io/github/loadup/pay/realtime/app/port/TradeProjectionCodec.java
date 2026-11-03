@@ -41,5 +41,5 @@ public interface TradeProjectionCodec {
 
     String hash(String payload);
 
-    String requestDigest(String tenant, String service, EventEnvelope<?> event, String factsHash);
+    String requestDigest(String service, EventEnvelope<?> event, String factsHash);
 }

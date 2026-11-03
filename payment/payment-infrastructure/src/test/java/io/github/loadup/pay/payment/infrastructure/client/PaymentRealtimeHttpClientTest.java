@@ -109,7 +109,7 @@ class PaymentRealtimeHttpClientTest {
         client = new PaymentRealtimeHttpClient(
                 realtimeHttp,
                 (service, audience) -> credential,
-                new PaymentRealtimeProperties("tenant", "payment", "realtime"));
+                new PaymentRealtimeProperties("payment", "realtime"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(

@@ -102,7 +102,7 @@ class LimitExecutionServiceTest {
         when(f.policies.lockHead("policy")).thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
         when(f.reservations.findExecutionGrant("operation", 1)).thenReturn(Optional.of(grant()));
         when(issuer.activeKeyId()).thenReturn("new-key");
-        when(issuer.issue(eq("tenant"), any(), eq("attempt"), eq(1L), eq("begin-key"), anyString()))
+        when(issuer.issue(any(), eq("attempt"), eq(1L), eq("begin-key"), anyString()))
                 .thenReturn(permit);
     }
 
@@ -137,7 +137,7 @@ class LimitExecutionServiceTest {
         stored(executing());
         var late = service(Clock.offset(f.clock, Duration.ofDays(1)));
         assertEquals(permit, late.beginExecution(begin()).permit());
-        verify(issuer).issue(eq("tenant"), any(), eq("attempt"), eq(1L), eq("begin-key"), eq("old-key"));
+        verify(issuer).issue(any(), eq("attempt"), eq(1L), eq("begin-key"), eq("old-key"));
         verify(f.reservations, never()).updateReservation(any(), anyLong());
         verify(f.reservations, never()).insertExecutionGrant(any());
     }
@@ -176,7 +176,7 @@ class LimitExecutionServiceTest {
     @Test
     void anUnavailableSigningKeyCannotActivateTheReservation() {
         stored(reserved());
-        when(issuer.issue(anyString(), any(), anyString(), anyLong(), anyString(), anyString()))
+        when(issuer.issue(any(), anyString(), anyLong(), anyString(), anyString()))
                 .thenThrow(new CommonException(LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.beginExecution(begin()));
         verify(f.reservations, never()).updateReservation(any(), anyLong());
@@ -213,7 +213,7 @@ class LimitExecutionServiceTest {
     @Test
     void reusingAKeyIdWithDifferentSecretFailsInsteadOfChangingTheOriginalPermit() {
         stored(executing());
-        when(issuer.issue(anyString(), any(), anyString(), anyLong(), anyString(), anyString()))
+        when(issuer.issue(any(), anyString(), anyLong(), anyString(), anyString()))
                 .thenReturn("f".repeat(64));
         var error = assertThrows(CommonException.class, () -> service.beginExecution(begin()));
         assertSame(LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE, error.getResultCode());

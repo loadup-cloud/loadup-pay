@@ -83,7 +83,7 @@ class TradeProjectionServiceTest {
     void setup() {
         when(codec.encode(any(TradePaymentProjection.class))).thenReturn("canonical");
         when(codec.hash(anyString())).thenReturn("a".repeat(64));
-        when(codec.requestDigest(anyString(), anyString(), any(), anyString()))
+        when(codec.requestDigest(anyString(), any(), anyString()))
                 .thenAnswer(c -> "%064x"
                         .formatted(Integer.toUnsignedLong(
                                 Objects.hash(c.getArgument(0), c.getArgument(1), c.getArgument(2), c.getArgument(3)))));

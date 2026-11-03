@@ -18,6 +18,7 @@ package io.github.loadup.pay.limitcenter.infrastructure.codec;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.support.LimitPolicyHash;
@@ -43,7 +44,8 @@ public class LimitPolicyCodec {
         return json.writeValueAsString(converter.toCommand(policy));
     }
 
-    public ActivatedLimitPolicy decode(String tenant, LimitPolicyRevisionDO row) {
+    public ActivatedLimitPolicy decode(LimitPolicyRevisionDO row) {
+        String tenant = TenantUtil.getTenantId();
         try {
             var command = json.readValue(row.getCompiledRules(), LimitPolicyActivateCommand.class);
             if (!validator.validate(command).isEmpty()

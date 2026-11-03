@@ -117,7 +117,7 @@ class PaymentLimitHttpClientTest {
         client = new PaymentLimitHttpClient(
                 limitCenterHttp,
                 (service, audience) -> credential,
-                new PaymentLimitProperties("tenant", "payment", "limitcenter"));
+                new PaymentLimitProperties("payment", "limitcenter"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(confirmed());

@@ -141,7 +141,7 @@ public class PaymentInputAccess {
             if (input.expired(now())) {
                 throw new CommonException(INPUT_EXPIRED);
             }
-            var interaction = cipher.decrypt(tenant, input);
+            var interaction = cipher.decrypt(input);
             if (input.expired(now())) {
                 throw new CommonException(INPUT_EXPIRED);
             }
@@ -177,7 +177,7 @@ public class PaymentInputAccess {
             if (input.expired(now())) {
                 throw new CommonException(INPUT_EXPIRED);
             }
-            var interaction = cipher.decrypt(tenant, input);
+            var interaction = cipher.decrypt(input);
             if (input.expired(now())) {
                 throw new CommonException(INPUT_EXPIRED);
             }

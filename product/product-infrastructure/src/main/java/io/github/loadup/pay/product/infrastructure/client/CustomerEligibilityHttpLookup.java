@@ -20,7 +20,6 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DE
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.customer.client.command.MerchantActionAuthorizeCommand;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
@@ -49,9 +48,7 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
             throw new CommonException(INVALID_STATE);
         }
         var actor = actors.current();
-        if (!TenantUtil.getTenantId().equals(actor.tenantId())
-                || actor.customerAccessToken() == null
-                || actor.customerAccessToken().isBlank()) {
+        if (actor.customerAccessToken() == null || actor.customerAccessToken().isBlank()) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {

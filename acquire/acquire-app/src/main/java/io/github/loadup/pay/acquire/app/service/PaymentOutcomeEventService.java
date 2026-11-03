@@ -102,7 +102,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
         }
         validate(event);
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            String digest = codec.digest(actor.tenantId(), actor.serviceId(), event);
+            String digest = codec.digest(actor.serviceId(), event);
             var prior = receipts.find(event.deliveryId());
             if (prior.isPresent()) {
                 return replay(actor, prior.get(), digest);

@@ -136,7 +136,7 @@ class PaymentInputAccessTest {
         when(payments.find(command.paymentId())).thenReturn(Optional.of(accepted));
         when(inputs.find(INPUT_REF)).thenAnswer(call -> Optional.ofNullable(boundInput.get()));
         var interaction = new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP);
-        when(cipher.decrypt(TENANT, initInput.bind(ATTEMPT, NOW))).thenAnswer(call -> {
+        when(cipher.decrypt(initInput.bind(ATTEMPT, NOW))).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return interaction;
         });
@@ -152,7 +152,7 @@ class PaymentInputAccessTest {
         assertSame(interaction, access.openForAttempt(TENANT, command.paymentId(), ATTEMPT));
         verify(inputs).lock(INPUT_REF);
         verify(inputs).bind(boundInput.get(), 0L);
-        verify(cipher).decrypt(TENANT, boundInput.get());
+        verify(cipher).decrypt(boundInput.get());
     }
 
     @Test

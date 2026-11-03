@@ -127,8 +127,8 @@ class PolicyPublicationServiceTest {
                 null,
                 Map.of("acquiring", item));
         activation = compiler.compile("tenant", "merchant", item.configuration());
-        when(codec.encode(eq("tenant"), any())).thenReturn("frozen-activation");
-        when(codec.decode(eq("tenant"), any())).thenReturn(activation);
+        when(codec.encode(any())).thenReturn("frozen-activation");
+        when(codec.decode(any())).thenReturn(activation);
         when(outbox.publish(any())).thenReturn("event");
         queue("PENDING");
         when(contracts.lockByScope("merchant", "scope"))

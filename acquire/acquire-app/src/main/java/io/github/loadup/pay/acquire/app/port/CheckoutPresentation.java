@@ -18,5 +18,5 @@ package io.github.loadup.pay.acquire.app.port;
 public interface CheckoutPresentation {
     String allowedOrigin();
 
-    String url(String tenantId, String orderId, String token);
+    String url(String orderId, String token);
 }

@@ -21,7 +21,6 @@ public interface ExecutionPermitIssuer {
     String activeKeyId();
 
     String issue(
-            String tenant,
             StoredLimitReservation stored,
             String attemptId,
             long executionEpoch,

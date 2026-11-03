@@ -41,7 +41,7 @@ class LimitPolicyActivationHttpClientTest {
     final LimitCenterHttpService remote = mock(LimitCenterHttpService.class);
     final ServiceAccessTokens tokens = mock(ServiceAccessTokens.class);
     final LimitPolicyActivationHttpClient client = new LimitPolicyActivationHttpClient(
-            remote, new PolicyPublicationTransportProperties("tenant", "product", "limitcenter"), tokens);
+            remote, new PolicyPublicationTransportProperties("product", "limitcenter"), tokens);
 
     @Test
     void eachAttemptUsesTheSharedCredentialSource() {

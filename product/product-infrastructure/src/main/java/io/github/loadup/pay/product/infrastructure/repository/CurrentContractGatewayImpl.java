@@ -110,7 +110,7 @@ public class CurrentContractGatewayImpl extends ServiceImpl<ContractLimitPublica
         }
         String tenant = TenantContext.tenantId();
         try {
-            publicationCodec.decode(tenant, publicationStorage.toModel(row));
+            publicationCodec.decode(publicationStorage.toModel(row));
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

@@ -54,7 +54,6 @@ loadup:
       max-size: 32MB
   http:
     client:
-      tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
     clients:
       acquire:
         base-url: ${ACQUIRE_BASE_URL:http://acquire:8080}

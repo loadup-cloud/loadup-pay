@@ -106,9 +106,9 @@ public class PaymentInputService implements PaymentInputFacade {
             var preparedAt = now();
             String reference = cipher.newReference();
             String keyId = cipher.activeFingerprintKeyId();
-            String digest = cipher.fingerprint(actor.tenantId(), actor.serviceId(), command, keyId);
+            String digest = cipher.fingerprint(actor.serviceId(), command, keyId);
             // KMS is remote and must complete before any business database locks are acquired.
-            var encrypted = cipher.encrypt(actor.tenantId(), actor.serviceId(), reference, command);
+            var encrypted = cipher.encrypt(actor.serviceId(), reference, command);
             var input = converter.toInput(
                     command,
                     reference,
@@ -138,7 +138,7 @@ public class PaymentInputService implements PaymentInputFacade {
         if (!actor.serviceId().equals(prior.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        String supplied = cipher.fingerprint(actor.tenantId(), actor.serviceId(), command, prior.fingerprintKeyId());
+        String supplied = cipher.fingerprint(actor.serviceId(), command, prior.fingerprintKeyId());
         if (!MessageDigest.isEqual(
                 supplied.getBytes(StandardCharsets.US_ASCII),
                 prior.inputDigest().getBytes(StandardCharsets.US_ASCII))) {

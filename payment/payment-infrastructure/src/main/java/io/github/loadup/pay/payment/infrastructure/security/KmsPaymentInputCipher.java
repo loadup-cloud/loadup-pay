@@ -20,6 +20,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.util.DigestUtils;
@@ -84,7 +85,8 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
     }
 
     @Override
-    public String fingerprint(String tenant, String service, PaymentInputPrepareCommand command, String keyId) {
+    public String fingerprint(String service, PaymentInputPrepareCommand command, String keyId) {
+        String tenant = TenantUtil.getTenantId();
         String secret = properties.fingerprintKeys().get(keyId);
         if (secret == null) {
             throw new CommonException(INPUT_UNAVAILABLE);
@@ -97,7 +99,8 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
 
     @Override
     public EncryptedPaymentInput encrypt(
-            String tenant, String service, String inputRef, PaymentInputPrepareCommand command) {
+            String service, String inputRef, PaymentInputPrepareCommand command) {
+        String tenant = TenantUtil.getTenantId();
         requireNoTransaction();
         byte[] bytes = mapper.writeValueAsBytes(new CipherPayload(1, tenant, service, inputRef, command));
         try {
@@ -109,7 +112,8 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
     }
 
     @Override
-    public PaymentInteractionDTO decrypt(String tenant, PaymentInput stored) {
+    public PaymentInteractionDTO decrypt(PaymentInput stored) {
+        String tenant = TenantUtil.getTenantId();
         requireNoTransaction();
         if (!properties.encryptionKey().equals(stored.encryptionKey())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -141,7 +145,7 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
                     || stored.method() != command.choice().method()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            String digest = fingerprint(tenant, stored.callerServiceId(), command, stored.fingerprintKeyId());
+            String digest = fingerprint(stored.callerServiceId(), command, stored.fingerprintKeyId());
             if (!MessageDigest.isEqual(
                     digest.getBytes(StandardCharsets.US_ASCII),
                     stored.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
