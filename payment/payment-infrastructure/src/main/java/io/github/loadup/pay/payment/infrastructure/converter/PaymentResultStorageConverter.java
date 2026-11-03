@@ -66,13 +66,12 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     PaymentResultAnomalyDO toAnomalyDO(PaymentResultAnomaly value);
 
-    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "identity", source = "identity")
     @Mapping(
             target = "amount",
             expression =
                     "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
-    ChannelTransactionClaim toClaim(String tenant, ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
+    ChannelTransactionClaim toClaim(ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
 
     @Mapping(target = "paymentId", source = "identity.paymentId")
     @Mapping(target = "attemptId", source = "identity.attemptId")

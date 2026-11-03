@@ -126,8 +126,8 @@ class MerchantNotificationServiceTest {
                 })
                 .when(tasks)
                 .register(eq(MerchantNotificationService.TYPE), anyString(), ArgumentMatchers.any());
-        when(transport.fingerprint(eq(TENANT), ArgumentMatchers.any())).thenReturn(ROUTE);
-        when(transport.send(eq(TENANT), ArgumentMatchers.any())).thenReturn(false);
+        when(transport.fingerprint(ArgumentMatchers.any())).thenReturn(ROUTE);
+        when(transport.send(ArgumentMatchers.any())).thenReturn(false);
     }
 
     @AfterEach
@@ -140,7 +140,7 @@ class MerchantNotificationServiceTest {
     void registersSuccessorBeforeSendingAndFalseAcknowledgementLeavesDeliveryPending() {
         var task = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(task.bizId(), task);
-        when(transport.send(eq(TENANT), ArgumentMatchers.any())).thenAnswer(call -> {
+        when(transport.send(ArgumentMatchers.any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(MerchantNotificationState.PENDING, current.get().state());
             assertTrue(operations.stream().anyMatch(value -> value.startsWith("register:delivery:1")));
@@ -166,7 +166,7 @@ class MerchantNotificationServiceTest {
     void acknowledgesOnlyAfterTheTransportReturnsOutsideTheTransaction() {
         var task = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(task.bizId(), task);
-        when(transport.send(eq(TENANT), ArgumentMatchers.any())).thenAnswer(call -> {
+        when(transport.send(ArgumentMatchers.any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(MerchantNotificationState.PENDING, current.get().state());
             operations.add("send");
@@ -192,7 +192,7 @@ class MerchantNotificationServiceTest {
         invoke(duplicate, service(NOW.plusSeconds(1)));
 
         assertEquals(1, current.get().attemptCount());
-        verify(transport, times(1)).send(eq(TENANT), ArgumentMatchers.any());
+        verify(transport, times(1)).send(ArgumentMatchers.any());
     }
 
     @Test
@@ -212,7 +212,7 @@ class MerchantNotificationServiceTest {
                 assertThrows(CommonException.class, () -> invoke(expired, service(NOW)))
                         .getResultCode());
         verify(deliveries, never()).lock(eq("delivery"));
-        verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
+        verify(transport, never()).send(ArgumentMatchers.any());
     }
 
     @Test
@@ -230,14 +230,14 @@ class MerchantNotificationServiceTest {
 
         invoke(atLimit, service(atLimit.executeAt()));
         assertEquals(MerchantNotificationState.EXHAUSTED, current.get().state());
-        verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
+        verify(transport, never()).send(ArgumentMatchers.any());
 
         current.set(delivery(policy(5, 5, 1)));
         var expired = runningTask("delivery:0", NOW, NOW, "native-expired-window", 1, NOW.plusMinutes(1));
         nativeTasks.put(expired.bizId(), expired);
         invoke(expired, service(NOW.plusSeconds(1)));
         assertEquals(MerchantNotificationState.EXHAUSTED, current.get().state());
-        verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
+        verify(transport, never()).send(ArgumentMatchers.any());
     }
 
     @Test
@@ -245,7 +245,7 @@ class MerchantNotificationServiceTest {
         var first = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(first.bizId(), first);
         invoke(first, service(NOW));
-        when(transport.fingerprint(eq(TENANT), ArgumentMatchers.any())).thenReturn(CHANGED_ROUTE);
+        when(transport.fingerprint(ArgumentMatchers.any())).thenReturn(CHANGED_ROUTE);
         var due = current.get().nextAttemptAt();
         var second = runningTask("delivery:1", due, due, "native-1", 1, NOW.plusMinutes(1));
         nativeTasks.put(second.bizId(), second);
@@ -255,9 +255,7 @@ class MerchantNotificationServiceTest {
         assertEquals(ROUTE, current.get().routeFingerprint());
         assertEquals(2, current.get().attemptCount());
         verify(transport, times(2))
-                .send(
-                        eq(TENANT),
-                        ArgumentMatchers.argThat(value -> ((MerchantNotificationDelivery) value)
+                .send(ArgumentMatchers.argThat(value -> ((MerchantNotificationDelivery) value)
                                 .routeFingerprint()
                                 .equals(ROUTE)));
     }

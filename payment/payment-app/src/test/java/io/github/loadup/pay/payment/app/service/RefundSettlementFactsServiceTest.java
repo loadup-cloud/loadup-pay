@@ -95,7 +95,6 @@ class RefundSettlementFactsServiceTest {
             5);
     final RefundTransactionClaim claim = new RefundTransactionClaim(
             "claim",
-            "tenant",
             "refund",
             first.original(),
             successful.channelRefundNo(),

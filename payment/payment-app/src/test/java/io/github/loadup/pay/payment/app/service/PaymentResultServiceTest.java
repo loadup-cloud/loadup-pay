@@ -267,8 +267,7 @@ class PaymentResultServiceTest {
                         .filter(v -> v.channelTransactionNo().equals(c.getArgument(2))));
         when(results.attemptClaim("attempt"))
                 .thenAnswer(c -> Optional.ofNullable(claim.get())
-                        .filter(v -> v.tenantId().equals("tenant")
-                                && v.identity().attemptId().equals("attempt")));
+                        .filter(v -> v.identity().attemptId().equals("attempt")));
         when(results.capacity("payment")).thenAnswer(c -> Optional.ofNullable(capacity.get()));
         doAnswer(c -> {
                     active();
@@ -737,7 +736,6 @@ class PaymentResultServiceTest {
     void channelTransactionClaimConflictsAcrossTenantAliasesWithoutReturningTheOtherOwner() {
         claim.set(new ChannelTransactionClaim(
                 "other-claim",
-                "other-tenant",
                 attempt.get().attempt().identity(),
                 accepted.get().payment().amount(),
                 "channel-transaction",

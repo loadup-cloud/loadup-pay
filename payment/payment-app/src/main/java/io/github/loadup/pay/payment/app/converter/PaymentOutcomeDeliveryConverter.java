@@ -50,7 +50,6 @@ public interface PaymentOutcomeDeliveryConverter {
     @Mapping(target = "consultation", source = "consultation")
     @Mapping(target = "decision", source = "decision")
     RiskOutcome toRisk(
-            String tenantId,
             String businessEventId,
             RiskConsultation consultation,
             RiskDecision decision,

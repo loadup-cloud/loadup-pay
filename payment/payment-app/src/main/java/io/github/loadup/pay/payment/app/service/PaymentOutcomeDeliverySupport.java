@@ -146,8 +146,7 @@ public class PaymentOutcomeDeliverySupport {
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     var capacity = results.capacity(current.payment().id())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                    if (!claim.tenantId().equals(tenant)
-                            || !claim.identity().equals(attempt.attempt().identity())
+                    if (!claim.identity().equals(attempt.attempt().identity())
                             || !claim.amount().equals(current.payment().amount())
                             || !claim.receiptId().equals(current.terminalEvidenceId())
                             || !capacity.succeededAmount()
@@ -165,7 +164,7 @@ public class PaymentOutcomeDeliverySupport {
                                         attempt.attempt().noCollectionEvidenceId(), current.terminalEvidenceId()))) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                return new PaymentDeliverySnapshot(tenant, envelope, current, attempt, succeededAt);
+                return new PaymentDeliverySnapshot(envelope, current, attempt, succeededAt);
             });
         });
     }

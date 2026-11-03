@@ -83,8 +83,7 @@ class PaymentRiskOutcomeDeliveryTest {
                 .confirm(any());
         delivery.deliver(event);
         verify(risk)
-                .confirm(argThat(outcome -> outcome.tenantId().equals("tenant")
-                        && outcome.businessEventId().equals("evidence")
+                .confirm(argThat(outcome -> outcome.businessEventId().equals("evidence")
                         && outcome.evidenceId().equals("evidence")
                         && outcome.paymentState() == PaymentState.SUCCEEDED
                         && outcome.consultation().attemptId().equals("attempt")
@@ -115,7 +114,7 @@ class PaymentRiskOutcomeDeliveryTest {
         var original = OutcomeDeliveryFixtures.snapshot(false, false, PaymentEvents.RISK);
         when(support.load(event, PaymentEvents.RISK))
                 .thenReturn(new PaymentDeliverySnapshot(
-                        original.tenantId(), original.envelope(), original.payment(), null, null));
+                        original.envelope(), original.payment(), null, null));
         delivery.deliver(event);
         verifyNoInteractions(risk);
     }

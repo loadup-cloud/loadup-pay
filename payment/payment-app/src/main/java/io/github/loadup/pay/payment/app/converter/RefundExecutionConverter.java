@@ -63,7 +63,7 @@ public interface RefundExecutionConverter {
             LocalDateTime receivedAt);
 
     @Mapping(target = "original", source = "observation.original")
-    RefundTransactionClaim toClaim(String id, String tenantId, RefundObservation observation, String receiptId);
+    RefundTransactionClaim toClaim(String id, RefundObservation observation, String receiptId);
 
     @Mapping(target = "refundId", source = "observation.refundId")
     @Mapping(target = "original", source = "observation.original")

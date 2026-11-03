@@ -145,8 +145,7 @@ public class PaymentEvents {
             }
             var claim = results.attemptClaim(attempt.attempt().id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!claim.tenantId().equals(tenant)
-                    || !claim.identity().equals(attempt.attempt().identity())
+            if (!claim.identity().equals(attempt.attempt().identity())
                     || !claim.amount().equals(payment.payment().amount())
                     || !claim.receiptId().equals(payment.terminalEvidenceId())) {
                 throw new CommonException(SNAPSHOT_INVALID);

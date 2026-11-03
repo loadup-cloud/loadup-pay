@@ -52,13 +52,12 @@ public interface RefundResultStorageConverter {
 
     ChannelPaymentIdentity toIdentity(RefundTransactionClaimDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "original", source = "original")
     @Mapping(
             target = "amount",
             expression =
                     "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
-    RefundTransactionClaim toClaim(String tenant, RefundTransactionClaimDO row, ChannelPaymentIdentity original);
+    RefundTransactionClaim toClaim(RefundTransactionClaimDO row, ChannelPaymentIdentity original);
 
     @Mapping(target = "paymentId", source = "original.paymentId")
     @Mapping(target = "attemptId", source = "original.attemptId")

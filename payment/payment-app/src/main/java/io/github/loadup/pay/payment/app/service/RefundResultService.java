@@ -138,10 +138,10 @@ public class RefundResultService {
                     observation.original().accountScopeHash(),
                     observation.channelRefundTransactionNo());
             var own = results.claim(current.id());
-            if (claimed.isPresent() && !matches(tenant, claimed.get(), observation)) {
+            if (claimed.isPresent() && !matches(claimed.get(), observation)) {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_ALREADY_CLAIMED");
             }
-            if (own.isPresent() && !matches(tenant, own.get(), observation)) {
+            if (own.isPresent() && !matches(own.get(), observation)) {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_CONFLICT");
             }
             if (current.state() == RefundState.SUCCEEDED) {
@@ -160,7 +160,7 @@ public class RefundResultService {
             if (own.isPresent() || claimed.isPresent()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            results.insertClaim(converter.toClaim(ids.generate(), tenant, observation, id));
+            results.insertClaim(converter.toClaim(ids.generate(), observation, id));
         } else if (observation.kind() == ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND
                 && current.state() == RefundState.SUCCEEDED) {
             return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
@@ -249,9 +249,8 @@ public class RefundResultService {
         return null;
     }
 
-    private boolean matches(String tenant, RefundTransactionClaim claim, RefundObservation o) {
-        return claim.tenantId().equals(tenant)
-                && claim.refundId().equals(o.refundId())
+    private boolean matches(RefundTransactionClaim claim, RefundObservation o) {
+        return claim.refundId().equals(o.refundId())
                 && claim.original().equals(o.original())
                 && claim.originalChannelTransactionNo().equals(o.originalChannelTransactionNo())
                 && claim.channelRefundNo().equals(o.channelRefundNo())

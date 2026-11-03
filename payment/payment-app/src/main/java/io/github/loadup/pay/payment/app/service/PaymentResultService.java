@@ -269,11 +269,11 @@ public class PaymentResultService {
                 observation.identity().channel(),
                 observation.identity().accountScopeHash(),
                 observation.channelTransactionNo());
-        if (claimed.isPresent() && !matches(tenant, claimed.get(), observation)) {
+        if (claimed.isPresent() && !matches(claimed.get(), observation)) {
             return reject(tenant, accepted, id, observation, digest, payload, "CHANNEL_TRANSACTION_ALREADY_CLAIMED");
         }
         var own = results.attemptClaim(observation.identity().attemptId());
-        if (own.isPresent() && !matches(tenant, own.get(), observation)) {
+        if (own.isPresent() && !matches(own.get(), observation)) {
             return reject(tenant, accepted, id, observation, digest, payload, "ATTEMPT_TRANSACTION_CONFLICT");
         }
         if (accepted.payment().state() == PaymentState.SUCCEEDED) {
@@ -294,7 +294,7 @@ public class PaymentResultService {
         }
         var updated = attempt.applyOutcome(outcome(observation, id), false);
         var succeeded = updates.withPayment(accepted, accepted.payment().applyAttempt(updated.attempt()), id);
-        results.insertClaim(converter.toClaim(ids.generate(), tenant, observation, id));
+        results.insertClaim(converter.toClaim(ids.generate(), observation, id));
         results.insertCapacity(ids.generate(), converter.toCapacity(accepted, observation.succeededAt()));
         attempts.update(updated, attempt.rowVersion());
         results.completeSuccess(succeeded, accepted.payment().version(), observation.succeededAt());
@@ -347,9 +347,8 @@ public class PaymentResultService {
         return applied;
     }
 
-    private boolean matches(String tenant, ChannelTransactionClaim claim, PaymentObservation observation) {
-        return claim.tenantId().equals(tenant)
-                && claim.identity().equals(observation.identity())
+    private boolean matches(ChannelTransactionClaim claim, PaymentObservation observation) {
+        return claim.identity().equals(observation.identity())
                 && claim.amount().equals(observation.amount())
                 && claim.channelTransactionNo().equals(observation.channelTransactionNo())
                 && claim.succeededAt().equals(observation.succeededAt());

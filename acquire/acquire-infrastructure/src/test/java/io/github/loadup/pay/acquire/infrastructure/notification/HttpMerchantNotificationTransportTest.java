@@ -169,7 +169,7 @@ class HttpMerchantNotificationTransportTest {
                 NOW);
         String route = TenantUtil.callWithTenant(TENANT, () -> {
             try {
-                return transport.fingerprint(TENANT, initial);
+                return transport.fingerprint(initial);
             } catch (CommonException invalidCatalog) {
                 return "0".repeat(64);
             }
@@ -319,8 +319,8 @@ class HttpMerchantNotificationTransportTest {
         });
 
         TenantUtil.runWithTenant(TENANT, () -> {
-            assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
-            assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
+            assertTrue(fixture.transport().send(fixture.delivery()));
+            assertTrue(fixture.transport().send(fixture.delivery()));
         });
 
         assertEquals(2, content.size());
@@ -352,8 +352,8 @@ class HttpMerchantNotificationTransportTest {
                 .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
 
         TenantUtil.runWithTenant(TENANT, () -> {
-            assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
-            assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
+            assertTrue(fixture.transport().send(fixture.delivery()));
+            assertTrue(fixture.transport().send(fixture.delivery()));
         });
 
         assertEquals(2, nonces.size());
@@ -378,7 +378,7 @@ class HttpMerchantNotificationTransportTest {
                 .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
 
         TenantUtil.runWithTenant(TENANT, () -> {
-            assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
+            assertTrue(fixture.transport().send(fixture.delivery()));
             List<byte[]> rejected = List.of(
                     new byte[0],
                     ack("foreign-event"),
@@ -390,31 +390,31 @@ class HttpMerchantNotificationTransportTest {
                     bytes("{\"eventId\":\"event-a\",\"result\":1}"));
             for (byte[] body : rejected) {
                 response.set(ok(body));
-                assertFalse(fixture.transport().send(TENANT, fixture.delivery()));
+                assertFalse(fixture.transport().send(fixture.delivery()));
             }
             response.set(ResponseEntity.status(204).build());
-            assertFalse(fixture.transport().send(TENANT, fixture.delivery()));
+            assertFalse(fixture.transport().send(fixture.delivery()));
             response.set(ResponseEntity.status(503).body(ack(EVENT)));
-            assertFalse(fixture.transport().send(TENANT, fixture.delivery()));
+            assertFalse(fixture.transport().send(fixture.delivery()));
         });
     }
 
     @Test
     void rejectsInvalidTenantCatalogAndHttpConfigurationBeforeHttp() {
         var valid = fixture(validProperties(), validHttpProperties());
-        assertThrows(CommonException.class, () -> valid.transport().send(TENANT, valid.delivery()));
+        assertThrows(CommonException.class, () -> valid.transport().send(valid.delivery()));
         verify(valid.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
         TenantUtil.runWithTenant(
                 "foreign-tenant",
                 () -> assertThrows(
-                        CommonException.class, () -> valid.transport().fingerprint(TENANT, valid.delivery())));
+                        CommonException.class, () -> valid.transport().fingerprint(valid.delivery())));
 
         var disabled = fixture(properties(Map.of()), validHttpProperties());
         assertThrows(
                 CommonException.class,
                 () -> TenantUtil.runWithTenant(
-                        TENANT, () -> disabled.transport().send(TENANT, disabled.delivery())));
+                        TENANT, () -> disabled.transport().send(disabled.delivery())));
         verify(disabled.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
         var wrongMerchant = fixture(
@@ -428,7 +428,7 @@ class HttpMerchantNotificationTransportTest {
         assertThrows(
                 CommonException.class,
                 () -> TenantUtil.runWithTenant(
-                        TENANT, () -> wrongMerchant.transport().send(TENANT, wrongMerchant.delivery())));
+                        TENANT, () -> wrongMerchant.transport().send(wrongMerchant.delivery())));
         verify(wrongMerchant.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
         for (HttpProperties bad : List.of(httpProperties(true, false), httpProperties(false, true))) {
@@ -436,7 +436,7 @@ class HttpMerchantNotificationTransportTest {
             assertThrows(
                     CommonException.class,
                     () -> TenantUtil.runWithTenant(
-                            TENANT, () -> rejected.transport().send(TENANT, rejected.delivery())));
+                            TENANT, () -> rejected.transport().send(rejected.delivery())));
             verify(rejected.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
         }
     }
@@ -447,7 +447,7 @@ class HttpMerchantNotificationTransportTest {
         var changed = withRoute(valid.delivery(), "0".repeat(64));
         assertThrows(
                 CommonException.class,
-                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(TENANT, changed)));
+                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(changed)));
         verify(valid.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
         var signer = mock(RequestSigner.class);
@@ -461,7 +461,7 @@ class HttpMerchantNotificationTransportTest {
                 .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
         assertThrows(
                 CommonException.class,
-                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(TENANT, valid.delivery())));
+                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(valid.delivery())));
         verify(signer, never()).sign(any(), any(RequestContent.class));
 
         doAnswer(call -> {
@@ -474,7 +474,7 @@ class HttpMerchantNotificationTransportTest {
                 .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
         assertThrows(
                 CommonException.class,
-                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(TENANT, valid.delivery())));
+                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(valid.delivery())));
         verify(signer, never()).sign(any(), any(RequestContent.class));
     }
 
@@ -492,7 +492,7 @@ class HttpMerchantNotificationTransportTest {
             for (String body : invalidBodies) {
                 assertThrows(
                         CommonException.class,
-                        () -> fixture.transport().send(TENANT, withBody(fixture.delivery(), body)));
+                        () -> fixture.transport().send(withBody(fixture.delivery(), body)));
             }
         });
         verify(fixture.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
@@ -526,11 +526,9 @@ class HttpMerchantNotificationTransportTest {
                 refundBody("RefundRequestCompleted", "RefundRequest", "request-a", "PARTIAL_SUCCEEDED", 1000, 250);
         TenantUtil.runWithTenant(TENANT, () -> {
             assertTrue(fixture.transport()
-                    .send(TENANT, refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", successBody)));
+                    .send(refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", successBody)));
             assertTrue(fixture.transport()
-                    .send(
-                            TENANT,
-                            refundDelivery(fixture.delivery(), "RefundRequestCompleted", "request-a", requestBody)));
+                    .send(refundDelivery(fixture.delivery(), "RefundRequestCompleted", "request-a", requestBody)));
         });
         assertEquals(2, sent.size());
         assertArrayEquals(bytes(successBody), sent.get(0));
@@ -552,9 +550,7 @@ class HttpMerchantNotificationTransportTest {
                 assertThrows(
                         CommonException.class,
                         () -> fixture.transport()
-                                .send(
-                                        TENANT,
-                                        refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", corrupt)));
+                                .send(refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", corrupt)));
             }
         });
         verify(fixture.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));

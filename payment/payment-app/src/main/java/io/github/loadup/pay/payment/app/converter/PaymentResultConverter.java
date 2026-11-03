@@ -47,7 +47,7 @@ public interface PaymentResultConverter {
     @Mapping(target = "amount", source = "observation.amount")
     @Mapping(target = "channelTransactionNo", source = "observation.channelTransactionNo")
     @Mapping(target = "succeededAt", source = "observation.succeededAt")
-    ChannelTransactionClaim toClaim(String id, String tenantId, PaymentObservation observation, String receiptId);
+    ChannelTransactionClaim toClaim(String id, PaymentObservation observation, String receiptId);
 
     @Mapping(target = "paymentId", source = "value.payment.id")
     @Mapping(target = "orderId", source = "value.payment.orderId")

@@ -44,14 +44,12 @@ public record RecoveryPollingPolicy(
     }
 
     public LocalDateTime nextAt(
-            String tenant,
             String operation,
             String businessId,
             long generation,
             LocalDateTime startedAt,
             LocalDateTime previousDueAt,
             LocalDateTime now) {
-        DomainChecks.id(tenant);
         DomainChecks.text(operation, 128);
         DomainChecks.id(businessId);
         Objects.requireNonNull(startedAt);
@@ -68,7 +66,7 @@ public record RecoveryPollingPolicy(
         long spread = delay * jitterPercent / 100;
         long lower = Math.max(initialDelaySeconds, delay - spread);
         long upper = Math.min(maximumDelaySeconds, delay + spread);
-        long offset = Math.floorMod((long) Objects.hash(tenant, operation, businessId, generation), upper - lower + 1);
+        long offset = Math.floorMod((long) Objects.hash(operation, businessId, generation), upper - lower + 1);
         return anchor.plusSeconds(lower + offset);
     }
 

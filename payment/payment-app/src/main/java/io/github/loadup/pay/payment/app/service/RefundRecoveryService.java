@@ -118,9 +118,7 @@ public class RefundRecoveryService {
                 cursors.update(before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;
             } else {
-                var nextAt = polling.nextAt(
-                        tenant,
-                        TYPE,
+                var nextAt = polling.nextAt(TYPE,
                         key.requestId(),
                         before.generation(),
                         request.plannedAt(),

@@ -81,6 +81,6 @@ final class OutcomeDeliveryFixtures {
                 payment.version(),
                 BusinessTime.external(AttemptFixtures.NOW),
                 data);
-        return new PaymentDeliverySnapshot("tenant", envelope, stored, attempt, succeeded ? AttemptFixtures.NOW : null);
+        return new PaymentDeliverySnapshot(envelope, stored, attempt, succeeded ? AttemptFixtures.NOW : null);
     }
 }

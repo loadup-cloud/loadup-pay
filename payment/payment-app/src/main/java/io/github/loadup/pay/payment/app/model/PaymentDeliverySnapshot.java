@@ -26,7 +26,6 @@ import java.time.LocalDateTime;
  * Consistent terminal facts read under local locks, released before calling any downstream.
  */
 public record PaymentDeliverySnapshot(
-        String tenantId,
         EventEnvelope<PaymentOutcomeEventDTO> envelope,
         StoredPaymentAcceptance payment,
         StoredPaymentAttempt attempt,

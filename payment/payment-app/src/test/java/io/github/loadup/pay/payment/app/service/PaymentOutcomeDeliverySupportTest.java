@@ -123,7 +123,6 @@ class PaymentOutcomeDeliverySupportTest {
             var current = source.get();
             return Optional.of(new ChannelTransactionClaim(
                     "claim",
-                    "tenant",
                     current.attempt().attempt().identity(),
                     current.payment().payment().amount(),
                     "channel-transaction",
@@ -248,7 +247,7 @@ class PaymentOutcomeDeliverySupportTest {
                 initial.payment().payloadHash(),
                 "evidence");
         source.set(new PaymentDeliverySnapshot(
-                "tenant", initial.envelope(), stored, initial.attempt(), initial.succeededAt()));
+                initial.envelope(), stored, initial.attempt(), initial.succeededAt()));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::load).getResultCode());
@@ -261,7 +260,6 @@ class PaymentOutcomeDeliverySupportTest {
         when(results.attemptClaim("attempt"))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim",
-                        "tenant",
                         source.get().attempt().attempt().identity(),
                         source.get().payment().payment().amount(),
                         "transaction",
@@ -276,7 +274,6 @@ class PaymentOutcomeDeliverySupportTest {
         when(results.attemptClaim("attempt"))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim",
-                        "other-tenant",
                         source.get().attempt().attempt().identity(),
                         source.get().payment().payment().amount(),
                         "transaction",
@@ -292,7 +289,7 @@ class PaymentOutcomeDeliverySupportTest {
         source(false);
         var initial = source.get();
         var wrong = AttemptFixtures.prepared().closeBeforeSubmission("another-evidence", null);
-        source.set(new PaymentDeliverySnapshot("tenant", initial.envelope(), initial.payment(), wrong, null));
+        source.set(new PaymentDeliverySnapshot(initial.envelope(), initial.payment(), wrong, null));
         assertThrows(CommonException.class, this::load);
     }
 

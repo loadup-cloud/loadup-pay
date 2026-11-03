@@ -24,7 +24,6 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
@@ -212,7 +211,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     private Optional<RefundTransactionClaim> claim(RefundTransactionClaimDO row) {
         return row == null
                 ? Optional.empty()
-                : Optional.of(read(() -> converter.toClaim(TenantContext.tenantId(), row, converter.toIdentity(row))));
+                : Optional.of(read(() -> converter.toClaim(row, converter.toIdentity(row))));
     }
 
     @Override

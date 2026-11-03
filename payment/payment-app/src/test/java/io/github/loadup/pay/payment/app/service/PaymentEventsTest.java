@@ -247,7 +247,6 @@ class PaymentEventsTest {
         when(results.attemptClaim("attempt"))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim",
-                        "tenant",
                         succeeded.attempt().identity(),
                         succeeded.attempt().amount(),
                         "channel-transaction",

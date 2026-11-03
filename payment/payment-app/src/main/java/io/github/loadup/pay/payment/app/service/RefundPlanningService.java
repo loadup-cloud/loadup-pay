@@ -176,8 +176,7 @@ public class RefundPlanningService implements RefundFacade {
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var attempt = attempts.find(payment.successfulAttemptId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!claim.tenantId().equals(actor.tenantId())
-                        || !claim.identity().paymentId().equals(payment.id())
+                if (!claim.identity().paymentId().equals(payment.id())
                         || !claim.identity().attemptId().equals(payment.successfulAttemptId())
                         || !claim.amount().equals(payment.amount())
                         || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED

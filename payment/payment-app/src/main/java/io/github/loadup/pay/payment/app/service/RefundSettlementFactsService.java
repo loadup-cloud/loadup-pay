@@ -91,8 +91,7 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
                             claim.original().accountScopeHash(),
                             claim.channelRefundTransactionNo())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!actor.tenantId().equals(claim.tenantId())
-                    || !refund.id().equals(claim.refundId())
+            if (!refund.id().equals(claim.refundId())
                     || !child.original().equals(claim.original())
                     || !child.channelTransactionNo().equals(claim.originalChannelTransactionNo())
                     || !refund.channelRefundNo().equals(claim.channelRefundNo())

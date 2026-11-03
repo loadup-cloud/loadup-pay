@@ -244,7 +244,6 @@ class RefundPlanningServiceTest {
         when(results.attemptClaim(attempt.id()))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim-" + id,
-                        "tenant",
                         attempt.identity(),
                         attempt.amount(),
                         "transaction-" + id,

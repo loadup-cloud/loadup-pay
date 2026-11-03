@@ -124,9 +124,7 @@ public class PaymentRecoveryService {
                 cursors.update(before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;
             } else {
-                var nextAt = polling.nextAt(
-                        tenant,
-                        TYPE,
+                var nextAt = polling.nextAt(TYPE,
                         key.paymentId(),
                         before.generation(),
                         request.payment().initiatedAt(),

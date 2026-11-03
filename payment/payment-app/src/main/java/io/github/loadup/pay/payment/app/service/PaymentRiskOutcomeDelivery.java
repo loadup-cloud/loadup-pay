@@ -46,7 +46,6 @@ public class PaymentRiskOutcomeDelivery {
             return;
         }
         var outcome = converter.toRisk(
-                snapshot.tenantId(),
                 snapshot.envelope().businessEventId(),
                 consultations.toConsultation(snapshot.payment(), snapshot.attempt()),
                 snapshot.attempt().riskDecision(),

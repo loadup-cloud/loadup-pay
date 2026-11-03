@@ -113,7 +113,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                     }
                     String route = null;
                     try {
-                        route = transport.fingerprint(tenant, before);
+                        route = transport.fingerprint(before);
                     } catch (RuntimeException unavailable) {
                         /* Missing local configuration consumes no network call. */
                     }
@@ -131,7 +131,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
         }
         boolean ack = false;
         try {
-            ack = transport.send(tenant, sending);
+            ack = transport.send(sending);
         } catch (RuntimeException unavailable) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);

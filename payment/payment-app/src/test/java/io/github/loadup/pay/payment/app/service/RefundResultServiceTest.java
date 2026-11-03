@@ -133,8 +133,7 @@ class RefundResultServiceTest {
                 .thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(1) + "/" + c.getArgument(2))));
         when(results.claim("refund"))
                 .thenAnswer(c -> Optional.ofNullable(claim.get())
-                        .filter(v ->
-                                v.tenantId().equals("tenant") && v.refundId().equals("refund")));
+                        .filter(v -> v.refundId().equals("refund")));
         when(results.transaction(any(), anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(claim.get())
                         .filter(v -> v.channelRefundTransactionNo().equals(c.getArgument(2))));
@@ -286,7 +285,6 @@ class RefundResultServiceTest {
         var o = observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event");
         claim.set(new RefundTransactionClaim(
                 "other-claim",
-                "other-tenant",
                 "other-refund",
                 o.original(),
                 "other-request",

@@ -23,11 +23,10 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Permanent ownership of a real channel transaction, across tenant/app/credential aliases.
+ * Permanent ownership of a real channel transaction, across app/credential aliases.
  */
 public record ChannelTransactionClaim(
         String id,
-        String tenantId,
         ChannelPaymentIdentity identity,
         Money amount,
         String channelTransactionNo,
@@ -35,7 +34,6 @@ public record ChannelTransactionClaim(
         String receiptId) {
     public ChannelTransactionClaim {
         DomainChecks.id(id);
-        DomainChecks.id(tenantId);
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
         DomainChecks.positive(amount.getCent());

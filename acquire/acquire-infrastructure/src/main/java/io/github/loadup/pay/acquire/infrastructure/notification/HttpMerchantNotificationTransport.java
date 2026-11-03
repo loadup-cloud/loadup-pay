@@ -87,9 +87,10 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
     }
 
     @Override
-    public String fingerprint(String tenant, MerchantNotificationDelivery delivery) {
-        var target = target(tenant, delivery);
-        var identity = signing(tenant, delivery).identity();
+    public String fingerprint(MerchantNotificationDelivery delivery) {
+        String tenant = tenant();
+        var target = target(delivery);
+        var identity = signing(delivery).identity();
         return DigestUtils.sha256(JsonUtil.toJson(List.of(
                 "merchant-notification-route-v1",
                 tenant,
@@ -108,7 +109,8 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
     }
 
     @Override
-    public boolean send(String tenant, MerchantNotificationDelivery delivery) {
+    public boolean send(MerchantNotificationDelivery delivery) {
+        String tenant = tenant();
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -116,11 +118,11 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
             throw new CommonException(INVALID_STATE);
         }
         long started = System.nanoTime();
-        if (delivery.routeFingerprint() == null || !delivery.routeFingerprint().equals(fingerprint(tenant, delivery))) {
+        if (delivery.routeFingerprint() == null || !delivery.routeFingerprint().equals(fingerprint(delivery))) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var target = target(tenant, delivery);
-        var identity = signing(tenant, delivery).identity();
+        var target = target(delivery);
+        var identity = signing(delivery).identity();
         configuration(target, delivery.policy().timeoutMillis());
         var template = http.getIfAvailable();
         var signer = signers.getIfAvailable();
@@ -309,10 +311,8 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
         }
     }
 
-    private MerchantNotificationProperties.Target target(String tenant, MerchantNotificationDelivery delivery) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private MerchantNotificationProperties.Target target(MerchantNotificationDelivery delivery) {
+        String tenant = tenant();
         var target = properties
                 .targets()
                 .getOrDefault(tenant, Map.of())
@@ -323,7 +323,8 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
         return target;
     }
 
-    private MerchantNotificationProperties.Signing signing(String tenant, MerchantNotificationDelivery delivery) {
+    private MerchantNotificationProperties.Signing signing(MerchantNotificationDelivery delivery) {
+        String tenant = tenant();
         var identity = properties
                 .signingIdentities()
                 .getOrDefault(tenant, Map.of())
@@ -332,5 +333,13 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         return identity;
+    }
+
+    private String tenant() {
+        String tenant = TenantUtil.getTenantId();
+        if (tenant == null || tenant.isBlank()) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        return tenant;
     }
 }

@@ -43,8 +43,8 @@ class RecoveryPollingPolicyTest {
     @Test
     void restartsAndGenerationsCannotResetAnOldRequestsPollingAge() {
         var now = AT.plusDays(1);
-        assertEquals(now.plusMinutes(30), exact.nextAt("tenant", "collection", "payment", 0L, AT, AT, now));
-        assertEquals(now.plusMinutes(30), exact.nextAt("tenant", "collection", "payment", 10000L, AT, AT, now));
+        assertEquals(now.plusMinutes(30), exact.nextAt("collection", "payment", 0L, AT, AT, now));
+        assertEquals(now.plusMinutes(30), exact.nextAt("collection", "payment", 10000L, AT, AT, now));
         assertEquals(30L, seconds(exact, AT, 10000L));
     }
 
@@ -53,8 +53,8 @@ class RecoveryPollingPolicyTest {
         var policy = new RecoveryPollingPolicy(30, 1800, 900, 20);
         var offsets = new HashSet<Long>();
         for (long generation = 0; generation < 64; generation++) {
-            var first = policy.nextAt("tenant", "refund", "request", generation, AT, AT, AT);
-            assertEquals(first, policy.nextAt("tenant", "refund", "request", generation, AT, AT, AT));
+            var first = policy.nextAt("refund", "request", generation, AT, AT, AT);
+            assertEquals(first, policy.nextAt("refund", "request", generation, AT, AT, AT));
             long delay = Duration.between(AT, first).getSeconds();
             assertTrue(delay >= 30 && delay <= 36);
             offsets.add(delay);
@@ -68,7 +68,7 @@ class RecoveryPollingPolicyTest {
         var now = AT.plusDays(1);
         var offsets = new HashSet<Long>();
         for (long generation = 0; generation < 64; generation++) {
-            var at = policy.nextAt("tenant", "collection", "payment", generation, AT, AT, now);
+            var at = policy.nextAt("collection", "payment", generation, AT, AT, now);
             long delay = Duration.between(now, at).getSeconds();
             assertTrue(delay >= 1440 && delay <= 1800);
             offsets.add(delay);
@@ -79,13 +79,13 @@ class RecoveryPollingPolicyTest {
     @Test
     void aRegressedClockCannotScheduleBeforeTheCurrentDueTime() {
         var due = AT.plusHours(6);
-        assertEquals(due.plusMinutes(30), exact.nextAt("tenant", "refund", "request", 9L, AT, due, AT.minusHours(1)));
+        assertEquals(due.plusMinutes(30), exact.nextAt("refund", "request", 9L, AT, due, AT.minusHours(1)));
     }
 
     @Test
     void veryOldRequestsSaturateInsteadOfOverflowingOrReturningToShortIntervals() {
         var now = AT.plusYears(500);
-        assertEquals(now.plusMinutes(30), exact.nextAt("tenant", "collection", "payment", Long.MAX_VALUE, AT, AT, now));
+        assertEquals(now.plusMinutes(30), exact.nextAt("collection", "payment", Long.MAX_VALUE, AT, AT, now));
     }
 
     @Test
@@ -96,14 +96,14 @@ class RecoveryPollingPolicyTest {
         assertThrows(DomainViolation.class, () -> new RecoveryPollingPolicy(30, 1800, 0, 20));
         assertThrows(DomainViolation.class, () -> new RecoveryPollingPolicy(30, 1800, 900, -1));
         assertThrows(DomainViolation.class, () -> new RecoveryPollingPolicy(30, 1800, 900, 51));
-        assertThrows(DomainViolation.class, () -> exact.nextAt("tenant", "refund", "request", -1L, AT, AT, AT));
+        assertThrows(DomainViolation.class, () -> exact.nextAt("refund", "request", -1L, AT, AT, AT));
         assertThrows(
                 DomainViolation.class,
-                () -> exact.nextAt("tenant", "refund", "request", 0L, AT, AT.minusSeconds(1), AT));
+                () -> exact.nextAt("refund", "request", 0L, AT, AT.minusSeconds(1), AT));
     }
 
     private long seconds(RecoveryPollingPolicy policy, LocalDateTime now, long generation) {
-        return Duration.between(now, policy.nextAt("tenant", "collection", "payment", generation, AT, AT, now))
+        return Duration.between(now, policy.nextAt("collection", "payment", generation, AT, AT, now))
                 .getSeconds();
     }
 }

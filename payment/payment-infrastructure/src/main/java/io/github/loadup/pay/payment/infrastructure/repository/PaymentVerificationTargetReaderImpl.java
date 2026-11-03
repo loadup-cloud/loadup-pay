@@ -19,7 +19,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.payment.app.model.PaymentVerificationTarget;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
@@ -156,7 +155,6 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
                         .findFirst()
                         .orElse(null);
         if (capacity == null
-                || !TenantUtil.getTenantId().equals(claim.tenantId())
                 || !claim.identity().equals(original.attempt().identity())
                 || !claim.amount().equals(original.attempt().amount())
                 || !claim.channelTransactionNo().equals(row.getOriginalChannelTransactionNo())

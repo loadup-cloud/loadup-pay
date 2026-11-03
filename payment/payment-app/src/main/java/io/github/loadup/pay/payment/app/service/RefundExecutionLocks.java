@@ -93,7 +93,6 @@ public class RefundExecutionLocks {
                 || !capacity.orderId().equals(request.request().orderId())
                 || !capacity.payeeMerchantId().equals(request.request().payeeMerchantId())
                 || !capacity.succeededAt().equals(selected.originalSucceededAt())
-                || !claim.tenantId().equals(tenant)
                 || !claim.identity().equals(selected.original())
                 || !claim.amount().equals(capacity.succeededAmount())
                 || !claim.succeededAt().equals(capacity.succeededAt())

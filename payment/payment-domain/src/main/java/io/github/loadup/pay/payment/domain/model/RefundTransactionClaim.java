@@ -24,7 +24,6 @@ import java.util.Objects;
 
 public record RefundTransactionClaim(
         String id,
-        String tenantId,
         String refundId,
         ChannelPaymentIdentity original,
         String channelRefundNo,
@@ -35,7 +34,6 @@ public record RefundTransactionClaim(
         String receiptId) {
     public RefundTransactionClaim {
         DomainChecks.id(id);
-        DomainChecks.id(tenantId);
         DomainChecks.id(refundId);
         Objects.requireNonNull(original);
         DomainChecks.text(channelRefundNo, 64);

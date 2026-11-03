@@ -23,7 +23,6 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Objects;
 
 public record RiskOutcome(
-        String tenantId,
         String businessEventId,
         RiskConsultation consultation,
         RiskDecision decision,
@@ -31,7 +30,6 @@ public record RiskOutcome(
         long sourceVersion,
         String evidenceId) {
     public RiskOutcome {
-        DomainChecks.id(tenantId);
         DomainChecks.id(businessEventId);
         DomainChecks.id(evidenceId);
         Objects.requireNonNull(consultation);
