@@ -1,0 +1,63 @@
+{
+  "acquire": {
+    "payment": [
+      "pay:payment:input:prepare",
+      "pay:payment:input:read",
+      "pay:payment:input:expire",
+      "pay:payment:accept",
+      "pay:payment:read",
+      "pay:payment:fence",
+      "pay:payment:fence:read",
+      "pay:payment:close",
+      "pay:payment:attempt:start",
+      "pay:payment:acquire-facts",
+      "pay:payment:refund-summary:read"
+    ],
+    "realtime": [
+      "pay:realtime:projection:order"
+    ]
+  },
+  "limitcenter": {
+    "payment": [
+      "pay:payment:read",
+      "pay:payment:limit-facts",
+      "pay:payment:refund-facts"
+    ]
+  },
+  "payment": {
+    "acquire": [
+      "pay:acquire:payment:outcome",
+      "pay:acquire:fee:refund",
+      "pay:acquire:refund:notification"
+    ],
+    "limitcenter": [
+      "pay:limit:reserve",
+      "pay:limit:read",
+      "pay:limit:execute",
+      "pay:limit:verify",
+      "pay:limit:expire",
+      "pay:limit:confirm",
+      "pay:limit:release",
+      "pay:limit:refund:restore"
+    ],
+    "realtime": [
+      "pay:realtime:projection:payment",
+      "pay:realtime:projection:refund",
+      "pay:realtime:projection:refund-summary"
+    ]
+  },
+  "product": {
+    "limitcenter": [
+      "pay:limit:activate"
+    ]
+  },
+  "reconciliation": {
+    "payment": [
+      "pay:payment:reconciliation:capture:create",
+      "pay:payment:reconciliation:capture:retry",
+      "pay:payment:reconciliation:capture:read",
+      "pay:payment:reconciliation:statement:read",
+      "pay:payment:reconciliation:verify"
+    ]
+  }
+}

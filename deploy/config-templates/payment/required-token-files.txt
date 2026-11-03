@@ -1,3 +1,0 @@
-acquire.jwt
-limitcenter.jwt
-realtime.jwt

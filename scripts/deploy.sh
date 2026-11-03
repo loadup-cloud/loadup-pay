@@ -11,6 +11,8 @@ fi
 [[ $# -le 1 ]] || { echo 'Expected one application name or all.' >&2; exit 1; }
 scope=${1:-all}
 select_apps "$scope"
+select_environment
+require_environment_context
 require_config_versions
 require_command kubectl
 require_command python3

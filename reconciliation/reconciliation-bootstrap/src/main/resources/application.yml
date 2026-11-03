@@ -132,6 +132,7 @@ loadup:
   security:
     resource-server:
       enabled: true
-      issuer-uri: ${RECONCILIATION_JWT_ISSUER_URI}
+      issuer-uri: ${RECONCILIATION_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
       audience: ${RECONCILIATION_JWT_AUDIENCE:reconciliation}
-      jwk-set-uri: ${RECONCILIATION_JWT_JWK_SET_URI}
+      jwk-set-uri: ${RECONCILIATION_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
+      public-key-location: ${RECONCILIATION_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}

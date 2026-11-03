@@ -5,3 +5,8 @@ deploy/releases/
 deploy/gateway/rendered/
 deploy/acceptance-results/
 deploy/local-config/
+deploy/config/*/*/secret.env
+deploy/config/*/*/service-tokens/*.jwt
+deploy/config/*/*/service-tokens/*.pending
+deploy/config/**/*.key
+deploy/config/**/*private*.pem

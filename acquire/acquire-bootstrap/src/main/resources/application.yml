@@ -119,6 +119,7 @@ loadup:
   security:
     resource-server:
       enabled: true
-      issuer-uri: ${ACQUIRE_JWT_ISSUER_URI}
+      issuer-uri: ${ACQUIRE_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
       audience: ${ACQUIRE_JWT_AUDIENCE:acquire}
-      jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI}
+      jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
+      public-key-location: ${ACQUIRE_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}

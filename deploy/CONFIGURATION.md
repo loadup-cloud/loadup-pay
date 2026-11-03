@@ -1,141 +1,74 @@
-# 版本化配置与发布
+# 环境配置与版本化发布
 
-七应用继续使用 Spring Boot 原生外部配置与 Kubernetes Service DNS，不增加配置监听器或注册中心。
-以下是发布源码和操作说明。2026-11-03 已只读核对现有六个应用的环境配置并生成本地迁移草稿；
-未创建应用配置快照、构建、重启应用或执行金融请求。Gateway 的独立部署记录见 [网关说明](gateway/README.md)。
+配置源固定按 deploy/config/dev、test、prod 维护，不再生成模板或以发布版本命名本地目录。
+APP_ENV 默认 dev；每个环境的一套配置可反复发布。配置文件格式和字段见 [环境目录](config/README.md)，命令见 [脚本说明](../scripts/README.md#环境配置与一键部署)。
 
-随后已在用户授权下创建完整配置快照并发布七应用，当前镜像/配置组合和部署结果见 [本地开发环境](LOCAL_DEVELOPMENT.md)。
+## 配置与资源
 
-## 三类配置资源
+common.env 只放共享普通参数（如 JWT 信任源、线程开关）；应用 config.env 合并后优先于 common.env。
+secret.env 保存密码和业务密钥，service-tokens/ 保存调用方自己的有效访问令牌；二者被 Git 忽略。
+公钥 jwt-public.pem 可入库，通过既有 service-tokens Secret 的目录投射到应用。私钥仅保存在本地受控目录，不挂载 Pod。
 
-| 资源 | 名称 | 生效与用途 |
+| 资源 | 名称 | 生效方式 |
 | --- | --- | --- |
-| ConfigMap | `<app>-config-<CONFIG_VERSION>` | `immutable: true`；普通环境配置，创建新版本并滚动发布 |
-| Secret | `<app>-secret-<SECRET_VERSION>` | `immutable: true`；数据库密码等环境变量，随 Pod 创建读取 |
-| Secret | `<app>-service-tokens` | 可变；只读完整目录挂载 `/var/run/loadup/secrets`，保存逐次读取的服务凭证文件 |
+| 不可变 ConfigMap | <app>-config-<CONFIG_VERSION> | 包含 common.env 与应用 config.env 的合并值；新版本随滚动启动读取 |
+| 不可变环境 Secret | <app>-secret-<SECRET_VERSION> | 新版本随滚动启动读取 |
+| 可变投射 Secret | <app>-service-tokens | 保存 JWT 文件和可选公钥；完整目录挂载，不使用 subPath |
 
-CONFIG_VERSION、SECRET_VERSION 必须显式提供，均为最多 32 字符的小写 DNS label，例如 cfg-default、sec-default。
-同一版本下每应用各有独立资源；单应用发布可以选择自己的配置版本。不得修改已有快照，或删除后重建并复用同一版本名。
-旧镜像、ConfigMap、环境 Secret 至少保留到对应发布版本退出回退窗口；脚本不自动清理它们。
+本地只维护环境配置；不可变快照和历史发布记录继续保留，避免原地删建破坏回退。
+up.sh/configmap.sh create、update 根据选定应用的配置内容自动计算 cfg-<env>-<摘要>、sec-<env>-<摘要>。
+公钥内容参与配置摘要，令牌续期不改变环境快照。可显式指定版本，但同名不同内容仍拒绝覆盖。
+单应用/all 的计算范围不同，回退应使用归档中的实际版本，不凭本地当前配置重新推算旧版本。
 
-源 pay.yml 中 `<app>-config` / `<app>-secret` 是渲染占位引用，不能直接 apply。
-渲染器替换为具体版本，同时将镜像、配置和环境 Secret 版本写入 Pod template annotation。
-任一版本变化都会改变 Pod template，由 Deployment 的滚动更新处理。
-
-普通配置不得含密码、私钥或 token。环境 Secret 不再同时用于服务令牌文件挂载，令牌也不通过 envFrom 导入。
-没有出站文件凭证的服务可准备空的 `<app>-service-tokens`；有出站调用的服务按目标文件名提供有效、匹配权限/租户/受众的凭证。
-凭证发行、续期和投递由部署环境负责，仓库不生成凭证。
-
-## 准备快照
-
-CONFIG_VERSION/SECRET_VERSION 是资源名称中的版本引用，不会创建资源。
-出现 customer-config-cfg-default NotFound 时，应先准备整批配置，不是修改镜像标签或反复重跑构建。
-
-### 从旧本地部署迁移
-
-2026-11-03 核对 customer/product/limitcenter/payment/acquire/realtime：旧 Deployment 仅包含 JAVA_TOOL_OPTIONS、
-METRICS_ENABLED、OTLP_TRACING_ENDPOINT、TZ，没有 envFrom 或凭证卷；JVM 参数也没有数据库/JWT 配置。
-因此旧运行参数不能替代当前应用要求的 JDBC、JWT 与业务密钥。
-
-已在本地生成 deploy/local-config/cfg-default-sec-default/<app>/ 草稿，目录已被 Git 忽略：
-
-| 文件 | 用途 |
-| --- | --- |
-| config.env | 迁移的四个运行参数，以及留空待填写的 JDBC URL/用户名、JWT issuer/JWK Set URI |
-| secret.env | 留空待填写的 JDBC 密码；limitcenter 另需 PERMIT_SECRET，payment 另需 INPUT_FINGERPRINT_KEY |
-| required-token-files.txt | 当前默认出站调用需要的 JWT 文件名；它不包含凭证，也不是待挂载文件 |
-| service-tokens/ | 放置由实际发行方签发、权限/租户/受众匹配的有效 SERVICE JWT；customer/realtime 当前无出站文件要求 |
-
-这批草稿共缺 24 个普通配置值和 8 个敏感值，另缺出站 SERVICE JWT；没有创建缺值的不可变资源，避免占用版本名称。
-填写 env 文件时使用字面值，不加 shell 引号，不依赖 shell 展开。不要把密码、业务密钥或 JWT 移入 config.env。
-草稿目录权限为 0700、文件为 0600；其中的文件不进入 Git，且不得把 Secret 清单或内容输出到终端。
-
-补齐后，创建命令的 --from-env-file 使用对应草稿文件。以 customer 为例，先确认两个文件的必需值均已填写，再创建快照：
+## 日常发布
 
 ```bash
-set -euo pipefail
-config_dir=deploy/local-config/cfg-default-sec-default/customer
-kubectl --context orbstack -n loadup-pay create configmap customer-config-cfg-default \
-  --from-env-file="$config_dir/config.env" --dry-run=client -o yaml |
-  kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
-  kubectl --context orbstack -n loadup-pay create -f -
-kubectl --context orbstack -n loadup-pay create secret generic customer-secret-sec-default \
-  --from-env-file="$config_dir/secret.env" --dry-run=client -o yaml |
-  kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
-  kubectl --context orbstack -n loadup-pay create -f -
-# customer 当前没有出站文件要求，首次创建空的可变投射 Secret。
-kubectl --context orbstack -n loadup-pay create secret generic customer-service-tokens \
-  --from-file="$config_dir/service-tokens"
+APP_ENV=dev ./scripts/configmap.sh check all
+APP_ENV=dev IMAGE_TAG=release-002 ./scripts/up.sh all
+# 只创建/换版配置，不立即发布：
+APP_ENV=dev ./scripts/configmap.sh update all
+# 先独立构建新镜像，再复用镜像发布：
+IMAGE_TAG=release-003 ./scripts/build.sh all
+APP_ENV=dev SKIP_BUILD=1 IMAGE_TAG=release-003 ./scripts/up.sh all
 ```
 
-其他五个应用使用各自名称/文件；有出站要求的目录必须先放入 required-token-files.txt 中列出的有效文件。
-这里只是首次创建，不覆盖已存在快照或投射 Secret；已有资源的换版/凭证轮换按下文处理。
-随后已按用户要求补齐 [七应用默认模板](config-templates/README.md)，并为 reconciliation 新增本地待填写文件。
-对账不从六个旧 Deployment 迁移业务配置，其 JDBC/JWT、S3 与受控账户配置仍需手动准备；未补齐前不能发布 all。
+新公钥验签依赖本次 framework 与业务启动配置变更，需要构建新镜像；旧 release-001 不支持该模式。
+首次迁移先显式执行 ./scripts/configmap.sh tokens all，为现有投射 Secret 加入公钥；dev 中保留原有效令牌和 issuer，旧应用仍可继续校验。
+随后构建/发布新镜像，确认七应用及调用均已改用本地公钥后，再单独退役旧 loadup-local-jwks Deployment/Service/ConfigMap。
+本次只修改源码和本地配置，没有切换集群或删除仍被旧镜像使用的 JWKS 服务。
 
-### 使用受控环境文件创建
+环境目录不会改变当前 kubectl context，也不自动选择 Spring profile。dev 默认 orbstack；test/prod 的集群操作必须显式提供 KUBE_CONTEXT。
+部署 namespace 仍是 loadup-pay，应使用各环境目标集群；同集群多 namespace 发布不在本入口范围内。
+当前镜像流程仍是 OrbStack 本地镜像与 imagePullPolicy: Never；test/prod 配置整理不代表远程镜像发布能力已实现。
 
-由发布者先准备 namespace、配置资源和服务令牌 Secret。下面仅以 payment 示意，文件内容来自受控配置管理；
-不是应用构建步骤，也不会由 deploy.sh 自动执行：
+## 离线 JWT
 
-```bash
-# 普通环境变量文件只含非敏感配置。
-kubectl --context orbstack -n loadup-pay create configmap payment-config-cfg-default \
-  --from-env-file=/secure/payment-config.env --dry-run=client -o yaml |
-  kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
-  kubectl --context orbstack -n loadup-pay create -f -
+所有应用可以使用同一发行方的 RSA 公钥验签，无需运行 JWT/JWKS 服务。
+JWT_PUBLIC_KEY_LOCATION=file:/var/run/loadup/secrets/jwt-public.pem 时，issuer 仅作为声明值比较，不访问 URL。
+dev 保留历史 issuer 字符串以继续使用现有令牌；该字符串不代表公钥模式下依赖旧服务。
+各应用 audience 不同，调用方的 sub/service_id、权限与受众继续分开，不能用一个万能访问令牌替代。
 
-# 敏感环境变量来自受限文件；命令参数不包含密码值。
-kubectl --context orbstack -n loadup-pay create secret generic payment-secret-sec-default \
-  --from-env-file=/secure/payment-secret.env --dry-run=client -o yaml |
-  kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
-  kubectl --context orbstack -n loadup-pay create -f -
-```
+./scripts/dev-jwt.sh 使用固定的本地 RSA 私钥按 dev/service-token-policy.json 离线签发；默认保留已有文件，RENEW=1 明确续期。
+有效期默认 30 天（开发可配置 1–365 天），没有永久免校验令牌。签发只写本地文件，tokens 命令才向集群发布。
+每次部署不重新生成私钥、业务密钥或令牌。test/prod 使用各自的真实发行方、密钥及权限，不复用开发私钥。
 
-这些管道应在启用 pipefail 的 shell 执行；不要保存或打印敏感管道输出。实际 namespace/context 和受控文件由发布者指定。
-快照使用 create，不覆盖已有版本。令牌 Secret 的 key 例如 acquire.jwt、realtime.jwt、limitcenter.jwt，
-由实际调用方配置的 token-file 决定；不要把示例名当成权限授权。
+静态公钥在启动时读取，换钥需要滚动；令牌 Secret 文件续期有投射传播延迟，应用逐次打开 JWT 文件。
+保留签名有效期的重叠；需要多密钥平滑轮换时使用 JWKS。ConfigMap 更新不会自动刷新 Spring Bean。
 
-## 预览与发布
+## 回退与清理
+
+直接 deploy.sh 继续消费已有明确快照，例如：
 
 ```bash
-# 仅渲染供审查的引用清单：不构建、不 apply、不读取配置/Secret 内容。
-IMAGE_TAG=release CONFIG_VERSION=cfg-default SECRET_VERSION=sec-default \
-  ./scripts/render.sh all > /tmp/pay-release.json
-
-# 构建并发布。此命令由发布者显式执行。
-IMAGE_TAG=release CONFIG_VERSION=cfg-default SECRET_VERSION=sec-default \
+SKIP_BUILD=1 IMAGE_TAG=release-previous CONFIG_VERSION=cfg-previous SECRET_VERSION=sec-previous \
   ./scripts/deploy.sh all
-
-# 复用既有镜像；单应用使用 payment，其余资源不重新应用。
-SKIP_BUILD=1 IMAGE_TAG=release CONFIG_VERSION=cfg-default SECRET_VERSION=sec-default \
-  ./scripts/deploy.sh payment
+CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh delete payment config
 ```
 
-render.sh 使用 kubectl 的 client dry-run 读取源清单，仍需要可用的 kubectl/context；不承诺无 discovery 缓存时完全离线。
-deploy.sh 先检查 kubectl/服务端版本差距，再在任何 apply 之前完整渲染，并检查引用资源的存在性和 immutable 字段。
-版本 ConfigMap/环境 Secret 必须不可变，投射令牌 Secret 必须保持可变，缺失或不符合要求立即失败；脚本不解析、打印或归档 data/stringData。
-kubectl 需要读取相应对象的权限，原生 get 响应可能包含完整对象；只将所需字段输出给脚本，不把 Secret JSON 写入临时文件。
-预检发生在构建前，避免缺配置时才开始构建镜像。配置值、JWT 权限与外部依赖仍由应用和真实环境验收负责。
-
-选定镜像确认存在后，脚本在 deploy/releases/ 保存完整渲染结果，只包含模板及配置引用。
-文件名绑定 scope、IMAGE_TAG、CONFIG_VERSION、SECRET_VERSION；同名不同内容拒绝覆盖或 apply。
-RELEASE_DIR 可覆盖归档位置，该目录默认不进入 Git。归档在 apply 前保存，即使 rollout 失败也保留候选记录，不能作为发布成功证明。
-生产应另行保存实际集群、镜像 digest、成功状态和验收结果；现有脚本仍是 OrbStack 本地镜像发布工具。
-
-## 生效、轮换与回退
-
-ConfigMap/Secret 的环境变量在新 Pod 启动时读取，更新对象不刷新已有 Bean。
-版本引用变化触发重建，配置中心热刷新不是默认能力；见 [Kubernetes ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/)。
-
-可变令牌 Secret 通过完整目录投射，不使用 subPath。Kubernetes 的文件更新有传播延迟，不保证立即生效；
-应用每次打开 token-file，可在文件更新后观察新凭证，但不会刷新其他 Bean。
-发行方应保持有效期重叠，避免旧凭证失效早于新文件可见；见 [Secret 更新规则](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-files-from-a-pod)。
-
-回退时使用保留的匹配 IMAGE_TAG、CONFIG_VERSION 和 SECRET_VERSION，以 SKIP_BUILD=1 重新执行相同 scope 发布。
-服务令牌仍使用当前有效的可变投射 Secret，不回退到已过期 token。
-也可由发布者审查并使用已归档的匹配清单；须先检查其配置引用、镜像和目标 context。
-配置回退不撤销已经执行的数据库迁移或外部金融操作；旧环境凭证也必须仍能访问其目标。
+以上 previous/unused 是示例名称，应替换成归档中的真实值。回退保留当前有效服务令牌，不恢复过期凭证，也不撤销数据库迁移或已发生的金融操作。
+删除前检查 Pod、Deployment、ReplicaSet（包括零副本）、StatefulSet、DaemonSet、Job、CronJob 和 RELEASE_DIR 发布记录；被引用即拒绝。
+只删除明确的应用/版本，默认范围为 ConfigMap；secret、tokens、all 需明确指定。脚本不自动删除历史、不清理业务数据或存储卷。
+清理不是跨资源事务，避免与发布并发执行。敏感输入经 stdin 传给 kubectl，不保存或输出 Secret 清单；服务端详情隐藏以避免回显凭证。
 
 ## 滚动与请求排空
 

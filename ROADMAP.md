@@ -63,6 +63,9 @@ Framework 的可选 binder 不因 Pay 迁移而无条件删除。
 
 - [x] 统一普通 Service 的 HTTP 端口及调用地址；不再以 Headless DNS 直连作为 Pay 的内部调用默认机制。
 - [x] 为 ConfigMap 选择版本化命名或内容校验值进入 Pod template 的明确方案，让配置版本变更触发滚动发布，并保留可回退的镜像/配置组合。
+- [x] 配置源按 dev/test/prod 直接维护，删除模板生成流程；一键入口按内容计算不可变快照版本，敏感文件不入库。
+- [x] 增加固定 RSA 公钥离线验签与开发令牌离线签发源码；同环境共享验签公钥，服务身份/受众/权限继续隔离。
+- [ ] 构建并发布包含离线公钥支持的新 framework/业务镜像，验证后退役旧本地 JWKS 服务；源码完成不代表已迁移运行环境。
 - [x] 普通配置与 Secret 分离；说明环境变量注入、挂载文件及 Spring Bean 的生效时机，默认通过重启生效，不承诺自动热刷新。
 - [ ] 发布清单、资源渲染、readiness、优雅停机和 NetworkPolicy 同步迁移到 HTTP；清理已不再需要的 Triple 端口、Headless Service、发现 RBAC 和 Pod annotation 写权限。
 - [ ] 验证多副本调用、连接复用下的流量分布、扩缩容、滚动更新期间的请求排空，以及版本化配置回退。

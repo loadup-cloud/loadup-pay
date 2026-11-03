@@ -2,9 +2,27 @@
 # Shared settings for local application builds and OrbStack deployments.
 PAY_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PAY_APPS=(customer product limitcenter payment acquire realtime reconciliation)
+PAY_KUBE_CONTEXT_SET=${KUBE_CONTEXT:+true}
 KUBE_CONTEXT=${KUBE_CONTEXT:-orbstack}
 DOCKER_CONTEXT=${DOCKER_CONTEXT:-orbstack}
 IMAGE_PREFIX=${IMAGE_PREFIX:-loadup-pay}
+
+select_environment() {
+  APP_ENV=${APP_ENV:-dev}
+  case "$APP_ENV" in
+    dev|test|prod) ;;
+    *) echo 'APP_ENV must be dev, test or prod.' >&2; exit 1 ;;
+  esac
+  CONFIG_DIR=${CONFIG_DIR:-$PAY_ROOT/deploy/config/$APP_ENV}
+  export APP_ENV CONFIG_DIR
+}
+
+require_environment_context() {
+  if [[ "$APP_ENV" != dev && -z "$PAY_KUBE_CONTEXT_SET" ]]; then
+    echo 'Set KUBE_CONTEXT explicitly for test/prod; environment selection does not switch clusters.' >&2
+    exit 1
+  fi
+}
 
 select_apps() {
   case "$1" in

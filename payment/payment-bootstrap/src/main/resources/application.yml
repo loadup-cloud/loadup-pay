@@ -142,9 +142,10 @@ loadup:
       permit-all:
         - /api/payment/channel-callbacks/*
         - /api/payment/channel-callbacks/*/refund
-      issuer-uri: ${PAYMENT_JWT_ISSUER_URI}
+      issuer-uri: ${PAYMENT_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
       audience: ${PAYMENT_JWT_AUDIENCE:payment}
-      jwk-set-uri: ${PAYMENT_JWT_JWK_SET_URI}
+      jwk-set-uri: ${PAYMENT_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
+      public-key-location: ${PAYMENT_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
 
 resilience4j:
   bulkhead:

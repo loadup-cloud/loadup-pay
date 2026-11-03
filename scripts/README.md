@@ -10,6 +10,61 @@
 | `./payment/deploy.sh`               | 构建并部署payment，不修改其他六个应用           |
 | `./scripts/verify.sh [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice |
 | `./scripts/render.sh [all或应用名]` | 仅渲染镜像/配置版本引用清单供审查，不 apply |
+| `./scripts/up.sh [all或应用名]` | 校验并创建配置快照，再调用 deploy.sh 构建及部署 |
+| `./scripts/configmap.sh <动作> [all或应用名]` | 初始化、检查、创建、换版、查看、删除配置及轮换令牌 |
+
+## 环境配置与一键部署
+
+直接维护 deploy/config/dev、test、prod，每个环境包含 common.env（共享普通参数）、各应用 config.env、secret.env 和 service-tokens/。
+不再使用模板、init 或自动复制配置。secret.env 和 *.jwt 被 Git 忽略；dev 已迁移现有本地值，test/prod 需按各自环境填写。
+完整字段和离线 JWT 操作见 [环境配置](../deploy/config/README.md)。
+
+```bash
+# 在 loadup-pay 根目录运行；APP_ENV 默认 dev。
+APP_ENV=dev ./scripts/configmap.sh check all
+APP_ENV=dev ./scripts/configmap.sh versions all
+APP_ENV=dev ./scripts/configmap.sh create all
+
+# 配置准备、构建镜像、发布七应用；版本由实际内容自动计算。
+APP_ENV=dev IMAGE_TAG=release-002 ./scripts/up.sh all
+# 本次变更包含新的公钥验签代码，须先构建新镜像，不能复用旧 release-001。
+
+# 修改 dev/payment/config.env 后换版更新（单应用），不修改其他应用。
+APP_ENV=dev IMAGE_TAG=release-003 ./scripts/up.sh payment
+# 只创建新快照，不立即滚动：
+APP_ENV=dev ./scripts/configmap.sh update payment
+
+# 离线签发：默认保留已有文件；RENEW=1 才重签。
+./scripts/dev-jwt.sh
+RENEW=1 ./scripts/dev-jwt.sh
+APP_ENV=dev ./scripts/configmap.sh tokens all
+
+# 非 dev 环境必须显式指定目标 context；环境目录不自动切换集群。
+APP_ENV=test KUBE_CONTEXT=my-test-cluster ./scripts/configmap.sh create all
+
+# 查看或删除明确版本；删除默认仅 ConfigMap，其他范围为 secret/tokens/all。
+CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh status payment
+CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh delete payment config
+```
+
+up.sh 会先以选定应用的配置内容计算版本，再创建或复用 immutable 快照，最后调用原 deploy.sh。
+默认版本为 cfg-<环境>-<内容摘要> / sec-<环境>-<内容摘要>；相同内容重复执行可复用。公钥内容变化也进入 ConfigMap 摘要并触发滚动。
+单应用与 all 的计算范围不同，应保存实际发布版本用于回退；CONFIG_VERSION/SECRET_VERSION 可显式覆盖，旧快照内容不同仍拒绝覆盖。
+CONFIG_DIR 可覆盖环境目录（必须具有同样的 common.env/应用目录结构）；直接 deploy.sh/render.sh 继续要求显式版本。
+
+check 校验必需值、环境格式、密钥长度与凭证文件存在性，不替代实际 JWT 签名/权限、数据库或业务验收。
+create/update 先检查整批选定应用；相同对象复用，同名不同内容拒绝覆盖。没有跨资源事务，部分创建失败时可以排障后重跑。
+服务令牌需显式 tokens 轮换，按本地文件完整替换 Secret 数据；未保留的额外旧文件会被移除。私钥不会上传到 Pod。
+公钥 jwt-public.pem 与服务令牌通过原有 Secret 目录挂载，公钥不是敏感信息。
+首次从旧配置迁移时，先执行 tokens 为现有 Secret 加入公钥，再以新镜像执行 up；旧有效令牌的内容和 issuer 均已保留。
+正常后续部署无需再次签发或轮换。
+
+默认 context 为 orbstack，namespace 仍为 loadup-pay。test/prod 目录代表配置集合，须分别指定目标集群；本入口不实现同集群多 namespace 的隔离部署。
+发布清单继续按镜像/配置组合归档，删除检查工作负载（含零副本历史 ReplicaSet）和 RELEASE_DIR JSON 记录的引用。
+有引用或读取失败就拒绝删除，没有强制绕过参数；退出回退窗口后需先审查退役相应历史与记录。清理期间不要并发发布。
+
+up.sh 只管理应用配置与发布，不安装数据库、RustFS、网关或 JWT 服务。JWT 可直接离线公钥验签，无需 JWKS 服务。
+默认构建行为与原脚本一致；已有**包含本次公钥支持**的镜像可使用 SKIP_BUILD=1 IMAGE_TAG=<tag>。
 
 可选应用名：`acquire`、`payment`、`customer`、`product`、`limitcenter`、`realtime`、`reconciliation`
 。所有入口均可从其他工作目录调用。client/domain 作为应用依赖参与构建，不单独生成部署镜像。
@@ -48,7 +103,7 @@ CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./acquire/deploy.sh
 
 部署显式要求 CONFIG_VERSION 与 SECRET_VERSION（不可变快照版本），RELEASE_DIR 可覆盖引用清单归档位置。
 这两个版本参数不会自动创建配置；资源缺失时部署在构建前停止，并提示 [配置准备流程](../deploy/CONFIGURATION.md#从旧本地部署迁移)。
-可先填写 [七应用默认配置模板的本地副本](../deploy/config-templates/README.md)，再创建对应版本快照。
+配置源直接维护在 [dev/test/prod 环境目录](../deploy/config/README.md)，可用 up.sh 一次完成配置准备和发布。
 支持环境变量`IMAGE_TAG`、`IMAGE_PREFIX`（默认`loadup-pay`）、`DOCKER_CONTEXT`与`KUBE_CONTEXT`。两端必须使用能访问同一批本地镜像的环境；
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 

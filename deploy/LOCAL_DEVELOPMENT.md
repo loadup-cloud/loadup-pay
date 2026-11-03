@@ -2,6 +2,10 @@
 
 本说明对应 2026-11-03 的 orbstack 环境。业务镜像使用 release-001，单元测试按用户要求跳过；平台就绪不代表金融链路验收通过。
 
+后续源码已改为 [dev/test/prod 环境配置](config/README.md)，dev 复用本机已有密钥和有效 JWT，并增加本地公钥验签。
+新模式不再需要 JWT/JWKS 服务；旧运行中的 release-001 仍依赖下文记录的 JWKS，须先构建发布新镜像再退役服务。
+本文下方为原发布记录，不代表本次配置重构已经部署或验收。
+
 ## 基础服务与配置
 
 - 数据库复用本机 Docker 的 PostgreSQL，地址 postgres.orb.local:5432。七应用各自使用 loadup_<app> 数据库；发布时由 Flyway 校验已有 public schema，不清空数据库。
@@ -16,7 +20,8 @@
 已生成 8 份按调用方、目标受众、__default__ 租户与明确权限限定的 SERVICE JWT，有效期 30 天；到期前需重新签发并更新可变 service-tokens Secret。
 本地业务 HMAC/指纹密钥首次随机生成后保持稳定，不在每次发布时重新生成。
 
-deploy/local-development.yml 仅维护本地公共 JWKS 服务。现有 Docker PostgreSQL、RustFS 的容器与数据卷由本机维护，本清单不安装或替换它们。
+原 deploy/local-development.yml 的公共 JWKS 服务清单已在公钥模式重构中移除；运行资源待新镜像迁移后单独退役。
+现有 Docker PostgreSQL、RustFS 的容器与数据卷仍由本机维护。
 
 ## 发布版本与启动预算
 
