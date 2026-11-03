@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -89,8 +88,8 @@ class MerchantTradeQueryServiceTest {
 
     @BeforeEach
     void setup() {
-        when(queries.findOrder("tenant", "merchant", "order")).thenReturn(Optional.of(order()));
-        when(queries.findRefundSummary("tenant", "merchant", "order")).thenReturn(Optional.empty());
+        when(queries.findOrder("merchant", "order")).thenReturn(Optional.of(order()));
+        when(queries.findRefundSummary("merchant", "order")).thenReturn(Optional.empty());
     }
 
     @AfterEach
@@ -111,7 +110,7 @@ class MerchantTradeQueryServiceTest {
 
     @Test
     void summaryAheadOfOrderIsExposedWithoutClampingOrRewritingEitherSource() {
-        when(queries.findRefundSummary("tenant", "merchant", "order"))
+        when(queries.findRefundSummary("merchant", "order"))
                 .thenReturn(Optional.of(new TradeRefundSummary(
                         "order",
                         "merchant",
@@ -148,9 +147,9 @@ class MerchantTradeQueryServiceTest {
 
     @Test
     void paymentPaginationDoesNotRequireAnOrderProjectionAndUsesTrustedMerchantScope() {
-        when(queries.payments(eq("tenant"), any())).thenAnswer(call -> {
+        when(queries.payments(any())).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-            TradePageFilter filter = call.getArgument(1);
+            TradePageFilter filter = call.getArgument(0);
             assertEquals("merchant", filter.payeeMerchantId());
             assertEquals(20, filter.size());
             return new PageResult<>(List.of(), 0, 1, 20);
@@ -158,12 +157,12 @@ class MerchantTradeQueryServiceTest {
         assertTrue(service.payments(new TradePaymentPageQuery("merchant", null, null, null, null, null, null))
                 .getData()
                 .isEmpty());
-        verify(queries, never()).findOrder(anyString(), anyString(), anyString());
+        verify(queries, never()).findOrder(anyString(), anyString());
     }
 
     @Test
     void missingOrderDoesNotBecomeASyntheticHeaderFromAChildPayment() {
-        when(queries.findOrder("tenant", "merchant", "order")).thenReturn(Optional.empty());
+        when(queries.findOrder("merchant", "order")).thenReturn(Optional.empty());
         assertSame(
                 NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.detail(new TradeDetailQuery("merchant", "order")))

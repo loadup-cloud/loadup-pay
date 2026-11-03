@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -24,7 +23,6 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
@@ -78,8 +76,8 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     }
 
     @Override
-    public Optional<PaymentCapture> findRequest(String tenant, String caller, String key) {
-        context(tenant, false);
+    public Optional<PaymentCapture> findRequest(String caller, String key) {
+        context(false);
         DomainChecks.id(caller);
         DomainChecks.text(key, 128);
         return model(
@@ -87,24 +85,24 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     }
 
     @Override
-    public Optional<PaymentCapture> find(String tenant, String id) {
-        context(tenant, false);
-        return model(capture(tenant, id, false));
+    public Optional<PaymentCapture> find(String id) {
+        context(false);
+        return model(capture(id, false));
     }
 
     @Override
-    public Optional<PaymentCapture> lock(String tenant, String id) {
-        context(tenant, true);
-        return model(capture(tenant, id, true));
+    public Optional<PaymentCapture> lock(String id) {
+        context(true);
+        return model(capture(id, true));
     }
 
     @Override
-    public void insert(String tenant, PaymentCapture value) {
-        context(tenant, true);
+    public void insert(PaymentCapture value) {
+        context(true);
         if (value.state() != PaymentCaptureState.INIT || value.version() != 0L) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -127,15 +125,15 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     }
 
     @Override
-    public void complete(String tenant, PaymentCapture original, PaymentCapture next, PaymentCaptureRead read) {
-        context(tenant, true);
-        var current = lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+    public void complete(PaymentCapture original, PaymentCapture next, PaymentCaptureRead read) {
+        context(true);
+        var current = lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!current.equals(original)
                 || original.state() != PaymentCaptureState.INIT
                 || !original.complete(read, next.contentHash()).equals(next)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        if (lineCount(tenant, original.id()) != 0) {
+        if (lineCount(original.id()) != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (next.state() == PaymentCaptureState.SEALED) {
@@ -160,7 +158,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                 var now = LocalDateTime.now(clock);
                 SqlParameterSource[] parameters = batch.stream()
                         .map(line -> {
-                            var row = converter.toLineDO(tenant, original.id(), line);
+                            var row = converter.toLineDO(original.id(), line);
                             row.setCreatedAt(now);
                             row.setUpdatedAt(now);
                             return new BeanPropertySqlParameterSource(row);
@@ -184,7 +182,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                 }
             }
         }
-        var row = converter.toDO(tenant, next);
+        var row = converter.toDO(next);
         var args = new MapSqlParameterSource()
                 .addValue("id", original.id())
                 .addValue("state", row.getState())
@@ -211,8 +209,8 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     }
 
     @Override
-    public PageResult<PaymentLedgerLine> page(String tenant, PaymentCapture capture, int page, int size) {
-        context(tenant, false);
+    public PageResult<PaymentLedgerLine> page(PaymentCapture capture, int page, int size) {
+        context(false);
         if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
                         .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
@@ -223,7 +221,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
             throw new CommonException(INVALID_STATE);
         }
         long expected = Math.addExact(capture.paymentCount(), capture.refundCount());
-        if (lineCount(tenant, capture.id()) != expected) {
+        if (lineCount(capture.id()) != expected) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         long offset = (long) (page - 1) * size;
@@ -275,7 +273,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         }
     }
 
-    private PaymentCaptureDO capture(String tenant, String id, boolean lock) {
+    private PaymentCaptureDO capture(String id, boolean lock) {
         DomainChecks.id(id);
         if (!lock) {
             return getById(id);
@@ -292,7 +290,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                 .orElse(null);
     }
 
-    private long lineCount(String tenant, String id) {
+    private long lineCount(String id) {
         DomainChecks.id(id);
         var args = new MapSqlParameterSource().addValue("capture", id);
         Long count = jdbc.queryForObject(
@@ -305,10 +303,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         return count;
     }
 
-    private void context(String tenant, boolean write) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private void context(boolean write) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

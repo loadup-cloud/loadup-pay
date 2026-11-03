@@ -31,7 +31,7 @@ public interface AllocationRecoveryStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    AllocationRecoveryCursorDO toDO(String tenant, AllocationRecoveryCursor value);
+    AllocationRecoveryCursorDO toDO(AllocationRecoveryCursor value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "generation", source = "generation")

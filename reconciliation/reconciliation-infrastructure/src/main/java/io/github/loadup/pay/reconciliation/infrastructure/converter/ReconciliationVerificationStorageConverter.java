@@ -134,7 +134,7 @@ public interface ReconciliationVerificationStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "acceptedEpochMicros", source = "value.receipt.acceptedEpochMicros")
-    ReconciliationVerificationDO toDO(String tenant, ReconciliationVerificationRequest value);
+    ReconciliationVerificationDO toDO(ReconciliationVerificationRequest value);
 
     @Named("startedEpochMicros")
     default Long started(ReconciliationVerificationReceipt value) {

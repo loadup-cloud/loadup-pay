@@ -62,8 +62,8 @@ public class CashierAccess {
 
     private StoredCheckoutSession bound(CashierActor actor, StoredAcquireOrder order, String permission) {
         var stored = (TransactionSynchronizationManager.isActualTransactionActive()
-                        ? sessions.lock(actor.tenantId(), actor.sessionId())
-                        : sessions.find(actor.tenantId(), actor.sessionId()))
+                        ? sessions.lock(actor.sessionId())
+                        : sessions.find(actor.sessionId()))
                 .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
         if (!actor.sessionId().equals(stored.session().id())
                 || !actor.orderId().equals(stored.session().orderId())

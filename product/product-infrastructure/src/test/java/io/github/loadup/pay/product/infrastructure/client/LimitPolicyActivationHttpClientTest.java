@@ -45,26 +45,25 @@ class LimitPolicyActivationHttpClientTest {
 
     @Test
     void eachAttemptUsesTheSharedCredentialSource() {
-        when(tokens.token("tenant", "product", "limitcenter")).thenReturn("first", "second");
+        when(tokens.token("product", "limitcenter")).thenReturn("first", "second");
         var ack = new LimitPolicyActivationDTO("policy", 1, "a".repeat(64), OffsetDateTime.now());
         when(remote.activate(anyString(), isNull())).thenReturn(SuccessResponse.of(ack));
-        assertEquals(ack, client.activate("tenant", null));
-        assertEquals(ack, client.activate("tenant", null));
+        assertEquals(ack, client.activate(null));
+        assertEquals(ack, client.activate(null));
         verify(remote).activate("Bearer first", null);
         verify(remote).activate("Bearer second", null);
     }
 
     @Test
     void anotherTenantIsRejectedBeforeAuthorizationOrTransport() {
-        assertThrows(CommonException.class, () -> client.activate("other", null));
+        assertThrows(CommonException.class, () -> client.activate(null));
         verifyNoInteractions(tokens, remote);
     }
 
     @Test
     void authorizationFailureDoesNotReachTheBusinessProviderOrLeakCredentials() {
-        when(tokens.token(anyString(), anyString(), anyString()))
-                .thenThrow(new IllegalStateException("synthetic-secret"));
-        var failure = assertThrows(CommonException.class, () -> client.activate("tenant", null));
+        when(tokens.token(anyString(), anyString())).thenThrow(new IllegalStateException("synthetic-secret"));
+        var failure = assertThrows(CommonException.class, () -> client.activate(null));
         assertNull(failure.getCause());
         assertFalse(failure.toString().contains("synthetic-secret"));
         verifyNoInteractions(remote);
@@ -72,10 +71,10 @@ class LimitPolicyActivationHttpClientTest {
 
     @Test
     void remoteBusinessFailureIsNotAnActivationAck() {
-        when(tokens.token(anyString(), anyString(), anyString())).thenReturn("token");
+        when(tokens.token(anyString(), anyString())).thenReturn("token");
         when(remote.activate(anyString(), isNull()))
                 .thenReturn(
                         new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.POLICY_CONFLICT), null));
-        assertThrows(CommonException.class, () -> client.activate("tenant", null));
+        assertThrows(CommonException.class, () -> client.activate(null));
     }
 }

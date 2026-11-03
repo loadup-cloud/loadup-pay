@@ -145,31 +145,31 @@ class ReconciliationLedgerServiceTest {
 
     @BeforeEach
     void setup() {
-        when(batches.find("tenant", "batch")).thenAnswer(call -> {
+        when(batches.find("batch")).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return Optional.of(stored.get());
         });
-        when(batches.lock("tenant", "batch")).thenAnswer(call -> {
+        when(batches.lock("batch")).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return Optional.of(stored.get());
         });
         doAnswer(call -> {
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(batches)
-                .update(eq("tenant"), any(), anyLong());
-        when(source.detail("tenant", "capture")).thenAnswer(call -> {
+                .update(any(), anyLong());
+        when(source.detail("capture")).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return capture;
         });
-        when(source.lines(eq("tenant"), any())).thenAnswer(call -> {
+        when(source.lines(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             PaymentCaptureLinesQuery query = call.getArgument(1);
             return PageDTO.of(query.page() == 1 ? List.of(row) : List.of(), 1L, query.page(), 100);
         });
-        when(files.upload(eq("tenant"), eq("ops"), anyString(), eq("application/octet-stream"), anyLong(), any()))
+        when(files.upload(eq("ops"), anyString(), eq("application/octet-stream"), anyLong(), any()))
                 .thenAnswer(call -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                     byte[] bytes = ((InputStream) call.getArgument(5)).readAllBytes();
@@ -182,12 +182,12 @@ class ReconciliationLedgerServiceTest {
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                    sealed.set(call.getArgument(2));
+                    sealed.set(call.getArgument(1));
                     return null;
                 })
                 .when(inputs)
-                .insertSealed(eq("tenant"), eq("file"), any());
-        when(inputs.sealedManifest(eq("tenant"), anyString()))
+                .insertSealed(eq("file"), any());
+        when(inputs.sealedManifest(anyString()))
                 .thenAnswer(call -> Optional.ofNullable(sealed.get()).map(ReconciliationDataset::manifest));
     }
 
@@ -206,11 +206,11 @@ class ReconciliationLedgerServiceTest {
         assertEquals(ReconciliationSide.LEDGER, sealed.get().manifest().side());
         assertEquals(100L, sealed.get().manifest().totals().paymentAmountMinor());
         var order = inOrder(files, inputs, batches);
-        order.verify(files).attach(eq("tenant"), eq("ops"), any(), eq("artifact"));
-        order.verify(files).verify(eq("tenant"), eq("ops"), any(), eq("artifact"));
-        order.verify(inputs).insertSealed(eq("tenant"), eq("file"), any());
-        order.verify(batches).update(eq("tenant"), any(), eq(0L));
-        verify(source).lines("tenant", new PaymentCaptureLinesQuery("capture", 2, 100));
+        order.verify(files).attach(eq("ops"), any(), eq("artifact"));
+        order.verify(files).verify(eq("ops"), any(), eq("artifact"));
+        order.verify(inputs).insertSealed(eq("file"), any());
+        order.verify(batches).update(any(), eq(0L));
+        verify(source).lines(new PaymentCaptureLinesQuery("capture", 2, 100));
         clearInvocations(source, files);
         assertEquals(result, service.importSealed(new ReconciliationLedgerImportCommand("batch", "capture")));
         verifyNoInteractions(source, files);
@@ -224,7 +224,7 @@ class ReconciliationLedgerServiceTest {
 
     @Test
     void partialPageChangedTotalsAndWrongAccountNeverCreateAnInput() {
-        when(source.lines("tenant", new PaymentCaptureLinesQuery("capture", 1, 100)))
+        when(source.lines(new PaymentCaptureLinesQuery("capture", 1, 100)))
                 .thenReturn(PageDTO.of(List.of(), 1L, 1, 100));
         assertEquals(
                 INPUT_INVALID,
@@ -233,8 +233,8 @@ class ReconciliationLedgerServiceTest {
                                 () -> service.importSealed(new ReconciliationLedgerImportCommand("batch", "capture")))
                         .getResultCode());
         verifyNoInteractions(files, inputs);
-        verify(batches, never()).update(anyString(), any(), anyLong());
-        when(source.detail("tenant", "capture")).thenReturn(capture(PaymentCaptureState.SEALED, "c".repeat(64)));
+        verify(batches, never()).update(any(), anyLong());
+        when(source.detail("capture")).thenReturn(capture(PaymentCaptureState.SEALED, "c".repeat(64)));
         assertEquals(
                 SCOPE_MISMATCH,
                 assertThrows(
@@ -246,7 +246,7 @@ class ReconciliationLedgerServiceTest {
     @Test
     void initAndBlockedCannotBeMistakenForAnEmptySuccessfulSource() {
         for (var state : List.of(PaymentCaptureState.INIT, PaymentCaptureState.BLOCKED)) {
-            when(source.detail("tenant", "capture")).thenReturn(capture(state, scope.accountScopeHash()));
+            when(source.detail("capture")).thenReturn(capture(state, scope.accountScopeHash()));
             assertEquals(
                     INPUT_NOT_SEALED,
                     assertThrows(
@@ -255,14 +255,14 @@ class ReconciliationLedgerServiceTest {
                                             new ReconciliationLedgerImportCommand("batch", "capture")))
                             .getResultCode());
         }
-        verify(source, never()).lines(anyString(), any());
+        verify(source, never()).lines(any());
         verifyNoInteractions(files, inputs);
     }
 
     @Test
     void accountRevokedDuringFetchIsRecheckedBeforeAnyLocalReferenceOrInputWrite() {
-        when(source.detail("tenant", "capture")).thenAnswer(call -> {
-            doThrow(new CommonException(ACTION_FORBIDDEN)).when(accounts).authorize("tenant", "ops", "account", scope);
+        when(source.detail("capture")).thenAnswer(call -> {
+            doThrow(new CommonException(ACTION_FORBIDDEN)).when(accounts).authorize("ops", "account", scope);
             return capture;
         });
         assertEquals(
@@ -271,14 +271,14 @@ class ReconciliationLedgerServiceTest {
                                 CommonException.class,
                                 () -> service.importSealed(new ReconciliationLedgerImportCommand("batch", "capture")))
                         .getResultCode());
-        verify(files, never()).attach(anyString(), anyString(), any(), anyString());
-        verify(inputs, never()).insertSealed(anyString(), anyString(), any());
+        verify(files, never()).attach(anyString(), any(), anyString());
+        verify(inputs, never()).insertSealed(anyString(), any());
         assertNull(stored.get().batch().ledger());
     }
 
     @Test
     void prepareUsesOnlyOriginalBatchScopeAndRetryRequiresTheExactOriginalTask() {
-        when(source.create(eq("tenant"), any())).thenAnswer(call -> {
+        when(source.create(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             PaymentCaptureCreateCommand command = call.getArgument(1);
             assertEquals(scope.channel(), command.channel());
@@ -298,7 +298,7 @@ class ReconciliationLedgerServiceTest {
                                 () -> service.retry(
                                         new ReconciliationLedgerRetryCommand("batch", "capture", "other-task")))
                         .getResultCode());
-        verify(source, never()).retry(anyString(), any());
+        verify(source, never()).retry(any());
     }
 
     private PaymentCaptureDTO capture(PaymentCaptureState state, String hash) {

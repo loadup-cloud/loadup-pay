@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.payment.domain.gateway.RefundCallbackTargetGateway;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundCallbackStorageConverter;
@@ -48,12 +46,9 @@ public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGate
     }
 
     @Override
-    public Optional<PreparedChannelRefund> find(String tenant, String revision, String orderNo, String refundNo) {
+    public Optional<PreparedChannelRefund> find(String revision, String orderNo, String refundNo) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         var childArgs = new MapSqlParameterSource()
                 .addValue("revision", revision)

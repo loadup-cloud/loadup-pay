@@ -55,12 +55,12 @@ public class LimitPolicyService implements LimitPolicyFacade {
             if (!command.policyHash().equals(LimitPolicyHash.compute(actor.tenantId(), command))) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
-            var head = policies.lockOrCreateHead(actor.tenantId(), next.policyId(), next.payeeMerchantId());
+            var head = policies.lockOrCreateHead(next.policyId(), next.payeeMerchantId());
             if (!head.policyId().equals(next.policyId())
                     || !head.payeeMerchantId().equals(next.payeeMerchantId())) {
                 throw new CommonException(POLICY_CONFLICT);
             }
-            var prior = policies.findRevision(actor.tenantId(), next.policyId(), next.policyVersion());
+            var prior = policies.findRevision(next.policyId(), next.policyVersion());
             if (prior.isPresent()) {
                 if (!prior.get().policyHash().equals(next.policyHash())) {
                     throw new CommonException(POLICY_CONFLICT);
@@ -70,30 +70,27 @@ public class LimitPolicyService implements LimitPolicyFacade {
             }
             var advanced = head.advance(next);
             if (head.latestVersion() > 0) {
-                next.requireStableLineage(policies.findRevision(actor.tenantId(), head.policyId(), head.latestVersion())
+                next.requireStableLineage(policies.findRevision(head.policyId(), head.latestVersion())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
             }
             for (var rule : next.rules()) {
-                var current = policies.lockRule(actor.tenantId(), rule);
+                var current = policies.lockRule(rule);
                 if (current.isEmpty()) {
                     if (head.latestVersion() != 0) {
                         throw new CommonException(SNAPSHOT_INVALID);
                     }
-                    policies.insertRule(
-                            actor.tenantId(), new RuntimeLimitRule(next.policyId(), next.policyVersion(), rule, 0));
+                    policies.insertRule(new RuntimeLimitRule(next.policyId(), next.policyVersion(), rule, 0));
                 } else {
                     var existing = current.get();
                     if (existing.policyVersion() != head.latestVersion()) {
                         throw new CommonException(POLICY_CONFLICT);
                     }
                     policies.updateRule(
-                            actor.tenantId(),
-                            existing.revise(next.policyId(), next.policyVersion(), rule),
-                            existing.rowVersion());
+                            existing.revise(next.policyId(), next.policyVersion(), rule), existing.rowVersion());
                 }
             }
-            policies.insertRevision(actor.tenantId(), next);
-            policies.updateHead(actor.tenantId(), advanced, head.rowVersion());
+            policies.insertRevision(next);
+            policies.updateHead(advanced, head.rowVersion());
             return converter.toDTO(next);
         });
     }

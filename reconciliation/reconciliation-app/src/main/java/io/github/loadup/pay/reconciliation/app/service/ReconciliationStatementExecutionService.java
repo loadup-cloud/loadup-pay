@@ -102,7 +102,7 @@ public class ReconciliationStatementExecutionService {
         lease(task);
         String tenant = TenantUtil.getTenantId();
         var original = transactions.readSnapshot(tenant, () -> {
-            var value = sources.find(tenant, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var value = sources.find(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             ReconciliationStatementService.task(task, tenant, value);
             authorized(tenant, value, false);
             if (value.state() == ReconciliationStatementState.READY) {
@@ -116,7 +116,7 @@ public class ReconciliationStatementExecutionService {
         // Short transaction can terminate a superseded request before any network/file IO.
         boolean pending = transactions.writeLocal(tenant, () -> {
             var batch = authorized(tenant, original, true);
-            var current = sources.lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = sources.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() != ReconciliationStatementState.INIT) {
                 if (current.state() == ReconciliationStatementState.READY) {
                     linked(tenant, current);
@@ -127,10 +127,10 @@ public class ReconciliationStatementExecutionService {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             if (batch.batch().channel() != null || batch.batch().state() != ReconciliationState.INIT) {
-                sources.update(tenant, current.supersede(), current.version());
+                sources.update(current.supersede(), current.version());
                 return false;
             }
-            if (imports.activeForBatch(tenant, original.batchId()).isPresent()) {
+            if (imports.activeForBatch(original.batchId()).isPresent()) {
                 throw new CommonException(IMPORT_IN_PROGRESS);
             }
             return true;
@@ -139,18 +139,16 @@ public class ReconciliationStatementExecutionService {
             return;
         }
         lease(task);
-        var downloaded = payment.download(tenant, converter.toQuery(original));
+        var downloaded = payment.download(converter.toQuery(original));
         scope(original, downloaded);
         byte[] content = downloaded.content(), evidence = downloaded.evidence();
         var file = files.upload(
-                tenant,
                 original.callerServiceId(),
                 "statement-" + original.id() + ".csv",
                 "text/csv",
                 content.length,
                 new ByteArrayInputStream(content));
         var proof = files.upload(
-                tenant,
                 original.callerServiceId(),
                 "statement-proof-" + original.id() + ".bin",
                 "application/octet-stream",
@@ -167,7 +165,7 @@ public class ReconciliationStatementExecutionService {
         var receipt = converter.toReceipt(downloaded, file, proof);
         transactions.writeLocal(tenant, () -> {
             var batch = authorized(tenant, original, true);
-            var current = sources.lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = sources.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() != ReconciliationStatementState.INIT) {
                 if (current.state() == ReconciliationStatementState.READY) {
                     linked(tenant, current);
@@ -179,18 +177,18 @@ public class ReconciliationStatementExecutionService {
             }
             lease(task);
             if (batch.batch().channel() != null || batch.batch().state() != ReconciliationState.INIT) {
-                sources.update(tenant, current.supersede(), current.version());
+                sources.update(current.supersede(), current.version());
                 return false;
             }
-            if (imports.activeForBatch(tenant, original.batchId()).isPresent()) {
+            if (imports.activeForBatch(original.batchId()).isPresent()) {
                 throw new CommonException(IMPORT_IN_PROGRESS);
             }
-            if (imports.find(tenant, original.id()).isPresent()) {
+            if (imports.find(original.id()).isPresent()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var ready = current.ready(receipt);
-            files.attach(tenant, original.callerServiceId(), file, original.id());
-            files.attach(tenant, original.callerServiceId(), proof, original.id());
+            files.attach(original.callerServiceId(), file, original.id());
+            files.attach(original.callerServiceId(), proof, original.id());
             var transfer = transfers.submit(
                     original.callerServiceId(),
                     TransferKind.IMPORT,
@@ -203,30 +201,30 @@ public class ReconciliationStatementExecutionService {
             var request = converter.toImport(ready, transfer.id());
             ReconciliationImportExecutionService.validateTask(transfer, request, TransferStatus.QUEUED);
             ready.verifyImport(request);
-            sources.update(tenant, ready, current.version());
-            imports.insert(tenant, request);
+            sources.update(ready, current.version());
+            imports.insert(request);
             official.verify(tenant, request);
             return true;
         });
     }
 
     private void linked(String tenant, ReconciliationStatementRequest source) {
-        var request = imports.find(tenant, source.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var request = imports.find(source.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         source.verifyImport(request);
         official.verify(tenant, request);
     }
 
     private StoredReconciliationBatch authorized(String tenant, ReconciliationStatementRequest source, boolean lock) {
-        var batch = (lock ? batches.lock(tenant, source.batchId()) : batches.find(tenant, source.batchId()))
+        var batch = (lock ? batches.lock(source.batchId()) : batches.find(source.batchId()))
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!source.callerServiceId().equals(batch.callerServiceId())
                 || !source.scope().equals(batch.batch().scope())) {
             throw new CommonException(SCOPE_MISMATCH);
         }
-        accounts.authorize(tenant, source.callerServiceId(), batch.channelAccountCode(), source.scope());
+        accounts.authorize(source.callerServiceId(), batch.channelAccountCode(), source.scope());
         if (!source.statementAccount()
                 .equals(accounts.statementAccount(
-                        tenant, source.callerServiceId(), batch.channelAccountCode(), source.scope()))) {
+                        source.callerServiceId(), batch.channelAccountCode(), source.scope()))) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         return batch;

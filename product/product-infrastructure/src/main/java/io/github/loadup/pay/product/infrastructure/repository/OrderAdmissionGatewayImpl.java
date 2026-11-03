@@ -52,12 +52,12 @@ public class OrderAdmissionGatewayImpl extends ServiceImpl<OrderAdmissionMapper,
     }
 
     @Override
-    public Optional<StoredOrderAdmission> findByOrder(String tenant, String order) {
+    public Optional<StoredOrderAdmission> findByOrder(String order) {
         return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("order_id", order))));
     }
 
     @Override
-    public Optional<StoredOrderAdmission> findById(String tenant, String id) {
+    public Optional<StoredOrderAdmission> findById(String id) {
         return read(() -> Optional.ofNullable(getById(id)));
     }
 
@@ -70,7 +70,7 @@ public class OrderAdmissionGatewayImpl extends ServiceImpl<OrderAdmissionMapper,
     }
 
     @Override
-    public void insert(String tenant, StoredOrderAdmission value) {
+    public void insert(StoredOrderAdmission value) {
         OrderAdmissionDO row = converter.toDO(value);
         LocalDateTime now = LocalDateTime.now(clock);
         row.setCreatedAt(now);

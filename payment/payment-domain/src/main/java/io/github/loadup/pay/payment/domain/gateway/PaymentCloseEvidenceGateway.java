@@ -22,7 +22,7 @@ import java.util.Optional;
  * One immutable fact per original attempt. Caller serializes insertion with the original payment/attempt locks.
  */
 public interface PaymentCloseEvidenceGateway {
-    Optional<PaymentCloseEvidence> find(String tenant, String attemptId);
+    Optional<PaymentCloseEvidence> find(String attemptId);
 
-    void insert(String tenant, PaymentCloseEvidence value);
+    void insert(PaymentCloseEvidence value);
 }

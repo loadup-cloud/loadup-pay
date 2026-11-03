@@ -102,7 +102,7 @@ class PaymentVerificationServiceTest {
 
     @Test
     void localReadIsBoundedReadOnlyAndChannelQueryUsesOnlyOriginalSubmittedTargetOutsideTransaction() {
-        when(reader.read("tenant", query)).thenAnswer(call -> {
+        when(reader.read(query)).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals("tenant", TenantUtil.getTenantId());
@@ -142,7 +142,7 @@ class PaymentVerificationServiceTest {
                 PaymentVerificationDisposition.AMBIGUOUS_TARGET)) {
             doReturn(new PaymentVerificationTarget(null, null, null, null, disposition))
                     .when(reader)
-                    .read("tenant", query);
+                    .read(query);
             var result = service.verify(query);
             assertEquals(disposition, result.disposition());
             assertNull(result.outcome());
@@ -157,7 +157,7 @@ class PaymentVerificationServiceTest {
         var query = query(PaymentLedgerKind.REFUND);
         var refund = new PreparedChannelRefund(
                 identity, "refund", "refund-request", Money.ofMinor(30L, "CNY"), amount, "original-transaction");
-        when(reader.read("tenant", query))
+        when(reader.read(query))
                 .thenReturn(new PaymentVerificationTarget(
                         null, refund, 3L, "PROCESSING", PaymentVerificationDisposition.OBSERVED));
         when(channels.queryRefund(refund)).thenAnswer(call -> {
@@ -193,7 +193,7 @@ class PaymentVerificationServiceTest {
                 assertThrows(CommonException.class, () -> service.verify(query)).getResultCode());
         verifyNoInteractions(reader, channels);
         actor.set(new PaymentActor("tenant", "reconciliation", Set.of("pay:payment:reconciliation:verify")));
-        when(reader.read("tenant", query))
+        when(reader.read(query))
                 .thenReturn(new PaymentVerificationTarget(
                         target, null, 1L, "UNKNOWN", PaymentVerificationDisposition.OBSERVED));
         when(channels.query(target))

@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -80,7 +79,7 @@ class CustomerServiceTest {
     CustomerServiceTest() {
         when(actors.current())
                 .thenReturn(new CustomerActor("tenant", PrincipalType.MERCHANT_APP, "app", "parent", false));
-        when(facts.lock("tenant", "child")).thenReturn(new MerchantFacts("child", true, 2));
+        when(facts.lock("child")).thenReturn(new MerchantFacts("child", true, 2));
     }
 
     @AfterEach
@@ -114,9 +113,9 @@ class CustomerServiceTest {
                         now.minusDays(1),
                         null)
                 .activate();
-        when(authorization.findGrant("tenant", PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
+        when(authorization.findGrant(PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
                 .thenReturn(Optional.of(grant));
-        when(authorization.findRelationship("tenant", "relation")).thenReturn(Optional.of(relationship));
+        when(authorization.findRelationship("relation")).thenReturn(Optional.of(relationship));
         service.authorize(query());
         verify(converter).toEligibility(false, CustomerResultCodeEnum.ACTION_FORBIDDEN.getCode(), null, null, null);
         verifyNoInteractions(merchants);
@@ -135,9 +134,9 @@ class CustomerServiceTest {
                         null)
                 .activate();
         var profile = new MerchantProfileDTO("child", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true);
-        when(authorization.findGrant("tenant", PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
+        when(authorization.findGrant(PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
                 .thenReturn(Optional.of(grant));
-        when(facts.find("tenant", "parent")).thenReturn(Optional.of(new MerchantFacts("parent", true, 1)));
+        when(facts.find("parent")).thenReturn(Optional.of(new MerchantFacts("parent", true, 1)));
         when(merchants.find("child")).thenReturn(Optional.of(profile));
         service.authorize(query());
         verify(converter).toEligibility(true, "ALLOWED", profile, new MerchantFacts("child", true, 2), grant);
@@ -155,7 +154,7 @@ class CustomerServiceTest {
                         now.minusDays(1),
                         now)
                 .activate();
-        when(authorization.findGrant("tenant", PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
+        when(authorization.findGrant(PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
                 .thenReturn(Optional.of(grant));
         service.authorize(query());
         verify(converter).toEligibility(false, CustomerResultCodeEnum.ACTION_FORBIDDEN.getCode(), null, null, null);
@@ -164,7 +163,7 @@ class CustomerServiceTest {
 
     @Test
     void trustedTenantOverridesAndThenRestoresAmbientTenant() {
-        when(facts.lock("tenant", "child")).thenAnswer(call -> {
+        when(facts.lock("child")).thenAnswer(call -> {
             assertEquals("tenant", TenantUtil.getTenantId());
             return new MerchantFacts("child", false, 2);
         });
@@ -188,14 +187,14 @@ class CustomerServiceTest {
         when(actors.current()).thenReturn(new CustomerActor("tenant", PrincipalType.OPERATOR, "admin", null, true));
         var relation = MerchantRelationship.init("relation", "parent", "child", now.minusDays(1), null)
                 .activate();
-        when(authorization.findRelationship("tenant", "relation")).thenReturn(Optional.of(relation));
-        when(authorization.lockRelationship("tenant", "relation")).thenReturn(relation);
+        when(authorization.findRelationship("relation")).thenReturn(Optional.of(relation));
+        when(authorization.lockRelationship("relation")).thenReturn(relation);
         CommonException failure = assertThrows(
                 CommonException.class,
                 () -> service.revokeRelationship(new MerchantRelationshipRevokeCommand("relation", "request", 0)));
         assertSame(CustomerResultCodeEnum.CONFLICT, failure.getResultCode());
         verify(unique, never()).claim(any(GlobalUniqueClaim.class));
-        verify(authorization, never()).saveRelationship(anyString(), any(), anyLong());
+        verify(authorization, never()).saveRelationship(any(), anyLong());
     }
 
     @Test

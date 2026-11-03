@@ -18,7 +18,6 @@ package io.github.loadup.pay.customer.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.gateway.MerchantAuthorizationGateway;
 import io.github.loadup.pay.customer.domain.model.GrantState;
@@ -115,15 +114,8 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
                 row.getRowVersion());
     }
 
-    private static void tenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
-        }
-    }
-
     @Override
-    public Optional<MerchantRelationship> findRelationship(String tenant, String id) {
-        tenant(tenant);
+    public Optional<MerchantRelationship> findRelationship(String id) {
         if (id == null) {
             return Optional.empty();
         }
@@ -131,8 +123,7 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
     }
 
     @Override
-    public Optional<MerchantRelationship> findLiveRelationship(String tenant, String parent, String child) {
-        tenant(tenant);
+    public Optional<MerchantRelationship> findLiveRelationship(String parent, String child) {
         if (parent == null || child == null) {
             return Optional.empty();
         }
@@ -145,15 +136,14 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
     }
 
     @Override
-    public MerchantRelationship lockRelationship(String tenant, String id) {
-        writable(tenant);
+    public MerchantRelationship lockRelationship(String id) {
+        writable();
         return relationship("SELECT * FROM merchant_relationship WHERE id = ? AND deleted = FALSE FOR UPDATE", id)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }
 
     @Override
-    public Optional<MerchantActionGrant> findGrantById(String tenant, String id) {
-        tenant(tenant);
+    public Optional<MerchantActionGrant> findGrantById(String id) {
         if (id == null) {
             return Optional.empty();
         }
@@ -161,16 +151,15 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
     }
 
     @Override
-    public MerchantActionGrant lockGrant(String tenant, String id) {
-        writable(tenant);
+    public MerchantActionGrant lockGrant(String id) {
+        writable();
         return grant("SELECT * FROM merchant_action_grant WHERE id = ? AND deleted = FALSE FOR UPDATE", id)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }
 
     @Override
     public Optional<MerchantActionGrant> findGrant(
-            String tenant, PrincipalType type, String principal, String payee, MerchantAction action) {
-        tenant(tenant);
+            PrincipalType type, String principal, String payee, MerchantAction action) {
         if (principal == null || payee == null) {
             return Optional.empty();
         }
@@ -184,8 +173,8 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
     }
 
     @Override
-    public void saveRelationship(String tenant, MerchantRelationship model, long expected) {
-        writable(tenant);
+    public void saveRelationship(MerchantRelationship model, long expected) {
+        writable();
         if (model == null
                 || (expected == -1
                         ? !initialVersion(model.state(), model.version())
@@ -246,8 +235,8 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
     }
 
     @Override
-    public void saveGrant(String tenant, MerchantActionGrant model, long expected) {
-        writable(tenant);
+    public void saveGrant(MerchantActionGrant model, long expected) {
+        writable();
         if (model == null
                 || (expected == -1
                         ? !initialVersion(model.state(), model.version())
@@ -314,8 +303,7 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
         }
     }
 
-    private void writable(String tenant) {
-        tenant(tenant);
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);

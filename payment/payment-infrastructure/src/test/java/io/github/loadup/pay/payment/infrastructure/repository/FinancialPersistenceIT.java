@@ -215,15 +215,12 @@ class FinancialPersistenceIT {
             try {
                 assertTrue(entered.await(10, TimeUnit.SECONDS));
                 transactions.writeLocal(tenant, () -> {
-                    payments.insertParent(
-                            tenant,
-                            new StoredPaymentGate(
-                                    id("parent"),
-                                    command.payeeMerchantId(),
-                                    "acquire",
-                                    PaymentExecutionGate.init(command.orderId(), null)
-                                            .fence(1L),
-                                    0L));
+                    payments.insertParent(new StoredPaymentGate(
+                            id("parent"),
+                            command.payeeMerchantId(),
+                            "acquire",
+                            PaymentExecutionGate.init(command.orderId(), null).fence(1L),
+                            0L));
                     return true;
                 });
             } finally {
@@ -235,14 +232,11 @@ class FinancialPersistenceIT {
                     PaymentResultCodeEnum.EXECUTION_FENCED, ((CommonException) failure.getCause()).getResultCode());
         }
         transactions.writeLocal(tenant, () -> {
-            assertTrue(inputStore.findByPayment(tenant, command.paymentId()).isEmpty());
-            assertTrue(payments.lockPayment(tenant, command.paymentId()).isEmpty());
+            assertTrue(inputStore.findByPayment(command.paymentId()).isEmpty());
+            assertTrue(payments.lockPayment(command.paymentId()).isEmpty());
             assertEquals(
                     GateState.FENCED,
-                    payments.lockParent(tenant, command.orderId())
-                            .orElseThrow()
-                            .gate()
-                            .state());
+                    payments.lockParent(command.orderId()).orElseThrow().gate().state());
             return true;
         });
         verify(remote.channels, never()).submit(any());
@@ -262,17 +256,14 @@ class FinancialPersistenceIT {
         }
         var original = first;
         transactions.writeLocal(tenant, () -> {
-            var stored = inputStore.findByPayment(tenant, command.paymentId()).orElseThrow();
+            var stored = inputStore.findByPayment(command.paymentId()).orElseThrow();
             assertEquals(original.inputRef(), stored.id());
             assertEquals(0L, stored.rowVersion());
             assertEquals(PaymentInputState.INIT, stored.state());
             assertEquals(
                     GateState.OPEN,
-                    payments.lockParent(tenant, command.orderId())
-                            .orElseThrow()
-                            .gate()
-                            .state());
-            assertTrue(payments.lockPayment(tenant, command.paymentId()).isEmpty());
+                    payments.lockParent(command.orderId()).orElseThrow().gate().state());
+            assertTrue(payments.lockPayment(command.paymentId()).isEmpty());
             return true;
         });
         verify(remote.cipher, times(2)).encrypt(eq(tenant), eq("acquire"), anyString(), eq(command));
@@ -317,9 +308,7 @@ class FinancialPersistenceIT {
             remote.barrier.set(null);
         }
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var persisted = attempts.find(
-                            fixture.tenant(), fixture.attempt().attempt().id())
-                    .orElseThrow();
+            var persisted = attempts.find(fixture.attempt().attempt().id()).orElseThrow();
             assertEquals(PaymentAttemptState.SUBMITTING, persisted.attempt().state());
             assertEquals(1L, persisted.attempt().executionEpoch());
             assertEquals(1L, persisted.rowVersion());
@@ -347,9 +336,7 @@ class FinancialPersistenceIT {
         assertTrue(prepare(fixture).isEmpty());
         verifyNoInteractions(remote.risk, remote.limits, remote.channels, remote.cipher, remote.events);
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var persisted = attempts.find(
-                            fixture.tenant(), fixture.attempt().attempt().id())
-                    .orElseThrow();
+            var persisted = attempts.find(fixture.attempt().attempt().id()).orElseThrow();
             assertEquals(
                     fixture.attempt().attempt().channelRequestNo(),
                     persisted.attempt().channelRequestNo());
@@ -366,19 +353,14 @@ class FinancialPersistenceIT {
                 IllegalStateException.class,
                 () -> transactions.writeLocal(fixture.tenant(), () -> {
                     locks.lock(fixture.tenant(), fixture.command().paymentId(), "acquire");
-                    var before = attempts.lock(
-                                    fixture.tenant(),
-                                    fixture.attempt().attempt().id())
-                            .orElseThrow();
+                    var before = attempts.lock(fixture.attempt().attempt().id()).orElseThrow();
                     var after = before.beginSubmission(
                             1L, codec.checksum(RemotePorts.PERMIT), RiskDecision.notConnected(), AT);
-                    attempts.update(fixture.tenant(), after, before.rowVersion());
+                    attempts.update(after, before.rowVersion());
                     throw new IllegalStateException("Injected after actual attempt update");
                 }));
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var persisted = attempts.find(
-                            fixture.tenant(), fixture.attempt().attempt().id())
-                    .orElseThrow();
+            var persisted = attempts.find(fixture.attempt().attempt().id()).orElseThrow();
             assertEquals(PaymentAttemptState.INIT, persisted.attempt().state());
             assertEquals(0L, persisted.rowVersion());
             assertEquals(0L, persisted.attempt().executionEpoch());
@@ -427,10 +409,10 @@ class FinancialPersistenceIT {
             assertEquals(3000L, after.availableMinor());
             assertEquals(1L, after.version());
             assertPlanCounts(fixture, 1L);
-            boolean firstExists = refunds.reference(fixture.tenant(), firstId).isPresent();
-            boolean secondExists = refunds.reference(fixture.tenant(), secondId).isPresent();
+            boolean firstExists = refunds.reference(firstId).isPresent();
+            boolean secondExists = refunds.reference(secondId).isPresent();
             assertTrue(firstExists ^ secondExists);
-            var persisted = refunds.load(fixture.tenant(), firstExists ? firstId : secondId);
+            var persisted = refunds.load(firstExists ? firstId : secondId);
             assertEquals(7000L, persisted.request().amount().getCent());
             assertEquals(RefundRequestState.INIT, persisted.request().state());
             return true;
@@ -451,7 +433,7 @@ class FinancialPersistenceIT {
                     throw new IllegalStateException("Injected after request, child, plan and capacity writes");
                 }));
         transactions.readSnapshot(fixture.tenant(), () -> {
-            assertTrue(refunds.reference(fixture.tenant(), request).isEmpty());
+            assertTrue(refunds.reference(request).isEmpty());
             assertPlanCounts(fixture, 0L);
             assertEquals(0L, capacity(fixture).reservedMinor());
             assertEquals(0L, capacity(fixture).version());
@@ -462,30 +444,25 @@ class FinancialPersistenceIT {
     private FinancialPersistenceFixtures.Fixture seed() {
         var fixture = FinancialPersistenceFixtures.prepared(codec, bindingCodec);
         transactions.writeLocal(fixture.tenant(), () -> {
-            bindings.insertHead(fixture.tenant(), fixture.head());
-            bindings.insertRevision(fixture.tenant(), fixture.revision());
-            payments.insertParent(
-                    fixture.tenant(),
-                    new StoredPaymentGate(
-                            id("parent"),
-                            fixture.command().payeeMerchantId(),
-                            "acquire",
-                            PaymentExecutionGate.init(fixture.command().orderId(), null)
-                                    .open(),
-                            0L));
-            payments.insertPaymentGate(
-                    fixture.tenant(),
-                    new StoredPaymentGate(
-                            id("gate"),
-                            fixture.command().payeeMerchantId(),
-                            "acquire",
-                            PaymentExecutionGate.init(
-                                            fixture.command().orderId(),
-                                            fixture.command().paymentId())
-                                    .open(),
-                            0L));
-            payments.insert(fixture.tenant(), fixture.payment());
-            attempts.insert(fixture.tenant(), fixture.attempt());
+            bindings.insertHead(fixture.head());
+            bindings.insertRevision(fixture.revision());
+            payments.insertParent(new StoredPaymentGate(
+                    id("parent"),
+                    fixture.command().payeeMerchantId(),
+                    "acquire",
+                    PaymentExecutionGate.init(fixture.command().orderId(), null).open(),
+                    0L));
+            payments.insertPaymentGate(new StoredPaymentGate(
+                    id("gate"),
+                    fixture.command().payeeMerchantId(),
+                    "acquire",
+                    PaymentExecutionGate.init(
+                                    fixture.command().orderId(),
+                                    fixture.command().paymentId())
+                            .open(),
+                    0L));
+            payments.insert(fixture.payment());
+            attempts.insert(fixture.attempt());
             return true;
         });
         return fixture;
@@ -532,9 +509,8 @@ class FinancialPersistenceIT {
     }
 
     private void insertPlan(FinancialPersistenceFixtures.Fixture fixture, String requestId, long minor) {
-        payments.lockParent(fixture.tenant(), fixture.command().orderId()).orElseThrow();
-        var candidates =
-                refunds.lockCapacities(fixture.tenant(), fixture.command().orderId());
+        payments.lockParent(fixture.command().orderId()).orElseThrow();
+        var candidates = refunds.lockCapacities(fixture.command().orderId());
         var items = new FifoRefundPolicy()
                 .plan(
                         fixture.command().orderId(),
@@ -576,7 +552,6 @@ class FinancialPersistenceIT {
                 AT,
                 List.of(storedChild));
         refunds.insertPlan(
-                fixture.tenant(),
                 stored,
                 List.of(new RefundCapacityReservation(
                         before, before.reserve(item.amount().getCent()))));
@@ -648,10 +623,9 @@ class FinancialPersistenceIT {
                 }
                 return new EncryptedPaymentInput("input-key", 1, "synthetic-ciphertext");
             });
-            when(limits.supportsTenant(anyString())).thenReturn(true);
-            when(limits.reserve(anyString(), any())).thenAnswer(c -> {
+            when(limits.reserve(any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                LimitReserveCommand command = c.getArgument(1);
+                LimitReserveCommand command = c.getArgument(0);
                 operationPayments.put(command.operationId(), command.paymentId());
                 return new LimitReservationDTO(
                         "res-" + command.paymentId(),
@@ -663,9 +637,9 @@ class FinancialPersistenceIT {
                         command.initiatedAt(),
                         1L);
             });
-            when(limits.begin(anyString(), any())).thenAnswer(c -> {
+            when(limits.begin(any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                LimitBeginExecutionCommand command = c.getArgument(1);
+                LimitBeginExecutionCommand command = c.getArgument(0);
                 return new LimitExecutionPermitDTO(
                         command.operationId(),
                         operationPayments.get(command.operationId()),
@@ -673,7 +647,7 @@ class FinancialPersistenceIT {
                         1L,
                         PERMIT);
             });
-            when(limits.verify(anyString(), any())).thenAnswer(c -> {
+            when(limits.verify(any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                 var gate = barrier.get();
                 if (gate != null) {

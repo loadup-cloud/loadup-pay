@@ -25,19 +25,19 @@ import java.util.Optional;
  * Caller holds the parent and, for payment updates, the single-payment gate lock.
  */
 public interface PaymentControlGateway {
-    Optional<StoredPaymentAcceptance> lockPayment(String tenant, String paymentId);
+    Optional<StoredPaymentAcceptance> lockPayment(String paymentId);
 
-    void updatePayment(String tenant, StoredPaymentAcceptance value, long expectedVersion);
+    void updatePayment(StoredPaymentAcceptance value, long expectedVersion);
 
-    void updateParent(String tenant, StoredPaymentGate value, long expectedVersion);
+    void updateParent(StoredPaymentGate value, long expectedVersion);
 
-    void updateGate(String tenant, StoredPaymentGate value, long expectedVersion);
+    void updateGate(StoredPaymentGate value, long expectedVersion);
 
-    Optional<PaymentControlReceipt> findReceipt(String tenant, String kind, String targetId, String requestKey);
+    Optional<PaymentControlReceipt> findReceipt(String kind, String targetId, String requestKey);
 
-    Optional<PaymentControlReceipt> findNoCollectionReceipt(String tenant, String paymentId);
+    Optional<PaymentControlReceipt> findNoCollectionReceipt(String paymentId);
 
-    void insertReceipt(String tenant, PaymentControlReceipt value);
+    void insertReceipt(PaymentControlReceipt value);
 
-    PaymentChildrenStatus childrenStatus(String tenant, String orderId);
+    PaymentChildrenStatus childrenStatus(String orderId);
 }

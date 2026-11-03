@@ -249,37 +249,35 @@ class PaymentOutcomeEventServiceTest {
     @BeforeEach
     void setup() {
         prepare(10000, PaymentState.SUCCEEDED);
-        when(payment.supportsTenant("tenant")).thenReturn(true);
-        when(orders.findOrder("tenant", "order")).thenAnswer(c -> Optional.of(order.get()));
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> {
+        when(orders.findOrder("order")).thenAnswer(c -> Optional.of(order.get()));
+        when(orders.lockOrder("order")).thenAnswer(c -> {
             active();
             return order.get();
         });
-        when(allocations.findPayment("tenant", "order", "payment")).thenAnswer(c -> Optional.of(allocation.get()));
-        when(allocations.lockPayment("tenant", "order", "payment")).thenAnswer(c -> {
+        when(allocations.findPayment("order", "payment")).thenAnswer(c -> Optional.of(allocation.get()));
+        when(allocations.lockPayment("order", "payment")).thenAnswer(c -> {
             active();
             return Optional.of(allocation.get());
         });
-        when(allocations.findReceipt("tenant", "allocation")).thenAnswer(c -> Optional.ofNullable(outcome.get()));
+        when(allocations.findReceipt("allocation")).thenAnswer(c -> Optional.ofNullable(outcome.get()));
         when(intents.decode(any())).thenAnswer(c -> command);
         when(admissions.decodeAdmission(anyString(), anyString())).thenReturn(admission());
-        when(events.find(eq("tenant"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(accepted.get(c.getArgument(1))));
+        when(events.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.getArgument(0))));
         when(digests.digest(anyString(), anyString(), any()))
                 .thenAnswer(c -> "%064x"
                         .formatted(Integer.toUnsignedLong(
                                 Objects.hash(c.getArgument(0), c.getArgument(1), c.getArgument(2)))));
-        when(payment.facts("tenant", "payment")).thenAnswer(c -> {
+        when(payment.facts("payment")).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return facts.get();
         });
-        when(payment.outcome("tenant", "payment")).thenAnswer(c -> {
+        when(payment.outcome("payment")).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new PaymentOutcomeDTO(facts.get().payment(), facts.get().executionFenced());
         });
         doAnswer(c -> {
                     active();
-                    OrderPaymentChange changed = c.getArgument(1);
+                    OrderPaymentChange changed = c.getArgument(0);
                     order.set(context.getBean(PaymentProgressConverter.class).withOrder(order.get(), changed.order()));
                     var old = allocation.get();
                     allocation.set(new StoredPaymentAllocation(
@@ -288,25 +286,25 @@ class PaymentOutcomeEventServiceTest {
                             old.intentPayload(),
                             old.payloadHash(),
                             old.rowVersion() + 1));
-                    outcome.set(c.getArgument(3));
+                    outcome.set(c.getArgument(2));
                     return null;
                 })
                 .when(allocations)
-                .apply(eq("tenant"), any(), any(), any(), anyLong());
+                .apply(any(), any(), any(), anyLong());
         doAnswer(c -> {
                     active();
-                    PaymentEventReceipt receipt = c.getArgument(1);
+                    PaymentEventReceipt receipt = c.getArgument(0);
                     accepted.put(receipt.deliveryId(), receipt);
                     return null;
                 })
                 .when(events)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(c -> {
                     active();
                     return null;
                 })
                 .when(fees)
-                .confirmPaid(anyString(), any(), any(), any());
+                .confirmPaid(any(), any(), any());
     }
 
     void active() {
@@ -350,9 +348,9 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(AllocationState.RELEASED, allocation.get().allocation().state());
         assertTrue(order.get().order().canAcceptNewPayment(NOW));
         operations.applyInputExpiry(scope, "order", "payment", proof);
-        verify(allocations, times(1)).apply(anyString(), any(), any(), any(), anyLong());
-        verify(payment, never()).outcome(anyString(), anyString());
-        verify(fees, never()).confirmPaid(anyString(), any(), any(), any());
+        verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
+        verify(payment, never()).outcome(anyString());
+        verify(fees, never()).confirmPaid(any(), any(), any());
     }
 
     @Test
@@ -367,7 +365,7 @@ class PaymentOutcomeEventServiceTest {
                                         new OrderPaymentScope("tenant", OWNER), "order", "payment", proof))
                         .getResultCode());
         assertSame(held, order.get());
-        verify(allocations, never()).apply(anyString(), any(), any(), any(), anyLong());
+        verify(allocations, never()).apply(any(), any(), any(), anyLong());
     }
 
     @Test
@@ -382,7 +380,7 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(AllocationState.CONSUMED, allocation.get().allocation().state());
         assertEquals(ack.orderVersion(), order.get().order().version());
         assertEquals(1, manager.commits);
-        verify(fees).confirmPaid(eq("tenant"), any(), any(), any());
+        verify(fees).confirmPaid(any(), any(), any());
         verify(snapshots).publish("tenant", "order", order.get().order().version());
     }
 
@@ -391,12 +389,12 @@ class PaymentOutcomeEventServiceTest {
         var e = event("delivery");
         var ack = service.accept(e);
         clearInvocations(payment, allocations, fees, events);
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(payment).facts(anyString(), anyString());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(payment).facts(anyString());
         assertEquals(ack, service.accept(e));
-        verify(payment, never()).facts(anyString(), anyString());
-        verify(allocations, never()).apply(anyString(), any(), any(), any(), anyLong());
+        verify(payment, never()).facts(anyString());
+        verify(allocations, never()).apply(any(), any(), any(), anyLong());
         verifyNoInteractions(fees);
-        verify(events, never()).insert(anyString(), any());
+        verify(events, never()).insert(any());
     }
 
     @Test
@@ -405,8 +403,8 @@ class PaymentOutcomeEventServiceTest {
         service.accept(event("two"));
         assertEquals(2, accepted.size());
         assertEquals(10000, order.get().order().paidAmountMinor());
-        verify(allocations, times(1)).apply(eq("tenant"), any(), any(), any(), anyLong());
-        verify(fees, times(1)).confirmPaid(eq("tenant"), any(), any(), any());
+        verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
+        verify(fees, times(1)).confirmPaid(any(), any(), any());
         verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
     }
 
@@ -415,8 +413,8 @@ class PaymentOutcomeEventServiceTest {
         operations.refresh(
                 new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
         service.accept(event("delivery"));
-        verify(allocations, times(1)).apply(eq("tenant"), any(), any(), any(), anyLong());
-        verify(fees, times(1)).confirmPaid(eq("tenant"), any(), any(), any());
+        verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
+        verify(fees, times(1)).confirmPaid(any(), any(), any());
     }
 
     @Test
@@ -488,7 +486,7 @@ class PaymentOutcomeEventServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.accept(altered))
                         .getResultCode());
-        verify(allocations, never()).apply(anyString(), any(), any(), any(), anyLong());
+        verify(allocations, never()).apply(any(), any(), any(), anyLong());
     }
 
     @Test
@@ -536,13 +534,13 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         assertTrue(accepted.isEmpty());
-        verify(events, never()).insert(anyString(), any());
+        verify(events, never()).insert(any());
         // Financial rollback still needs real PostgreSQL acceptance; these mocks check the transaction boundary.
     }
 
     @Test
     void eventReceiptFailureRollsBackTheWholeLocalAcceptanceBoundary() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(events).insert(eq("tenant"), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(events).insert(any());
         assertThrows(CommonException.class, () -> service.accept(event("delivery")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);

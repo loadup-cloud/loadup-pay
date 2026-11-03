@@ -79,7 +79,7 @@ public class ReconciliationVerificationDelivery {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var original = transactions.readSnapshot(
-                tenant, () -> requests.find(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                tenant, () -> requests.find(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         var nativeRow = ReconciliationVerificationService.delivery(outbox, original);
         if (!event.id().equals(original.deliveryId())
                 || !"PROCESSING".equals(nativeRow.status())
@@ -91,14 +91,14 @@ public class ReconciliationVerificationDelivery {
         }
         transactions.readSnapshot(tenant, () -> approved(tenant, original, false));
         var query = converter.toQuery(original);
-        var result = payment.verify(tenant, query);
+        var result = payment.verify(query);
         if (result == null || !query.equals(result.request())) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         var receipt = converter.toReceipt(result);
         transactions.writeLocal(tenant, () -> {
             approved(tenant, original, true);
-            var current = requests.lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = requests.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() == ReconciliationVerificationState.RECORDED) {
                 return false;
             }
@@ -109,7 +109,7 @@ public class ReconciliationVerificationDelivery {
             if (!"PROCESSING".equals(actual.status()) || actual.attempts() != nativeRow.attempts()) {
                 throw new CommonException(INVALID_STATE);
             }
-            requests.update(tenant, current.complete(receipt), current.version());
+            requests.update(current.complete(receipt), current.version());
             return true;
         });
     }

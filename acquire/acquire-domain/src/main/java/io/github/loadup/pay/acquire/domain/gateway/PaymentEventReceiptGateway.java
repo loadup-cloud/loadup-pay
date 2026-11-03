@@ -19,7 +19,7 @@ import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import java.util.Optional;
 
 public interface PaymentEventReceiptGateway {
-    Optional<PaymentEventReceipt> find(String tenant, String deliveryId);
+    Optional<PaymentEventReceipt> find(String deliveryId);
 
-    void insert(String tenant, PaymentEventReceipt receipt);
+    void insert(PaymentEventReceipt receipt);
 }

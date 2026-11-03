@@ -118,13 +118,13 @@ class PaymentExecutionServiceTest {
 
     @BeforeEach
     void setup() {
-        when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(accepted.get()));
+        when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(
                     accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
-        when(attempts.lock("tenant", "attempt")).thenAnswer(c -> Optional.of(stored.get()));
+        when(attempts.lock("attempt")).thenAnswer(c -> Optional.of(stored.get()));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
         when(codec.checksum(anyString())).thenReturn("a".repeat(64));
     }
@@ -202,7 +202,7 @@ class PaymentExecutionServiceTest {
             assertEquals(stored.get().attempt().method(), recovery.method());
             assertEquals(stored.get().attempt().executionEpoch(), recovery.executionEpoch());
             assertEquals(payableUntil, recovery.payableUntil());
-            when(attempts.lock("tenant", "attempt")).thenReturn(Optional.of(stored.get()));
+            when(attempts.lock("attempt")).thenReturn(Optional.of(stored.get()));
             var recovered = recovered(recovery);
             when(channels.recover(recovery)).thenReturn(recovered);
             when(results.recordRecovery("tenant", recovery, recovered)).thenReturn(result());
@@ -255,7 +255,7 @@ class PaymentExecutionServiceTest {
         service.progress("tenant", "payment");
 
         verifyNoInteractions(channels, submission, results, closing);
-        verify(attempts, never()).lock(anyString(), anyString());
+        verify(attempts, never()).lock(anyString());
     }
 
     @Test
@@ -267,26 +267,22 @@ class PaymentExecutionServiceTest {
         var fencedGate =
                 updateConverter.withGate(currentGate, currentGate.gate().fence(1));
         doAnswer(c -> {
-                    stored.set(c.getArgument(1));
+                    stored.set(c.getArgument(0));
                     return null;
                 })
                 .when(attempts)
-                .update(eq("tenant"), any(), anyLong());
+                .update(any(), anyLong());
         doAnswer(c -> {
-                    accepted.set(c.getArgument(1));
+                    accepted.set(c.getArgument(0));
                     return null;
                 })
                 .when(changes)
-                .updatePayment(eq("tenant"), any(), anyLong());
+                .updatePayment(any(), anyLong());
 
         service.progress("tenant", "payment");
 
-        verify(changes).updateGate("tenant", fencedGate, currentGate.rowVersion());
-        verify(attempts)
-                .update(
-                        eq("tenant"),
-                        argThat(value -> value.attempt().state() == PaymentAttemptState.CLOSED),
-                        anyLong());
+        verify(changes).updateGate(fencedGate, currentGate.rowVersion());
+        verify(attempts).update(argThat(value -> value.attempt().state() == PaymentAttemptState.CLOSED), anyLong());
         verify(events).publish(eq("tenant"), any(), eq(true), any());
         verifyNoInteractions(channels);
     }

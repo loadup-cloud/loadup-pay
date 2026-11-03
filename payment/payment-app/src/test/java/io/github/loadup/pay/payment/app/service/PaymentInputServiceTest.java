@@ -121,7 +121,7 @@ class PaymentInputServiceTest {
 
     @BeforeEach
     void setup() {
-        when(store.findByPayment("tenant", "payment")).thenAnswer(call -> Optional.ofNullable(persisted.get()));
+        when(store.findByPayment("payment")).thenAnswer(call -> Optional.ofNullable(persisted.get()));
         when(cipher.newReference()).thenReturn("opaque-reference");
         when(cipher.activeFingerprintKeyId()).thenReturn("v1");
         when(cipher.lifetime()).thenReturn(Duration.ofSeconds(120));
@@ -133,11 +133,11 @@ class PaymentInputServiceTest {
                 });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    persisted.set(call.getArgument(1));
+                    persisted.set(call.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -156,7 +156,7 @@ class PaymentInputServiceTest {
                 assertThrows(CommonException.class, () -> service.prepare(command))
                         .getResultCode());
         assertNull(persisted.get());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insert(any());
         verify(cipher).encrypt("tenant", "acquire", "opaque-reference", command);
     }
 
@@ -190,7 +190,7 @@ class PaymentInputServiceTest {
         clearInvocations(cipher, store);
         assertEquals(first, service.prepare(command));
         verify(cipher, never()).encrypt(anyString(), anyString(), anyString(), any());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insert(any());
         assertEquals(1, manager.commits);
     }
 
@@ -223,17 +223,17 @@ class PaymentInputServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.prepare(changed))
                         .getResultCode());
-        verify(store, times(1)).insert(anyString(), any());
+        verify(store, times(1)).insert(any());
     }
 
     @Test
     void concurrentWinnerIsReplayedOnlyAfterTheLosingInsertRollsBack() {
         doAnswer(call -> {
-                    persisted.set(call.getArgument(1));
+                    persisted.set(call.getArgument(0));
                     throw new PaymentWriteConflictException("Synthetic input race");
                 })
                 .when(store)
-                .insert(eq("tenant"), any());
+                .insert(any());
         assertEquals("opaque-reference", service.prepare(command).inputRef());
         assertEquals(1, manager.rollbacks);
         assertEquals(1, manager.commits);
@@ -290,7 +290,7 @@ class PaymentInputServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.prepare(changedScene))
                         .getResultCode());
-        verify(store, times(1)).insert(anyString(), any());
+        verify(store, times(1)).insert(any());
     }
 
     @Test
@@ -386,8 +386,8 @@ class PaymentInputServiceTest {
         assertFalse(result.toString().contains("synthetic-payer-code"));
         assertFalse(result.toString().contains("opaque-reference"));
         verifyNoInteractions(cipher);
-        verify(store, never()).insert(anyString(), any());
-        verify(store, never()).bind(anyString(), any(), ArgumentMatchers.anyLong());
+        verify(store, never()).insert(any());
+        verify(store, never()).bind(any(), ArgumentMatchers.anyLong());
         assertEquals(1, manager.commits);
     }
 
@@ -415,8 +415,8 @@ class PaymentInputServiceTest {
         assertEquals(prepared, later.lookup(lookupQuery()).input());
         assertSame(original, persisted.get());
         verifyNoInteractions(cipher);
-        verify(store, never()).insert(anyString(), any());
-        verify(store, never()).bind(anyString(), any(), ArgumentMatchers.anyLong());
+        verify(store, never()).insert(any());
+        verify(store, never()).bind(any(), ArgumentMatchers.anyLong());
     }
 
     @Test

@@ -120,12 +120,12 @@ class OrderExtensionServiceTest {
 
     @BeforeEach
     void setup() {
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> current.get());
-        when(orders.findOrder("tenant", "order")).thenAnswer(c -> Optional.of(current.get()));
-        when(store.deadlineVersion(eq("tenant"), any())).thenAnswer(c -> deadlineVersion.get());
-        when(store.findReceipt("tenant", "order", "extend-once")).thenAnswer(c -> Optional.ofNullable(receipt.get()));
+        when(orders.lockOrder("order")).thenAnswer(c -> current.get());
+        when(orders.findOrder("order")).thenAnswer(c -> Optional.of(current.get()));
+        when(store.deadlineVersion(any())).thenAnswer(c -> deadlineVersion.get());
+        when(store.findReceipt("order", "extend-once")).thenAnswer(c -> Optional.ofNullable(receipt.get()));
         when(codec.checksum(anyString())).thenAnswer(c -> DigestUtils.sha256((String) c.getArgument(0)));
-        when(orders.findIntent("tenant", "merchant", "M001"))
+        when(orders.findIntent("merchant", "M001"))
                 .thenReturn(Optional.of(new OrderCreateIntent(
                         "create",
                         "order",
@@ -142,7 +142,7 @@ class OrderExtensionServiceTest {
                         "SUCCESS",
                         1L)));
         when(codec.decodeDirectPay(any())).thenReturn(direct);
-        when(codec.directPayDigest("tenant", OWNER, direct)).thenReturn("c".repeat(64));
+        when(codec.directPayDigest(OWNER, direct)).thenReturn("c".repeat(64));
         var t = terms();
         var extendedTerms = new AcquiringTermsDTO(
                 t.schemaVersion(),
@@ -179,7 +179,7 @@ class OrderExtensionServiceTest {
                         extendedTerms));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    AcquireOrder changed = c.getArgument(1);
+                    AcquireOrder changed = c.getArgument(0);
                     var old = current.get();
                     current.set(new StoredAcquireOrder(
                             changed,
@@ -191,12 +191,12 @@ class OrderExtensionServiceTest {
                             old.snapshotId(),
                             old.admissionPayload(),
                             old.payloadHash()));
-                    receipt.set(c.getArgument(2));
+                    receipt.set(c.getArgument(1));
                     deadlineVersion.set(receipt.get().deadlineVersion());
                     return null;
                 })
                 .when(store)
-                .extend(eq("tenant"), any(), any());
+                .extend(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals(current.get().order(), c.getArgument(1));
@@ -220,7 +220,7 @@ class OrderExtensionServiceTest {
         assertEquals(NOW.plusMinutes(15), current.get().order().orderDueAt());
         assertEquals(2L, deadlineVersion.get());
         verify(deadlines, times(1)).register("tenant", current.get().order(), 2L);
-        verify(store, times(1)).extend(anyString(), any(), any());
+        verify(store, times(1)).extend(any(), any());
         verify(codec).decodeDirectPay(any());
         verify(codec, never()).decodeIntent(any());
         assertEquals(2, manager.commits);

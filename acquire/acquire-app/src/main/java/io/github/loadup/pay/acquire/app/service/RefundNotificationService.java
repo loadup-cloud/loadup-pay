@@ -111,17 +111,17 @@ public class RefundNotificationService implements RefundNotificationFacade {
         return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = DigestUtils.sha256(JsonUtil.toJson(
                     List.of("refund-notification-inbox-v1", actor.tenantId(), actor.serviceId(), event)));
-            var known = receipts.find(actor.tenantId(), event.deliveryId());
+            var known = receipts.find(event.deliveryId());
             if (known.isPresent()) {
                 return replay(actor, known.get(), digest);
             }
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var existing = receipts.find(actor.tenantId(), event.deliveryId());
+                var existing = receipts.find(event.deliveryId());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
                 }
                 var data = event.data();
-                var order = orders.lockOrder(actor.tenantId(), data.orderId()).order();
+                var order = orders.lockOrder(data.orderId()).order();
                 if (!order.id().equals(data.orderId())
                         || !order.payeeMerchantId().equals(data.payeeMerchantId())
                         || !order.amount().getCurrencyValue().equals(data.currency())
@@ -133,7 +133,7 @@ public class RefundNotificationService implements RefundNotificationFacade {
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
                 }
                 if ("RefundOrder".equals(data.aggregateType())) {
-                    var allocation = payments.lockPayment(actor.tenantId(), data.orderId(), data.paymentId())
+                    var allocation = payments.lockPayment(data.orderId(), data.paymentId())
                             .orElseThrow(() -> new CommonException(DEPENDENCY_UNAVAILABLE))
                             .allocation();
                     if (!allocation.orderId().equals(data.orderId())
@@ -154,7 +154,7 @@ public class RefundNotificationService implements RefundNotificationFacade {
                         digest,
                         actor.serviceId(),
                         LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
-                receipts.insert(actor.tenantId(), receipt);
+                receipts.insert(receipt);
                 return converter.toAck(receipt);
             });
         });

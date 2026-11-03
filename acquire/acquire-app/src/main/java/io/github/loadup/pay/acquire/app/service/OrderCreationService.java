@@ -174,13 +174,13 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         }
         String mode = directPay != null ? "DIRECT_PAY" : checkout == null ? "ORDER" : "CHECKOUT";
         String digest = directPay != null
-                ? codec.directPayDigest(actor.tenantId(), actor.scopeHash(), directPay)
+                ? codec.directPayDigest(actor.scopeHash(), directPay)
                 : checkout == null
-                        ? codec.requestDigest(actor.tenantId(), actor.scopeHash(), command)
-                        : codec.checkoutDigest(actor.tenantId(), actor.scopeHash(), checkout);
+                        ? codec.requestDigest(actor.scopeHash(), command)
+                        : codec.checkoutDigest(actor.scopeHash(), checkout);
         // A0 commits before any network call. A losing unique insert rolls back before retry/read.
         var intent = transactions.writeLocal(actor.tenantId(), () -> {
-            var previous = store.findIntent(actor.tenantId(), command.payeeMerchantId(), command.merchantOrderNo());
+            var previous = store.findIntent(command.payeeMerchantId(), command.merchantOrderNo());
             if (previous.isPresent()) {
                 return checked(previous.get(), actor, command, checkout, directPay, digest);
             }
@@ -204,7 +204,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
                     null,
                     null,
                     0);
-            store.insertIntent(actor.tenantId(), created);
+            store.insertIntent(created);
             return created;
         });
         if (!"INIT".equals(intent.state())) {
@@ -216,21 +216,20 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         String payload = admission.decision() == AdmissionDecision.ADMITTED ? codec.encodeAdmission(admission) : null;
         String checksum = payload == null ? null : codec.checksum(payload);
         var complete = transactions.writeLocal(actor.tenantId(), () -> {
-            var locked = checked(
-                    store.lockIntent(actor.tenantId(), intent.id()), actor, command, checkout, directPay, digest);
+            var locked = checked(store.lockIntent(intent.id()), actor, command, checkout, directPay, digest);
             if (!"INIT".equals(locked.state())) {
                 return locked;
             }
             if (admission.decision() == AdmissionDecision.DENIED) {
                 var denied = locked.finish("REJECTED", admission.admissionId(), null, CONTRACT_NOT_ADMITTING.getCode());
-                store.updateIntent(actor.tenantId(), denied, locked.rowVersion());
+                store.updateIntent(denied, locked.rowVersion());
                 return denied;
             }
             var admittedAt = time(admission.admittedAt());
             var before = time(admission.materializeBefore());
             if (!now().isBefore(before)) {
                 var expired = locked.finish("EXPIRED", admission.admissionId(), before, ADMISSION_EXPIRED.getCode());
-                store.updateIntent(actor.tenantId(), expired, locked.rowVersion());
+                store.updateIntent(expired, locked.rowVersion());
                 return expired;
             }
             var terms = admission.terms();
@@ -272,17 +271,17 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
                             admission.admissionId(),
                             before,
                             failure.getResultCode().getCode());
-                    store.updateIntent(actor.tenantId(), rejected, locked.rowVersion());
+                    store.updateIntent(rejected, locked.rowVersion());
                     return rejected;
                 }
             }
-            store.insertOrder(actor.tenantId(), stored, fee, codec.encodeFee(fee.policy()));
+            store.insertOrder(stored, fee, codec.encodeFee(fee.policy()));
             deadlineTasks.register(actor.tenantId(), order, 1L);
             if (initial != null) {
                 sessions.insertInitial(actor.tenantId(), initial);
             }
             var finished = locked.finish("COMPLETED", admission.admissionId(), before, "SUCCESS");
-            store.updateIntent(actor.tenantId(), finished, locked.rowVersion());
+            store.updateIntent(finished, locked.rowVersion());
             snapshots.publish(actor.tenantId(), order.id(), order.version());
             return finished;
         });
@@ -333,8 +332,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         if (!"SUCCESS".equals(intent.resultCode())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var order = store.findOrder(actor.tenantId(), intent.orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var order = store.findOrder(intent.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         owned(actor, order);
         if (!order.admission().admissionId().equals(intent.admissionId())
                 || !order.admission().requestDigest().equals(intent.requestDigest())) {
@@ -349,7 +347,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         var actor = actor("pay:acquire:read");
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var order = store.findOrder(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var order = store.findOrder(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             owned(actor, order);
             return converter.toDTO(order, now());
         });

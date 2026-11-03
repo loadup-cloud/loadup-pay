@@ -143,7 +143,7 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
     }
 
     private Optional<OrderCreateIntent> find(AcquireActor actor, DirectPayRecoverCommand command) {
-        var known = store.findIntent(actor.tenantId(), command.payeeMerchantId(), command.merchantOrderNo());
+        var known = store.findIntent(command.payeeMerchantId(), command.merchantOrderNo());
         if (known.isEmpty()) {
             return known;
         }
@@ -152,7 +152,7 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (!"DIRECT_PAY".equals(intent.entryMode())
-                || !intent.requestDigest().equals(codec.directPayDigest(actor.tenantId(), actor.scopeHash(), command))
+                || !intent.requestDigest().equals(codec.directPayDigest(actor.scopeHash(), command))
                 || !codec.decodeDirectPay(intent).equals(command)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }

@@ -112,20 +112,15 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        if (!payment.supportsTenant(actor.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = digest(actor, event);
-            var known = receipts.find(actor.tenantId(), event.deliveryId());
+            var known = receipts.find(event.deliveryId());
             if (known.isPresent()) {
                 return replay(actor, known.get(), digest);
             }
             var incoming = event.data();
-            var original = orders.findOrder(actor.tenantId(), incoming.orderId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
-            var verified =
-                    payment.refundSummary(actor.tenantId(), incoming.orderId()); // No database transaction or locks.
+            var original = orders.findOrder(incoming.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var verified = payment.refundSummary(incoming.orderId()); // No database transaction or locks.
             if (verified == null
                     || !verified.orderId().equals(incoming.orderId())
                     || !verified.payeeMerchantId().equals(incoming.payeeMerchantId())
@@ -145,11 +140,11 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var existing = receipts.find(actor.tenantId(), event.deliveryId());
+                var existing = receipts.find(event.deliveryId());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
                 }
-                var stored = orders.lockOrder(actor.tenantId(), verified.orderId());
+                var stored = orders.lockOrder(verified.orderId());
                 if (!stored.order().payeeMerchantId().equals(verified.payeeMerchantId())
                         || !stored.order().amount().equals(original.order().amount())) {
                     throw new CommonException(SNAPSHOT_INVALID);
@@ -162,7 +157,6 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
                 }
                 var at = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
                 fees.applyRefundBasis(
-                        actor.tenantId(),
                         stored.order(),
                         policies.toFeePolicy(admission.terms().fee()),
                         verified.refundSummaryVersion(),
@@ -171,7 +165,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
                         at);
                 var receipt = converter.toReceipt(
                         ids.generate(), event, verified.refundSummaryVersion(), digest, actor.serviceId(), at);
-                receipts.insert(actor.tenantId(), receipt);
+                receipts.insert(receipt);
                 return converter.toAck(receipt);
             });
         });

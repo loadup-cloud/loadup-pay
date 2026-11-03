@@ -23,13 +23,12 @@ import java.time.LocalDate;
  * Trusted local configuration only. Neither method may perform network or file I/O under a batch transaction.
  */
 public interface ReconciliationAccountDirectory {
-    ReconciliationScope resolve(String tenant, String callerService, String accountCode, LocalDate billDate);
+    ReconciliationScope resolve(String callerService, String accountCode, LocalDate billDate);
 
-    void authorize(String tenant, String callerService, String accountCode, ReconciliationScope originalScope);
+    void authorize(String callerService, String accountCode, ReconciliationScope originalScope);
 
     ReconciliationStatementAccount statementAccount(
-            String tenant, String callerService, String accountCode, ReconciliationScope originalScope);
+            String callerService, String accountCode, ReconciliationScope originalScope);
 
-    String statementBindingRevision(
-            String tenant, String callerService, String accountCode, ReconciliationScope originalScope);
+    String statementBindingRevision(String callerService, String accountCode, ReconciliationScope originalScope);
 }

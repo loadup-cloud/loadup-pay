@@ -113,8 +113,8 @@ public class PaymentInitialAttemptService {
                 original.preparedInputRef(),
                 preparedAt);
         var updated = changes.withPayment(accepted, accepted.payment().prepareAttempt(attempt, null), null);
-        attempts.insert(tenant, stored);
-        payments.updatePayment(tenant, updated, accepted.payment().version());
+        attempts.insert(stored);
+        payments.updatePayment(updated, accepted.payment().version());
         events.publishSnapshot(tenant, updated, preparedAt);
         return updated;
     }

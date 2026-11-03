@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -23,7 +22,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
@@ -81,8 +79,8 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public Optional<StoredPaymentAcceptance> lockPayment(String tenant, String paymentId) {
-        gateTransaction(tenant);
+    public Optional<StoredPaymentAcceptance> lockPayment(String paymentId) {
+        gateTransaction();
         var args = new MapSqlParameterSource().addValue("id", paymentId);
         var row = jdbc
                 .query(
@@ -106,8 +104,8 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public void updatePayment(String tenant, StoredPaymentAcceptance value, long expectedVersion) {
-        gateTransaction(tenant);
+    public void updatePayment(StoredPaymentAcceptance value, long expectedVersion) {
+        gateTransaction();
         if (value.payment().version() <= expectedVersion) {
             throw new CommonException(INVALID_STATE);
         }
@@ -133,7 +131,7 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
                     ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS)
                     : row.getFirstUnknownAt();
         }
-        var row = converter.toPaymentPatch(tenant, value, firstUnknownAt);
+        var row = converter.toPaymentPatch(value, firstUnknownAt);
         var args = new MapSqlParameterSource()
                 .addValue("id", value.payment().id())
                 .addValue("expected", expectedVersion)
@@ -157,8 +155,8 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public void updateParent(String tenant, StoredPaymentGate value, long expectedVersion) {
-        gateTransaction(tenant);
+    public void updateParent(StoredPaymentGate value, long expectedVersion) {
+        gateTransaction();
         checkGateVersion(value, expectedVersion);
         var args = new MapSqlParameterSource()
                 .addValue("id", value.id())
@@ -177,8 +175,8 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public void updateGate(String tenant, StoredPaymentGate value, long expectedVersion) {
-        gateTransaction(tenant);
+    public void updateGate(StoredPaymentGate value, long expectedVersion) {
+        gateTransaction();
         checkGateVersion(value, expectedVersion);
         var args = new MapSqlParameterSource()
                 .addValue("id", value.id())
@@ -204,15 +202,13 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public Optional<PaymentControlReceipt> findReceipt(String tenant, String kind, String targetId, String requestKey) {
-        scope(tenant);
+    public Optional<PaymentControlReceipt> findReceipt(String kind, String targetId, String requestKey) {
         return receipt(getOne(
                 QueryWrapper.create().eq("kind", kind).eq("target_id", targetId).eq("request_key", requestKey)));
     }
 
     @Override
-    public Optional<PaymentControlReceipt> findNoCollectionReceipt(String tenant, String paymentId) {
-        scope(tenant);
+    public Optional<PaymentControlReceipt> findNoCollectionReceipt(String paymentId) {
         return receipt(getOne(QueryWrapper.create()
                 .eq("kind", "PAYMENT_CLOSE")
                 .eq("target_id", paymentId)
@@ -230,9 +226,9 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public void insertReceipt(String tenant, PaymentControlReceipt value) {
-        gateTransaction(tenant);
-        var row = receiptConverter.toReceiptDO(tenant, value);
+    public void insertReceipt(PaymentControlReceipt value) {
+        gateTransaction();
+        var row = receiptConverter.toReceiptDO(value);
         var now = LocalDateTime.now(databaseClock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -253,8 +249,8 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     }
 
     @Override
-    public PaymentChildrenStatus childrenStatus(String tenant, String orderId) {
-        gateTransaction(tenant);
+    public PaymentChildrenStatus childrenStatus(String orderId) {
+        gateTransaction();
         var args = new MapSqlParameterSource().addValue("order", orderId);
         return jdbc.queryForObject(
                 """
@@ -269,20 +265,13 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
                         Math.addExact(rs.getLong("uncertain"), rs.getLong("missing_proof"))));
     }
 
-    private void gateTransaction(String tenant) {
-        scope(tenant);
+    private void gateTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

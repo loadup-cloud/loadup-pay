@@ -101,20 +101,16 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
             throw new CommonException(INVALID_STATE);
         }
         validate(event);
-        if (!payment.supportsTenant(actor.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = codec.digest(actor.tenantId(), actor.serviceId(), event);
-            var prior = receipts.find(actor.tenantId(), event.deliveryId());
+            var prior = receipts.find(event.deliveryId());
             if (prior.isPresent()) {
                 return replay(actor, prior.get(), digest);
             }
             var data = event.data();
-            var order = orders.findOrder(actor.tenantId(), data.orderId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var order = orders.findOrder(data.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var allocation = allocations
-                    .findPayment(actor.tenantId(), data.orderId(), data.paymentId())
+                    .findPayment(data.orderId(), data.paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             // Original ownership is restored from the stored order, never from an event-supplied merchant scope.
             var owner = new OrderPaymentScope(actor.tenantId(), order.callerScopeHash());
@@ -125,7 +121,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                     || !command.currency().equals(data.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var facts = payment.facts(actor.tenantId(), data.paymentId()); // No local transaction or lock is held.
+            var facts = payment.facts(data.paymentId()); // No local transaction or lock is held.
             if (facts == null
                     || !data.operationId().equals(facts.limitOperationId())
                     || !data.payeeMerchantId().equals(facts.payeeMerchantId())) {
@@ -141,7 +137,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var existing = receipts.find(actor.tenantId(), event.deliveryId());
+                var existing = receipts.find(event.deliveryId());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
                 }
@@ -153,7 +149,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                         actor.serviceId(),
                         changed.order().version(),
                         LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()));
-                receipts.insert(actor.tenantId(), accepted);
+                receipts.insert(accepted);
                 return converter.toAck(accepted);
             });
         });

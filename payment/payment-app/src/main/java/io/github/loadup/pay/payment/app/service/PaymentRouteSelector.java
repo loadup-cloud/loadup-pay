@@ -60,7 +60,7 @@ public class PaymentRouteSelector {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
         String ref = accepted.admittedTerms().terms().routingProfileRef();
-        var profile = profiles.find(tenant, ref).orElseThrow(() -> new CommonException(ROUTING_PROFILE_UNAVAILABLE));
+        var profile = profiles.find(ref).orElseThrow(() -> new CommonException(ROUTING_PROFILE_UNAVAILABLE));
         if (!profile.spec().profileRef().equals(ref)
                 || !profile.spec().payeeMerchantId().equals(accepted.payeeMerchantId())) {
             throw new CommonException(ROUTING_PROFILE_UNAVAILABLE);
@@ -76,7 +76,7 @@ public class PaymentRouteSelector {
         var routedModes = EnumSet.noneOf(AccessMode.class);
         rules.stream().map(RoutingRule::accessMode).forEach(routedModes::add);
         var candidates =
-                bindings.lockActive(tenant, accepted.payeeMerchantId(), choice.channel(), routedModes, choice.method());
+                bindings.lockActive(accepted.payeeMerchantId(), choice.channel(), routedModes, choice.method());
         // Profile order owns routing priority. Never escape the versioned allow-list.
         for (var rule : rules) {
             for (var candidate : candidates) {

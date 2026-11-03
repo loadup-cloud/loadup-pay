@@ -182,7 +182,7 @@ gross。SUCCESS 必须有合法带偏移 success_time；CLOSED 携带成功时�
 RefundChannelCallbackFacade。原 tenant/revision 由同一可信 endpoint 配置确定；退款专用路径在 resource-server 中放行
 JWT，实际认证由渠道验签/解密完成。支付宝未实现的退款通知明确拒绝，不回退或交给收款回调。
 
-RefundCallbackTargetGateway 只查 tenant/原 revision/原商户订单号/固定退款号，最多读两条以拒绝歧义；未提交的 INIT 或无
+RefundCallbackTargetGateway 只查原 revision/原商户订单号/固定退款号（租户由 schema 路由确定），最多读两条以拒绝歧义；未提交的 INIT 或无
 submissionStartedAt 退款不能由外部通知激活。再核对原付款成功时间与退款容量的币种/总额，取得原
 PreparedChannelRefund。verifyRefund 精确核验后才查询同一退款，query 的真实退款流水还要与回调一致；只有现有
 RefundResultService 事务返回非 CONFLICT 才输出 200 SUCCESS，失败返回 500 FAIL。未知查询可落 UNKNOWN 并继续原恢复轮询，不能释放容量。

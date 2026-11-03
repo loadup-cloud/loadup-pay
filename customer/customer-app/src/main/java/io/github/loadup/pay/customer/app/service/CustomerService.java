@@ -121,13 +121,12 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                         command.requestKey(),
                         command,
                         MerchantRelationshipDTO.class,
-                        () -> facts.lock(actor.tenantId(), command.childMerchantId()),
+                        () -> facts.lock(command.childMerchantId()),
                         () -> {
-                            active(actor.tenantId(), command.childMerchantId());
-                            active(actor.tenantId(), command.parentMerchantId());
+                            active(command.childMerchantId());
+                            active(command.parentMerchantId());
                             if (authorization
-                                    .findLiveRelationship(
-                                            actor.tenantId(), command.parentMerchantId(), command.childMerchantId())
+                                    .findLiveRelationship(command.parentMerchantId(), command.childMerchantId())
                                     .isPresent()) {
                                 throw new CommonException(RELATIONSHIP_CONFLICT);
                             }
@@ -141,7 +140,7 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                             return new CustomerCommandExecutor.Prepared<>(
                                     model.id(),
                                     converter.toDTO(model),
-                                    () -> authorization.saveRelationship(actor.tenantId(), model, -1));
+                                    () -> authorization.saveRelationship(model, -1));
                         }));
     }
 
@@ -156,19 +155,19 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                         command.requestKey(),
                         command,
                         MerchantActionGrantDTO.class,
-                        () -> facts.lock(actor.tenantId(), command.payeeMerchantId()),
+                        () -> facts.lock(command.payeeMerchantId()),
                         () -> {
-                            active(actor.tenantId(), command.payeeMerchantId());
+                            active(command.payeeMerchantId());
                             PrincipalType type = PrincipalType.valueOf(
                                     command.principalType().name());
                             MerchantAction action =
                                     MerchantAction.valueOf(command.action().name());
                             if (type == PrincipalType.MERCHANT) {
-                                active(actor.tenantId(), command.principalId());
+                                active(command.principalId());
                             }
                             if (command.relationshipId() != null) {
                                 MerchantRelationship relationship =
-                                        authorization.lockRelationship(actor.tenantId(), command.relationshipId());
+                                        authorization.lockRelationship(command.relationshipId());
                                 if (!relationship.childMerchantId().equals(command.payeeMerchantId())
                                         || !relationship.activeAt(LocalDateTime.now(clock))
                                         || type == PrincipalType.MERCHANT
@@ -177,15 +176,10 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                                                         .equals(command.principalId())) {
                                     throw new CommonException(ACTION_FORBIDDEN);
                                 }
-                                active(actor.tenantId(), relationship.parentMerchantId());
+                                active(relationship.parentMerchantId());
                             }
                             if (authorization
-                                    .findGrant(
-                                            actor.tenantId(),
-                                            type,
-                                            command.principalId(),
-                                            command.payeeMerchantId(),
-                                            action)
+                                    .findGrant(type, command.principalId(), command.payeeMerchantId(), action)
                                     .isPresent()) {
                                 throw new CommonException(GRANT_CONFLICT);
                             }
@@ -200,9 +194,7 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                                             local(command.validTo()))
                                     .activate();
                             return new CustomerCommandExecutor.Prepared<>(
-                                    model.id(),
-                                    converter.toDTO(model),
-                                    () -> authorization.saveGrant(actor.tenantId(), model, -1));
+                                    model.id(), converter.toDTO(model), () -> authorization.saveGrant(model, -1));
                         }));
     }
 
@@ -219,20 +211,18 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                         MerchantRelationshipDTO.class,
                         () -> {
                             MerchantRelationship found = authorization
-                                    .findRelationship(actor.tenantId(), command.id())
+                                    .findRelationship(command.id())
                                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-                            facts.lock(actor.tenantId(), found.childMerchantId());
+                            facts.lock(found.childMerchantId());
                         },
                         () -> {
-                            MerchantRelationship previous =
-                                    authorization.lockRelationship(actor.tenantId(), command.id());
+                            MerchantRelationship previous = authorization.lockRelationship(command.id());
                             expected(previous.version(), command.expectedVersion());
                             MerchantRelationship revoked = previous.revoke();
                             return new CustomerCommandExecutor.Prepared<>(
                                     revoked.id(), converter.toDTO(revoked), () -> {
                                         if (revoked != previous) {
-                                            authorization.saveRelationship(
-                                                    actor.tenantId(), revoked, previous.version());
+                                            authorization.saveRelationship(revoked, previous.version());
                                         }
                                     });
                         }));
@@ -251,18 +241,18 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                         MerchantActionGrantDTO.class,
                         () -> {
                             MerchantActionGrant found = authorization
-                                    .findGrantById(actor.tenantId(), command.id())
+                                    .findGrantById(command.id())
                                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-                            facts.lock(actor.tenantId(), found.payeeMerchantId());
+                            facts.lock(found.payeeMerchantId());
                         },
                         () -> {
-                            MerchantActionGrant previous = authorization.lockGrant(actor.tenantId(), command.id());
+                            MerchantActionGrant previous = authorization.lockGrant(command.id());
                             expected(previous.version(), command.expectedVersion());
                             MerchantActionGrant revoked = previous.revoke();
                             return new CustomerCommandExecutor.Prepared<>(
                                     revoked.id(), converter.toDTO(revoked), () -> {
                                         if (revoked != previous) {
-                                            authorization.saveGrant(actor.tenantId(), revoked, previous.version());
+                                            authorization.saveGrant(revoked, previous.version());
                                         }
                                     });
                         }));
@@ -271,24 +261,17 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
     @Override
     public MerchantEligibilityDTO authorize(MerchantActionAuthorizeCommand command) {
         return invoke(command, false, actor -> {
-            MerchantFacts payee = facts.lock(actor.tenantId(), command.payeeMerchantId());
+            MerchantFacts payee = facts.lock(command.payeeMerchantId());
             if (!payee.active()) {
                 return denied(MERCHANT_INACTIVE.getCode());
             }
             MerchantAction action = MerchantAction.valueOf(command.action().name());
             MerchantActionGrant grant = authorization
-                    .findGrant(
-                            actor.tenantId(),
-                            actor.principalType(),
-                            actor.principalId(),
-                            command.payeeMerchantId(),
-                            action)
+                    .findGrant(actor.principalType(), actor.principalId(), command.payeeMerchantId(), action)
                     .orElse(null);
             MerchantRelationship relationship = grant == null || grant.relationshipId() == null
                     ? null
-                    : authorization
-                            .findRelationship(actor.tenantId(), grant.relationshipId())
-                            .orElse(null);
+                    : authorization.findRelationship(grant.relationshipId()).orElse(null);
             if (grant == null
                     || !grant.allows(
                             actor.principalType(),
@@ -301,7 +284,7 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                 return denied(ACTION_FORBIDDEN.getCode());
             }
             if (actor.merchantId() != null
-                    && !facts.find(actor.tenantId(), actor.merchantId())
+                    && !facts.find(actor.merchantId())
                             .map(MerchantFacts::active)
                             .orElse(false)) {
                 return denied(MERCHANT_INACTIVE.getCode());
@@ -319,10 +302,8 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
         return converter.toEligibility(false, reason, null, null, null);
     }
 
-    private void active(String tenant, String id) {
-        if (!facts.find(tenant, id)
-                .orElseThrow(() -> new CommonException(NOT_FOUND))
-                .active()) {
+    private void active(String id) {
+        if (!facts.find(id).orElseThrow(() -> new CommonException(NOT_FOUND)).active()) {
             throw new CommonException(MERCHANT_INACTIVE);
         }
     }

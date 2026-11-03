@@ -172,7 +172,7 @@ public class RecoveryInventoryCollector implements ScheduledTask {
             }
             try {
                 for (var tenant : tenants) {
-                    var cells = transactions.readSnapshot(tenant, () -> reader.read(tenant));
+                    var cells = transactions.readSnapshot(tenant, () -> reader.read());
                     requireComplete(cells);
                     for (var cell : cells) {
                         combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));

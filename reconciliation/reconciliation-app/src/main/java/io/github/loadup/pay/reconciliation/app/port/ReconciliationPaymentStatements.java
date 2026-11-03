@@ -22,5 +22,5 @@ import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
  * Provider-owned gRPC only; no transaction or financial mutation.
  */
 public interface ReconciliationPaymentStatements {
-    PaymentStatementDTO download(String tenant, PaymentStatementQuery query);
+    PaymentStatementDTO download(PaymentStatementQuery query);
 }

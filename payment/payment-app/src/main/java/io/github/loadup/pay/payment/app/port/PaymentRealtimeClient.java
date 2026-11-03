@@ -22,11 +22,9 @@ import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 
 public interface PaymentRealtimeClient {
-    boolean supportsTenant(String tenant);
+    ProjectionAckDTO apply(EventEnvelope<PaymentSnapshotEventDTO> event);
 
-    ProjectionAckDTO apply(String tenant, EventEnvelope<PaymentSnapshotEventDTO> event);
+    ProjectionAckDTO applyRefund(EventEnvelope<RefundSnapshotEventDTO> event);
 
-    ProjectionAckDTO applyRefund(String tenant, EventEnvelope<RefundSnapshotEventDTO> event);
-
-    ProjectionAckDTO applyRefundSummary(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event);
+    ProjectionAckDTO applyRefundSummary(EventEnvelope<OrderRefundSummaryEventDTO> event);
 }

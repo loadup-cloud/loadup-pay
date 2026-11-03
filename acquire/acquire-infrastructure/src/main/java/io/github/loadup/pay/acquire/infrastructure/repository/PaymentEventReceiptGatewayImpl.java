@@ -15,14 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
@@ -52,9 +49,8 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
     }
 
     @Override
-    public Optional<PaymentEventReceipt> find(String tenant, String deliveryId) {
-        scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("delivery", deliveryId);
+    public Optional<PaymentEventReceipt> find(String deliveryId) {
+        var args = new MapSqlParameterSource().addValue("delivery", deliveryId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, delivery_id, business_event_id, payment_id, order_id,
                        allocation_id, payment_version, evidence_id, request_digest, caller_service_id, order_version, accepted_at
@@ -70,8 +66,7 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
     }
 
     @Override
-    public void insert(String tenant, PaymentEventReceipt receipt) {
-        scope(tenant);
+    public void insert(PaymentEventReceipt receipt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
@@ -79,7 +74,7 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -96,12 +91,6 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

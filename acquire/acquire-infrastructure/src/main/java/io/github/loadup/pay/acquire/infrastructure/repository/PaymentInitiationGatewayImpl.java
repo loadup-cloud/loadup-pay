@@ -20,7 +20,6 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentInitiationGateway;
@@ -59,9 +58,8 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
     }
 
     @Override
-    public Optional<StoredPaymentAllocation> findAction(
-            String tenant, String orderId, String actorScope, String actionKey) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+    public Optional<StoredPaymentAllocation> findAction(String orderId, String actorScope, String actionKey) {
+        var args = new MapSqlParameterSource()
                 .addValue("order", orderId)
                 .addValue("actor", actorScope)
                 .addValue("key", actionKey);
@@ -86,7 +84,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
     }
 
     @Override
-    public void attachInput(String tenant, StoredPaymentAllocation original, StoredPaymentAllocation prepared) {
+    public void attachInput(StoredPaymentAllocation original, StoredPaymentAllocation prepared) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -105,7 +103,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", original.allocation().id())
                 .addValue("payment", original.allocation().paymentId())
                 .addValue("expected", original.rowVersion())
@@ -125,7 +123,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
     }
 
     @Override
-    public void reserve(String tenant, AcquireOrder updated, StoredPaymentAllocation value, long expectedOrderVersion) {
+    public void reserve(AcquireOrder updated, StoredPaymentAllocation value, long expectedOrderVersion) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -146,7 +144,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
             throw new CommonException(INVALID_STATE);
         }
         var patch = converter.toReservationPatch(updated);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", updated.id())
                 .addValue("expected", expectedOrderVersion)
                 .addValue("reserved", patch.getPaymentReservedMinor())
@@ -162,7 +160,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        var row = converter.toAllocationDO(tenant, value);
+        var row = converter.toAllocationDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);

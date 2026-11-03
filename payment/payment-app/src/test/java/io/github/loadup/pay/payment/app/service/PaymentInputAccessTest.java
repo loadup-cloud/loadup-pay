@@ -122,19 +122,19 @@ class PaymentInputAccessTest {
         var initInput = input(PaymentInputState.INIT, null, NOW.plusMinutes(2));
         var boundInput = new AtomicReference<PaymentInput>();
         when(codec.decode(accepted)).thenReturn(command);
-        when(inputs.lock(TENANT, INPUT_REF)).thenAnswer(call -> {
+        when(inputs.lock(INPUT_REF)).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(boundInput.get() == null ? initInput : boundInput.get());
         });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    boundInput.set(call.getArgument(1));
+                    boundInput.set(call.getArgument(0));
                     return null;
                 })
                 .when(inputs)
-                .bind(eq(TENANT), any(PaymentInput.class), eq(0L));
-        when(payments.find(TENANT, command.paymentId())).thenReturn(Optional.of(accepted));
-        when(inputs.find(TENANT, INPUT_REF)).thenAnswer(call -> Optional.ofNullable(boundInput.get()));
+                .bind(any(PaymentInput.class), eq(0L));
+        when(payments.find(command.paymentId())).thenReturn(Optional.of(accepted));
+        when(inputs.find(INPUT_REF)).thenAnswer(call -> Optional.ofNullable(boundInput.get()));
         var interaction = new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP);
         when(cipher.decrypt(TENANT, initInput.bind(ATTEMPT, NOW))).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -150,25 +150,25 @@ class PaymentInputAccessTest {
         assertEquals(1, boundInput.get().rowVersion());
 
         assertSame(interaction, access.openForAttempt(TENANT, command.paymentId(), ATTEMPT));
-        verify(inputs).lock(TENANT, INPUT_REF);
-        verify(inputs).bind(TENANT, boundInput.get(), 0L);
+        verify(inputs).lock(INPUT_REF);
+        verify(inputs).bind(boundInput.get(), 0L);
         verify(cipher).decrypt(TENANT, boundInput.get());
     }
 
     @Test
     void rejectsExpiredOrAnotherAttemptsBoundInputWithoutDecrypting() {
         when(codec.decode(accepted)).thenReturn(command);
-        when(payments.find(TENANT, command.paymentId())).thenReturn(Optional.of(accepted));
+        when(payments.find(command.paymentId())).thenReturn(Optional.of(accepted));
 
         var expired = input(PaymentInputState.BOUND, ATTEMPT, NOW.minusNanos(1));
-        when(inputs.find(TENANT, INPUT_REF)).thenReturn(Optional.of(expired));
+        when(inputs.find(INPUT_REF)).thenReturn(Optional.of(expired));
         assertSame(
                 INPUT_EXPIRED,
                 assertThrows(CommonException.class, () -> access.openForAttempt(TENANT, command.paymentId(), ATTEMPT))
                         .getResultCode());
 
         var foreign = input(PaymentInputState.BOUND, "other-attempt", NOW.plusMinutes(2));
-        when(inputs.find(TENANT, INPUT_REF)).thenReturn(Optional.of(foreign));
+        when(inputs.find(INPUT_REF)).thenReturn(Optional.of(foreign));
         assertSame(
                 INPUT_ALREADY_BOUND,
                 assertThrows(CommonException.class, () -> access.openForAttempt(TENANT, command.paymentId(), ATTEMPT))
@@ -180,7 +180,7 @@ class PaymentInputAccessTest {
     void h5WithoutPreparedReferenceReturnsNoInteractionWithoutLookingUpOrDecryptingInput() {
         var noInputCommand = command(null);
         when(codec.decode(accepted)).thenReturn(noInputCommand);
-        when(payments.find(TENANT, noInputCommand.paymentId())).thenReturn(Optional.of(accepted));
+        when(payments.find(noInputCommand.paymentId())).thenReturn(Optional.of(accepted));
 
         assertInstanceOf(NoInteractionDTO.class, access.openForAttempt(TENANT, noInputCommand.paymentId(), ATTEMPT));
 
@@ -189,7 +189,7 @@ class PaymentInputAccessTest {
 
     @Test
     void newAcceptanceLocksTheMatchingInitInputAndRejectsAnExpiredReference() {
-        when(inputs.lock(TENANT, INPUT_REF)).thenAnswer(call -> {
+        when(inputs.lock(INPUT_REF)).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(input(PaymentInputState.INIT, null, NOW.plusMinutes(2)));
         });
@@ -197,9 +197,9 @@ class PaymentInputAccessTest {
             access.requireNewAcceptance(TENANT, "acquire", command, NOW);
             return Boolean.TRUE;
         });
-        verify(inputs).lock(TENANT, INPUT_REF);
+        verify(inputs).lock(INPUT_REF);
 
-        when(inputs.lock(TENANT, INPUT_REF)).thenReturn(Optional.of(input(PaymentInputState.INIT, null, NOW)));
+        when(inputs.lock(INPUT_REF)).thenReturn(Optional.of(input(PaymentInputState.INIT, null, NOW)));
         var failure = assertThrows(
                 CommonException.class,
                 () -> transactions.writeLocal(TENANT, () -> {
@@ -207,6 +207,6 @@ class PaymentInputAccessTest {
                     return Boolean.TRUE;
                 }));
         assertEquals(INPUT_EXPIRED, failure.getResultCode());
-        verify(inputs, never()).bind(any(), any(PaymentInput.class), anyLong());
+        verify(inputs, never()).bind(any(PaymentInput.class), anyLong());
     }
 }

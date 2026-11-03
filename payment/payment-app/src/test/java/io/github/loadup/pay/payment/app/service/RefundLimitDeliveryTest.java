@@ -20,7 +20,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -91,8 +90,7 @@ class RefundLimitDeliveryTest {
                 .thenReturn(Optional.of(new OutboxRecord(
                         "queue-limit", RefundProjectionEvents.LIMIT, "refund", "PROCESSING", 1, null)));
         when(codec.limit("limit-payload")).thenReturn(envelope);
-        when(client.supportsTenant("tenant")).thenReturn(true);
-        when(client.restoreRefund(eq("tenant"), any())).thenReturn(validAck());
+        when(client.restoreRefund(any())).thenReturn(validAck());
     }
 
     @AfterEach
@@ -125,9 +123,9 @@ class RefundLimitDeliveryTest {
         deliver();
         deliver();
         LimitRefundRestoreCommand command = converter.toRestore(envelope);
-        verify(client, times(2)).restoreRefund("tenant", command);
+        verify(client, times(2)).restoreRefund(command);
 
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "other",
                         "payment",
@@ -144,7 +142,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "other-payment",
@@ -161,7 +159,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -178,7 +176,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -195,7 +193,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -212,7 +210,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -229,7 +227,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -246,7 +244,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -263,7 +261,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -280,7 +278,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -297,7 +295,7 @@ class RefundLimitDeliveryTest {
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(client.restoreRefund(eq("tenant"), any()))
+        when(client.restoreRefund(any()))
                 .thenReturn(new LimitRestoreDTO(
                         "operation",
                         "payment",
@@ -317,8 +315,7 @@ class RefundLimitDeliveryTest {
     }
 
     @Test
-    void wrongTenantAndUnclaimedOrNonProcessingQueueCannotCallLimitCenter() {
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
+    void unclaimedOrNonProcessingQueueCannotCallLimitCenter() {
         when(outbox.find("queue-limit")).thenReturn(Optional.empty());
         assertSame(
                 SNAPSHOT_INVALID,
@@ -329,6 +326,6 @@ class RefundLimitDeliveryTest {
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        verify(client, never()).restoreRefund(eq("tenant"), any());
+        verify(client, never()).restoreRefund(any());
     }
 }

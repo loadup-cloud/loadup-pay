@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundRecoveryStorageConverter;
@@ -50,11 +48,8 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     }
 
     @Override
-    public Optional<RefundRecoveryCursor> find(String tenant, String requestId) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-        var row = row(tenant, requestId, false);
+    public Optional<RefundRecoveryCursor> find(String requestId) {
+        var row = row(requestId, false);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -63,9 +58,9 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     }
 
     @Override
-    public Optional<RefundRecoveryCursor> lock(String tenant, String requestId) {
-        writable(tenant);
-        var row = row(tenant, requestId, true);
+    public Optional<RefundRecoveryCursor> lock(String requestId) {
+        writable();
+        var row = row(requestId, true);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -74,9 +69,9 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     }
 
     @Override
-    public void insert(String tenant, RefundRecoveryCursor value) {
-        writable(tenant);
-        var row = converter.toDO(tenant, value);
+    public void insert(RefundRecoveryCursor value) {
+        writable();
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -90,8 +85,8 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     }
 
     @Override
-    public void update(String tenant, RefundRecoveryCursor before, RefundRecoveryCursor after) {
-        writable(tenant);
+    public void update(RefundRecoveryCursor before, RefundRecoveryCursor after) {
+        writable();
         boolean completed = !before.completed()
                 && after.completed()
                 && before.generation() == after.generation()
@@ -122,7 +117,7 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
         }
     }
 
-    private RefundRecoveryCursorDO row(String tenant, String requestId, boolean lock) {
+    private RefundRecoveryCursorDO row(String requestId, boolean lock) {
         var args = new MapSqlParameterSource().addValue("id", requestId);
         return jdbc
                 .query(
@@ -136,16 +131,13 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
                 .orElse(null);
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

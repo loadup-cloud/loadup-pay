@@ -28,17 +28,15 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 
 public interface PaymentLimitClient {
-    boolean supportsTenant(String tenant);
+    LimitReservationDTO reserve(LimitReserveCommand command);
 
-    LimitReservationDTO reserve(String tenant, LimitReserveCommand command);
+    LimitExecutionPermitDTO begin(LimitBeginExecutionCommand command);
 
-    LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command);
+    LimitExecutionVerificationDTO verify(LimitExecutionVerifyCommand command);
 
-    LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command);
+    LimitReservationDTO confirm(LimitConfirmCommand command);
 
-    LimitReservationDTO confirm(String tenant, LimitConfirmCommand command);
+    LimitReleaseDTO release(LimitReleaseCommand command);
 
-    LimitReleaseDTO release(String tenant, LimitReleaseCommand command);
-
-    LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command);
+    LimitRestoreDTO restoreRefund(LimitRefundRestoreCommand command);
 }

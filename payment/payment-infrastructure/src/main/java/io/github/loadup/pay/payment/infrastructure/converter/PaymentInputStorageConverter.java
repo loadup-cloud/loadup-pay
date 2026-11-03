@@ -35,7 +35,7 @@ public interface PaymentInputStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentInputDO toDO(String tenant, PaymentInput value);
+    PaymentInputDO toDO(PaymentInput value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "state", source = "state")

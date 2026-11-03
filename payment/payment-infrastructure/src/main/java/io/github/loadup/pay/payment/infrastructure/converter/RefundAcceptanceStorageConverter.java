@@ -50,5 +50,5 @@ public interface RefundAcceptanceStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RefundAcceptanceDO toDO(String tenant, RefundAcceptanceEvidence value);
+    RefundAcceptanceDO toDO(RefundAcceptanceEvidence value);
 }

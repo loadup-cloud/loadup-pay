@@ -100,8 +100,7 @@ public class CashierService implements CashierFacade {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
         String owner = transactions.withTenantContext(actor.tenantId(), () -> {
-            var order = orders.findOrder(actor.tenantId(), actor.orderId())
-                    .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
+            var order = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_START");
             return order.callerScopeHash();
         });
@@ -128,11 +127,10 @@ public class CashierService implements CashierFacade {
         var actor = actors.current();
         String owner = transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var order = orders.findOrder(actor.tenantId(), actor.orderId())
-                    .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
+            var order = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
             var allocation = allocations
-                    .findPayment(actor.tenantId(), actor.orderId(), query.id())
+                    .findPayment(actor.orderId(), query.id())
                     .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             if (!allocation.allocation().actorScope().equals("checkout/" + actor.sessionId())
                     || !allocation.callerScopeHash().equals(order.callerScopeHash())) {
@@ -155,8 +153,7 @@ public class CashierService implements CashierFacade {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
         var owner = transactions.withTenantContext(actor.tenantId(), () -> {
-            var order = orders.findOrder(actor.tenantId(), actor.orderId())
-                    .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
+            var order = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
             return order.callerScopeHash();
         });

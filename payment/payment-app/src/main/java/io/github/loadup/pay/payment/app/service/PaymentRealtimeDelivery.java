@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -68,10 +67,7 @@ public class PaymentRealtimeDelivery {
         if (!envelope.aggregateId().equals(row.businessId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        if (!client.supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-        var ack = client.apply(tenant, envelope);
+        var ack = client.apply(envelope);
         if (ack == null
                 || !ack.accepted()
                 || !envelope.deliveryId().equals(ack.deliveryId())

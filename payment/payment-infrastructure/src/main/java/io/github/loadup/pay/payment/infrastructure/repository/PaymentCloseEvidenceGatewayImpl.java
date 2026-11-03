@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
@@ -23,7 +22,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.gateway.PaymentCloseEvidenceGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentCloseEvidence;
@@ -57,8 +55,7 @@ public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvi
     }
 
     @Override
-    public Optional<PaymentCloseEvidence> find(String tenant, String attemptId) {
-        tenant(tenant);
+    public Optional<PaymentCloseEvidence> find(String attemptId) {
         DomainChecks.id(attemptId);
         var row = getById(attemptId);
         if (row == null) {
@@ -77,8 +74,7 @@ public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvi
     }
 
     @Override
-    public void insert(String tenant, PaymentCloseEvidence value) {
-        tenant(tenant);
+    public void insert(PaymentCloseEvidence value) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
@@ -89,7 +85,7 @@ public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvi
         if (value == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -103,13 +99,6 @@ public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvi
                 """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void tenant(String tenant) {
-        DomainChecks.id(tenant);
-        if (!tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

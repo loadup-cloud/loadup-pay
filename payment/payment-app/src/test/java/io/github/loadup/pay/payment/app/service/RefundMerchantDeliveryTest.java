@@ -21,7 +21,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -93,8 +92,7 @@ class RefundMerchantDeliveryTest {
                 .thenReturn(Optional.of(
                         new OutboxRecord("queue", RefundMerchantEventDTO.TYPE, "refund", "PROCESSING", 1, null)));
         when(codec.merchant("payload")).thenReturn(envelope);
-        when(acquire.supportsTenant("tenant")).thenReturn(true);
-        when(acquire.acceptRefundNotification("tenant", envelope)).thenReturn(ack("ENQUEUED"));
+        when(acquire.acceptRefundNotification(envelope)).thenReturn(ack("ENQUEUED"));
     }
 
     void deliver() {
@@ -109,10 +107,10 @@ class RefundMerchantDeliveryTest {
     void retriesPreserveTheOriginalSourceAndAcceptDurablyDisabledPolicies() {
         deliver();
         deliver();
-        when(acquire.acceptRefundNotification("tenant", envelope)).thenReturn(ack("DISABLED"));
+        when(acquire.acceptRefundNotification(envelope)).thenReturn(ack("DISABLED"));
         deliver();
-        verify(acquire, times(3)).acceptRefundNotification("tenant", envelope);
-        verify(acquire, never()).acceptFeeRefund(anyString(), any());
+        verify(acquire, times(3)).acceptRefundNotification(envelope);
+        verify(acquire, never()).acceptFeeRefund(any());
     }
 
     @Test
@@ -123,7 +121,7 @@ class RefundMerchantDeliveryTest {
                 new RefundNotificationAckDTO("delivery", "business", "other", 3, merchantEventId, "ENQUEUED"),
                 new RefundNotificationAckDTO("delivery", "business", "refund", 4, merchantEventId, "ENQUEUED"),
                 new RefundNotificationAckDTO("delivery", "business", "refund", 3, "b".repeat(64), "ENQUEUED"))) {
-            when(acquire.acceptRefundNotification("tenant", envelope)).thenReturn(wrong);
+            when(acquire.acceptRefundNotification(envelope)).thenReturn(wrong);
             assertSame(
                     DEPENDENCY_UNAVAILABLE,
                     assertThrows(CommonException.class, this::deliver).getResultCode());
@@ -131,8 +129,7 @@ class RefundMerchantDeliveryTest {
     }
 
     @Test
-    void unclaimedQueueWrongTenantAndActiveTransactionsCannotDeliver() {
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
+    void unclaimedQueueAndActiveTransactionsCannotDeliver() {
         when(outbox.find("queue")).thenReturn(Optional.empty());
         assertSame(
                 SNAPSHOT_INVALID,

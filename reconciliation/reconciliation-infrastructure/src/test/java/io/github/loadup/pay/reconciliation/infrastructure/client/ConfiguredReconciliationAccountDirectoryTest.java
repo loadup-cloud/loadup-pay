@@ -50,22 +50,20 @@ class ConfiguredReconciliationAccountDirectoryTest {
     void profileChangeDoesNotReinterpretOldScopeButAccountReplacementAndRevocationStillDeny() {
         var original = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, "profile-v1");
         var current = directory("a".repeat(64), "profile-v2");
-        assertEquals(
-                "profile-v2", current.resolve("tenant", "ops", "account", date).statementProfile());
-        assertDoesNotThrow(() -> current.authorize("tenant", "ops", "account", original));
+        assertEquals("profile-v2", current.resolve("ops", "account", date).statementProfile());
+        assertDoesNotThrow(() -> current.authorize("ops", "account", original));
         assertThrows(
                 CommonException.class,
-                () -> directory("b".repeat(64), "profile-v2").authorize("tenant", "ops", "account", original));
-        assertThrows(CommonException.class, () -> current.authorize("tenant", "revoked", "account", original));
+                () -> directory("b".repeat(64), "profile-v2").authorize("ops", "account", original));
+        assertThrows(CommonException.class, () -> current.authorize("revoked", "account", original));
     }
 
     @Test
     void originalRevisionIsOnlyReturnedForAuthorizedOfficialSourceAccounts() {
         var current = directory("a".repeat(64), "profile");
-        var scope = current.resolve("tenant", "ops", "account", date);
-        assertEquals("revision", current.statementBindingRevision("tenant", "ops", "account", scope));
-        assertThrows(
-                CommonException.class, () -> current.statementBindingRevision("tenant", "other", "account", scope));
+        var scope = current.resolve("ops", "account", date);
+        assertEquals("revision", current.statementBindingRevision("ops", "account", scope));
+        assertThrows(CommonException.class, () -> current.statementBindingRevision("other", "account", scope));
         var manualOnly = new ConfiguredReconciliationAccountDirectory(new ReconciliationAccountsProperties(Map.of(
                 "tenant",
                 Map.of(
@@ -77,9 +75,8 @@ class ConfiguredReconciliationAccountDirectoryTest {
                                 new ReconciliationStatementAccount("1234567890", null),
                                 null,
                                 Set.of("ops"))))));
-        assertDoesNotThrow(() -> manualOnly.authorize("tenant", "ops", "account", scope));
-        assertThrows(
-                CommonException.class, () -> manualOnly.statementBindingRevision("tenant", "ops", "account", scope));
+        assertDoesNotThrow(() -> manualOnly.authorize("ops", "account", scope));
+        assertThrows(CommonException.class, () -> manualOnly.statementBindingRevision("ops", "account", scope));
     }
 
     private ConfiguredReconciliationAccountDirectory directory(String hash, String profile) {
@@ -99,7 +96,7 @@ class ConfiguredReconciliationAccountDirectoryTest {
     private void denied(ConfiguredReconciliationAccountDirectory directory, String tenant, String caller, String code) {
         assertEquals(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> directory.resolve(tenant, caller, code, date))
+                assertThrows(CommonException.class, () -> directory.resolve(caller, code, date))
                         .getResultCode());
     }
 }

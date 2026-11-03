@@ -62,22 +62,22 @@ class PaymentChannelNotificationGatewayImplTest {
 
     @Test
     void identifiesEncryptedNotificationUsingTrustedTenantAndOriginalEndpointRevision() {
-        when(bindings.findRevision("tenant", "old-revision")).thenReturn(Optional.of(original));
+        when(bindings.findRevision("old-revision")).thenReturn(Optional.of(original));
         var expected = new ChannelNotificationHint("original-order");
         when(facade.identify(new ChannelExecutionContext("tenant", original), input))
                 .thenReturn(expected);
         assertEquals(
                 expected,
                 TenantUtil.callWithTenant("tenant", () -> gateway.identify(Channel.WECHAT, "old-revision", input)));
-        verify(bindings).findRevision("tenant", "old-revision");
+        verify(bindings).findRevision("old-revision");
         verify(facade).identify(new ChannelExecutionContext("tenant", original), input);
         verifyNoMoreInteractions(bindings, facade);
     }
 
     @Test
     void refusesMissingOrWrongChannelBindingBeforeDecryptingOrCallingProvider() {
-        when(bindings.findRevision("tenant", "missing")).thenReturn(Optional.empty());
-        when(bindings.findRevision("tenant", "old-revision")).thenReturn(Optional.of(original));
+        when(bindings.findRevision("missing")).thenReturn(Optional.empty());
+        when(bindings.findRevision("old-revision")).thenReturn(Optional.of(original));
         TenantUtil.runWithTenant("tenant", () -> {
             assertThrows(CommonException.class, () -> gateway.identify(Channel.WECHAT, "missing", input));
             assertThrows(CommonException.class, () -> gateway.identify(Channel.ALIPAY, "old-revision", input));

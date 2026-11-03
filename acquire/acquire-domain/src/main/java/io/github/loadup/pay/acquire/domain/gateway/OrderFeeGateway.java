@@ -23,13 +23,12 @@ public interface OrderFeeGateway {
     /**
      * Joins the original order transaction; amount and policy remain frozen.
      */
-    void confirmPaid(String tenant, AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt);
+    void confirmPaid(AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt);
 
     /**
      * Authoritative cumulative refund facts only; caller holds the original order lock and writable transaction.
      */
     void applyRefundBasis(
-            String tenant,
             AcquireOrder order,
             OrderFeePolicy expectedPolicy,
             long sourceVersion,

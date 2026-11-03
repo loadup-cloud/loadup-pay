@@ -171,17 +171,15 @@ class PaymentInitiationServiceTest {
                 })
                 .when(snapshots)
                 .publish(eq("tenant"), eq("order"), anyLong());
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> order.get());
+        when(orders.lockOrder("order")).thenAnswer(c -> order.get());
         when(hashes.decodeAdmission(anyString(), anyString())).thenReturn(admission());
         when(hashes.checksum(anyString()))
                 .thenAnswer(c -> HexFormat.of()
                         .formatHex(MessageDigest.getInstance("SHA-256")
                                 .digest(((String) c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
-        when(payment.supportsTenant("tenant")).thenReturn(true);
-        when(closure.supportsTenant("tenant")).thenReturn(true);
-        when(payment.lookupInput(eq("tenant"), any())).thenReturn(new PaymentInputLookupDTO(false, null));
-        when(payment.expireInput(eq("tenant"), any())).thenAnswer(call -> {
-            PaymentInputExpireCommand q = call.getArgument(1);
+        when(payment.lookupInput(any())).thenReturn(new PaymentInputLookupDTO(false, null));
+        when(payment.expireInput(any())).thenAnswer(call -> {
+            PaymentInputExpireCommand q = call.getArgument(0);
             return new PaymentInputExpiryDTO(
                     q.paymentId(), q.orderId(), PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
         });
@@ -192,12 +190,12 @@ class PaymentInitiationServiceTest {
         });
         when(codec.decode(any()))
                 .thenAnswer(c -> commands.get(((StoredPaymentAllocation) c.getArgument(0)).intentPayload()));
-        when(allocations.findAction(eq("tenant"), eq("order"), anyString(), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(3))));
+        when(allocations.findAction(eq("order"), anyString(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(2))));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    AcquireOrder changed = c.getArgument(1);
-                    assertEquals(order.get().order().version(), (long) c.getArgument(3));
+                    AcquireOrder changed = c.getArgument(0);
+                    assertEquals(order.get().order().version(), (long) c.getArgument(2));
                     var old = order.get();
                     order.set(new StoredAcquireOrder(
                             changed,
@@ -209,16 +207,16 @@ class PaymentInitiationServiceTest {
                             old.snapshotId(),
                             old.admissionPayload(),
                             old.payloadHash()));
-                    StoredPaymentAllocation value = c.getArgument(2);
+                    StoredPaymentAllocation value = c.getArgument(1);
                     saved.put(value.allocation().actionKey(), value);
                     return null;
                 })
                 .when(allocations)
-                .reserve(eq("tenant"), any(), any(), anyLong());
-        when(payment.accept(eq("tenant"), any())).thenAnswer(c -> {
+                .reserve(any(), any(), anyLong());
+        when(payment.accept(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(tx.commits > 0);
-            return response(c.getArgument(1));
+            return response(c.getArgument(0));
         });
     }
 
@@ -232,8 +230,8 @@ class PaymentInitiationServiceTest {
                 failure,
                 assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command)));
         assertEquals(1, tx.rollbacks);
-        verify(payment, never()).accept(anyString(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
+        verify(payment, never()).accept(any());
+        verify(payment, never()).prepareInput(any());
         verifyNoInteractions(snapshots);
     }
 
@@ -255,27 +253,27 @@ class PaymentInitiationServiceTest {
         assertEquals(owner.scopeHash(), saved.get("checkout-action").callerScopeHash());
         assertEquals(1, guarded.stream().filter(Boolean::booleanValue).count());
         verify(recovery, times(1)).register(eq("tenant"), eq(saved.get("checkout-action")), eq(NOW));
-        verify(allocations, Mockito.times(1)).reserve(anyString(), any(), any(), anyLong());
+        verify(allocations, Mockito.times(1)).reserve(any(), any(), anyLong());
     }
 
     @Test
     void h5SceneInputIsPreparedOutsideTransactionsAndOnlyOpaqueReferenceIsRetainedAcrossReplay() {
         var interaction = new H5SceneInteractionDTO("203.0.113.10", H5SceneType.IOS);
         var inputCalls = new ArrayList<PaymentInputPrepareCommand>();
-        when(payment.prepareInput(eq("tenant"), any())).thenAnswer(c -> {
+        when(payment.prepareInput(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            inputCalls.add(c.getArgument(1));
+            inputCalls.add(c.getArgument(0));
             return new PaymentInputDTO(
                     "opaque-prepared-input", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(5)));
         });
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    StoredPaymentAllocation prepared = c.getArgument(2);
+                    StoredPaymentAllocation prepared = c.getArgument(1);
                     saved.put(prepared.allocation().actionKey(), prepared);
                     return null;
                 })
                 .when(allocations)
-                .attachInput(eq("tenant"), any(), any());
+                .attachInput(any(), any());
 
         var command = h5Command("h5", 4000, interaction);
         var first = service(clock(NOW)).startPayment(command);
@@ -302,11 +300,11 @@ class PaymentInitiationServiceTest {
         assertEquals(List.of(expectedInput, expectedInput), inputCalls);
 
         var accepted = ArgumentCaptor.forClass(PaymentExecuteCommand.class);
-        verify(payment, times(2)).accept(eq("tenant"), accepted.capture());
+        verify(payment, times(2)).accept(accepted.capture());
         assertTrue(accepted.getAllValues().stream()
                 .allMatch(value -> "opaque-prepared-input".equals(value.preparedInputRef())));
-        verify(allocations, times(1)).reserve(eq("tenant"), any(), any(), anyLong());
-        verify(allocations, times(1)).attachInput(eq("tenant"), any(), any());
+        verify(allocations, times(1)).reserve(any(), any(), anyLong());
+        verify(allocations, times(1)).attachInput(any(), any());
         verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
     }
 
@@ -315,22 +313,22 @@ class PaymentInitiationServiceTest {
         var guarded = new ArrayList<Boolean>();
         var principal = new PaymentInitiationPrincipal(
                 "tenant", OWNER, "checkout/session", (stored, creating) -> guarded.add(creating));
-        when(payment.prepareInput(eq("tenant"), any()))
+        when(payment.prepareInput(any()))
                 .thenReturn(
                         new PaymentInputDTO("opaque-input", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(5))));
         doAnswer(call -> {
-                    StoredPaymentAllocation prepared = call.getArgument(2);
+                    StoredPaymentAllocation prepared = call.getArgument(1);
                     saved.put(prepared.allocation().actionKey(), prepared);
                     return null;
                 })
                 .when(allocations)
-                .attachInput(eq("tenant"), any(), any());
-        when(payment.accept(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+                .attachInput(any(), any());
+        when(payment.accept(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         var command = h5Command("lost", 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
         assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command));
         var original = saved.get("lost");
         var frozen = commands.get(original.allocation().paymentId());
-        when(payment.accept("tenant", frozen)).thenReturn(response(frozen));
+        when(payment.accept(frozen)).thenReturn(response(frozen));
         clearInvocations(payment, allocations, snapshots);
         guarded.clear();
         var recovered = operations(clock(NOW.plusHours(1))).recover(principal, "order", "lost", 4000, command.choice());
@@ -338,10 +336,10 @@ class PaymentInitiationServiceTest {
         assertEquals(frozen.paymentId(), recovered.paymentId());
         assertSame(original, saved.get("lost"));
         assertEquals(List.of(false), guarded);
-        verify(payment).accept("tenant", frozen);
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
-        verify(allocations, never()).attachInput(anyString(), any(), any());
+        verify(payment).accept(frozen);
+        verify(payment, never()).prepareInput(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
+        verify(allocations, never()).attachInput(any(), any());
         verifyNoInteractions(snapshots);
         assertEquals(4000, order.get().order().paymentReservedMinor());
     }
@@ -354,8 +352,8 @@ class PaymentInitiationServiceTest {
         var absent = operations(clock(NOW)).recover(principal, "order", "unknown", 4000, choice);
         assertEquals(PaymentIntentRecovery.State.NOT_OBSERVED, absent.state());
         assertNull(absent.paymentId());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
-        when(payment.prepareInput(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        verify(allocations, never()).reserve(any(), any(), anyLong());
+        when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         var start = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
         assertThrows(
                 CommonException.class,
@@ -370,15 +368,15 @@ class PaymentInitiationServiceTest {
         var pending = operations(clock(NOW)).recover(principal, "order", "pending-input", 4000, choice);
         assertEquals(PaymentIntentRecovery.State.INPUT_REQUIRED, pending.state());
         assertNull(pending.paymentId());
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(payment, never()).accept(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        verify(payment, never()).prepareInput(any());
+        verify(payment, never()).accept(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
         assertEquals(4000, order.get().order().paymentReservedMinor());
     }
 
     PaymentInitiationPrincipal missingPreparation(String key) {
         var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
-        when(payment.prepareInput(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(
                 CommonException.class,
                 () -> operations(clock(NOW))
@@ -395,9 +393,9 @@ class PaymentInitiationServiceTest {
         var original = saved.get("missing-deadline");
         var execute = commands.get(original.allocation().paymentId());
         var proof = new PaymentCloseDTO(execute.paymentId(), execute.orderId(), 1L, true, null, "preparation-proof");
-        when(closure.close(eq("tenant"), any())).thenAnswer(call -> {
+        when(closure.close(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            PaymentCloseCommand command = call.getArgument(1);
+            PaymentCloseCommand command = call.getArgument(0);
             assertEquals(execute.paymentId(), command.paymentId());
             assertEquals(execute.payeeMerchantId(), command.payeeMerchantId());
             assertEquals("input-preparation-expiry/" + execute.allocationId(), command.requestKey());
@@ -417,10 +415,10 @@ class PaymentInitiationServiceTest {
                         .recover(principal, "order", "missing-deadline", 4000, execute.choice()));
         assertSame(original, saved.get("missing-deadline"));
         assertEquals(4000L, order.get().order().paymentReservedMinor());
-        verify(payment, never()).accept(anyString(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
-        verify(allocations, never()).attachInput(anyString(), any(), any());
+        verify(payment, never()).accept(any());
+        verify(payment, never()).prepareInput(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
+        verify(allocations, never()).attachInput(any(), any());
     }
 
     @Test
@@ -430,7 +428,7 @@ class PaymentInitiationServiceTest {
         var result = operations(clock(NOW.plusSeconds(1)))
                 .recover(principal, "order", "still-preparing", 4000, execute.choice());
         assertEquals(PaymentIntentRecovery.State.INPUT_REQUIRED, result.state());
-        verify(closure, never()).close(anyString(), any());
+        verify(closure, never()).close(any());
         assertEquals(4000L, order.get().order().paymentReservedMinor());
     }
 
@@ -439,12 +437,12 @@ class PaymentInitiationServiceTest {
         var principal = missingPreparation("failed-preparation");
         var original = saved.get("failed-preparation");
         var execute = commands.get(original.allocation().paymentId());
-        when(closure.close(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(closure.close(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(
                 CommonException.class,
                 () -> operations(clock(NOW.plusHours(1)))
                         .recover(principal, "order", "failed-preparation", 4000, execute.choice()));
-        when(closure.close(eq("tenant"), any()))
+        when(closure.close(any()))
                 .thenReturn(new PaymentCloseDTO(execute.paymentId(), execute.orderId(), 1L, true, null, null));
         assertEquals(
                 SNAPSHOT_INVALID,
@@ -455,7 +453,7 @@ class PaymentInitiationServiceTest {
                         .getResultCode());
         assertSame(original, saved.get("failed-preparation"));
         assertEquals(4000L, order.get().order().paymentReservedMinor());
-        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).accept(any());
     }
 
     @Test
@@ -463,7 +461,7 @@ class PaymentInitiationServiceTest {
         var principal = missingPreparation("accepted-preparation");
         var execute =
                 commands.get(saved.get("accepted-preparation").allocation().paymentId());
-        when(closure.close(eq("tenant"), any()))
+        when(closure.close(any()))
                 .thenReturn(
                         new PaymentCloseDTO(execute.paymentId(), execute.orderId(), 1L, true, response(execute), null));
         var result = operations(clock(NOW.plusHours(1)))
@@ -471,14 +469,14 @@ class PaymentInitiationServiceTest {
         assertEquals(PaymentIntentRecovery.State.RESOLVED, result.state());
         assertEquals(execute.paymentId(), result.paymentId());
         assertNull(result.closed());
-        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).accept(any());
     }
 
     @Test
     void lostInputPreparationReplyIsRecoveredByOriginalScopeWithoutRecreatingPayerInput() {
         var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("lost-input", 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
-        when(payment.prepareInput(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command));
         var original = saved.get("lost-input");
         var execute = commands.get(original.allocation().paymentId());
@@ -493,18 +491,18 @@ class PaymentInitiationServiceTest {
                 execute.choice());
         var input =
                 new PaymentInputDTO("original-remote-input", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(2)));
-        when(payment.lookupInput("tenant", query)).thenAnswer(call -> {
+        when(payment.lookupInput(query)).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new PaymentInputLookupDTO(true, input);
         });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    StoredPaymentAllocation prepared = call.getArgument(2);
+                    StoredPaymentAllocation prepared = call.getArgument(1);
                     saved.put(prepared.allocation().actionKey(), prepared);
                     return null;
                 })
                 .when(allocations)
-                .attachInput(eq("tenant"), any(), any());
+                .attachInput(any(), any());
         clearInvocations(payment, snapshots, allocations);
         var result =
                 operations(clock(NOW.plusMinutes(1))).recover(principal, "order", "lost-input", 4000, command.choice());
@@ -513,20 +511,20 @@ class PaymentInitiationServiceTest {
         assertEquals("original-remote-input", commands.get(execute.paymentId()).preparedInputRef());
         assertEquals(original.allocation(), saved.get("lost-input").allocation());
         assertEquals(4000, order.get().order().paymentReservedMinor());
-        verify(payment).lookupInput("tenant", query);
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        verify(payment).lookupInput(query);
+        verify(payment, never()).prepareInput(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
         verify(snapshots, never()).publish(anyString(), anyString(), anyLong());
-        verify(allocations).attachInput(eq("tenant"), eq(original), any());
+        verify(allocations).attachInput(eq(original), any());
     }
 
     @Test
     void malformedLookupOrRemoteFailureNeverFallsBackToPreparationOrNewPayment() {
         var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("input", 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
-        when(payment.prepareInput(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command));
-        when(payment.lookupInput(eq("tenant"), any())).thenReturn(new PaymentInputLookupDTO(true, null));
+        when(payment.lookupInput(any())).thenReturn(new PaymentInputLookupDTO(true, null));
         clearInvocations(payment, allocations);
         assertSame(
                 SNAPSHOT_INVALID,
@@ -535,7 +533,7 @@ class PaymentInitiationServiceTest {
                                 () -> operations(clock(NOW))
                                         .recover(principal, "order", "input", 4000, command.choice()))
                         .getResultCode());
-        when(payment.lookupInput(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(payment.lookupInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(
@@ -543,23 +541,23 @@ class PaymentInitiationServiceTest {
                                 () -> operations(clock(NOW))
                                         .recover(principal, "order", "input", 4000, command.choice()))
                         .getResultCode());
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(payment, never()).accept(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
-        verify(allocations, never()).attachInput(anyString(), any(), any());
+        verify(payment, never()).prepareInput(any());
+        verify(payment, never()).accept(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
+        verify(allocations, never()).attachInput(any(), any());
     }
 
     PaymentInitiationPrincipal preparedCheckout(String key) {
         var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
-        when(payment.prepareInput(eq("tenant"), any()))
+        when(payment.prepareInput(any()))
                 .thenReturn(new PaymentInputDTO("prepared", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(2))));
         doAnswer(call -> {
-                    StoredPaymentAllocation prepared = call.getArgument(2);
+                    StoredPaymentAllocation prepared = call.getArgument(1);
                     saved.put(prepared.allocation().actionKey(), prepared);
                     return null;
                 })
                 .when(allocations)
-                .attachInput(eq("tenant"), any(), any());
+                .attachInput(any(), any());
         operations(clock(NOW))
                 .start(principal, h5Command(key, 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP)));
         return principal;
@@ -570,7 +568,7 @@ class PaymentInitiationServiceTest {
         var principal = preparedCheckout("expired");
         var original = saved.get("expired");
         var proof = new PaymentCloseDTO(original.allocation().paymentId(), "order", 1L, true, null, "expiry-proof");
-        when(payment.expireInput(eq("tenant"), any()))
+        when(payment.expireInput(any()))
                 .thenReturn(new PaymentInputExpiryDTO(
                         original.allocation().paymentId(),
                         "order",
@@ -584,11 +582,11 @@ class PaymentInitiationServiceTest {
         assertEquals(original.allocation().paymentId(), result.paymentId());
         assertSame(original, saved.get("expired"));
         assertEquals(4000, order.get().order().paymentReservedMinor());
-        verify(payment, never()).accept(anyString(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        verify(payment, never()).accept(any());
+        verify(payment, never()).prepareInput(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
         var request = ArgumentCaptor.forClass(PaymentInputExpireCommand.class);
-        verify(payment).expireInput(eq("tenant"), request.capture());
+        verify(payment).expireInput(request.capture());
         assertEquals("prepared", request.getValue().inputRef());
         assertEquals("expired", request.getValue().inputKey());
         assertEquals(original.allocation().id(), request.getValue().allocationId());
@@ -598,7 +596,7 @@ class PaymentInitiationServiceTest {
     void anAlreadyAcceptedPaymentNeedsNoRepeatedAcceptanceAndAnInvalidExpiryProofCannotSucceed() {
         var principal = preparedCheckout("original");
         String paymentId = saved.get("original").allocation().paymentId();
-        when(payment.expireInput(eq("tenant"), any()))
+        when(payment.expireInput(any()))
                 .thenReturn(new PaymentInputExpiryDTO(
                         paymentId, "order", PaymentInputExpiryDisposition.PAYMENT_EXISTS, null));
         clearInvocations(payment);
@@ -606,9 +604,9 @@ class PaymentInitiationServiceTest {
                 .recover(principal, "order", "original", 4000, new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         assertEquals(paymentId, result.paymentId());
         assertNull(result.closed());
-        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).accept(any());
         var invalid = new PaymentCloseDTO(paymentId, "order", 1L, false, null, "unfenced");
-        when(payment.expireInput(eq("tenant"), any()))
+        when(payment.expireInput(any()))
                 .thenReturn(new PaymentInputExpiryDTO(
                         paymentId, "order", PaymentInputExpiryDisposition.EXPIRED_CLOSED, invalid));
         assertSame(
@@ -623,7 +621,7 @@ class PaymentInitiationServiceTest {
                                                 4000,
                                                 new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5)))
                         .getResultCode());
-        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).accept(any());
     }
 
     @Test
@@ -637,11 +635,11 @@ class PaymentInitiationServiceTest {
         var result = operations(clock(NOW)).recover(principal, "order", "inputless", 4000, command.choice());
         assertEquals(PaymentIntentRecovery.State.RESOLVED, result.state());
         assertEquals(frozen.paymentId(), result.paymentId());
-        verify(payment).accept("tenant", frozen);
-        verify(payment, never()).lookupInput(anyString(), any());
-        verify(payment, never()).expireInput(anyString(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        verify(payment).accept(frozen);
+        verify(payment, never()).lookupInput(any());
+        verify(payment, never()).expireInput(any());
+        verify(payment, never()).prepareInput(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
         assertSame(original, saved.get("inputless"));
         assertEquals(4000, order.get().order().paymentReservedMinor());
     }
@@ -664,8 +662,8 @@ class PaymentInitiationServiceTest {
                                 () -> operations(clock(NOW))
                                         .recover(principal, "order", "inputless", 4000, command.choice()))
                         .getResultCode());
-        verify(payment, never()).accept(anyString(), any());
-        verify(payment, never()).lookupInput(anyString(), any());
+        verify(payment, never()).accept(any());
+        verify(payment, never()).lookupInput(any());
     }
 
     @Test
@@ -701,8 +699,8 @@ class PaymentInitiationServiceTest {
                                 () -> operations(clock(NOW))
                                         .recover(other, "order", "original", 4000, command.choice()))
                         .getResultCode());
-        verify(payment, never()).accept(anyString(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
+        verify(payment, never()).accept(any());
+        verify(payment, never()).prepareInput(any());
     }
 
     @Test
@@ -730,8 +728,8 @@ class PaymentInitiationServiceTest {
         var result = operations(clock(NOW)).recover(principal, "order", "original", 4000, command.choice());
         assertEquals(PaymentIntentRecovery.State.RESOLVED, result.state());
         assertEquals(a.paymentId(), result.paymentId());
-        verify(payment, never()).accept(anyString(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
+        verify(payment, never()).accept(any());
+        verify(payment, never()).prepareInput(any());
     }
 
     @Test
@@ -766,10 +764,10 @@ class PaymentInitiationServiceTest {
                                                 new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP))))
                         .getResultCode());
 
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
-        verify(allocations, never()).attachInput(anyString(), any(), any());
-        verify(payment, never()).prepareInput(anyString(), any());
-        verify(payment, never()).accept(anyString(), any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
+        verify(allocations, never()).attachInput(any(), any());
+        verify(payment, never()).prepareInput(any());
+        verify(payment, never()).accept(any());
         assertEquals(1, saved.size());
     }
 
@@ -823,20 +821,20 @@ class PaymentInitiationServiceTest {
 
     @Test
     void aLostRemoteReplyRetainsTheHoldAndRetryUsesExactlyTheSamePaymentAndTerms() {
-        when(payment.accept(eq("tenant"), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(payment.accept(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).startPayment(command("one", 4000)))
                         .getResultCode());
         var original = saved.get("one");
         var frozen = commands.get(original.allocation().paymentId());
-        when(payment.accept(eq("tenant"), any())).thenReturn(response(frozen));
+        when(payment.accept(any())).thenReturn(response(frozen));
         var result = service(clock(NOW.plusHours(1))).startPayment(command("one", 4000));
         assertEquals(frozen.paymentId(), result.paymentId());
         assertSame(original, saved.get("one"));
         assertEquals(4000, order.get().order().paymentReservedMinor());
-        verify(allocations, times(1)).reserve(eq("tenant"), any(), any(), anyLong());
-        verify(payment, times(2)).accept("tenant", frozen);
+        verify(allocations, times(1)).reserve(any(), any(), anyLong());
+        verify(payment, times(2)).accept(frozen);
         verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
     }
 
@@ -848,7 +846,7 @@ class PaymentInitiationServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).startPayment(command("one", 5000)))
                         .getResultCode());
-        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).accept(any());
         assertEquals(4000, order.get().order().paymentReservedMinor());
     }
 
@@ -868,7 +866,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void malformedRemoteResultDoesNotReleaseTheCommittedHold() {
-        when(payment.accept(eq("tenant"), any()))
+        when(payment.accept(any()))
                 .thenReturn(new PaymentExecutionDTO(
                         "foreign",
                         "order",
@@ -921,14 +919,14 @@ class PaymentInitiationServiceTest {
                 "one",
                 new StoredPaymentAllocation(
                         released, held.callerScopeHash(), held.intentPayload(), held.payloadHash(), 1));
-        when(payment.detail("tenant", value.paymentId())).thenReturn(response(commands.get(value.paymentId())));
+        when(payment.detail(value.paymentId())).thenReturn(response(commands.get(value.paymentId())));
         clearInvocations(payment, allocations);
         assertEquals(
                 value.paymentId(),
                 service(clock(NOW)).startPayment(command("one", 4000)).paymentId());
-        verify(payment).detail("tenant", value.paymentId());
-        verify(payment, never()).accept(anyString(), any());
-        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        verify(payment).detail(value.paymentId());
+        verify(payment, never()).accept(any());
+        verify(allocations, never()).reserve(any(), any(), anyLong());
     }
 
     @Test

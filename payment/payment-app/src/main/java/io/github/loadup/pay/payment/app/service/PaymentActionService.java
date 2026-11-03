@@ -108,8 +108,8 @@ public class PaymentActionService {
                         .equals(locked.payment().payment().activeAttemptId())) {
             return;
         }
-        var attempt = attempts.find(tenant, original.identity().attemptId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var attempt =
+                attempts.find(original.identity().attemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         validate(locked, attempt);
         if (!attempt.attempt().identity().equals(original.identity())
                 || attempt.attempt().executionEpoch() != original.executionEpoch()
@@ -141,7 +141,7 @@ public class PaymentActionService {
                         ? actionCodec.checksum(actionCodec.encode(action))
                         : result.observation().sourceDigest(),
                 LocalDateTime.ofInstant(issued, clock.getZone()));
-        var existing = actions.find(tenant, original.identity().attemptId());
+        var existing = actions.find(original.identity().attemptId());
         if (existing.isPresent()) {
             var prior = existing.get();
             if (!prior.identity().equals(proposed.identity())
@@ -153,7 +153,7 @@ public class PaymentActionService {
             }
             return;
         }
-        actions.insert(tenant, proposed);
+        actions.insert(proposed);
     }
 
     public PaymentExecutionDTO present(String tenant, LockedPayment locked) {
@@ -166,11 +166,11 @@ public class PaymentActionService {
         if (attemptId == null) {
             return base;
         }
-        var stored = actions.find(tenant, attemptId);
+        var stored = actions.find(attemptId);
         if (stored.isEmpty()) {
             return base;
         }
-        var current = attempts.find(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var current = attempts.find(attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         validate(locked, current);
         var action = stored.get();
         if (!action.identity().equals(current.attempt().identity())

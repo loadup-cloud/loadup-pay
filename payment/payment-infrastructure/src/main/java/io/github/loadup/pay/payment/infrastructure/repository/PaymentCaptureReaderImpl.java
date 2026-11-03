@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureRead;
@@ -84,10 +82,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
     }
 
     @Override
-    public PaymentCaptureRead read(String tenant, PaymentCaptureScope scope) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    public PaymentCaptureRead read(PaymentCaptureScope scope) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
@@ -109,15 +104,15 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 """, scopeArgs, (rs, index) -> rs.getString("id")).isEmpty()) {
             return blocked(scope, started, PaymentCaptureBlocker.ACCOUNT_SCOPE_UNKNOWN, scope.accountScopeHash());
         }
-        var unresolved = unresolvedCollection(tenant, scope);
+        var unresolved = unresolvedCollection(scope);
         if (unresolved != null) {
             return blocked(scope, started, PaymentCaptureBlocker.UNRESOLVED_COLLECTION, unresolved.getId());
         }
-        var missing = missingRefundDate(tenant, scope);
+        var missing = missingRefundDate(scope);
         if (missing != null) {
             return blocked(scope, started, PaymentCaptureBlocker.REFUND_ACCEPTANCE_MISSING, missing.getId());
         }
-        var conflict = refundDateConflict(tenant, scope);
+        var conflict = refundDateConflict(scope);
         if (conflict != null) {
             return blocked(scope, started, PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT, conflict.getId());
         }
@@ -162,10 +157,10 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         }
         var result = new ArrayList<PaymentLedgerLine>();
         for (int start = 0; start < collectionRows.size(); start += 256) {
-            addCollections(tenant, collectionRows.subList(start, Math.min(start + 256, collectionRows.size())), result);
+            addCollections(collectionRows.subList(start, Math.min(start + 256, collectionRows.size())), result);
         }
         for (int start = 0; start < refundRows.size(); start += 256) {
-            addRefunds(tenant, refundRows.subList(start, Math.min(start + 256, refundRows.size())), result);
+            addRefunds(refundRows.subList(start, Math.min(start + 256, refundRows.size())), result);
         }
         long paymentTotal = 0, refundTotal = 0;
         for (var line : result) {
@@ -186,7 +181,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         }
     }
 
-    private PaymentAttemptDO unresolvedCollection(String tenant, PaymentCaptureScope scope) {
+    private PaymentAttemptDO unresolvedCollection(PaymentCaptureScope scope) {
         var args = new MapSqlParameterSource()
                 .addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash())
@@ -203,7 +198,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .orElse(null);
     }
 
-    private RefundOrderDO missingRefundDate(String tenant, PaymentCaptureScope scope) {
+    private RefundOrderDO missingRefundDate(PaymentCaptureScope scope) {
         var args = new MapSqlParameterSource()
                 .addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash())
@@ -219,7 +214,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .orElse(null);
     }
 
-    private RefundOrderDO refundDateConflict(String tenant, PaymentCaptureScope scope) {
+    private RefundOrderDO refundDateConflict(PaymentCaptureScope scope) {
         var args = new MapSqlParameterSource()
                 .addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash())
@@ -235,12 +230,11 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .orElse(null);
     }
 
-    private void addCollections(String tenant, List<ChannelTransactionClaimDO> group, List<PaymentLedgerLine> output) {
+    private void addCollections(List<ChannelTransactionClaimDO> group, List<PaymentLedgerLine> output) {
         if (group.isEmpty()) {
             return;
         }
         var roots = paymentMap(
-                tenant,
                 group.stream().map(ChannelTransactionClaimDO::getPaymentId).toList());
         var args = new MapSqlParameterSource()
                 .addValue(
@@ -314,7 +308,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         }
     }
 
-    private void addRefunds(String tenant, List<RefundAcceptanceDO> group, List<PaymentLedgerLine> output) {
+    private void addRefunds(List<RefundAcceptanceDO> group, List<PaymentLedgerLine> output) {
         var childArgs = new MapSqlParameterSource()
                 .addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
         var children = index(jdbc.query("""
@@ -323,8 +317,8 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                        amount_minor, currency, state, row_version, terminal_evidence_id, channel_refund_transaction_no, succeeded_at
                 FROM refund_order WHERE deleted = FALSE AND id IN (:ids)
                 """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)));
-        var roots = paymentMap(
-                tenant, group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
+        var roots =
+                paymentMap(group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
         var originalArgs = new MapSqlParameterSource()
                 .addValue(
                         "ids",
@@ -338,7 +332,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 ChannelTransactionClaimDO::getPaymentId);
         // Original collection evidence is checked with the same complete binding checks, regardless of its payment
         // date.
-        addCollections(tenant, new ArrayList<>(originals.values()), new ArrayList<>());
+        addCollections(new ArrayList<>(originals.values()), new ArrayList<>());
         var terminalArgs = new MapSqlParameterSource()
                 .addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
         var terminalClaims = unique(
@@ -435,7 +429,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         }
     }
 
-    private Map<String, PaymentOrderDO> paymentMap(String tenant, List<String> ids) {
+    private Map<String, PaymentOrderDO> paymentMap(List<String> ids) {
         if (ids.isEmpty()) {
             return Map.of();
         }

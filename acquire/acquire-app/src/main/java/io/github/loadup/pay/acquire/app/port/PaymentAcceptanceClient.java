@@ -28,15 +28,13 @@ import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
  * Service identity is supplied by the transport, never by the merchant.
  */
 public interface PaymentAcceptanceClient {
-    boolean supportsTenant(String tenant);
+    PaymentInputDTO prepareInput(PaymentInputPrepareCommand command);
 
-    PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command);
+    PaymentInputLookupDTO lookupInput(PaymentInputLookupQuery query);
 
-    PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query);
+    PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command);
 
-    PaymentInputExpiryDTO expireInput(String tenant, PaymentInputExpireCommand command);
+    PaymentExecutionDTO accept(PaymentExecuteCommand command);
 
-    PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command);
-
-    PaymentExecutionDTO detail(String tenant, String paymentId);
+    PaymentExecutionDTO detail(String paymentId);
 }

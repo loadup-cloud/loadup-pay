@@ -17,13 +17,11 @@ package io.github.loadup.pay.realtime.infrastructure.repository;
 
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.realtime.domain.gateway.ProjectionReceiptGateway;
 import io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException;
 import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
@@ -57,8 +55,7 @@ public class ProjectionReceiptGatewayImpl extends ServiceImpl<ProjectionReceiptM
     }
 
     @Override
-    public Optional<ProjectionReceipt> find(String tenant, String producer, String delivery) {
-        scope(tenant);
+    public Optional<ProjectionReceipt> find(String producer, String delivery) {
         try {
             return Optional.ofNullable(getOne(
                             QueryWrapper.create().eq("producer", producer).eq("delivery_id", delivery)))
@@ -69,8 +66,7 @@ public class ProjectionReceiptGatewayImpl extends ServiceImpl<ProjectionReceiptM
     }
 
     @Override
-    public void insert(String tenant, ProjectionReceipt receipt) {
-        scope(tenant);
+    public void insert(ProjectionReceipt receipt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
@@ -78,7 +74,7 @@ public class ProjectionReceiptGatewayImpl extends ServiceImpl<ProjectionReceiptM
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -95,12 +91,6 @@ public class ProjectionReceiptGatewayImpl extends ServiceImpl<ProjectionReceiptM
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(QUERY_FORBIDDEN);
         }
     }
 }

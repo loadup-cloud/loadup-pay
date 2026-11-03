@@ -99,7 +99,7 @@ public class PaymentInputService implements PaymentInputFacade {
         }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             validate(command);
-            var prior = store.findByPayment(actor.tenantId(), command.paymentId());
+            var prior = store.findByPayment(command.paymentId());
             if (prior.isPresent()) {
                 return replay(actor, command, prior.get());
             }
@@ -120,7 +120,7 @@ public class PaymentInputService implements PaymentInputFacade {
                     preparedAt.plus(cipher.lifetime()));
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var parent = publication.lockParent(actor, command);
-                var winner = store.findByPayment(actor.tenantId(), command.paymentId());
+                var winner = store.findByPayment(command.paymentId());
                 if (winner.isPresent()) {
                     return replay(actor, command, winner.get());
                 }
@@ -128,7 +128,7 @@ public class PaymentInputService implements PaymentInputFacade {
                 if (input.expired(now())) {
                     throw new CommonException(INPUT_EXPIRED);
                 }
-                store.insert(actor.tenantId(), input);
+                store.insert(input);
                 return converter.toDTO(input);
             });
         });
@@ -168,7 +168,7 @@ public class PaymentInputService implements PaymentInputFacade {
             DomainChecks.text(query.inputKey(), 128);
             DomainChecks.positive(query.amountMinor());
             DomainChecks.cnyAmount(query.amountMinor(), query.currency());
-            var known = store.findByPayment(actor.tenantId(), query.paymentId());
+            var known = store.findByPayment(query.paymentId());
             if (known.isEmpty()) {
                 return converter.toLookup(false, null);
             }

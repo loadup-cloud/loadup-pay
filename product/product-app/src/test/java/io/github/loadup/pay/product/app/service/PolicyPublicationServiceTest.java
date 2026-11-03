@@ -127,7 +127,6 @@ class PolicyPublicationServiceTest {
                 null,
                 Map.of("acquiring", item));
         activation = compiler.compile("tenant", "merchant", item.configuration());
-        when(client.supportsTenant("tenant")).thenReturn(true);
         when(codec.encode(eq("tenant"), any())).thenReturn("frozen-activation");
         when(codec.decode(eq("tenant"), any())).thenReturn(activation);
         when(outbox.publish(any())).thenReturn("event");
@@ -200,19 +199,19 @@ class PolicyPublicationServiceTest {
                     return null;
                 })
                 .when(publications)
-                .insert(anyString(), any());
+                .insert(any());
         when(outbox.publish(any())).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return "event";
         });
         assertEquals("PUBLISHING", service.publish(command()).state());
-        verify(client, never()).activate(anyString(), any());
+        verify(client, never()).activate(any());
         assertEquals(1, manager.commits);
     }
 
     @Test
     void originalPublicationReplaysWithoutCurrentContractRevalidationOrNewEvent() {
-        when(publications.findByContract("tenant", "contract", 1)).thenReturn(Optional.of(pending()));
+        when(publications.findByContract("contract", 1)).thenReturn(Optional.of(pending()));
         assertEquals("event", service.publish(command()).outboxEventId());
         verifyNoInteractions(contracts);
         verify(outbox, never()).publish(any());
@@ -228,16 +227,15 @@ class PolicyPublicationServiceTest {
 
     @Test
     void theRemoteActivationCallRunsOutsideTheAckTransaction() {
-        when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
-        when(publications.lockById("tenant", "publication")).thenReturn(Optional.of(pending()));
-        when(client.activate(eq("tenant"), any())).thenAnswer(call -> {
+        when(publications.findById("publication")).thenReturn(Optional.of(pending()));
+        when(publications.lockById("publication")).thenReturn(Optional.of(pending()));
+        when(client.activate(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return ack();
         });
         service.deliver("tenant", "event", "publication");
         verify(publications)
                 .update(
-                        eq("tenant"),
                         argThat(value -> "ACTIVE".equals(value.state())
                                 && value.activatedAt().equals(now)),
                         eq(1L));
@@ -245,45 +243,45 @@ class PolicyPublicationServiceTest {
 
     @Test
     void wrongHashAckDoesNotActivateTheLocalContractReceipt() {
-        when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
-        when(client.activate(anyString(), any()))
+        when(publications.findById("publication")).thenReturn(Optional.of(pending()));
+        when(client.activate(any()))
                 .thenReturn(new LimitPolicyActivationDTO("policy", 1, "f".repeat(64), ack().activatedAt()));
         assertThrows(CommonException.class, () -> service.deliver("tenant", "event", "publication"));
-        verify(publications, never()).lockById(anyString(), anyString());
+        verify(publications, never()).lockById(anyString());
     }
 
     @Test
     void remoteSuccessBeforeALocalFailureIsSafeToRetryWithTheSamePolicy() {
-        when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
-        when(publications.lockById("tenant", "publication")).thenReturn(Optional.of(pending()));
-        when(client.activate(anyString(), any())).thenReturn(ack());
+        when(publications.findById("publication")).thenReturn(Optional.of(pending()));
+        when(publications.lockById("publication")).thenReturn(Optional.of(pending()));
+        when(client.activate(any())).thenReturn(ack());
         doThrow(new CommonException(ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT))
                 .doNothing()
                 .when(publications)
-                .update(eq("tenant"), any(), eq(1L));
+                .update(any(), eq(1L));
         assertThrows(CommonException.class, () -> service.deliver("tenant", "event", "publication"));
         service.deliver("tenant", "event", "publication");
-        verify(client, times(2)).activate("tenant", activation);
+        verify(client, times(2)).activate(activation);
     }
 
     @Test
     void anAlreadyActiveReceiptCompletesDuplicateDeliveryWithoutAnotherNetworkCall() {
-        when(publications.findById("tenant", "publication"))
+        when(publications.findById("publication"))
                 .thenReturn(Optional.of(pending().acknowledge("event", now)));
         service.deliver("tenant", "event", "publication");
-        verify(client, never()).activate(anyString(), any());
+        verify(client, never()).activate(any());
     }
 
     @Test
     void aCrossWiredOutboxEventCannotActivateThePublication() {
-        when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
+        when(publications.findById("publication")).thenReturn(Optional.of(pending()));
         assertThrows(CommonException.class, () -> service.deliver("tenant", "other-event", "publication"));
-        verify(client, never()).activate(anyString(), any());
+        verify(client, never()).activate(any());
     }
 
     @Test
     void completionBetweenDetailReadsReloadsTheAckInsteadOfReportingCorruption() {
-        when(publications.findById("tenant", "publication"))
+        when(publications.findById("publication"))
                 .thenReturn(Optional.of(pending()), Optional.of(pending().acknowledge("event", now)));
         queue("SUCCEEDED");
         assertEquals("ACTIVE", service.detail(new IdQuery("publication")).state());
@@ -291,7 +289,7 @@ class PolicyPublicationServiceTest {
 
     @Test
     void failedDeliveryReplayUsesTheOriginalEventAndAuditsTheOperator() {
-        when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
+        when(publications.findById("publication")).thenReturn(Optional.of(pending()));
         queue("FAILED");
         when(outbox.replay("event", "operator", "reviewed")).thenReturn(true);
         service.replay(new LimitPolicyReplayCommand("publication", "reviewed"));

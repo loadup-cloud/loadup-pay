@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
@@ -50,14 +48,14 @@ public class RefundRealtimeDelivery {
         var row = registered(event, RefundProjectionEvents.CHILD);
         var envelope = codec.child(event.message().payload());
         requireAggregate(row, envelope);
-        ack(envelope, client.applyRefund(TenantUtil.getTenantId(), envelope));
+        ack(envelope, client.applyRefund(envelope));
     }
 
     public void summary(OutboxEvent event) {
         var row = registered(event, RefundProjectionEvents.SUMMARY);
         var envelope = codec.summary(event.message().payload());
         requireAggregate(row, envelope);
-        ack(envelope, client.applyRefundSummary(TenantUtil.getTenantId(), envelope));
+        ack(envelope, client.applyRefundSummary(envelope));
     }
 
     private OutboxRecord registered(OutboxEvent event, String type) {
@@ -77,9 +75,6 @@ public class RefundRealtimeDelivery {
                 || !row.businessId().equals(message.businessId())
                 || !"PROCESSING".equals(row.status())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        }
-        if (!client.supportsTenant(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         return row;
     }

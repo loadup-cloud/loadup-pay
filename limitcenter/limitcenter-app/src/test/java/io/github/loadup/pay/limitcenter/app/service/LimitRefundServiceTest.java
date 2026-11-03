@@ -30,7 +30,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -214,11 +213,10 @@ class LimitRefundServiceTest {
             initial.put(item.bucket(), new LimitBucket(item.bucket(), item.consumed(), 7, 1));
         }
         buckets.set(new LimitBucketSet(initial));
-        when(payment.supportsTenant("tenant")).thenReturn(true);
-        when(reservations.findByOperation("tenant", "operation")).thenAnswer(c -> Optional.of(stored.get()));
-        when(reservations.lockGate("tenant", "operation"))
+        when(reservations.findByOperation("operation")).thenAnswer(c -> Optional.of(stored.get()));
+        when(reservations.lockGate("operation"))
                 .thenReturn(Optional.of(new LimitOperationGate("operation", "payment", GateState.OPEN, 0, null)));
-        when(settlements.findReceipt("tenant", "operation"))
+        when(settlements.findReceipt("operation"))
                 .thenReturn(Optional.of(new LimitSettlementReceipt(
                         "confirmation",
                         "operation",
@@ -228,14 +226,13 @@ class LimitRefundServiceTest {
                         "c".repeat(64),
                         3,
                         "payment-proof")));
-        when(policies.lockHead("tenant", "policy"))
-                .thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
-        when(policies.findRevision("tenant", "policy", 1)).thenAnswer(c -> Optional.of(policy.get()));
-        when(reservations.loadItems("tenant", "reservation")).thenAnswer(c -> items.get());
-        when(reservations.lockExistingBuckets(eq("tenant"), any())).thenAnswer(c -> buckets.get());
-        when(payment.refundFacts(eq("tenant"), anyString())).thenAnswer(c -> {
+        when(policies.lockHead("policy")).thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
+        when(policies.findRevision("policy", 1)).thenAnswer(c -> Optional.of(policy.get()));
+        when(reservations.loadItems("reservation")).thenAnswer(c -> items.get());
+        when(reservations.lockExistingBuckets(any())).thenAnswer(c -> buckets.get());
+        when(payment.refundFacts(anyString())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            String refund = c.getArgument(1);
+            String refund = c.getArgument(0);
             var outcome = new RefundOutcomeEventDTO(
                     refund,
                     "request",
@@ -252,29 +249,28 @@ class LimitRefundServiceTest {
             return new RefundSettlementFactsDTO(
                     outcome, 10000, 3, "payment-proof", "attempt", BusinessTime.external(initiated), cumulative.get());
         });
-        when(receipts.find(eq("tenant"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(1))));
+        when(receipts.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(0))));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    buckets.set(c.getArgument(2));
+                    buckets.set(c.getArgument(1));
                     return null;
                 })
                 .when(reservations)
-                .updateBuckets(eq("tenant"), any(), any());
+                .updateBuckets(any(), any());
         doAnswer(c -> {
-                    items.set(c.getArgument(2));
+                    items.set(c.getArgument(1));
                     return null;
                 })
                 .when(settlements)
-                .updateItems(eq("tenant"), any(), any());
+                .updateItems(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    var receipt = c.<LimitRefundReceipt>getArgument(1);
+                    var receipt = c.<LimitRefundReceipt>getArgument(0);
                     accepted.put(receipt.refundId(), receipt);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -296,7 +292,7 @@ class LimitRefundServiceTest {
             assertEquals(7, bucket.held());
             assertEquals(item.bucket().metric() == LimitMetric.AMOUNT ? 9000 : 1, bucket.used());
         }
-        verify(policies).findRevision("tenant", "policy", 1);
+        verify(policies).findRevision("policy", 1);
     }
 
     @Test
@@ -317,7 +313,7 @@ class LimitRefundServiceTest {
     void firstAckIsReplayedWithoutQueryingAgainAndChangedOriginalParametersConflict() {
         var original = command("refund1", 1000);
         var first = service.restoreRefund(original);
-        when(payment.refundFacts(anyString(), anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(payment.refundFacts(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertEquals(first, service.restoreRefund(original));
         var changed = new LimitRefundRestoreCommand(
                 "operation", "payment", "refund1", 2, "event-refund1", 999, 1000, "CNY", "proof-refund1");
@@ -325,7 +321,7 @@ class LimitRefundServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.restoreRefund(changed))
                         .getResultCode());
-        verify(payment, times(1)).refundFacts("tenant", "refund1");
+        verify(payment, times(1)).refundFacts("refund1");
         assertEquals(1, manager.commits);
     }
 
@@ -349,8 +345,8 @@ class LimitRefundServiceTest {
                 DEPENDENCY_NOT_READY,
                 assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 1000)))
                         .getResultCode());
-        verify(receipts, never()).insert(anyString(), any());
-        verify(reservations, never()).updateBuckets(anyString(), any(), any());
+        verify(receipts, never()).insert(any());
+        verify(reservations, never()).updateBuckets(any(), any());
         assertEquals(1, manager.rollbacks);
     }
 
@@ -383,13 +379,13 @@ class LimitRefundServiceTest {
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 1000)))
                         .getResultCode());
-        verify(reservations, never()).updateBuckets(anyString(), any(), any());
+        verify(reservations, never()).updateBuckets(any(), any());
         assertTrue(accepted.isEmpty());
     }
 
     @Test
     void failedReceiptPreventsACommittedRestorationAck() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(receipts).insert(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(receipts).insert(any());
         assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 1000)));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);

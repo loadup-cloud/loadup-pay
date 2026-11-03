@@ -108,8 +108,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             DomainChecks.text(command.productScopeKey(), 128);
             DomainChecks.id(command.expectedContractId());
             DomainChecks.text(command.expectedSnapshotHash(), 128);
-            var prior = publications.findByContract(
-                    actor.tenantId(), command.expectedContractId(), command.expectedRevision());
+            var prior = publications.findByContract(command.expectedContractId(), command.expectedRevision());
             if (prior.isPresent()) {
                 return replayOriginal(actor.tenantId(), prior.get(), command);
             }
@@ -122,7 +121,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             // A contender must see the winner after waiting on the shared signed-contract row.
-            prior = publications.findByContract(actor.tenantId(), header.id(), command.expectedRevision());
+            prior = publications.findByContract(header.id(), command.expectedRevision());
             if (prior.isPresent()) {
                 return replayOriginal(actor.tenantId(), prior.get(), command);
             }
@@ -147,12 +146,8 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                     actor.tenantId(),
                     command.payeeMerchantId(),
                     selected.getFirst().configuration());
-            if (publications
-                            .findByMerchant(actor.tenantId(), command.payeeMerchantId())
-                            .isPresent()
-                    || publications
-                            .findByPolicy(actor.tenantId(), activation.policyId())
-                            .isPresent()) {
+            if (publications.findByMerchant(command.payeeMerchantId()).isPresent()
+                    || publications.findByPolicy(activation.policyId()).isPresent()) {
                 throw new CommonException(POLICY_PUBLICATION_CONFLICT);
             }
             var now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
@@ -173,14 +168,14 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                     null,
                     1,
                     0);
-            publications.insert(actor.tenantId(), initial);
+            publications.insert(initial);
             String event = outbox.publish(new OutboxMessage(
                     PolicyActivationDispatch.TYPE,
                     1,
                     initial.id(),
                     JsonUtil.toJson(new PolicyActivationDispatch(initial.id()))));
             var publishing = initial.publishing(event);
-            publications.update(actor.tenantId(), publishing, initial.rowVersion());
+            publications.update(publishing, initial.rowVersion());
             return publishing;
         });
         return transactions.withTenantContext(actor.tenantId(), () -> present(actor.tenantId(), stored));
@@ -203,9 +198,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         var actor = authorize(query, "pay:product:publication:read");
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var stored = publications
-                    .findById(actor.tenantId(), query.id())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var stored = publications.findById(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             codec.decode(actor.tenantId(), stored);
             return present(actor.tenantId(), stored);
         });
@@ -220,9 +213,8 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.publicationId());
             DomainChecks.text(command.reason(), 512);
-            var stored = publications
-                    .findById(actor.tenantId(), command.publicationId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var stored =
+                    publications.findById(command.publicationId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             codec.decode(actor.tenantId(), stored);
             var queue = queue(stored);
             // Framework replay uses its own audited transaction; never nest it inside a publication write transaction.
@@ -232,9 +224,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             }
             return present(
                     actor.tenantId(),
-                    publications
-                            .findById(actor.tenantId(), stored.id())
-                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                    publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         });
     }
 
@@ -245,12 +235,8 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!client.supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var stored = transactions.withTenantContext(
-                tenant,
-                () -> publications.findById(tenant, publicationId).orElseThrow(() -> new CommonException(NOT_FOUND)));
+                tenant, () -> publications.findById(publicationId).orElseThrow(() -> new CommonException(NOT_FOUND)));
         if (!publicationId.equals(stored.id()) || !eventId.equals(stored.outboxEventId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -258,17 +244,15 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         if ("ACTIVE".equals(stored.state())) {
             return;
         }
-        var ack = client.activate(tenant, command); // Network I/O is outside every local transaction.
+        var ack = client.activate(command); // Network I/O is outside every local transaction.
         validateAck(stored, ack);
         LocalDateTime activatedAt = BusinessTime.local(ack.activatedAt());
         transactions.writeLocal(tenant, () -> {
-            var current = publications
-                    .lockById(tenant, publicationId)
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = publications.lockById(publicationId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             current.requireSameIntent(stored);
             var active = current.acknowledge(eventId, activatedAt);
             if (active != current) {
-                publications.update(tenant, active, current.rowVersion());
+                publications.update(active, current.rowVersion());
             }
             return active;
         });
@@ -291,8 +275,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         var queue = queue(stored);
         if (!"ACTIVE".equals(stored.state()) && "SUCCEEDED".equals(queue.status())) {
             // A worker may commit the ACK and complete delivery between the two independent reads.
-            var latest =
-                    publications.findById(tenant, stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var latest = publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             latest.requireSameIntent(stored);
             if (!"ACTIVE".equals(latest.state())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -317,7 +300,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var actor = actors.current();
-        if (!actor.permissions().contains(permission) || !client.supportsTenant(actor.tenantId())) {
+        if (!actor.permissions().contains(permission)) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         return actor;

@@ -45,7 +45,7 @@ class LimitStorageConverterTest {
     @Test
     void rehydratesThePolicyHeadWithoutAdvancingItsVersion() {
         var head = new LimitPolicyHead("policy", "merchant", 3, 7);
-        assertEquals(head, converter.toHead(converter.toHeadDO("tenant", head)));
+        assertEquals(head, converter.toHead(converter.toHeadDO(head)));
     }
 
     @Test
@@ -59,7 +59,7 @@ class LimitStorageConverterTest {
                 LimitWindowType.DAY,
                 new WindowBounds(start, start.plusDays(1)));
         var bucket = new LimitBucket(key, 1200, 400, 7);
-        assertEquals(bucket, converter.toBucket(converter.toBucketDO("tenant", bucket)));
+        assertEquals(bucket, converter.toBucket(converter.toBucketDO(bucket)));
     }
 
     @Test
@@ -82,6 +82,6 @@ class LimitStorageConverterTest {
                 4,
                 7);
         var stored = new StoredLimitReservation(reservation, "a".repeat(64), "b".repeat(64), "payment-service");
-        assertEquals(stored, converter.toStored(converter.toReservationDO("tenant", stored)));
+        assertEquals(stored, converter.toStored(converter.toReservationDO(stored)));
     }
 }

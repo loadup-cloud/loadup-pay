@@ -50,11 +50,11 @@ class RefundExecutionLocksTest {
 
     @BeforeEach
     void setup() {
-        when(refunds.reference("tenant", "request"))
+        when(refunds.reference("request"))
                 .thenReturn(Optional.of(
                         new RefundRequestReference("request", "order", "merchant", request.requestDigest())));
-        when(payments.lockParent("tenant", "order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
-        when(refunds.lock("tenant", "request")).thenReturn(request);
+        when(payments.lockParent("order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
+        when(refunds.lock("request")).thenReturn(request);
     }
 
     StoredRefundRequest lock() {
@@ -65,20 +65,20 @@ class RefundExecutionLocksTest {
     void requestLockRetainsTheOriginalReferenceParentAndRequestOrder() {
         assertSame(request, lock());
         var sequence = inOrder(refunds, payments);
-        sequence.verify(refunds).reference("tenant", "request");
-        sequence.verify(payments).lockParent("tenant", "order");
-        sequence.verify(refunds).lock("tenant", "request");
+        sequence.verify(refunds).reference("request");
+        sequence.verify(payments).lockParent("order");
+        sequence.verify(refunds).lock("request");
     }
 
     @Test
     void aReferenceCannotSelectAnotherRequestOrOriginalDigest() {
-        when(refunds.reference("tenant", "request"))
+        when(refunds.reference("request"))
                 .thenReturn(Optional.of(
                         new RefundRequestReference("another-request", "order", "merchant", request.requestDigest())));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::lock).getResultCode());
-        when(refunds.reference("tenant", "request"))
+        when(refunds.reference("request"))
                 .thenReturn(Optional.of(new RefundRequestReference("request", "order", "merchant", "a".repeat(64))));
         assertSame(
                 SNAPSHOT_INVALID,
@@ -98,7 +98,7 @@ class RefundExecutionLocksTest {
                 original.children(),
                 original.state(),
                 original.version());
-        when(refunds.lock("tenant", "request"))
+        when(refunds.lock("request"))
                 .thenReturn(new StoredRefundRequest(
                         changed,
                         request.reasonCode(),

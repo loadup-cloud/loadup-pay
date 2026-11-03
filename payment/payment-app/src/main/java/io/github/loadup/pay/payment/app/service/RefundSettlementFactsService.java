@@ -77,8 +77,7 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
         }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var requestId =
-                    results.requestId(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var requestId = results.requestId(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var locked = locks.lock(actor.tenantId(), requestId, query.id());
             var facts = locked.child();
             var child = facts.child();
@@ -86,8 +85,7 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
             if (refund.state() != RefundState.SUCCEEDED) {
                 throw new CommonException(INVALID_STATE);
             }
-            var claim = results.claim(actor.tenantId(), refund.id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var claim = results.claim(refund.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var global = results.transaction(
                             claim.original().channel(),
                             claim.original().accountScopeHash(),
@@ -106,8 +104,7 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
                     || locked.capacity().refundedMinor() < refund.amount().getCent()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var original = payments.find(actor.tenantId(), refund.paymentId())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var original = payments.find(refund.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             // RefundExecutionLocks has already verified the original successful attempt and permanent collection claim.
             if (original.terminalEvidenceId() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);

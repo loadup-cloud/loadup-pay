@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -48,21 +47,21 @@ class LimitPolicyServiceTest {
     @Test
     void aRepeatedOldActivationReturnsItsOriginalAckWithoutUpdatingThresholds() {
         var original = f.policy(1, 100);
-        when(f.policies.lockOrCreateHead("tenant", "policy", "merchant"))
+        when(f.policies.lockOrCreateHead("policy", "merchant"))
                 .thenReturn(new LimitPolicyHead("policy", "merchant", 2, 2));
-        when(f.policies.findRevision("tenant", "policy", 1)).thenReturn(Optional.of(original));
+        when(f.policies.findRevision("policy", 1)).thenReturn(Optional.of(original));
         assertEquals(
                 original.activatedAt(),
                 f.policyService.activate(f.activation(1, 100)).activatedAt().toLocalDateTime());
-        verify(f.policies, never()).lockRule(anyString(), any());
-        verify(f.policies, never()).updateHead(anyString(), any(), anyLong());
+        verify(f.policies, never()).lockRule(any());
+        verify(f.policies, never()).updateHead(any(), anyLong());
     }
 
     @Test
     void changedPayloadWithTheSameRevisionConflicts() {
-        when(f.policies.lockOrCreateHead("tenant", "policy", "merchant"))
+        when(f.policies.lockOrCreateHead("policy", "merchant"))
                 .thenReturn(new LimitPolicyHead("policy", "merchant", 1, 1));
-        when(f.policies.findRevision("tenant", "policy", 1)).thenReturn(Optional.of(f.policy(1, 100)));
+        when(f.policies.findRevision("policy", 1)).thenReturn(Optional.of(f.policy(1, 100)));
         var error = assertThrows(CommonException.class, () -> f.policyService.activate(f.activation(1, 200)));
         assertSame(LimitCenterResultCodeEnum.POLICY_CONFLICT, error.getResultCode());
         assertEquals(1, f.manager.rollbacks);
@@ -72,25 +71,23 @@ class LimitPolicyServiceTest {
     void thresholdRevisionUpdatesRuntimeButNeverTouchesBuckets() {
         var first = f.policy(1, 100);
         var next = f.policy(2, 50);
-        when(f.policies.lockOrCreateHead("tenant", "policy", "merchant"))
+        when(f.policies.lockOrCreateHead("policy", "merchant"))
                 .thenReturn(new LimitPolicyHead("policy", "merchant", 1, 1));
-        when(f.policies.findRevision("tenant", "policy", 1)).thenReturn(Optional.of(first));
-        when(f.policies.lockRule(eq("tenant"), any()))
+        when(f.policies.findRevision("policy", 1)).thenReturn(Optional.of(first));
+        when(f.policies.lockRule(any()))
                 .thenReturn(Optional.of(
                         new RuntimeLimitRule("policy", 1, first.rules().getFirst(), 0)));
         assertEquals(2, f.policyService.activate(f.activation(2, 50)).policyVersion());
-        verify(f.policies)
-                .updateRule(
-                        eq("tenant"), argThat(rule -> rule.rule().threshold() == 50 && rule.rowVersion() == 1), eq(0L));
+        verify(f.policies).updateRule(argThat(rule -> rule.rule().threshold() == 50 && rule.rowVersion() == 1), eq(0L));
         verifyNoInteractions(f.reservations);
     }
 
     @Test
     void activationCannotSkipARevision() {
-        when(f.policies.lockOrCreateHead("tenant", "policy", "merchant"))
+        when(f.policies.lockOrCreateHead("policy", "merchant"))
                 .thenReturn(new LimitPolicyHead("policy", "merchant", 0, 0));
         assertThrows(CommonException.class, () -> f.policyService.activate(f.activation(2, 100)));
-        verify(f.policies, never()).insertRevision(anyString(), any());
+        verify(f.policies, never()).insertRevision(any());
     }
 
     @Test

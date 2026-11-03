@@ -109,13 +109,13 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
             DomainChecks.text(command.requestKey(), 128);
             var requested = inputTime(command.requestedDueAt());
             String digest = digest(actor, command, requested);
-            var stored = orders.lockOrder(actor.tenantId(), command.id());
+            var stored = orders.lockOrder(command.id());
             if (!stored.callerScopeHash().equals(actor.scopeHash())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
             var order = stored.order();
-            long deadlineVersion = store.deadlineVersion(actor.tenantId(), order);
-            var previous = store.findReceipt(actor.tenantId(), command.id(), command.requestKey());
+            long deadlineVersion = store.deadlineVersion(order);
+            var previous = store.findReceipt(command.id(), command.requestKey());
             if (previous.isPresent()) {
                 var receipt = previous.get();
                 if (!receipt.callerScopeHash().equals(actor.scopeHash())) {
@@ -154,19 +154,17 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                     requested,
                     Math.incrementExact(deadlineVersion),
                     appliedAt);
-            store.extend(actor.tenantId(), extended, receipt);
+            store.extend(extended, receipt);
             deadlineTasks.register(actor.tenantId(), extended, receipt.deadlineVersion());
             snapshots.publish(actor.tenantId(), extended.id(), extended.version());
             return orderConverter.toDTO(
-                    orders.findOrder(actor.tenantId(), command.id())
-                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
-                    now());
+                    orders.findOrder(command.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
         });
     }
 
     private LocalDateTime originalDue(AcquireActor actor, StoredAcquireOrder order, OrderTermsDTO terms) {
         try {
-            var intent = orders.findIntent(actor.tenantId(), order.order().payeeMerchantId(), order.merchantOrderNo())
+            var intent = orders.findIntent(order.order().payeeMerchantId(), order.merchantOrderNo())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!"COMPLETED".equals(intent.state())
                     || !order.order().id().equals(intent.orderId())
@@ -178,15 +176,15 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
             String digest;
             if ("ORDER".equals(intent.entryMode())) {
                 original = codec.decodeIntent(intent);
-                digest = codec.requestDigest(actor.tenantId(), actor.scopeHash(), original);
+                digest = codec.requestDigest(actor.scopeHash(), original);
             } else if ("CHECKOUT".equals(intent.entryMode())) {
                 var checkout = codec.decodeCheckout(intent);
                 original = orderConverter.toOrderCreate(checkout);
-                digest = codec.checkoutDigest(actor.tenantId(), actor.scopeHash(), checkout);
+                digest = codec.checkoutDigest(actor.scopeHash(), checkout);
             } else if ("DIRECT_PAY".equals(intent.entryMode())) {
                 var direct = codec.decodeDirectPay(intent);
                 original = orderConverter.toOrderCreate(direct);
-                digest = codec.directPayDigest(actor.tenantId(), actor.scopeHash(), direct);
+                digest = codec.directPayDigest(actor.scopeHash(), direct);
             } else {
                 throw new CommonException(SNAPSHOT_INVALID);
             }

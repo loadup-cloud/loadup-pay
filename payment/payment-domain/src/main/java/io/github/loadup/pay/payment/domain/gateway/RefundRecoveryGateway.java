@@ -25,11 +25,11 @@ public interface RefundRecoveryGateway {
     /**
      * Nonlocking read, usable within a consistent read snapshot.
      */
-    Optional<RefundRecoveryCursor> find(String tenant, String requestId);
+    Optional<RefundRecoveryCursor> find(String requestId);
 
-    Optional<RefundRecoveryCursor> lock(String tenant, String requestId);
+    Optional<RefundRecoveryCursor> lock(String requestId);
 
-    void insert(String tenant, RefundRecoveryCursor value);
+    void insert(RefundRecoveryCursor value);
 
-    void update(String tenant, RefundRecoveryCursor before, RefundRecoveryCursor after);
+    void update(RefundRecoveryCursor before, RefundRecoveryCursor after);
 }

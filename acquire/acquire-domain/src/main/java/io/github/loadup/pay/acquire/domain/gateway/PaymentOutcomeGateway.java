@@ -21,14 +21,13 @@ import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import java.util.Optional;
 
 public interface PaymentOutcomeGateway {
-    Optional<StoredPaymentAllocation> findPayment(String tenant, String orderId, String paymentId);
+    Optional<StoredPaymentAllocation> findPayment(String orderId, String paymentId);
 
-    Optional<StoredPaymentAllocation> lockPayment(String tenant, String orderId, String paymentId);
+    Optional<StoredPaymentAllocation> lockPayment(String orderId, String paymentId);
 
-    Optional<PaymentOutcomeReceipt> findReceipt(String tenant, String allocationId);
+    Optional<PaymentOutcomeReceipt> findReceipt(String allocationId);
 
     void apply(
-            String tenant,
             OrderPaymentChange change,
             StoredPaymentAllocation original,
             PaymentOutcomeReceipt receipt,

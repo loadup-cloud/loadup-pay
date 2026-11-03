@@ -28,30 +28,29 @@ import java.util.Optional;
  * Mutations join one caller transaction; all bucket changes and the operation transition commit together.
  */
 public interface MerchantLimitGateway {
-    LimitOperationGate lockOrCreateGate(String tenant, String operationId, String paymentId);
+    LimitOperationGate lockOrCreateGate(String operationId, String paymentId);
 
-    Optional<LimitOperationGate> lockGate(String tenant, String operationId);
+    Optional<LimitOperationGate> lockGate(String operationId);
 
-    Optional<LimitExecutionGrant> findExecutionGrant(String tenant, String operationId, long epoch);
+    Optional<LimitExecutionGrant> findExecutionGrant(String operationId, long epoch);
 
-    void insertExecutionGrant(String tenant, LimitExecutionGrant grant);
+    void insertExecutionGrant(LimitExecutionGrant grant);
 
-    List<LimitReservationItem> loadItems(String tenant, String reservationId);
+    List<LimitReservationItem> loadItems(String reservationId);
 
-    LimitBucketSet lockExistingBuckets(String tenant, List<LimitBucketKey> keys);
+    LimitBucketSet lockExistingBuckets(List<LimitBucketKey> keys);
 
-    void updateBuckets(String tenant, LimitBucketSet before, LimitBucketSet after);
+    void updateBuckets(LimitBucketSet before, LimitBucketSet after);
 
-    void updateReservation(String tenant, StoredLimitReservation stored, long expectedVersion);
+    void updateReservation(StoredLimitReservation stored, long expectedVersion);
 
-    Optional<StoredLimitReservation> findByOperation(String tenant, String operationId);
+    Optional<StoredLimitReservation> findByOperation(String operationId);
 
-    LimitBucketSet lockBuckets(String tenant, List<LimitBucketKey> keys);
+    LimitBucketSet lockBuckets(List<LimitBucketKey> keys);
 
-    void saveGate(String tenant, LimitOperationGate gate);
+    void saveGate(LimitOperationGate gate);
 
     void insertReservation(
-            String tenant,
             StoredLimitReservation stored,
             List<LimitReservationItem> items,
             LimitBucketSet before,

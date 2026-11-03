@@ -140,39 +140,39 @@ class RefundPlanningServiceTest {
         when(codec.decode(any()))
                 .thenAnswer(c -> commands.get(
                         ((StoredPaymentAcceptance) c.getArgument(0)).payment().id()));
-        when(payments.lockParent("tenant", "order")).thenAnswer(c -> {
+        when(payments.lockParent("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
             return Optional.of(AttemptFixtures.gate(true));
         });
-        when(refunds.merchantReference(eq("tenant"), eq("merchant"), anyString()))
+        when(refunds.merchantReference(eq("merchant"), anyString()))
                 .thenAnswer(c -> saved.values().stream()
-                        .filter(s -> s.request().merchantRefundNo().equals(c.getArgument(2)))
+                        .filter(s -> s.request().merchantRefundNo().equals(c.getArgument(1)))
                         .map(s -> new RefundRequestReference(
                                 s.request().id(),
                                 s.request().orderId(),
                                 s.request().payeeMerchantId(),
                                 s.requestDigest()))
                         .findFirst());
-        when(refunds.reference(eq("tenant"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(1)))
+        when(refunds.reference(anyString()))
+                .thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(0)))
                         .map(s -> new RefundRequestReference(
                                 s.request().id(),
                                 s.request().orderId(),
                                 s.request().payeeMerchantId(),
                                 s.requestDigest())));
-        when(refunds.load(eq("tenant"), anyString())).thenAnswer(c -> saved.get(c.getArgument(1)));
-        when(refunds.lockCapacities("tenant", "order")).thenAnswer(c -> List.copyOf(capacities.values()));
+        when(refunds.load(anyString())).thenAnswer(c -> saved.get(c.getArgument(0)));
+        when(refunds.lockCapacities("order")).thenAnswer(c -> List.copyOf(capacities.values()));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    StoredRefundRequest value = c.getArgument(1);
+                    StoredRefundRequest value = c.getArgument(0);
                     saved.put(value.request().id(), value);
-                    List<RefundCapacityReservation> changes = c.getArgument(2);
+                    List<RefundCapacityReservation> changes = c.getArgument(1);
                     changes.forEach(r -> capacities.put(r.reserved().paymentId(), r.reserved()));
                     return null;
                 })
                 .when(refunds)
-                .insertPlan(eq("tenant"), any(), anyList());
+                .insertPlan(any(), anyList());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals("tenant", TenantUtil.getTenantId());
@@ -239,9 +239,9 @@ class RefundPlanningServiceTest {
                         admitted,
                         PaymentFixtures.SUBJECT,
                         PaymentFixtures.PAYABLE_UNTIL));
-        when(payments.find("tenant", id)).thenReturn(Optional.of(accepted));
-        when(attempts.find("tenant", attempt.id())).thenReturn(Optional.of(success));
-        when(results.attemptClaim("tenant", attempt.id()))
+        when(payments.find(id)).thenReturn(Optional.of(accepted));
+        when(attempts.find(attempt.id())).thenReturn(Optional.of(success));
+        when(results.attemptClaim(attempt.id()))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim-" + id,
                         "tenant",
@@ -276,7 +276,7 @@ class RefundPlanningServiceTest {
         assertEquals("binding-revision", stored.allocations().get(0).original().bindingRevisionId());
         assertEquals(32, stored.allocations().get(0).refund().channelRefundNo().length());
         assertEquals(AttemptFixtures.NOW, stored.plannedAt());
-        verify(payments, never()).insert(anyString(), any()); // Refunds never change original collection.
+        verify(payments, never()).insert(any()); // Refunds never change original collection.
     }
 
     @Test
@@ -286,8 +286,8 @@ class RefundPlanningServiceTest {
         clearInvocations(recovery);
         var replay = service(AttemptFixtures.NOW.plusDays(5)).create(command(6000));
         assertEquals(first, replay);
-        verify(refunds, never()).lockCapacities(anyString(), anyString());
-        verify(refunds, never()).insertPlan(anyString(), any(), anyList());
+        verify(refunds, never()).lockCapacities(anyString());
+        verify(refunds, never()).insertPlan(any(), anyList());
         verify(codec, never()).decode(any());
         verifyNoInteractions(results, attempts);
         verify(projections, times(1)).planned(anyString(), any(), any());
@@ -312,7 +312,7 @@ class RefundPlanningServiceTest {
                 () -> service(AttemptFixtures.NOW)
                         .create(new RefundCreateCommand(
                                 "other-order", "merchant", "R001", 6000, "CUSTOMER_REQUEST", List.of())));
-        verify(refunds, times(1)).insertPlan(anyString(), any(), anyList());
+        verify(refunds, times(1)).insertPlan(any(), anyList());
     }
 
     @Test
@@ -326,7 +326,7 @@ class RefundPlanningServiceTest {
                                         .create(new RefundCreateCommand(
                                                 "order", "merchant", "R002", 5000, "CUSTOMER_REQUEST", List.of())))
                         .getResultCode());
-        verify(refunds, times(1)).insertPlan(anyString(), any(), anyList());
+        verify(refunds, times(1)).insertPlan(any(), anyList());
     }
 
     @Test
@@ -337,13 +337,13 @@ class RefundPlanningServiceTest {
                                 CommonException.class,
                                 () -> service(AttemptFixtures.NOW.plusHours(23)).create(command(1)))
                         .getResultCode());
-        verify(refunds, never()).insertPlan(anyString(), any(), anyList());
+        verify(refunds, never()).insertPlan(any(), anyList());
     }
 
     @Test
     void aFencedCollectionGateStillPermitsIndependentRefunds() {
         var original = AttemptFixtures.gate(true);
-        when(payments.lockParent("tenant", "order"))
+        when(payments.lockParent("order"))
                 .thenReturn(Optional.of(new StoredPaymentGate(
                         original.id(),
                         original.payeeMerchantId(),
@@ -355,7 +355,7 @@ class RefundPlanningServiceTest {
 
     @Test
     void failedPlanPersistenceAbortsTheTransactionBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(refunds).insertPlan(anyString(), any(), anyList());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(refunds).insertPlan(any(), anyList());
         assertThrows(CommonException.class, () -> service(AttemptFixtures.NOW).create(command(6000)));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -398,7 +398,7 @@ class RefundPlanningServiceTest {
     void detailReadsTheSameFixedPlanWithNoNewReservations() {
         var first = service(AttemptFixtures.NOW).create(command(6000));
         assertEquals(first, service(AttemptFixtures.NOW).detail(new IdQuery(first.refundRequestId())));
-        verify(refunds, times(1)).insertPlan(anyString(), any(), anyList());
+        verify(refunds, times(1)).insertPlan(any(), anyList());
     }
 
     @Test

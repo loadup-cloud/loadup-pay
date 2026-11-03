@@ -112,7 +112,7 @@ public class ReconciliationExecutionService {
         }
         String tenant = TenantUtil.getTenantId();
         var work = transactions.readSnapshot(tenant, () -> {
-            var stored = batches.findRun(tenant, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var stored = batches.findRun(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!task.bizId().equals(stored.batch().runId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -122,8 +122,8 @@ public class ReconciliationExecutionService {
             if (stored.batch().state() != ReconciliationState.RUNNING) {
                 throw new CommonException(INVALID_STATE);
             }
-            var channel = inputs.loadSealed(tenant, stored.batch().channel().artifactId());
-            var ledger = inputs.loadSealed(tenant, stored.batch().ledger().artifactId());
+            var channel = inputs.loadSealed(stored.batch().channel().artifactId());
+            var ledger = inputs.loadSealed(stored.batch().ledger().artifactId());
             if (!stored.batch().channel().equals(channel.manifest())
                     || !stored.batch().ledger().equals(ledger.manifest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -136,15 +136,14 @@ public class ReconciliationExecutionService {
         var snapshot = work.get();
         var compared = matcher.compare(snapshot.channel(), snapshot.ledger());
         transactions.writeLocal(tenant, () -> {
-            var current = batches.lock(tenant, snapshot.stored().batch().id())
+            var current = batches.lock(snapshot.stored().batch().id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var next = current.batch().complete(task.bizId(), compared);
             if (next == current.batch()) {
                 return false;
             }
-            results.insert(tenant, current.batch().id(), task.bizId(), compared);
-            batches.update(
-                    tenant, converter.withBatch(current, next), current.batch().version());
+            results.insert(current.batch().id(), task.bizId(), compared);
+            batches.update(converter.withBatch(current, next), current.batch().version());
             return true;
         });
     }

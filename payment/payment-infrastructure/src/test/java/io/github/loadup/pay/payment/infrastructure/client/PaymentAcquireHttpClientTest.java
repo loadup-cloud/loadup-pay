@@ -114,7 +114,7 @@ class PaymentAcquireHttpClientTest {
         token(claims());
         client = new PaymentAcquireHttpClient(
                 acquireHttp,
-                (tenant, service, audience) -> credential,
+                (service, audience) -> credential,
                 new PaymentAcquireProperties("tenant", "payment", "acquire"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
@@ -127,7 +127,7 @@ class PaymentAcquireHttpClientTest {
 
     @Test
     void sendsTheOriginalEnvelopeWithADedicatedServiceCredential() {
-        assertTrue(client.accept("tenant", event).accepted());
+        assertTrue(client.accept(event).accepted());
         verify(acquireHttp).paymentOutcome(anyString(), any());
         assertEquals(1, attachments.size());
         assertTrue(attachments.getFirst().split("[.]").length == 3);
@@ -147,18 +147,18 @@ class PaymentAcquireHttpClientTest {
                 new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
         var ack = new FeeRefundAckDTO("fee-delivery", "fee-business", "order", 3, 4, true);
         doAnswer(invocation -> SuccessResponse.of(ack)).when(acquireHttp).feeRefund(anyString(), any());
-        assertEquals(ack, client.acceptFeeRefund("tenant", fee));
+        assertEquals(ack, client.acceptFeeRefund(fee));
         verify(acquireHttp).feeRefund(anyString(), any());
     }
 
     @Test
     void newServiceTokenIsUsedOnTheNextDelivery() throws Exception {
         var first = credential;
-        client.accept("tenant", event);
+        client.accept(event);
         var next = claims();
         next.put("exp", clock.instant().getEpochSecond() + 600);
         var second = token(next);
-        client.accept("tenant", event);
+        client.accept(event);
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
     }
 
@@ -169,8 +169,7 @@ class PaymentAcquireHttpClientTest {
                 .paymentOutcome(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.accept("tenant", event))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> client.accept(event)).getResultCode());
     }
 
     @Test
@@ -179,7 +178,7 @@ class PaymentAcquireHttpClientTest {
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> client.accept("tenant", event))
+                    assertThrows(CommonException.class, () -> client.accept(event))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

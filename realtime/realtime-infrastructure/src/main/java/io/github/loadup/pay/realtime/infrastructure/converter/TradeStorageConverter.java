@@ -38,7 +38,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    TradeOrderDO toDO(String id, String tenant, TradeOrderProjection value, String contentHash, String payload);
+    TradeOrderDO toDO(String id, TradeOrderProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "sourceVersion", source = "value.source.number")
@@ -54,7 +54,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    TradePaymentDO toDO(String id, String tenant, TradePaymentProjection value, String contentHash, String payload);
+    TradePaymentDO toDO(String id, TradePaymentProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "sourceVersion", source = "value.source.number")
@@ -70,7 +70,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    TradeRefundDO toDO(String id, String tenant, TradeRefundProjection value, String contentHash, String payload);
+    TradeRefundDO toDO(String id, TradeRefundProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "sourceVersion", source = "value.source.number")
@@ -85,7 +85,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    TradeSummaryDO toDO(String id, String tenant, TradeRefundSummary value, String contentHash, String payload);
+    TradeSummaryDO toDO(String id, TradeRefundSummary value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "sourceVersion", source = "value.source.number")
@@ -99,5 +99,5 @@ public interface TradeStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ProjectionReceiptDO toDO(String tenant, ProjectionReceipt value);
+    ProjectionReceiptDO toDO(ProjectionReceipt value);
 }

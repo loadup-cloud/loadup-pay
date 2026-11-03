@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -100,7 +99,7 @@ class RefundExecutionServiceTest {
         when(channel.canRefund(any())).thenReturn(true);
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    RefundProgressChange change = c.getArgument(1);
+                    RefundProgressChange change = c.getArgument(0);
                     var child = converter.withRefund(facts.get().child(), change.refund());
                     request.set(converter.withRequest(
                             request.get(),
@@ -110,7 +109,7 @@ class RefundExecutionServiceTest {
                     return null;
                 })
                 .when(changes)
-                .update(eq("tenant"), any());
+                .update(any());
         when(channel.submitRefund(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(manager.commits > 0);
@@ -153,7 +152,7 @@ class RefundExecutionServiceTest {
                         && p.channelRefundNo().equals("refund-request")
                         && p.originalChannelTransactionNo().equals("original-transaction")
                         && p.originalAmount().getCent() == 4000));
-        verify(changes, times(1)).update(anyString(), any());
+        verify(changes, times(1)).update(any());
         verify(projections, times(1)).changed(eq("tenant"), any());
         assertEquals(1000, RefundResultFixtures.capacity().reservedMinor());
     }
@@ -188,7 +187,7 @@ class RefundExecutionServiceTest {
                         p.refundId().equals("refund") && p.channelRefundNo().equals("refund-request")));
         verify(channel, times(1)).submitRefund(any());
         verify(results, times(3)).record(eq("tenant"), any());
-        verify(changes, times(1)).update(anyString(), any());
+        verify(changes, times(1)).update(any());
     }
 
     @Test
@@ -231,13 +230,13 @@ class RefundExecutionServiceTest {
         when(channel.canRefund(any())).thenReturn(false);
         assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
         assertNull(facts.get().submissionStartedAt());
-        verify(changes, never()).update(anyString(), any());
+        verify(changes, never()).update(any());
         verify(channel, never()).submitRefund(any());
     }
 
     @Test
     void failedSubmissionCasNeverMakesTheNetworkCall() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(changes).update(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(changes).update(any());
         assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
         verify(channel, never()).submitRefund(any());
         assertEquals(1, manager.rollbacks);

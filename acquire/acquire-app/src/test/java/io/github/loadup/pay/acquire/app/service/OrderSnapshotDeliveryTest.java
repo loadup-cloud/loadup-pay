@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -87,8 +86,7 @@ class OrderSnapshotDeliveryTest {
                 .thenReturn(Optional.of(
                         new OutboxRecord("queue", OrderSnapshotEvents.TYPE, "order", "PROCESSING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
-        when(client.supportsTenant("tenant")).thenReturn(true);
-        when(client.apply("tenant", snapshot)).thenAnswer(c -> {
+        when(client.apply(snapshot)).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 2, "APPLIED", true);
         });
@@ -102,41 +100,40 @@ class OrderSnapshotDeliveryTest {
     void retriesTheOriginalSnapshotAndIdentityWithoutReadingTheCurrentOrder() {
         send();
         send();
-        verify(client, times(2)).apply("tenant", snapshot);
+        verify(client, times(2)).apply(snapshot);
     }
 
     @Test
     void aLaterProjectionMayAcknowledgeAnOlderSnapshotAsStale() {
-        when(client.apply("tenant", snapshot))
+        when(client.apply(snapshot))
                 .thenReturn(new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 5, "STALE", true));
         assertDoesNotThrow(this::send);
     }
 
     @Test
     void wrongDeliveryOrSourceVersionCannotAcknowledgeThisTarget() {
-        when(client.apply("tenant", snapshot))
+        when(client.apply(snapshot))
                 .thenReturn(new ProjectionAckDTO("other", "change", "acquire", "order", 2, 2, "APPLIED", true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::send).getResultCode());
-        when(client.apply("tenant", snapshot))
+        when(client.apply(snapshot))
                 .thenReturn(new ProjectionAckDTO("delivery", "change", "acquire", "order", 3, 3, "APPLIED", true));
         assertThrows(CommonException.class, this::send);
     }
 
     @Test
-    void anotherTenantOrUnclaimedQueueCannotSend() {
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
+    void unclaimedQueueCannotSend() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
                         new OutboxRecord("queue", OrderSnapshotEvents.TYPE, "order", "SUCCEEDED", 1, null)));
         assertThrows(CommonException.class, this::send);
-        verify(client, never()).apply(anyString(), any());
+        verify(client, never()).apply(any());
     }
 
     @Test
     void downstreamFailureLeavesTheTargetAvailableForDispatcherRetry() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).apply(anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).apply(any());
         assertThrows(CommonException.class, this::send);
     }
 

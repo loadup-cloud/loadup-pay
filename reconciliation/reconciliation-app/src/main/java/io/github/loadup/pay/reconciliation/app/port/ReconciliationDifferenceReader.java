@@ -26,15 +26,10 @@ import java.util.Optional;
  */
 public interface ReconciliationDifferenceReader {
     PageResult<StoredReconciliationDifference> page(
-            String tenant,
-            String batchId,
-            ReconciliationRecordKind kind,
-            ReconciliationDifferenceReason reason,
-            int page,
-            int size);
+            String batchId, ReconciliationRecordKind kind, ReconciliationDifferenceReason reason, int page, int size);
 
     /**
      * Exact local immutable evidence; caller owns batch authorization and a local read/write transaction.
      */
-    Optional<StoredReconciliationDifference> find(String tenant, String batchId, String differenceId);
+    Optional<StoredReconciliationDifference> find(String batchId, String differenceId);
 }

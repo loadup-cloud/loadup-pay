@@ -98,9 +98,9 @@ public class ChannelBindingService implements ChannelBindingFacade {
                     codec.accountScopeHash(command.channel(), converter.toIdentity(command.identity())));
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), "PUBLISH", command);
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var prior = store.lock(actor.tenantId(), command.payeeMerchantId(), command.bindingCode());
+                var prior = store.lock(command.payeeMerchantId(), command.bindingCode());
                 if (prior.isPresent()) {
-                    var receipt = store.receipt(actor.tenantId(), prior.get().id(), command.requestKey());
+                    var receipt = store.receipt(prior.get().id(), command.requestKey());
                     if (receipt.isPresent()) {
                         return replay(actor, prior.get(), receipt.get(), "PUBLISH", digest);
                     }
@@ -136,14 +136,14 @@ public class ChannelBindingService implements ChannelBindingFacade {
                 var revision = converter.toStored(
                         binding, head.id(), ordinal, codec.checksum(payload), actor.serviceId(), publishedAt);
                 var updated = head.publish(binding, ordinal, command.priority());
-                store.insertRevision(actor.tenantId(), revision);
+                store.insertRevision(revision);
                 if (prior.isPresent()) {
-                    store.updateHead(actor.tenantId(), updated, head.rowVersion());
+                    store.updateHead(updated, head.rowVersion());
                 } else {
-                    store.insertHead(actor.tenantId(), updated);
+                    store.insertHead(updated);
                 }
                 var receipt = receipt(actor, updated, "PUBLISH", command.requestKey(), digest, publishedAt);
-                store.insertReceipt(actor.tenantId(), receipt);
+                store.insertReceipt(receipt);
                 return converter.toChange(receipt);
             });
         });
@@ -189,9 +189,8 @@ public class ChannelBindingService implements ChannelBindingFacade {
             DomainChecks.text(key, 128);
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), kind, command);
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var head = store.lock(actor.tenantId(), payee, bindingCode)
-                        .orElseThrow(() -> new CommonException(NOT_FOUND));
-                var prior = store.receipt(actor.tenantId(), head.id(), key);
+                var head = store.lock(payee, bindingCode).orElseThrow(() -> new CommonException(NOT_FOUND));
+                var prior = store.receipt(head.id(), key);
                 if (prior.isPresent()) {
                     return replay(actor, head, prior.get(), kind, digest);
                 }
@@ -203,9 +202,9 @@ public class ChannelBindingService implements ChannelBindingFacade {
                 }
                 requireRevision(actor.tenantId(), head);
                 var updated = "REVOKE".equals(kind) ? head.revoke() : head.suspend();
-                store.updateHead(actor.tenantId(), updated, head.rowVersion());
+                store.updateHead(updated, head.rowVersion());
                 var receipt = receipt(actor, updated, kind, key, digest, now());
-                store.insertReceipt(actor.tenantId(), receipt);
+                store.insertReceipt(receipt);
                 return converter.toChange(receipt);
             });
         });
@@ -218,15 +217,15 @@ public class ChannelBindingService implements ChannelBindingFacade {
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.payeeMerchantId());
             DomainChecks.id(query.bindingCode());
-            var head = store.find(actor.tenantId(), query.payeeMerchantId(), query.bindingCode())
+            var head = store.find(query.payeeMerchantId(), query.bindingCode())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             return converter.toDTO(head, requireRevision(actor.tenantId(), head));
         });
     }
 
     private StoredChannelBindingRevision requireRevision(String tenant, ChannelMerchantBinding head) {
-        var revision = store.revision(tenant, head.currentRevisionId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var revision =
+                store.revision(head.currentRevisionId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!head.id().equals(revision.bindingId())
                 || head.currentRevision() != revision.revision()
                 || !head.payeeMerchantId().equals(revision.binding().payeeMerchantId())
@@ -255,8 +254,8 @@ public class ChannelBindingService implements ChannelBindingFacade {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         requireRevision(actor.tenantId(), head);
-        var original = store.revision(actor.tenantId(), receipt.bindingRevisionId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var original =
+                store.revision(receipt.bindingRevisionId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!head.id().equals(original.bindingId())
                 || original.revision() != receipt.revision()
                 || !head.payeeMerchantId().equals(original.binding().payeeMerchantId())) {

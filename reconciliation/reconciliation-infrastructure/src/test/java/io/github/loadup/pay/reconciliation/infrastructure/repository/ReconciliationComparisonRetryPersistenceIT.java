@@ -132,8 +132,8 @@ class ReconciliationComparisonRetryPersistenceIT {
             var channel = dataset(scope, ReconciliationSide.CHANNEL, 100L);
             var ledger = dataset(scope, ReconciliationSide.LEDGER, 90L);
             transactions.writeLocal(tenant, () -> {
-                inputs.insertSealed(tenant, channel.manifest().artifactId(), channel);
-                inputs.insertSealed(tenant, ledger.manifest().artifactId(), ledger);
+                inputs.insertSealed(channel.manifest().artifactId(), channel);
+                inputs.insertSealed(ledger.manifest().artifactId(), ledger);
                 return true;
             });
             actors.call(
@@ -241,8 +241,8 @@ class ReconciliationComparisonRetryPersistenceIT {
         }
 
         @Override
-        public void insert(String tenant, String batchId, String runId, ReconciliationResult result) {
-            super.insert(tenant, batchId, runId, result);
+        public void insert(String batchId, String runId, ReconciliationResult result) {
+            super.insert(batchId, runId, result);
             var target = failBatch.get();
             if (batchId.equals(target) && failBatch.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after result insertion");

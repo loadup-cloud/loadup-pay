@@ -46,7 +46,7 @@ public interface MerchantNotificationStorageConverter {
     @Mapping(target = "retryMaximumSeconds", source = "value.policy.retryMaximumSeconds")
     @Mapping(target = "retryMaxAttempts", source = "value.policy.retryMaxAttempts")
     @Mapping(target = "retryWindowSeconds", source = "value.policy.retryWindowSeconds")
-    MerchantNotificationDeliveryDO toDO(String tenant, MerchantNotificationDelivery value);
+    MerchantNotificationDeliveryDO toDO(MerchantNotificationDelivery value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "nextAttemptAt", source = "nextAttemptAt")

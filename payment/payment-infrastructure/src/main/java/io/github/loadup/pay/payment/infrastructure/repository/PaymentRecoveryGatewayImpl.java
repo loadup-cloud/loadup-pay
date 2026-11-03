@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
@@ -50,11 +48,8 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     }
 
     @Override
-    public Optional<PaymentRecoveryCursor> find(String tenant, String paymentId) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-        var row = row(tenant, paymentId, false);
+    public Optional<PaymentRecoveryCursor> find(String paymentId) {
+        var row = row(paymentId, false);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -63,9 +58,9 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     }
 
     @Override
-    public Optional<PaymentRecoveryCursor> lock(String tenant, String paymentId) {
-        writable(tenant);
-        var row = row(tenant, paymentId, true);
+    public Optional<PaymentRecoveryCursor> lock(String paymentId) {
+        writable();
+        var row = row(paymentId, true);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -74,9 +69,9 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     }
 
     @Override
-    public void insert(String tenant, PaymentRecoveryCursor value) {
-        writable(tenant);
-        var row = converter.toDO(tenant, value);
+    public void insert(PaymentRecoveryCursor value) {
+        writable();
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -90,8 +85,8 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     }
 
     @Override
-    public void update(String tenant, PaymentRecoveryCursor before, PaymentRecoveryCursor after) {
-        writable(tenant);
+    public void update(PaymentRecoveryCursor before, PaymentRecoveryCursor after) {
+        writable();
         boolean completed = !before.completed()
                 && after.completed()
                 && before.generation() == after.generation()
@@ -122,7 +117,7 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
         }
     }
 
-    private PaymentRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
+    private PaymentRecoveryCursorDO row(String paymentId, boolean lock) {
         var args = new MapSqlParameterSource().addValue("id", paymentId);
         return jdbc
                 .query(
@@ -136,16 +131,13 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
                 .orElse(null);
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

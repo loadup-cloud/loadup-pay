@@ -20,9 +20,9 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceip
 import java.util.Optional;
 
 public interface CheckoutSessionRevocationGateway {
-    Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey);
+    Optional<CheckoutSessionRevocationReceipt> find(String callerScopeHash, String requestKey);
 
-    void insert(String tenant, CheckoutSessionRevocationReceipt value);
+    void insert(CheckoutSessionRevocationReceipt value);
 
-    PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size);
+    PageResult<CheckoutSessionRevocationReceipt> page(String sessionId, int page, int size);
 }

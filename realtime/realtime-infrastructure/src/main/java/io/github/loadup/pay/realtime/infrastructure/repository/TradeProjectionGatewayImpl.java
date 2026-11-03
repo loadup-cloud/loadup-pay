@@ -18,7 +18,6 @@ package io.github.loadup.pay.realtime.infrastructure.repository;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
 
@@ -26,7 +25,6 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.realtime.app.port.TradeProjectionCodec;
 import io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException;
@@ -102,8 +100,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         this.ids = ids;
     }
 
-    private Optional<TradeOrderDO> order(String tenant, String orderId, String payee, boolean lock) {
-        requireTenant(tenant);
+    private Optional<TradeOrderDO> order(String orderId, String payee, boolean lock) {
         if (!lock) {
             var row = payee == null
                     ? getOne(QueryWrapper.create().eq("order_id", orderId))
@@ -141,15 +138,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public ProjectionAdvance applyOrderIfNewer(String tenant, TradeOrderProjection value, String factsHash) {
-        writableJdbc(tenant);
+    public ProjectionAdvance applyOrderIfNewer(TradeOrderProjection value, String factsHash) {
+        writableJdbc();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = order(tenant, value.orderId(), null, true).orElse(null);
+        var row = order(value.orderId(), null, true).orElse(null);
         if (row == null) {
-            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var created = converter.toDO(ids.generate(), value, factsHash, payload);
             var now = LocalDateTime.now(clock);
             created.setCreatedAt(now);
             created.setUpdatedAt(now);
@@ -202,8 +199,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    private Optional<TradePaymentDO> payment(String tenant, String paymentId, boolean lock) {
-        requireTenant(tenant);
+    private Optional<TradePaymentDO> payment(String paymentId, boolean lock) {
         if (!lock) {
             return Optional.ofNullable(
                     payments.selectOneByQuery(QueryWrapper.create().eq("payment_id", paymentId)));
@@ -237,15 +233,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public ProjectionAdvance applyPaymentIfNewer(String tenant, TradePaymentProjection value, String factsHash) {
-        writableJdbc(tenant);
+    public ProjectionAdvance applyPaymentIfNewer(TradePaymentProjection value, String factsHash) {
+        writableJdbc();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = payment(tenant, value.paymentId(), true).orElse(null);
+        var row = payment(value.paymentId(), true).orElse(null);
         if (row == null) {
-            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var created = converter.toDO(ids.generate(), value, factsHash, payload);
             var now = LocalDateTime.now(clock);
             created.setCreatedAt(now);
             created.setUpdatedAt(now);
@@ -297,8 +293,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    private Optional<TradeRefundDO> refund(String tenant, String refundId, boolean lock) {
-        requireTenant(tenant);
+    private Optional<TradeRefundDO> refund(String refundId, boolean lock) {
         if (!lock) {
             return Optional.ofNullable(
                     refunds.selectOneByQuery(QueryWrapper.create().eq("refund_id", refundId)));
@@ -334,15 +329,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public ProjectionAdvance applyRefundIfNewer(String tenant, TradeRefundProjection value, String factsHash) {
-        writableJdbc(tenant);
+    public ProjectionAdvance applyRefundIfNewer(TradeRefundProjection value, String factsHash) {
+        writableJdbc();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = refund(tenant, value.refundId(), true).orElse(null);
+        var row = refund(value.refundId(), true).orElse(null);
         if (row == null) {
-            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var created = converter.toDO(ids.generate(), value, factsHash, payload);
             var now = LocalDateTime.now(clock);
             created.setCreatedAt(now);
             created.setUpdatedAt(now);
@@ -395,8 +390,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    private Optional<TradeSummaryDO> summary(String tenant, String order, String payee, boolean lock) {
-        requireTenant(tenant);
+    private Optional<TradeSummaryDO> summary(String order, String payee, boolean lock) {
         if (!lock) {
             return Optional.ofNullable(
                     payee == null
@@ -433,15 +427,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public ProjectionAdvance applyRefundSummaryIfNewer(String tenant, TradeRefundSummary value, String factsHash) {
-        writableJdbc(tenant);
+    public ProjectionAdvance applyRefundSummaryIfNewer(TradeRefundSummary value, String factsHash) {
+        writableJdbc();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = summary(tenant, value.orderId(), null, true).orElse(null);
+        var row = summary(value.orderId(), null, true).orElse(null);
         if (row == null) {
-            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var created = converter.toDO(ids.generate(), value, factsHash, payload);
             var now = LocalDateTime.now(clock);
             created.setCreatedAt(now);
             created.setUpdatedAt(now);
@@ -493,28 +487,27 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public Optional<TradeOrderProjection> findOrder(String tenant, String orderId) {
-        return order(tenant, orderId, null, false).map(this::read);
+    public Optional<TradeOrderProjection> findOrder(String orderId) {
+        return order(orderId, null, false).map(this::read);
     }
 
     @Override
-    public Optional<TradeRefundSummary> findRefundSummary(String tenant, String orderId) {
-        return summary(tenant, orderId, null, false).map(this::read);
+    public Optional<TradeRefundSummary> findRefundSummary(String orderId) {
+        return summary(orderId, null, false).map(this::read);
     }
 
     @Override
-    public Optional<TradeOrderProjection> findOrder(String tenant, String payee, String orderId) {
-        return order(tenant, orderId, payee, false).map(this::read);
+    public Optional<TradeOrderProjection> findOrder(String payee, String orderId) {
+        return order(orderId, payee, false).map(this::read);
     }
 
     @Override
-    public Optional<TradeRefundSummary> findRefundSummary(String tenant, String payee, String orderId) {
-        return summary(tenant, orderId, payee, false).map(this::read);
+    public Optional<TradeRefundSummary> findRefundSummary(String payee, String orderId) {
+        return summary(orderId, payee, false).map(this::read);
     }
 
     @Override
-    public Map<String, TradeRefundSummary> refundSummaries(String tenant, String payee, Set<String> orderIds) {
-        requireTenant(tenant);
+    public Map<String, TradeRefundSummary> refundSummaries(String payee, Set<String> orderIds) {
         if (orderIds.isEmpty()) {
             return Map.of();
         }
@@ -536,8 +529,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter) {
-        requireTenant(tenant);
+    public PageResult<TradeOrderProjection> orders(TradePageFilter filter) {
         var args = new MapSqlParameterSource()
                 .addValue("payee", filter.payeeMerchantId())
                 .addValue("size", filter.size())
@@ -571,8 +563,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter) {
-        requireTenant(tenant);
+    public PageResult<TradePaymentProjection> payments(TradePageFilter filter) {
         var args = new MapSqlParameterSource()
                 .addValue("payee", filter.payeeMerchantId())
                 .addValue("size", filter.size())
@@ -606,8 +597,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     }
 
     @Override
-    public PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter) {
-        requireTenant(tenant);
+    public PageResult<TradeRefundProjection> refunds(TradePageFilter filter) {
         var args = new MapSqlParameterSource()
                 .addValue("payee", filter.payeeMerchantId())
                 .addValue("size", filter.size())
@@ -651,14 +641,7 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         }
     }
 
-    private void requireTenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(QUERY_FORBIDDEN);
-        }
-    }
-
-    private void writableJdbc(String tenant) {
-        requireTenant(tenant);
+    private void writableJdbc() {
         writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(

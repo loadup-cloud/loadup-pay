@@ -22,15 +22,15 @@ import java.util.Optional;
  * Local metadata only. Batch is locked before import mutation or active-import lookup.
  */
 public interface ReconciliationImportGateway {
-    Optional<ReconciliationImportRequest> findRequest(String tenant, String caller, String requestKey);
+    Optional<ReconciliationImportRequest> findRequest(String caller, String requestKey);
 
-    Optional<ReconciliationImportRequest> find(String tenant, String id);
+    Optional<ReconciliationImportRequest> find(String id);
 
-    Optional<ReconciliationImportRequest> lock(String tenant, String id);
+    Optional<ReconciliationImportRequest> lock(String id);
 
-    Optional<ReconciliationImportRequest> activeForBatch(String tenant, String batchId);
+    Optional<ReconciliationImportRequest> activeForBatch(String batchId);
 
-    void insert(String tenant, ReconciliationImportRequest value);
+    void insert(ReconciliationImportRequest value);
 
-    void update(String tenant, ReconciliationImportRequest value, long expectedVersion);
+    void update(ReconciliationImportRequest value, long expectedVersion);
 }

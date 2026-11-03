@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
@@ -64,9 +62,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public Optional<PaymentChannelReceipt> receipt(
-            String tenant, String attempt, PaymentObservation.Source source, String key) {
-        scope(tenant);
+    public Optional<PaymentChannelReceipt> receipt(String attempt, PaymentObservation.Source source, String key) {
         var args = new MapSqlParameterSource()
                 .addValue("attempt", attempt)
                 .addValue("source", source.name())
@@ -86,10 +82,10 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public void insertReceipt(String tenant, PaymentChannelReceipt receipt) {
-        writable(tenant);
+    public void insertReceipt(PaymentChannelReceipt receipt) {
+        writable();
         jdbcTransaction();
-        var row = converter.toReceiptDO(tenant, receipt);
+        var row = converter.toReceiptDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -111,10 +107,10 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public void recordAnomaly(String tenant, PaymentResultAnomaly anomaly) {
-        writable(tenant);
+    public void recordAnomaly(PaymentResultAnomaly anomaly) {
+        writable();
         jdbcTransaction();
-        var row = converter.toAnomalyDO(tenant, anomaly);
+        var row = converter.toAnomalyDO(anomaly);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -150,8 +146,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public Optional<ChannelTransactionClaim> attemptClaim(String tenant, String attempt) {
-        scope(tenant);
+    public Optional<ChannelTransactionClaim> attemptClaim(String attempt) {
         var args = new MapSqlParameterSource().addValue("attempt", attempt);
         var row = jdbc
                 .query(
@@ -173,7 +168,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
 
     @Override
     public void insertClaim(ChannelTransactionClaim claim) {
-        writable(claim.tenantId());
+        writable();
         jdbcTransaction();
         var row = converter.toClaimDO(claim);
         var now = LocalDateTime.now(clock);
@@ -192,9 +187,8 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public void completeSuccess(
-            String tenant, StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt) {
-        writable(tenant);
+    public void completeSuccess(StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt) {
+        writable();
         if (payment.payment().state() != PaymentState.SUCCEEDED
                 || payment.terminalEvidenceId() == null
                 || succeededAt == null
@@ -222,8 +216,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public Optional<PaymentRefundCapacity> capacity(String tenant, String payment) {
-        scope(tenant);
+    public Optional<PaymentRefundCapacity> capacity(String payment) {
         var args = new MapSqlParameterSource().addValue("payment", payment);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
@@ -236,13 +229,13 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public void insertCapacity(String tenant, String id, PaymentRefundCapacity capacity) {
-        writable(tenant);
+    public void insertCapacity(String id, PaymentRefundCapacity capacity) {
+        writable();
         if (capacity.version() != 0 || capacity.reservedMinor() != 0 || capacity.refundedMinor() != 0) {
             throw new CommonException(INVALID_STATE);
         }
         jdbcTransaction();
-        var row = converter.toCapacityDO(tenant, id, capacity);
+        var row = converter.toCapacityDO(id, capacity);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -269,16 +262,9 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
         }
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
-        }
-        scope(tenant);
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 

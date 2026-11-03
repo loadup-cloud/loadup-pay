@@ -333,8 +333,8 @@ class ReconciliationImportPersistenceIT {
         }
 
         @Override
-        public void insert(String tenant, ReconciliationImportRequest value) {
-            super.insert(tenant, value);
+        public void insert(ReconciliationImportRequest value) {
+            super.insert(value);
             String target = failInsertBatch.get();
             if (value.batchId().equals(target) && failInsertBatch.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual import registration");
@@ -342,8 +342,8 @@ class ReconciliationImportPersistenceIT {
         }
 
         @Override
-        public void update(String tenant, ReconciliationImportRequest value, long expected) {
-            super.update(tenant, value, expected);
+        public void update(ReconciliationImportRequest value, long expected) {
+            super.update(value, expected);
             String target = failSealBatch.get();
             if (value.state() == ReconciliationImportState.SEALED
                     && value.batchId().equals(target)
@@ -397,23 +397,22 @@ class ReconciliationImportPersistenceIT {
         ReconciliationAccountDirectory accounts() {
             return new ReconciliationAccountDirectory() {
                 @Override
-                public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
+                public ReconciliationScope resolve(String caller, String code, LocalDate date) {
                     return new ReconciliationScope(
                             Channel.WECHAT, "a".repeat(64), date, WechatTradeStatementParser.PROFILE);
                 }
 
                 @Override
-                public void authorize(String tenant, String caller, String code, ReconciliationScope original) {}
+                public void authorize(String caller, String code, ReconciliationScope original) {}
 
                 @Override
-                public String statementBindingRevision(
-                        String tenant, String caller, String code, ReconciliationScope original) {
+                public String statementBindingRevision(String caller, String code, ReconciliationScope original) {
                     return "revision";
                 }
 
                 @Override
                 public ReconciliationStatementAccount statementAccount(
-                        String tenant, String caller, String code, ReconciliationScope original) {
+                        String caller, String code, ReconciliationScope original) {
                     return new ReconciliationStatementAccount("1234567890", null);
                 }
             };

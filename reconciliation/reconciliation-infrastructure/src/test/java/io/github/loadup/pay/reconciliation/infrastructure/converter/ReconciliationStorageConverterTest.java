@@ -57,11 +57,11 @@ class ReconciliationStorageConverterTest {
     @Test
     void persistedIndependentRefundRetainsExactAmountKeyAndProcessingState() {
         var line = line(9_007_199_254_740_993L, "request", ReconciliationEntryStatus.PROCESSING);
-        var row = values.toEntry("tenant", "input", line);
+        var row = values.toEntry("input", line);
         assertEquals(line.key().fingerprint(), row.getMatchKeyHash());
         assertEquals(line, values.toLine(row));
         var input = manifest(ReconciliationSide.CHANNEL, line);
-        var header = values.toInput("tenant", "file", input);
+        var header = values.toInput("file", input);
         assertEquals(Long.valueOf(0L), header.getRowVersion());
         assertEquals("SEALED", header.getState());
         assertEquals(input, values.toManifest(header));
@@ -71,7 +71,7 @@ class ReconciliationStorageConverterTest {
     void batchStorageRetainsAbsentInputsThenOriginalRunAndResult() {
         var initial = ReconciliationBatch.init("batch", scope);
         var stored = new StoredReconciliationBatch(initial, "ops", "request", "b".repeat(64), "account");
-        var row = values.toDO("tenant", stored);
+        var row = values.toDO(stored);
         assertNull(row.getMatchedCount());
         assertNull(row.getDifferenceCount());
         assertNull(row.getRunId());
@@ -83,8 +83,7 @@ class ReconciliationStorageConverterTest {
                 .attach(ledger.manifest())
                 .begin("run")
                 .complete("run", new ReconciliationMatcher().compare(channel, ledger));
-        row = values.toDO(
-                "tenant", new StoredReconciliationBatch(complete, "ops", "request", "b".repeat(64), "account"));
+        row = values.toDO(new StoredReconciliationBatch(complete, "ops", "request", "b".repeat(64), "account"));
         assertEquals(Long.valueOf(0), row.getDifferenceCount());
         assertEquals(complete, values.toBatch(row, channel.manifest(), ledger.manifest(), values.toSummary(row)));
     }
@@ -98,7 +97,7 @@ class ReconciliationStorageConverterTest {
                         new ReconciliationDataset(manifest(ReconciliationSide.CHANNEL, channel), List.of(channel)),
                         new ReconciliationDataset(manifest(ReconciliationSide.LEDGER, ledger), List.of(ledger)));
         var value = result.differences().getFirst();
-        var row = differences.toDO("tenant", "batch", "run", value, "channel-entry", "ledger-entry");
+        var row = differences.toDO("batch", "run", value, "channel-entry", "ledger-entry");
         assertEquals(value, differences.toDifference(row, channel, ledger));
         row.setAmountMismatch(false);
         assertThrows(CommonException.class, () -> differences.toDifference(row, channel, ledger));

@@ -98,11 +98,9 @@ class RefundNotificationServiceTest {
 
     @BeforeEach
     void setup() {
-        when(orders.lockOrder("tenant", "order")).thenReturn(stored);
-        when(payments.lockPayment("tenant", "order", "payment"))
-                .thenReturn(Optional.of(allocation(AllocationState.CONSUMED)));
-        when(receipts.find(eq("tenant"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(1))));
+        when(orders.lockOrder("order")).thenReturn(stored);
+        when(payments.lockPayment("order", "payment")).thenReturn(Optional.of(allocation(AllocationState.CONSUMED)));
+        when(receipts.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(0))));
         when(notifications.refund(eq("tenant"), any())).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
@@ -110,12 +108,12 @@ class RefundNotificationServiceTest {
         });
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    var receipt = c.<RefundNotificationReceipt>getArgument(1);
+                    var receipt = c.<RefundNotificationReceipt>getArgument(0);
                     accepted.put(receipt.deliveryId(), receipt);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -179,11 +177,11 @@ class RefundNotificationServiceTest {
         assertEquals("business", first.businessEventId());
         assertEquals("refund", first.aggregateId());
         assertEquals(3, first.sourceVersion());
-        when(orders.lockOrder(anyString(), anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(orders.lockOrder(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertEquals(first, service.accept(child()));
         verify(notifications, times(1)).refund(eq("tenant"), any());
-        verify(receipts, times(1)).insert(eq("tenant"), any());
-        verify(payments, never()).apply(anyString(), any(), any(), any(), anyLong());
+        verify(receipts, times(1)).insert(any());
+        verify(payments, never()).apply(any(), any(), any(), anyLong());
         assertEquals(1, manager.commits);
     }
 
@@ -210,8 +208,7 @@ class RefundNotificationServiceTest {
 
     @Test
     void latePaymentProjectionRetriesWithoutCreatingAReceiptOrNotification() {
-        when(payments.lockPayment("tenant", "order", "payment"))
-                .thenReturn(Optional.of(allocation(AllocationState.HELD)));
+        when(payments.lockPayment("order", "payment")).thenReturn(Optional.of(allocation(AllocationState.HELD)));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service.accept(child()))
@@ -296,7 +293,7 @@ class RefundNotificationServiceTest {
         when(notifications.refund(eq("tenant"), any())).thenThrow(new CommonException(CONCURRENT_UPDATE));
         assertThrows(CommonException.class, () -> service.accept(child()));
         assertTrue(accepted.isEmpty());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
         assertEquals(1, manager.rollbacks);
         // The fake manager checks propagation; database rollback still requires PostgreSQL acceptance.
     }

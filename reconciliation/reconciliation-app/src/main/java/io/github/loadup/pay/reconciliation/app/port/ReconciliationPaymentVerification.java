@@ -22,5 +22,5 @@ import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
  * Trusted provider-owned gRPC; network never runs inside a local reconciliation transaction.
  */
 public interface ReconciliationPaymentVerification {
-    PaymentVerificationDTO verify(String tenant, PaymentVerificationQuery query);
+    PaymentVerificationDTO verify(PaymentVerificationQuery query);
 }

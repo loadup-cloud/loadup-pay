@@ -102,23 +102,19 @@ class OrderCreationCodecImplTest {
         assertEquals(value, codec.decodeDirectPay(record));
         assertThrows(CommonException.class, () -> codec.decodeIntent(record));
         assertThrows(CommonException.class, () -> codec.decodeDirectPay(intent(payload)));
-        var digest = codec.directPayDigest("tenant", "actor", value);
-        assertNotEquals(digest, codec.requestDigest("tenant", "actor", command(null)));
-        assertNotEquals(digest, codec.directPayDigest("other", "actor", value));
-        assertNotEquals(digest, codec.directPayDigest("tenant", "other", value));
+        var digest = codec.directPayDigest("actor", value);
+        assertNotEquals(digest, codec.requestDigest("actor", command(null)));
+        assertNotEquals(digest, codec.directPayDigest("actor", value));
+        assertNotEquals(digest, codec.directPayDigest("other", value));
         assertNotEquals(
-                digest,
-                codec.directPayDigest("tenant", "actor", direct("changed", 4000L, value.interactionKind(), choice)));
+                digest, codec.directPayDigest("actor", direct("changed", 4000L, value.interactionKind(), choice)));
         assertNotEquals(
-                digest,
-                codec.directPayDigest("tenant", "actor", direct("first", 4001L, value.interactionKind(), choice)));
+                digest, codec.directPayDigest("actor", direct("first", 4001L, value.interactionKind(), choice)));
         assertNotEquals(
-                digest,
-                codec.directPayDigest("tenant", "actor", direct("first", 4000L, PaymentInteractionKind.NONE, choice)));
+                digest, codec.directPayDigest("actor", direct("first", 4000L, PaymentInteractionKind.NONE, choice)));
         assertNotEquals(
                 digest,
                 codec.directPayDigest(
-                        "tenant",
                         "actor",
                         direct(
                                 "first",
@@ -153,13 +149,12 @@ class OrderCreationCodecImplTest {
     @Test
     void digestBindsTenantCallerEntryAndAllMerchantIntentFields() {
         var value = command(null);
-        var original = codec.requestDigest("tenant", "actor", value);
-        assertNotEquals(original, codec.requestDigest("another", "actor", value));
-        assertNotEquals(original, codec.requestDigest("tenant", "another", value));
+        var original = codec.requestDigest("actor", value);
+        assertNotEquals(original, codec.requestDigest("actor", value));
+        assertNotEquals(original, codec.requestDigest("another", value));
         assertNotEquals(
                 original,
                 codec.requestDigest(
-                        "tenant",
                         "actor",
                         new AcquireOrderCreateCommand(
                                 "merchant", "M001", "scope", value.amountMinor(), "CNY", "changed", null)));
@@ -170,7 +165,7 @@ class OrderCreationCodecImplTest {
         var first = command(OffsetDateTime.parse("2026-10-21T12:00:00.123456+08:00"));
         var second = command(OffsetDateTime.parse("2026-10-21T04:00:00.123456Z"));
         assertEquals(first, second);
-        assertEquals(codec.requestDigest("tenant", "actor", first), codec.requestDigest("tenant", "actor", second));
+        assertEquals(codec.requestDigest("actor", first), codec.requestDigest("actor", second));
     }
 
     @Test
@@ -187,14 +182,14 @@ class OrderCreationCodecImplTest {
     void ordinaryV1DigestRemainsCompatibleWithTheOriginalStoredProtocol() {
         assertEquals(
                 "222a9db073ac1fafb4f2347a059eedab4829ec6c51a421453462a655383a99c4",
-                codec.requestDigest("tenant", "actor", command(null)));
+                codec.requestDigest("actor", command(null)));
     }
 
     @Test
     void checkoutPayloadBindsEntryAndRequestedReturnTargetWithoutChangingOrdinaryPayloads() {
         var value =
                 new CheckoutCreateCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null, null);
-        String digest = codec.checkoutDigest("tenant", "actor", value);
+        String digest = codec.checkoutDigest("actor", value);
         var intent = new OrderCreateIntent(
                 "intent",
                 "order",
@@ -211,16 +206,15 @@ class OrderCreationCodecImplTest {
                 null,
                 0);
         assertEquals(value, codec.decodeCheckout(intent));
-        assertNotEquals(codec.requestDigest("tenant", "actor", command(null)), digest);
+        assertNotEquals(codec.requestDigest("actor", command(null)), digest);
         assertNotEquals(
                 digest,
                 codec.checkoutDigest(
-                        "tenant",
                         "actor",
                         new CheckoutCreateCommand(
                                 "merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null, "return-v1")));
-        assertNotEquals(digest, codec.checkoutDigest("other", "actor", value));
-        assertNotEquals(digest, codec.checkoutDigest("tenant", "other", value));
+        assertNotEquals(digest, codec.checkoutDigest("actor", value));
+        assertNotEquals(digest, codec.checkoutDigest("other", value));
         assertThrows(CommonException.class, () -> codec.decodeIntent(intent));
         assertThrows(CommonException.class, () -> codec.decodeCheckout(intent(codec.encodeIntent(command(null)))));
         var finished = intent.finish("COMPLETED", "admission", LocalDateTime.of(2026, 10, 22, 12, 0), "SUCCESS");

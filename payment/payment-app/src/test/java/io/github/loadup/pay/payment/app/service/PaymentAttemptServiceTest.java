@@ -119,7 +119,6 @@ class PaymentAttemptServiceTest {
 
     @BeforeEach
     void setup() {
-        when(limits.supportsTenant("tenant")).thenReturn(true);
         when(locks.lock(eq("tenant"), anyString(), eq("acquire"))).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(
@@ -130,24 +129,24 @@ class PaymentAttemptServiceTest {
                 .thenAnswer(call -> HexFormat.of()
                         .formatHex(MessageDigest.getInstance("SHA-256")
                                 .digest(((String) call.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
-        when(attempts.findRequest(eq("tenant"), anyString(), anyString()))
+        when(attempts.findRequest(anyString(), anyString()))
                 .thenAnswer(call ->
-                        stored.get() != null && stored.get().requestKey().equals(call.getArgument(2))
+                        stored.get() != null && stored.get().requestKey().equals(call.getArgument(1))
                                 ? Optional.of(stored.get())
                                 : Optional.empty());
         when(routes.select(eq("tenant"), any())).thenReturn(AttemptFixtures.binding());
         doAnswer(call -> {
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(attempts)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(call -> {
-                    accepted.set(call.getArgument(1));
+                    accepted.set(call.getArgument(0));
                     return null;
                 })
                 .when(payments)
-                .updatePayment(eq("tenant"), any(), anyLong());
+                .updatePayment(any(), anyLong());
     }
 
     @AfterEach
@@ -167,8 +166,8 @@ class PaymentAttemptServiceTest {
         assertNull(stored.get().riskDecision());
         assertEquals(1, manager.commits);
         verify(events).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
-        verify(limits, never()).reserve(anyString(), any());
-        verify(limits, never()).begin(anyString(), any());
+        verify(limits, never()).reserve(any());
+        verify(limits, never()).begin(any());
     }
 
     @Test
@@ -179,8 +178,8 @@ class PaymentAttemptServiceTest {
         assertEquals(first, start("initial"));
         assertSame(original, stored.get());
         verifyNoInteractions(routes, events);
-        verify(attempts, never()).insert(anyString(), any());
-        verify(payments, never()).updatePayment(anyString(), any(), anyLong());
+        verify(attempts, never()).insert(any());
+        verify(payments, never()).updatePayment(any(), anyLong());
     }
 
     @Test
@@ -189,12 +188,12 @@ class PaymentAttemptServiceTest {
         assertSame(
                 OUTCOME_UNKNOWN,
                 assertThrows(CommonException.class, () -> start("other")).getResultCode());
-        verify(attempts, times(1)).insert(anyString(), any());
+        verify(attempts, times(1)).insert(any());
     }
 
     @Test
     void failureRollsBackBothAttemptAndPaymentUpdateBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(payments).updatePayment(eq("tenant"), any(), anyLong());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(payments).updatePayment(any(), anyLong());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> start("initial")).getResultCode());

@@ -22,7 +22,6 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.modules.file.client.dto.FileResourceDTO;
 import io.github.loadup.modules.file.client.facade.FileResourceFacade;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationSourceFiles;
@@ -61,7 +60,7 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
 
     @Override
     public ReconciliationFileSnapshot upload(
-            String tenant, String owner, String filename, String type, long size, InputStream content) {
+            String owner, String filename, String type, long size, InputStream content) {
         noTransaction();
         if (size <= 0 || size > maxBytes || content == null) {
             throw new CommonException(INPUT_INVALID);
@@ -70,12 +69,12 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
         if (bytes.length != size) {
             throw new CommonException(INPUT_INVALID);
         }
-        return call(tenant, () -> {
+        return call(() -> {
             var stored = files.upload(owner, filename, type, size, new ByteArrayInputStream(bytes));
             if (stored == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            metadata(stored, tenant, owner, stored.id());
+            metadata(stored, owner, stored.id());
             if (stored.size() != bytes.length) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -84,11 +83,11 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     }
 
     @Override
-    public ReconciliationFileSnapshot inspect(String tenant, String owner, String fileId) {
+    public ReconciliationFileSnapshot inspect(String owner, String fileId) {
         noTransaction();
-        return call(tenant, () -> {
+        return call(() -> {
             var stored = files.get(fileId, owner, false);
-            metadata(stored, tenant, owner, fileId);
+            metadata(stored, owner, fileId);
             try (var response = files.download(fileId, owner, false)) {
                 if (response.contentLength() != stored.size()
                         || !stored.storageId().equals(response.metadata().fileId())) {
@@ -106,60 +105,60 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     }
 
     @Override
-    public void attach(String tenant, String owner, ReconciliationFileSnapshot source, String importId) {
-        transaction(tenant, true);
-        current(tenant, owner, source);
-        if (!referenced(tenant, owner, source.fileId(), importId)) {
+    public void attach(String owner, ReconciliationFileSnapshot source, String importId) {
+        transaction(true);
+        current(owner, source);
+        if (!referenced(owner, source.fileId(), importId)) {
             files.attach(source.fileId(), owner, false, REFERENCE_TYPE, importId);
         }
     }
 
     @Override
-    public void verify(String tenant, String owner, ReconciliationFileSnapshot source, String importId) {
-        transaction(tenant, false);
-        current(tenant, owner, source);
-        if (!referenced(tenant, owner, source.fileId(), importId)) {
+    public void verify(String owner, ReconciliationFileSnapshot source, String importId) {
+        transaction(false);
+        current(owner, source);
+        if (!referenced(owner, source.fileId(), importId)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
 
     @Override
-    public void attachReview(String tenant, String owner, ReconciliationFileSnapshot source, String proposalId) {
-        transaction(tenant, true);
-        current(tenant, owner, source);
-        if (!referenced(tenant, owner, source.fileId(), "reconciliation-review", proposalId)) {
+    public void attachReview(String owner, ReconciliationFileSnapshot source, String proposalId) {
+        transaction(true);
+        current(owner, source);
+        if (!referenced(owner, source.fileId(), "reconciliation-review", proposalId)) {
             files.attach(source.fileId(), owner, false, "reconciliation-review", proposalId);
         }
     }
 
     @Override
-    public void verifyReview(String tenant, String owner, ReconciliationFileSnapshot source, String proposalId) {
-        transaction(tenant, false);
-        current(tenant, owner, source);
-        if (!referenced(tenant, owner, source.fileId(), "reconciliation-review", proposalId)) {
+    public void verifyReview(String owner, ReconciliationFileSnapshot source, String proposalId) {
+        transaction(false);
+        current(owner, source);
+        if (!referenced(owner, source.fileId(), "reconciliation-review", proposalId)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
 
-    private boolean referenced(String tenant, String owner, String id, String importId) {
-        return referenced(tenant, owner, id, REFERENCE_TYPE, importId);
+    private boolean referenced(String owner, String id, String importId) {
+        return referenced(owner, id, REFERENCE_TYPE, importId);
     }
 
-    private boolean referenced(String tenant, String owner, String id, String referenceType, String referenceId) {
+    private boolean referenced(String owner, String id, String referenceType, String referenceId) {
         return files.references(id, owner, false).stream()
                 .anyMatch(value ->
                         referenceType.equals(value.referenceType()) && referenceId.equals(value.referenceId()));
     }
 
-    private void current(String tenant, String owner, ReconciliationFileSnapshot source) {
+    private void current(String owner, ReconciliationFileSnapshot source) {
         var stored = files.get(source.fileId(), owner, false);
-        metadata(stored, tenant, owner, source.fileId());
+        metadata(stored, owner, source.fileId());
         if (!source.storageId().equals(stored.storageId()) || source.size() != stored.size()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
 
-    private void metadata(FileResourceDTO value, String tenant, String owner, String id) {
+    private void metadata(FileResourceDTO value, String owner, String id) {
         if (value == null
                 || !Objects.equals(id, value.id())
                 || !owner.equals(value.ownerId())
@@ -197,17 +196,16 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
         }
     }
 
-    private void transaction(String tenant, boolean write) {
-        if (!Objects.equals(tenant, TenantUtil.getTenantId())
-                || !TransactionSynchronizationManager.isActualTransactionActive()
+    private void transaction(boolean write) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
     }
 
-    private <T> T call(String tenant, Supplier<T> action) {
+    private <T> T call(Supplier<T> action) {
         try {
-            return TenantUtil.callWithTenant(tenant, action::get);
+            return action.get();
         } catch (CommonException failure) {
             if (failure.getResultCode() instanceof ReconciliationResultCodeEnum) {
                 throw failure;

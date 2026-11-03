@@ -33,5 +33,5 @@ public interface RoutingProfileStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RoutingProfileDO toDO(String tenant, RoutingProfile value, String payload);
+    RoutingProfileDO toDO(RoutingProfile value, String payload);
 }

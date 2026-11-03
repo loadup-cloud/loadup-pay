@@ -22,9 +22,9 @@ import java.util.Optional;
  * Caller already owns the parent gate and refund write locks in the same transaction.
  */
 public interface RefundSummaryGateway {
-    Optional<OrderRefundSummary> lock(String tenant, String orderId);
+    Optional<OrderRefundSummary> lock(String orderId);
 
-    void insert(String tenant, OrderRefundSummary value);
+    void insert(OrderRefundSummary value);
 
-    void update(String tenant, OrderRefundSummary before, OrderRefundSummary value);
+    void update(OrderRefundSummary before, OrderRefundSummary value);
 }

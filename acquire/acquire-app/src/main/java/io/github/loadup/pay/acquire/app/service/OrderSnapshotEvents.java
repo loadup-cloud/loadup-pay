@@ -65,7 +65,7 @@ public class OrderSnapshotEvents {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         DomainChecks.id(orderId);
-        var header = headers.lockCurrent(tenant, orderId);
+        var header = headers.lockCurrent(orderId);
         if (header == null || !orderId.equals(header.orderId()) || header.sourceVersion() != expectedVersion) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -23,7 +22,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -67,29 +65,18 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
         this.clock = clock;
     }
 
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    @Override
+    public Optional<StoredPaymentAttempt> find(String id) {
+        return read(getById(id));
     }
 
     @Override
-    public Optional<StoredPaymentAttempt> find(String tenant, String id) {
-        scope(tenant);
-        return read(tenant, getById(id));
+    public Optional<StoredPaymentAttempt> findRequest(String payment, String key) {
+        return read(getOne(QueryWrapper.create().eq("payment_id", payment).eq("request_key", key)));
     }
 
     @Override
-    public Optional<StoredPaymentAttempt> findRequest(String tenant, String payment, String key) {
-        scope(tenant);
-        return read(
-                tenant, getOne(QueryWrapper.create().eq("payment_id", payment).eq("request_key", key)));
-    }
-
-    @Override
-    public Optional<StoredPaymentAttempt> findChannelRequest(
-            String tenant, String bindingRevisionId, String channelRequestNo) {
-        scope(tenant);
+    public Optional<StoredPaymentAttempt> findChannelRequest(String bindingRevisionId, String channelRequestNo) {
         var args = new MapSqlParameterSource()
                 .addValue("binding", bindingRevisionId)
                 .addValue("request", channelRequestNo);
@@ -101,14 +88,14 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
         if (rows.size() > 1) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return rows.isEmpty() ? Optional.empty() : read(tenant, rows.get(0));
+        return rows.isEmpty() ? Optional.empty() : read(rows.get(0));
     }
 
     @Override
-    public Optional<StoredPaymentAttempt> lock(String tenant, String id) {
-        requireTransaction(tenant);
+    public Optional<StoredPaymentAttempt> lock(String id) {
+        requireTransaction();
         var args = new MapSqlParameterSource().addValue("id", id);
-        return read(tenant, one("id = :id", args, true));
+        return read(one("id = :id", args, true));
     }
 
     private PaymentAttemptDO one(String condition, MapSqlParameterSource args, boolean lock) {
@@ -123,12 +110,12 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
                 .orElse(null);
     }
 
-    private Optional<StoredPaymentAttempt> read(String tenant, PaymentAttemptDO row) {
+    private Optional<StoredPaymentAttempt> read(PaymentAttemptDO row) {
         if (row == null) {
             return Optional.empty();
         }
         try {
-            var binding = bindings.findRevision(tenant, row.getBindingRevisionId())
+            var binding = bindings.findRevision(row.getBindingRevisionId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!binding.channel().name().equals(row.getChannel())
                     || !binding.accessMode().name().equals(row.getAccessMode())
@@ -146,12 +133,12 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
     }
 
     @Override
-    public void insert(String tenant, StoredPaymentAttempt value) {
-        requireTransaction(tenant);
+    public void insert(StoredPaymentAttempt value) {
+        requireTransaction();
         if (value.attempt().state() != PaymentAttemptState.INIT || value.rowVersion() != 0) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -177,8 +164,8 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
     }
 
     @Override
-    public void update(String tenant, StoredPaymentAttempt value, long expectedVersion) {
-        requireTransaction(tenant);
+    public void update(StoredPaymentAttempt value, long expectedVersion) {
+        requireTransaction();
         if (value.rowVersion() != Math.incrementExact(expectedVersion)) {
             throw new CommonException(INVALID_STATE);
         }
@@ -208,8 +195,7 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
         }
     }
 
-    private void requireTransaction(String tenant) {
-        scope(tenant);
+    private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

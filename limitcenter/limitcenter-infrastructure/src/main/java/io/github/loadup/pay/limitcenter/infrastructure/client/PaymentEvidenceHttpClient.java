@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.client;
 
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 
@@ -47,35 +46,27 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
     }
 
     @Override
-    public boolean supportsTenant(String tenant) {
-        return properties.tenantId().equals(tenant);
+    public PaymentSettlementFactsDTO paymentFacts(String paymentId) {
+        return exchange(authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)));
     }
 
     @Override
-    public PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId) {
-        return exchange(tenant, authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)));
+    public RefundSettlementFactsDTO refundFacts(String refundId) {
+        return exchange(authorization -> paymentHttp.refundFacts(authorization, new IdQuery(refundId)));
     }
 
-    @Override
-    public RefundSettlementFactsDTO refundFacts(String tenant, String refundId) {
-        return exchange(tenant, authorization -> paymentHttp.refundFacts(authorization, new IdQuery(refundId)));
-    }
-
-    private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call) {
-        if (!supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private <R> R exchange(Function<String, SuccessResponse<R>> call) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            return HttpServiceResponses.requiredData(call.apply("Bearer " + credential(tenant)));
+            return HttpServiceResponses.requiredData(call.apply("Bearer " + credential()));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }
 
-    private String credential(String tenant) {
-        return tokens.token(tenant, properties.serviceId(), properties.audience());
+    private String credential() {
+        return tokens.token(properties.serviceId(), properties.audience());
     }
 }

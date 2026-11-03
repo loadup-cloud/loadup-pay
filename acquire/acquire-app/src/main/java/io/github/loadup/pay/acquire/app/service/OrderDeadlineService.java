@@ -82,11 +82,11 @@ public class OrderDeadlineService implements DelayedTaskHandler {
         }
         String tenant = TenantUtil.getTenantId();
         transactions.writeLocal(tenant, () -> {
-            var order = orders.lockOrder(tenant, key.orderId());
+            var order = orders.lockOrder(key.orderId());
             if (!order.order().id().equals(key.orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            long version = extensions.deadlineVersion(tenant, order.order());
+            long version = extensions.deadlineVersion(order.order());
             if (key.generation() < version) {
                 return true;
             }
@@ -103,8 +103,8 @@ public class OrderDeadlineService implements DelayedTaskHandler {
                 return true;
             }
             if (order.order().state() == AcquireOrderState.CLOSING) {
-                var original = closes.findIntent(tenant, key.orderId())
-                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var original =
+                        closes.findIntent(key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 operations.isCurrent(scope, order, original, original.rowVersion());
                 return true;
             }
@@ -115,7 +115,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
                         order,
                         new AcquireOrderCloseCommand(key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
             } else if (!due.equals(order.order())) {
-                closes.keepPending(tenant, order.order(), due);
+                closes.keepPending(order.order(), due);
                 snapshots.publish(tenant, due.id(), due.version());
             }
             return true;

@@ -28,5 +28,5 @@ public interface MerchantNotificationWakeReceiptStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    MerchantNotificationWakeReceiptDO toDO(String tenant, MerchantNotificationWakeReceipt value);
+    MerchantNotificationWakeReceiptDO toDO(MerchantNotificationWakeReceipt value);
 }

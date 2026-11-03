@@ -37,7 +37,7 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ChannelMerchantBindingDO toHeadDO(String tenant, ChannelMerchantBinding value);
+    ChannelMerchantBindingDO toHeadDO(ChannelMerchantBinding value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "state", source = "state")
@@ -78,12 +78,12 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ChannelBindingRevisionDO toRevisionDO(String tenant, StoredChannelBindingRevision value, String identityPayload);
+    ChannelBindingRevisionDO toRevisionDO(StoredChannelBindingRevision value, String identityPayload);
 
     ChannelBindingChangeReceipt toReceipt(ChannelBindingChangeReceiptDO row);
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ChannelBindingChangeReceiptDO toReceiptDO(String tenant, ChannelBindingChangeReceipt value);
+    ChannelBindingChangeReceiptDO toReceiptDO(ChannelBindingChangeReceipt value);
 }

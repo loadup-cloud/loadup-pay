@@ -22,7 +22,6 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationReviewGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReview;
@@ -57,41 +56,38 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     }
 
     @Override
-    public Optional<ReconciliationReview> find(String tenant, String id) {
-        ReconciliationStoreContext.readable(tenant);
-        return headOrInitial(tenant, id, headRow(tenant, id, false));
+    public Optional<ReconciliationReview> find(String id) {
+        ReconciliationStoreContext.readable();
+        return headOrInitial(id, headRow(id, false));
     }
 
     @Override
-    public Optional<ReconciliationReview> lock(String tenant, String id) {
-        ReconciliationStoreContext.writable(tenant);
-        return headOrInitial(tenant, id, headRow(tenant, id, true));
+    public Optional<ReconciliationReview> lock(String id) {
+        ReconciliationStoreContext.writable();
+        return headOrInitial(id, headRow(id, true));
     }
 
     @Override
-    public Optional<ReconciliationReviewEvent> findRequest(String tenant, String caller, String requestKey) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationReviewEvent> findRequest(String caller, String requestKey) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("caller", caller)
-                .addValue("key", requestKey);
+        var args = new MapSqlParameterSource().addValue("caller", caller).addValue("key", requestKey);
         return event(eventRow("caller_service_id = :caller AND request_key = :key", args));
     }
 
     @Override
-    public Optional<ReconciliationReviewEvent> event(String tenant, String id) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationReviewEvent> event(String id) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(id);
-        return event(
-                eventRow("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id)));
+        return event(eventRow("id = :id", new MapSqlParameterSource().addValue("id", id)));
     }
 
     @Override
-    public Optional<ReconciliationReviewProposal> proposal(String tenant, String id) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationReviewProposal> proposal(String id) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(id);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
+        var args = new MapSqlParameterSource().addValue("id", id);
         var row = jdbc
                 .query(
                         "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id, evidence_size, evidence_sha256, proposed_at FROM reconciliation_review_proposal WHERE id = :id AND deleted = FALSE",
@@ -111,13 +107,13 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     }
 
     @Override
-    public PageResult<ReconciliationReviewEvent> history(String tenant, String differenceId, int page, int size) {
-        ReconciliationStoreContext.readable(tenant);
+    public PageResult<ReconciliationReviewEvent> history(String differenceId, int page, int size) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(differenceId);
         if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || page < 1 || size < 1 || size > 100) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("difference", differenceId)
                 .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
@@ -141,12 +137,11 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
 
     @Override
     public void commit(
-            String tenant,
             ReconciliationReview previous,
             ReconciliationReview next,
             ReconciliationReviewProposal proposed,
             ReconciliationReviewEvent event) {
-        ReconciliationStoreContext.writable(tenant);
+        ReconciliationStoreContext.writable();
         if (previous == null
                 || next == null
                 || event == null
@@ -166,8 +161,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             if (event.operation() == ReconciliationReviewOperation.PROPOSE) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var proposal =
-                    proposal(tenant, previous.proposalId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var proposal = proposal(previous.proposalId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             expected = previous.decide(
                     proposal,
                     event.callerServiceId(),
@@ -179,7 +173,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             throw new CommonException(SNAPSHOT_INVALID);
         }
         event.verifyHead(next);
-        var current = lock(tenant, previous.reference().differenceId());
+        var current = lock(previous.reference().differenceId());
         if (previous.version() == 0L
                 ? current.isPresent()
                 : current.isEmpty() || !current.get().equals(previous)) {
@@ -191,7 +185,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                             jdbc.getJdbcTemplate().getDataSource())) {
                 throw new CommonException(INVALID_STATE);
             }
-            var row = converter.toDO(tenant, proposed);
+            var row = converter.toDO(proposed);
             var now = LocalDateTime.now(clock);
             row.setCreatedAt(now);
             row.setUpdatedAt(now);
@@ -211,7 +205,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var eventRow = converter.toDO(tenant, event);
+        var eventRow = converter.toDO(event);
         var now = LocalDateTime.now(clock);
         eventRow.setCreatedAt(now);
         eventRow.setUpdatedAt(now);
@@ -228,7 +222,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         if (eventCount != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        var row = converter.toDO(tenant, next);
+        var row = converter.toDO(next);
         if (previous.version() == 0L) {
             row.setCreatedAt(now);
             row.setUpdatedAt(now);
@@ -246,7 +240,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                 throw new CommonException(CONCURRENT_UPDATE);
             }
         } else {
-            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+            var args = new MapSqlParameterSource()
                     .addValue("id", previous.reference().differenceId())
                     .addValue("expected", previous.version())
                     .addValue("state", row.getState())
@@ -264,11 +258,11 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         }
     }
 
-    private Optional<ReconciliationReview> headOrInitial(String tenant, String id, ReconciliationReviewDO row) {
+    private Optional<ReconciliationReview> headOrInitial(String id, ReconciliationReviewDO row) {
         if (row == null
                 && jdbc.queryForObject(
                                 "SELECT COUNT(*) FROM reconciliation_review_event WHERE difference_id = :id AND deleted = FALSE",
-                                new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id),
+                                new MapSqlParameterSource().addValue("id", id),
                                 Long.class)
                         != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -304,7 +298,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         }
     }
 
-    private ReconciliationReviewDO headRow(String tenant, String id, boolean lock) {
+    private ReconciliationReviewDO headRow(String id, boolean lock) {
         DomainChecks.id(id);
         if (lock
                 && (jdbc.getJdbcTemplate().getDataSource() == null
@@ -312,7 +306,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                                 jdbc.getJdbcTemplate().getDataSource()))) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
+        var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query(
                         "SELECT id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state, proposal_id, last_event_id, row_version FROM reconciliation_review WHERE id = :id AND deleted = FALSE"

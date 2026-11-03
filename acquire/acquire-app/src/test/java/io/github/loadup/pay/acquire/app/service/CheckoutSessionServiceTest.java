@@ -109,7 +109,7 @@ class CheckoutSessionServiceTest {
 
     @BeforeEach
     void setup() {
-        when(orders.lockOrder("tenant", "order"))
+        when(orders.lockOrder("order"))
                 .thenReturn(order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10)));
         when(codec.decodeAdmission(anyString(), anyString())).thenReturn(admission());
         when(tokens.keyRef()).thenReturn("checkout");
@@ -126,18 +126,18 @@ class CheckoutSessionServiceTest {
         when(presentation.url(anyString(), anyString(), anyString()))
                 .thenAnswer(c -> ORIGIN + "/checkout#tenant=" + c.getArgument(0) + "&order=" + c.getArgument(1)
                         + "&token=" + c.getArgument(2));
-        when(sessions.findRequest(eq("tenant"), eq("order"), anyString()))
+        when(sessions.findRequest(eq("order"), anyString()))
                 .thenAnswer(
-                        c -> stored.get() != null && stored.get().requestKey().equals(c.getArgument(2))
+                        c -> stored.get() != null && stored.get().requestKey().equals(c.getArgument(1))
                                 ? Optional.of(stored.get())
                                 : Optional.empty());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    stored.set(c.getArgument(1));
+                    stored.set(c.getArgument(0));
                     return null;
                 })
                 .when(sessions)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -176,7 +176,7 @@ class CheckoutSessionServiceTest {
         assertEquals(first.checkoutUrl(), replay.checkoutUrl());
         assertEquals(first.sessionExpiresAt(), replay.sessionExpiresAt());
         assertSame(original, stored.get());
-        verify(sessions, never()).insert(anyString(), any());
+        verify(sessions, never()).insert(any());
         verify(tokens).issue(original.session(), original.tokenNonce(), "checkout", "v1");
     }
 
@@ -189,7 +189,7 @@ class CheckoutSessionServiceTest {
                 SESSION_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).create(command("request")))
                         .getResultCode());
-        verify(sessions, never()).insert(anyString(), any());
+        verify(sessions, never()).insert(any());
         verify(tokens, never()).issue(any(), anyString(), anyString(), anyString());
         assertEquals(1L, stored.get().rowVersion());
         assertEquals(NOW, stored.get().revokedAt());
@@ -202,15 +202,14 @@ class CheckoutSessionServiceTest {
         var replay = service(clock(NOW.plusSeconds(900))).create(command("request"));
         assertEquals(first.checkoutUrl(), replay.checkoutUrl());
         assertEquals(first.sessionExpiresAt(), replay.sessionExpiresAt());
-        verify(sessions, never()).insert(anyString(), any());
+        verify(sessions, never()).insert(any());
     }
 
     @Test
     void paidOrClosedOrdersPermitOnlyExistingRequestReplay() {
         service(clock(NOW)).create(command("request"));
         for (var state : List.of(AcquireOrderState.PAID, AcquireOrderState.CLOSED)) {
-            when(orders.lockOrder("tenant", "order"))
-                    .thenReturn(order(state, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10)));
+            when(orders.lockOrder("order")).thenReturn(order(state, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10)));
             assertEquals(
                     "session-1", service(clock(NOW)).create(command("request")).sessionId());
             assertSame(
@@ -224,13 +223,13 @@ class CheckoutSessionServiceTest {
 
     @Test
     void closePolicyCapsLifetimeButPendingPolicyUsesOriginalSessionWindow() {
-        when(orders.lockOrder("tenant", "order"))
+        when(orders.lockOrder("order"))
                 .thenReturn(order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusSeconds(30)));
         service(clock(NOW)).create(command("short"));
         assertEquals(
                 NOW.plusSeconds(30).truncatedTo(ChronoUnit.SECONDS),
                 stored.get().session().expiresAt());
-        when(orders.lockOrder("tenant", "order"))
+        when(orders.lockOrder("order"))
                 .thenReturn(order(AcquireOrderState.PENDING, UnpaidOrderAction.KEEP_PENDING, NOW.minusSeconds(1)));
         service(clock(NOW)).create(command("later"));
         assertEquals(
@@ -274,7 +273,7 @@ class CheckoutSessionServiceTest {
                 SESSION_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).create(command("request")))
                         .getResultCode());
-        verify(sessions, times(1)).insert(eq("tenant"), any());
+        verify(sessions, times(1)).insert(any());
     }
 
     @Test

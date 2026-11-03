@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.pay.payment.app.model.RefundSummaryFacts;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
@@ -45,8 +43,8 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     }
 
     @Override
-    public RefundSnapshotFacts child(String tenant, String refundId) {
-        writable(tenant);
+    public RefundSnapshotFacts child(String refundId) {
+        writable();
         var childArgs = new MapSqlParameterSource().addValue("id", refundId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
@@ -78,8 +76,8 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     }
 
     @Override
-    public RefundSummaryFacts summary(String tenant, String orderId) {
-        writable(tenant);
+    public RefundSummaryFacts summary(String orderId) {
+        writable();
         var args = new MapSqlParameterSource().addValue("order", orderId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
@@ -98,16 +96,13 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
         }
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

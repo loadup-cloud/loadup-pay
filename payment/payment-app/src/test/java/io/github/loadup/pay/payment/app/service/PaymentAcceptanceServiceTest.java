@@ -118,17 +118,17 @@ class PaymentAcceptanceServiceTest {
 
     @BeforeEach
     void setup() {
-        when(store.find(eq("tenant"), anyString())).thenAnswer(c -> Optional.ofNullable(stored.get()));
+        when(store.find(anyString())).thenAnswer(c -> Optional.ofNullable(stored.get()));
         when(codec.encode(any())).thenReturn("payload");
         when(codec.checksum(anyString())).thenReturn("c".repeat(64));
         when(codec.decode(any())).thenReturn(command);
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    stored.set(c.getArgument(1));
+                    stored.set(c.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertSame(stored.get(), c.getArgument(1));
@@ -161,13 +161,12 @@ class PaymentAcceptanceServiceTest {
         verify(recovery, times(1)).register(eq("tenant"), eq(stored.get()));
         verify(events).publishSnapshot(eq("tenant"), eq(stored.get()), any());
         var calls = inOrder(store);
-        calls.verify(store).lockParent("tenant", "order");
-        calls.verify(store).insertParent(eq("tenant"), argThat(g -> g.gate().state() == GateState.OPEN));
-        calls.verify(store).lockPayment("tenant", "payment");
+        calls.verify(store).lockParent("order");
+        calls.verify(store).insertParent(argThat(g -> g.gate().state() == GateState.OPEN));
+        calls.verify(store).lockPayment("payment");
         calls.verify(store)
-                .insertPaymentGate(
-                        eq("tenant"), argThat(g -> "payment".equals(g.gate().paymentId())));
-        calls.verify(store).insert(eq("tenant"), any());
+                .insertPaymentGate(argThat(g -> "payment".equals(g.gate().paymentId())));
+        calls.verify(store).insert(any());
     }
 
     @Test
@@ -183,8 +182,8 @@ class PaymentAcceptanceServiceTest {
         verify(locks).lock("tenant", "payment", "acquire");
         verify(actions).present("tenant", locked);
         assertSame(original, stored.get());
-        verify(store, never()).lockParent(anyString(), anyString());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).lockParent(anyString());
+        verify(store, never()).insert(any());
         verify(recovery, never()).register(anyString(), any());
         verifyNoInteractions(events);
     }
@@ -257,12 +256,12 @@ class PaymentAcceptanceServiceTest {
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> accept(changed)).getResultCode());
-        verify(store, times(1)).insert(anyString(), any());
+        verify(store, times(1)).insert(any());
     }
 
     @Test
     void aFencedParentRejectsLateFirstAcceptanceWithoutOpeningAnyGate() {
-        when(store.lockParent("tenant", "order"))
+        when(store.lockParent("order"))
                 .thenReturn(Optional.of(new StoredPaymentGate(
                         "gate",
                         "merchant",
@@ -272,15 +271,15 @@ class PaymentAcceptanceServiceTest {
         assertSame(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
-        verify(store, never()).insertParent(anyString(), any());
-        verify(store, never()).lockPayment(anyString(), anyString());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insertParent(any());
+        verify(store, never()).lockPayment(anyString());
+        verify(store, never()).insert(any());
         assertEquals(1, manager.rollbacks);
     }
 
     @Test
     void aFencedPaymentRejectsLateAcceptanceWithoutReplacingTheTombstone() {
-        when(store.lockPayment("tenant", "payment"))
+        when(store.lockPayment("payment"))
                 .thenReturn(Optional.of(new StoredPaymentGate(
                         "gate",
                         "merchant",
@@ -290,13 +289,13 @@ class PaymentAcceptanceServiceTest {
         assertSame(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
-        verify(store, never()).insertPaymentGate(anyString(), any());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insertPaymentGate(any());
+        verify(store, never()).insert(any());
     }
 
     @Test
     void aParentCannotBeReboundToAnotherPayee() {
-        when(store.lockParent("tenant", "order"))
+        when(store.lockParent("order"))
                 .thenReturn(Optional.of(new StoredPaymentGate(
                         "gate",
                         "other",
@@ -306,12 +305,12 @@ class PaymentAcceptanceServiceTest {
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insert(any());
     }
 
     @Test
     void anAllocationCannotFundAnotherPayment() {
-        when(store.findAllocation("tenant", "allocation"))
+        when(store.findAllocation("allocation"))
                 .thenReturn(Optional.of(new StoredPaymentAcceptance(
                         PaymentOrder.init(
                                 "other-payment",
@@ -330,7 +329,7 @@ class PaymentAcceptanceServiceTest {
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insert(any());
     }
 
     @Test
@@ -410,17 +409,17 @@ class PaymentAcceptanceServiceTest {
                     throw new PaymentWriteConflictException("synthetic concurrent winner");
                 })
                 .when(store)
-                .insertParent(eq("tenant"), any());
+                .insertParent(any());
         assertEquals("payment", accept(command).paymentId());
         assertEquals("winning-operation", stored.get().payment().limitOperationId());
         assertEquals(1, manager.rollbacks);
         assertEquals(1, manager.commits);
-        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).insert(any());
     }
 
     @Test
     void storageFailureRollsBackTheWholeAcceptanceBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insert(eq("tenant"), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insert(any());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
@@ -437,7 +436,7 @@ class PaymentAcceptanceServiceTest {
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        verify(store).insert(eq("tenant"), any());
+        verify(store).insert(any());
         verify(recovery).register(eq("tenant"), any());
         // Mock ports prove the transaction boundary, not actual database row rollback.
     }

@@ -15,14 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.pay.acquire.infrastructure.converter.AllocationRecoveryStorageConverter;
@@ -51,9 +48,8 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     }
 
     @Override
-    public Optional<AllocationRecoveryCursor> find(String tenant, String paymentId) {
-        trustedTenant(tenant);
-        var row = row(tenant, paymentId, false);
+    public Optional<AllocationRecoveryCursor> find(String paymentId) {
+        var row = row(paymentId, false);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -62,9 +58,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     }
 
     @Override
-    public Optional<AllocationRecoveryCursor> lock(String tenant, String paymentId) {
-        writable(tenant);
-        var row = row(tenant, paymentId, true);
+    public Optional<AllocationRecoveryCursor> lock(String paymentId) {
+        writable();
+        var row = row(paymentId, true);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -73,9 +69,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     }
 
     @Override
-    public void insert(String tenant, AllocationRecoveryCursor value) {
-        writable(tenant);
-        var row = converter.toDO(tenant, value);
+    public void insert(AllocationRecoveryCursor value) {
+        writable();
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -89,8 +85,8 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     }
 
     @Override
-    public void update(String tenant, AllocationRecoveryCursor before, AllocationRecoveryCursor after) {
-        writable(tenant);
+    public void update(AllocationRecoveryCursor before, AllocationRecoveryCursor after) {
+        writable();
         boolean completed = !before.completed()
                 && after.completed()
                 && before.generation() == after.generation()
@@ -106,7 +102,7 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
             throw new CommonException(INVALID_STATE);
         }
 
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", before.paymentId())
                 .addValue("order", before.orderId())
                 .addValue("oldGeneration", before.generation())
@@ -125,8 +121,8 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
         }
     }
 
-    private AllocationRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", paymentId);
+    private AllocationRecoveryCursorDO row(String paymentId, boolean lock) {
+        var args = new MapSqlParameterSource().addValue("id", paymentId);
         return jdbc
                 .query(
                         """
@@ -140,20 +136,13 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
                 .orElse(null);
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        trustedTenant(tenant);
-    }
-
-    private void trustedTenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

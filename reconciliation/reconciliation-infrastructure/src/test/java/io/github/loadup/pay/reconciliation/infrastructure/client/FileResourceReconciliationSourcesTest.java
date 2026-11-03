@@ -56,7 +56,7 @@ class FileResourceReconciliationSourcesTest {
             }
         };
         when(files.download("file", "ops", false)).thenReturn(new FileDownloadResponse(object, stream, 3));
-        var inspected = source.inspect("tenant", "ops", "file");
+        var inspected = source.inspect("ops", "file");
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", inspected.sha256());
         assertEquals("storage", inspected.storageId());
         assertEquals(3L, inspected.size());
@@ -68,11 +68,11 @@ class FileResourceReconciliationSourcesTest {
         when(files.get("file", "ops", false)).thenReturn(metadata("other", 3));
         assertEquals(
                 INPUT_INVALID,
-                assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"))
+                assertThrows(CommonException.class, () -> source.inspect("ops", "file"))
                         .getResultCode());
         verify(files, never()).download(anyString(), anyString(), anyBoolean());
         when(files.get("file", "ops", false)).thenReturn(metadata("ops", 1025));
-        assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"));
+        assertThrows(CommonException.class, () -> source.inspect("ops", "file"));
         when(files.get("file", "ops", false)).thenReturn(metadata("ops", 3));
         var object = mock(FileMetadata.class);
         when(object.fileId()).thenReturn("storage");
@@ -80,7 +80,7 @@ class FileResourceReconciliationSourcesTest {
                 .thenReturn(new FileDownloadResponse(object, new ByteArrayInputStream(new byte[] {'a'}), 3));
         assertEquals(
                 INPUT_INVALID,
-                assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"))
+                assertThrows(CommonException.class, () -> source.inspect("ops", "file"))
                         .getResultCode());
     }
 
@@ -88,12 +88,10 @@ class FileResourceReconciliationSourcesTest {
     void declaredUploadLengthAndByteLimitAreCheckedBeforeCreatingAResource() {
         assertThrows(
                 CommonException.class,
-                () -> source.upload(
-                        "tenant", "ops", "bill.csv", "text/csv", 3, new ByteArrayInputStream(new byte[] {'a'})));
+                () -> source.upload("ops", "bill.csv", "text/csv", 3, new ByteArrayInputStream(new byte[] {'a'})));
         assertThrows(
                 CommonException.class,
-                () -> source.upload(
-                        "tenant", "ops", "bill.csv", "text/csv", 1024, new ByteArrayInputStream(new byte[1025])));
+                () -> source.upload("ops", "bill.csv", "text/csv", 1024, new ByteArrayInputStream(new byte[1025])));
         verifyNoInteractions(files);
     }
 

@@ -15,17 +15,13 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,8 +52,7 @@ class PaymentAcquireOutcomeDeliveryTest {
     void setup() {
         when(support.load(event, PaymentEvents.ACQUIRE))
                 .thenReturn(OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE));
-        when(acquire.supportsTenant("tenant")).thenReturn(true);
-        when(acquire.accept(eq("tenant"), any())).thenAnswer(c -> {
+        when(acquire.accept(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "evidence", 2, true);
         });
@@ -68,48 +63,36 @@ class PaymentAcquireOutcomeDeliveryTest {
         delivery.deliver(event);
         delivery.deliver(event);
         verify(acquire, times(2))
-                .accept(
-                        "tenant",
-                        OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE)
-                                .envelope());
+                .accept(OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE)
+                        .envelope());
     }
 
     @Test
     void wrongPaymentVersionOrDeliveryCannotCompleteTheQueue() {
-        when(acquire.accept(eq("tenant"), any()))
+        when(acquire.accept(any()))
                 .thenReturn(new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 3, "evidence", 2, true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> delivery.deliver(event))
                         .getResultCode());
-        when(acquire.accept(eq("tenant"), any()))
+        when(acquire.accept(any()))
                 .thenReturn(new PaymentOutcomeAckDTO("other-delivery", "evidence", "payment", 2, "evidence", 2, true));
         assertThrows(CommonException.class, () -> delivery.deliver(event));
     }
 
     @Test
     void rejectedOrMismatchedEvidenceAckIsNotASuccessfulDelivery() {
-        when(acquire.accept(eq("tenant"), any()))
+        when(acquire.accept(any()))
                 .thenReturn(new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "other-proof", 2, true));
         assertThrows(CommonException.class, () -> delivery.deliver(event));
-        when(acquire.accept(eq("tenant"), any()))
+        when(acquire.accept(any()))
                 .thenReturn(new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "evidence", 2, false));
         assertThrows(CommonException.class, () -> delivery.deliver(event));
     }
 
     @Test
     void downstreamFailurePropagatesForIndependentOutboxRetry() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(acquire).accept(anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(acquire).accept(any());
         assertThrows(CommonException.class, () -> delivery.deliver(event));
-    }
-
-    @Test
-    void unconfiguredTenantCannotSendAnEventUsingAnotherTenantsCredential() {
-        when(acquire.supportsTenant("tenant")).thenReturn(false);
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> delivery.deliver(event))
-                        .getResultCode());
-        verify(acquire, never()).accept(anyString(), any());
     }
 }

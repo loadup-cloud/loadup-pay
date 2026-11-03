@@ -24,15 +24,15 @@ import java.util.Optional;
  * Persistence or integration port; implementations own transactions and trusted tenant isolation.
  */
 public interface AcquireOrderGateway {
-    Optional<AcquireOrder> find(String tenantId, String orderId);
+    Optional<AcquireOrder> find(String orderId);
 
-    AcquireOrder lock(String tenantId, String orderId);
+    AcquireOrder lock(String orderId);
 
-    Optional<OrderPaymentAllocation> findAction(String tenantId, String orderId, String actorScope, String actionKey);
+    Optional<OrderPaymentAllocation> findAction(String orderId, String actorScope, String actionKey);
 
-    OrderPaymentAllocation lockAllocation(String tenantId, String paymentId);
+    OrderPaymentAllocation lockAllocation(String paymentId);
 
-    void save(String tenantId, AcquireOrder order, long expectedVersion);
+    void save(AcquireOrder order, long expectedVersion);
 
-    void saveChange(String tenantId, OrderPaymentChange change, long expectedOrderVersion);
+    void saveChange(OrderPaymentChange change, long expectedOrderVersion);
 }

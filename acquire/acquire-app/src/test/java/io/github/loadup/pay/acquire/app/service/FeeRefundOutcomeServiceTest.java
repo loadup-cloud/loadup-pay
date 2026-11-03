@@ -122,35 +122,33 @@ class FeeRefundOutcomeServiceTest {
 
     @BeforeEach
     void setup() {
-        when(payment.supportsTenant("tenant")).thenReturn(true);
-        when(payment.refundSummary("tenant", "order")).thenAnswer(c -> {
+        when(payment.refundSummary("order")).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return summary(3, 1000);
         });
-        when(orders.findOrder("tenant", "order")).thenReturn(Optional.of(stored));
-        when(orders.lockOrder("tenant", "order")).thenReturn(stored);
+        when(orders.findOrder("order")).thenReturn(Optional.of(stored));
+        when(orders.lockOrder("order")).thenReturn(stored);
         when(codec.decodeAdmission(stored.admissionPayload(), stored.payloadHash()))
                 .thenReturn(admission());
         when(codec.checksum(anyString()))
                 .thenAnswer(c -> HexFormat.of()
                         .formatHex(MessageDigest.getInstance("SHA-256")
                                 .digest(c.<String>getArgument(0).getBytes(StandardCharsets.UTF_8))));
-        when(receipts.find(eq("tenant"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(1))));
+        when(receipts.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(0))));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    var receipt = c.<FeeRefundReceipt>getArgument(1);
+                    var receipt = c.<FeeRefundReceipt>getArgument(0);
                     accepted.put(receipt.deliveryId(), receipt);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     return null;
                 })
                 .when(fees)
-                .applyRefundBasis(anyString(), any(), any(), anyLong(), anyLong(), anyString(), any());
+                .applyRefundBasis(any(), any(), anyLong(), anyLong(), anyString(), any());
     }
 
     @AfterEach
@@ -163,13 +161,11 @@ class FeeRefundOutcomeServiceTest {
         var first = service.accept(event("delivery", 3, 1000));
         assertTrue(first.accepted());
         assertEquals(3, first.appliedVersion());
-        verify(fees)
-                .applyRefundBasis(
-                        eq("tenant"), eq(stored.order()), any(), eq(3L), eq(1000L), eq("business-delivery"), eq(NOW));
-        when(payment.refundSummary(anyString(), anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        verify(fees).applyRefundBasis(eq(stored.order()), any(), eq(3L), eq(1000L), eq("business-delivery"), eq(NOW));
+        when(payment.refundSummary(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertEquals(first, service.accept(event("delivery", 3, 1000)));
-        verify(payment, times(1)).refundSummary("tenant", "order");
-        verify(receipts, times(1)).insert(eq("tenant"), any());
+        verify(payment, times(1)).refundSummary("order");
+        verify(receipts, times(1)).insert(any());
         assertEquals(1, manager.commits);
     }
 
@@ -180,14 +176,7 @@ class FeeRefundOutcomeServiceTest {
         assertEquals(3, ack.appliedVersion());
         assertEquals("business-old-delivery", ack.businessEventId());
         verify(fees)
-                .applyRefundBasis(
-                        eq("tenant"),
-                        eq(stored.order()),
-                        any(),
-                        eq(3L),
-                        eq(1000L),
-                        eq("business-old-delivery"),
-                        eq(NOW));
+                .applyRefundBasis(eq(stored.order()), any(), eq(3L), eq(1000L), eq("business-old-delivery"), eq(NOW));
     }
 
     @Test
@@ -208,7 +197,7 @@ class FeeRefundOutcomeServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.accept(changed))
                         .getResultCode());
-        verify(payment, times(1)).refundSummary("tenant", "order");
+        verify(payment, times(1)).refundSummary("order");
     }
 
     @Test
@@ -226,7 +215,7 @@ class FeeRefundOutcomeServiceTest {
                 assertThrows(CommonException.class, () -> service.accept(event("decreasing", 2, 1100)))
                         .getResultCode());
         verifyNoInteractions(fees);
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
     }
 
     @Test
@@ -248,19 +237,19 @@ class FeeRefundOutcomeServiceTest {
     void feeFailureRollsBackWithoutIssuingAReceiptOrAck() {
         doThrow(new CommonException(CONCURRENT_UPDATE))
                 .when(fees)
-                .applyRefundBasis(anyString(), any(), any(), anyLong(), anyLong(), anyString(), any());
+                .applyRefundBasis(any(), any(), anyLong(), anyLong(), anyString(), any());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.accept(event("delivery", 3, 1000)))
                         .getResultCode());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
         assertEquals(1, manager.rollbacks);
         assertTrue(accepted.isEmpty());
     }
 
     @Test
     void receiptFailureAlsoFailsTheTransactionAfterApplyingTheFee() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(receipts).insert(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(receipts).insert(any());
         assertThrows(CommonException.class, () -> service.accept(event("delivery", 3, 1000)));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);

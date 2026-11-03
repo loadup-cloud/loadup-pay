@@ -99,7 +99,7 @@ public class RefundResultService {
             DomainChecks.id(tenant);
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
             String requestId =
-                    results.requestId(tenant, observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+                    results.requestId(observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(
                     tenant,
                     () -> apply(
@@ -116,7 +116,7 @@ public class RefundResultService {
         var request = locked.request();
         var facts = locked.child();
         var current = facts.child().refund();
-        var known = results.receipt(tenant, current.id(), observation.source(), observation.receiptKey());
+        var known = results.receipt(current.id(), observation.source(), observation.receiptKey());
         if (known.isPresent()) {
             var receipt = known.get();
             if (!receipt.factsDigest().equals(digest)) {
@@ -137,7 +137,7 @@ public class RefundResultService {
                     observation.original().channel(),
                     observation.original().accountScopeHash(),
                     observation.channelRefundTransactionNo());
-            var own = results.claim(tenant, current.id());
+            var own = results.claim(current.id());
             if (claimed.isPresent() && !matches(tenant, claimed.get(), observation)) {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_ALREADY_CLAIMED");
             }
@@ -183,7 +183,7 @@ public class RefundResultService {
                 facts.submissionStartedAt(),
                 observation.channelRefundTransactionNo(),
                 observation.succeededAt());
-        results.update(tenant, change);
+        results.update(change);
         projections.changed(tenant, change);
         var updated = converter.withRefund(facts.child(), changed.refund());
         var stored = converter.withRequest(
@@ -221,7 +221,7 @@ public class RefundResultService {
                     locked.child().submissionStartedAt(),
                     null,
                     null);
-            results.update(tenant, change);
+            results.update(change);
             projections.changed(tenant, change);
             return true;
         });
@@ -281,7 +281,7 @@ public class RefundResultService {
             String payload,
             String reason) {
         results.recordAnomaly(
-                tenant, new RefundResultAnomaly(ids.generate(), o.refundId(), id, reason, digest, payload, now()));
+                new RefundResultAnomaly(ids.generate(), o.refundId(), id, reason, digest, payload, now()));
         return present(CONFLICT, id, request);
     }
 
@@ -294,24 +294,16 @@ public class RefundResultService {
             String payload,
             RefundReceiptDisposition disposition,
             String reason) {
-        results.insertReceipt(tenant, converter.toReceipt(id, o, digest, payload, disposition, reason, now()));
+        results.insertReceipt(converter.toReceipt(id, o, digest, payload, disposition, reason, now()));
         if (disposition != CONFLICT && o.acceptedAt() != null) {
             var child = request.allocations().stream()
                     .filter(value -> value.refund().id().equals(o.refundId()))
                     .findFirst()
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!acceptances.remember(
-                    tenant, converter.toAcceptance(o, id), child.refund().version())) {
-                results.recordAnomaly(
-                        tenant,
-                        new RefundResultAnomaly(
-                                ids.generate(),
-                                o.refundId(),
-                                id,
-                                "REFUND_ACCEPTANCE_TIME_CONFLICT",
-                                digest,
-                                payload,
-                                now()));
+                    converter.toAcceptance(o, id), child.refund().version())) {
+                results.recordAnomaly(new RefundResultAnomaly(
+                        ids.generate(), o.refundId(), id, "REFUND_ACCEPTANCE_TIME_CONFLICT", digest, payload, now()));
             }
         }
         return present(disposition, id, request);

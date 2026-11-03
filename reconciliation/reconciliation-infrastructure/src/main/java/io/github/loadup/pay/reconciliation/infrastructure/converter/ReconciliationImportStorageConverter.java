@@ -76,5 +76,5 @@ public interface ReconciliationImportStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationImportDO toDO(String tenant, ReconciliationImportRequest value);
+    ReconciliationImportDO toDO(ReconciliationImportRequest value);
 }

@@ -20,7 +20,6 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
@@ -66,21 +65,18 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     }
 
     @Override
-    public Optional<StoredPaymentAllocation> findPayment(String tenant, String orderId, String paymentId) {
-        return readAllocation(tenant, orderId, paymentId, false);
+    public Optional<StoredPaymentAllocation> findPayment(String orderId, String paymentId) {
+        return readAllocation(orderId, paymentId, false);
     }
 
     @Override
-    public Optional<StoredPaymentAllocation> lockPayment(String tenant, String orderId, String paymentId) {
+    public Optional<StoredPaymentAllocation> lockPayment(String orderId, String paymentId) {
         requireTransaction();
-        return readAllocation(tenant, orderId, paymentId, true);
+        return readAllocation(orderId, paymentId, true);
     }
 
-    private Optional<StoredPaymentAllocation> readAllocation(
-            String tenant, String orderId, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("order", orderId)
-                .addValue("payment", paymentId);
+    private Optional<StoredPaymentAllocation> readAllocation(String orderId, String paymentId, boolean lock) {
+        var args = new MapSqlParameterSource().addValue("order", orderId).addValue("payment", paymentId);
         var row = jdbc
                 .query(
                         """
@@ -106,8 +102,8 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     }
 
     @Override
-    public Optional<PaymentOutcomeReceipt> findReceipt(String tenant, String allocationId) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("allocation", allocationId);
+    public Optional<PaymentOutcomeReceipt> findReceipt(String allocationId) {
+        var args = new MapSqlParameterSource().addValue("allocation", allocationId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, allocation_id, order_id, payment_id, amount_minor, currency,
                        outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at
@@ -127,7 +123,6 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
 
     @Override
     public void apply(
-            String tenant,
             OrderPaymentChange change,
             StoredPaymentAllocation original,
             PaymentOutcomeReceipt receipt,
@@ -155,7 +150,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
         }
         var orderPatch =
                 converter.toOrderPatch(order, order.state() == AcquireOrderState.PAID ? receipt.observedAt() : null);
-        var orderArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var orderArgs = new MapSqlParameterSource()
                 .addValue("id", order.id())
                 .addValue("expected", expectedOrderVersion)
                 .addValue("paid", orderPatch.getPaidAmountMinor())
@@ -176,7 +171,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
             throw new CommonException(CONCURRENT_UPDATE);
         }
         var patch = converter.toAllocationPatch(allocation, Math.incrementExact(original.rowVersion()));
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", allocation.id())
                 .addValue("order", order.id())
                 .addValue("payment", allocation.paymentId())
@@ -194,7 +189,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
         if (allocationChanged != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);

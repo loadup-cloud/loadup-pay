@@ -135,26 +135,26 @@ class ReconciliationServiceTest {
 
     @BeforeEach
     void setup() {
-        when(accounts.resolve("tenant", "ops", "account", scope.billDate())).thenReturn(scope);
-        when(batches.findRequest("tenant", "ops", "request")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(batches.find(eq("tenant"), anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(batches.lock(eq("tenant"), anyString())).thenAnswer(call -> {
+        when(accounts.resolve("ops", "account", scope.billDate())).thenReturn(scope);
+        when(batches.findRequest("ops", "request")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(batches.find(anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(batches.lock(anyString())).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.ofNullable(stored.get());
         });
-        when(batches.findRun(eq("tenant"), anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(batches.findRun(anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
         doAnswer(call -> {
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(batches)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(call -> {
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(batches)
-                .update(eq("tenant"), any(), anyLong());
+                .update(any(), anyLong());
     }
 
     @AfterEach
@@ -169,8 +169,8 @@ class ReconciliationServiceTest {
         var first = service.create(create);
         clearInvocations(accounts, batches);
         assertEquals(first, service.create(create));
-        verify(accounts, never()).resolve(anyString(), anyString(), anyString(), any());
-        verify(batches, never()).insert(anyString(), any());
+        verify(accounts, never()).resolve(anyString(), anyString(), any());
+        verify(batches, never()).insert(any());
         assertEquals(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(
@@ -310,7 +310,7 @@ class ReconciliationServiceTest {
                     return null;
                 })
                 .when(results)
-                .insert(eq("tenant"), eq(running.batchId()), eq(running.runId()), any());
+                .insert(eq(running.batchId()), eq(running.runId()), any());
         TenantUtil.runWithTenant("tenant", () -> execution.handle(task));
         assertEquals(ReconciliationState.MATCHED, stored.get().batch().state());
         assertNotNull(stored.get().batch().result().resultHash());
@@ -323,7 +323,7 @@ class ReconciliationServiceTest {
                         .getResultCode());
         verify(tasks, never()).retryFailed(anyString(), anyString());
         TenantUtil.runWithTenant("tenant", () -> execution.handle(task));
-        verify(results, times(1)).insert(eq("tenant"), eq(running.batchId()), eq(running.runId()), any());
+        verify(results, times(1)).insert(eq(running.batchId()), eq(running.runId()), any());
         verify(matcher, times(1)).compare(any(), any());
     }
 
@@ -346,9 +346,7 @@ class ReconciliationServiceTest {
                         .getResultCode());
         verifyNoInteractions(results);
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(task));
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
-                .when(results)
-                .insert(anyString(), anyString(), anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(results).insert(anyString(), anyString(), any());
         int before = manager.rollbacks;
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(task)));
         assertEquals(before + 1, manager.rollbacks);
@@ -375,8 +373,8 @@ class ReconciliationServiceTest {
                     "parser-v1",
                     ReconciliationTotals.count(rows));
             var dataset = new ReconciliationDataset(manifest, rows);
-            when(inputs.sealedManifest("tenant", manifest.artifactId())).thenReturn(Optional.of(manifest));
-            when(inputs.loadSealed("tenant", manifest.artifactId())).thenAnswer(call -> {
+            when(inputs.sealedManifest(manifest.artifactId())).thenReturn(Optional.of(manifest));
+            when(inputs.loadSealed(manifest.artifactId())).thenAnswer(call -> {
                 assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
                 return dataset;
             });

@@ -26,24 +26,24 @@ import java.util.Optional;
  * Reads require a local consistent transaction. Mutations and explicit locks additionally require the parent gate lock.
  */
 public interface RefundGateway {
-    Optional<RefundRequestReference> reference(String tenant, String id);
+    Optional<RefundRequestReference> reference(String id);
 
-    Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String merchantRefundNo);
+    Optional<RefundRequestReference> merchantReference(String merchant, String merchantRefundNo);
 
     /**
      * Nonlocking reconstruction, usable inside a read-only snapshot.
      */
-    StoredRefundRequest load(String tenant, String id);
+    StoredRefundRequest load(String id);
 
-    StoredRefundRequest lock(String tenant, String id);
+    StoredRefundRequest lock(String id);
 
     /**
      * Ascending paymentId locks; FIFO sorting happens only after every capacity is locked.
      */
-    List<PaymentRefundCapacity> lockCapacities(String tenant, String orderId);
+    List<PaymentRefundCapacity> lockCapacities(String orderId);
 
     /**
      * Request, immutable plan, stable children and all capacity CAS writes are one local transaction.
      */
-    void insertPlan(String tenant, StoredRefundRequest value, List<RefundCapacityReservation> reservations);
+    void insertPlan(StoredRefundRequest value, List<RefundCapacityReservation> reservations);
 }

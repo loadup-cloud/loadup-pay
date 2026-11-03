@@ -104,8 +104,7 @@ class PaymentRouteSelectorTest {
 
     @BeforeEach
     void setup() {
-        when(profiles.find("tenant", "routing-v1"))
-                .thenReturn(Optional.of(profile("merchant", List.of(rule("primary")))));
+        when(profiles.find("routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule("primary")))));
     }
 
     @AfterEach
@@ -143,7 +142,6 @@ class PaymentRouteSelectorTest {
         var revision = new StoredChannelBindingRevision(
                 binding, head.id(), 1, "b".repeat(64), "pay-ops", LocalDateTime.of(2026, 10, 22, 12, 0));
         when(bindings.lockActive(
-                        "tenant",
                         "merchant",
                         binding.channel(),
                         Set.of(mode),
@@ -157,7 +155,6 @@ class PaymentRouteSelectorTest {
         }
         verify(bindings)
                 .lockActive(
-                        "tenant",
                         command.payeeMerchantId(),
                         command.choice().channel(),
                         Set.of(mode),
@@ -167,8 +164,7 @@ class PaymentRouteSelectorTest {
     @Test
     void missingRouteDoesNotInventADefaultMerchantOrBinding() {
         var command = PaymentFixtures.command();
-        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any()))
-                .thenReturn(List.of());
+        when(bindings.lockActive(anyString(), any(), anySet(), any())).thenReturn(List.of());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
@@ -191,7 +187,7 @@ class PaymentRouteSelectorTest {
 
     @Test
     void missingProfileCannotFallBackToAnArbitraryActiveBinding() {
-        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.empty());
+        when(profiles.find("routing-v1")).thenReturn(Optional.empty());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 ROUTING_PROFILE_UNAVAILABLE,
@@ -202,8 +198,7 @@ class PaymentRouteSelectorTest {
 
     @Test
     void anotherMerchantsProfileCannotRouteEvenWhenBindingsWouldMatch() {
-        when(profiles.find("tenant", "routing-v1"))
-                .thenReturn(Optional.of(profile("other-merchant", List.of(rule("primary")))));
+        when(profiles.find("routing-v1")).thenReturn(Optional.of(profile("other-merchant", List.of(rule("primary")))));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 ROUTING_PROFILE_UNAVAILABLE,
@@ -216,10 +211,9 @@ class PaymentRouteSelectorTest {
     void profileOrderWinsOverGlobalBindingPriority() {
         var first = candidate("first", 999);
         var second = candidate("second", 1);
-        when(profiles.find("tenant", "routing-v1"))
+        when(profiles.find("routing-v1"))
                 .thenReturn(Optional.of(profile("merchant", List.of(rule("first"), rule("second")))));
-        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any()))
-                .thenReturn(List.of(second, first));
+        when(bindings.lockActive(anyString(), any(), anySet(), any())).thenReturn(List.of(second, first));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertEquals(first.revision().binding(), selector.select("tenant", PaymentFixtures.command()));
     }
@@ -227,18 +221,16 @@ class PaymentRouteSelectorTest {
     @Test
     void missingFirstCandidateMayUseOnlyAnExplicitFollowingCandidate() {
         var second = candidate("second", 100);
-        when(profiles.find("tenant", "routing-v1"))
+        when(profiles.find("routing-v1"))
                 .thenReturn(Optional.of(profile("merchant", List.of(rule("first"), rule("second")))));
-        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any()))
-                .thenReturn(List.of(second));
+        when(bindings.lockActive(anyString(), any(), anySet(), any())).thenReturn(List.of(second));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertEquals(second.revision().binding(), selector.select("tenant", PaymentFixtures.command()));
     }
 
     @Test
     void activeUnlistedBindingCannotBeUsedAsImplicitFallback() {
-        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any()))
-                .thenReturn(List.of(candidate("unlisted", 0)));
+        when(bindings.lockActive(anyString(), any(), anySet(), any())).thenReturn(List.of(candidate("unlisted", 0)));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 CHANNEL_BINDING_UNAVAILABLE,
@@ -249,7 +241,7 @@ class PaymentRouteSelectorTest {
     @Test
     void profileCannotExpandTheFrozenContractAccessMode() {
         var rule = new RoutingRule("provider", Channel.WECHAT, AccessMode.SERVICE_PROVIDER, PaymentMethod.H5);
-        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule))));
+        when(profiles.find("routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule))));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 UNSUPPORTED_CAPABILITY,

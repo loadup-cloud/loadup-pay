@@ -72,9 +72,8 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
         var key = validate(task);
         String tenant = TenantUtil.getTenantId();
         var pending = transactions.writeLocal(tenant, () -> {
-            var order = orders.lockOrder(tenant, key.orderId());
-            var intent =
-                    closes.findIntent(tenant, key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var order = orders.lockOrder(key.orderId());
+            var intent = closes.findIntent(key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!order.order().id().equals(key.orderId())
                     || !intent.orderId().equals(key.orderId())
                     || task.executeAt().isBefore(intent.requestedAt())) {

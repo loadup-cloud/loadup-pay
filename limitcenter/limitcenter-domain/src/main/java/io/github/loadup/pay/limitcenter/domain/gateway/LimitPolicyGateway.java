@@ -25,19 +25,19 @@ import java.util.Optional;
  * Mutations and locks join the caller's database transaction.
  */
 public interface LimitPolicyGateway {
-    LimitPolicyHead lockOrCreateHead(String tenant, String policyId, String payeeMerchantId);
+    LimitPolicyHead lockOrCreateHead(String policyId, String payeeMerchantId);
 
-    Optional<LimitPolicyHead> lockHead(String tenant, String policyId);
+    Optional<LimitPolicyHead> lockHead(String policyId);
 
-    Optional<ActivatedLimitPolicy> findRevision(String tenant, String policyId, int revision);
+    Optional<ActivatedLimitPolicy> findRevision(String policyId, int revision);
 
-    Optional<RuntimeLimitRule> lockRule(String tenant, LimitRule identity);
+    Optional<RuntimeLimitRule> lockRule(LimitRule identity);
 
-    void insertRule(String tenant, RuntimeLimitRule rule);
+    void insertRule(RuntimeLimitRule rule);
 
-    void updateRule(String tenant, RuntimeLimitRule rule, long expectedVersion);
+    void updateRule(RuntimeLimitRule rule, long expectedVersion);
 
-    void insertRevision(String tenant, ActivatedLimitPolicy policy);
+    void insertRevision(ActivatedLimitPolicy policy);
 
-    void updateHead(String tenant, LimitPolicyHead head, long expectedVersion);
+    void updateHead(LimitPolicyHead head, long expectedVersion);
 }

@@ -130,7 +130,7 @@ class PaymentChannelGatewayImplTest {
                 identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, OffsetDateTime.parse("2026-10-24T12:00:00Z"));
         var recoveryResult = paymentSubmission(identity);
         var refundResult = refundObservation(refund);
-        when(bindings.findRevision("tenant", "frozen-revision")).thenReturn(Optional.of(frozenRevision));
+        when(bindings.findRevision("frozen-revision")).thenReturn(Optional.of(frozenRevision));
         when(requests.create("tenant", payment)).thenReturn(paymentRequest);
         when(channels.submit(expectedContext, paymentRequest)).thenReturn(paymentResult);
         when(channels.query(expectedContext, target)).thenReturn(queryResult);
@@ -150,8 +150,8 @@ class PaymentChannelGatewayImplTest {
             assertSame(refundResult, gateway.recoverRefund(refund));
         });
 
-        verify(bindings, times(7)).findRevision("tenant", "frozen-revision");
-        verify(bindings, never()).lockActive(anyString(), anyString(), any(), anySet(), any());
+        verify(bindings, times(7)).findRevision("frozen-revision");
+        verify(bindings, never()).lockActive(anyString(), any(), anySet(), any());
         verify(requests).create("tenant", payment);
         verify(channels).submit(expectedContext, paymentRequest);
         verify(channels).query(expectedContext, target);
@@ -168,13 +168,13 @@ class PaymentChannelGatewayImplTest {
         var recovery = new ChannelPaymentRecovery(
                 identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, OffsetDateTime.parse("2026-10-24T12:00:00Z"));
         var result = paymentSubmission(identity);
-        when(bindings.findRevision("tenant", "frozen-revision")).thenReturn(Optional.of(frozenRevision));
+        when(bindings.findRevision("frozen-revision")).thenReturn(Optional.of(frozenRevision));
         when(channels.recover(expectedContext, recovery)).thenReturn(result);
 
         TenantUtil.runWithTenant("tenant", () -> assertSame(result, gateway.recover(recovery)));
 
-        verify(bindings).findRevision("tenant", "frozen-revision");
-        verify(bindings, never()).lockActive(anyString(), anyString(), any(), anySet(), any());
+        verify(bindings).findRevision("frozen-revision");
+        verify(bindings, never()).lockActive(anyString(), any(), anySet(), any());
         verify(channels).recover(expectedContext, recovery);
         verifyNoInteractions(requests);
         verifyNoMoreInteractions(channels);
@@ -220,9 +220,9 @@ class PaymentChannelGatewayImplTest {
 
     @Test
     void missingFrozenRevisionPreventsProviderInvocation() {
-        when(bindings.findRevision("tenant", "frozen-revision")).thenReturn(Optional.empty());
+        when(bindings.findRevision("frozen-revision")).thenReturn(Optional.empty());
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class, () -> gateway.query(target)));
-        verify(bindings).findRevision("tenant", "frozen-revision");
+        verify(bindings).findRevision("frozen-revision");
         verifyNoInteractions(channels, requests);
     }
 }

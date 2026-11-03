@@ -174,26 +174,26 @@ class AcquireRecoveryOperationsServiceTest {
                                 allocation.allocation().amount()),
                         NOW.minusMinutes(1));
         order.set(withOrder(original, changed.order()));
-        when(orders.findOrder("tenant", "order")).thenAnswer(c -> {
+        when(orders.findOrder("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return Optional.of(order.get());
         });
-        when(allocations.findPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation));
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> {
+        when(allocations.findPayment("order", "payment")).thenReturn(Optional.of(allocation));
+        when(orders.lockOrder("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
             return order.get();
         });
-        when(cursors.find("tenant", "payment")).thenAnswer(c -> Optional.of(cursor.get()));
-        when(cursors.lock("tenant", "payment")).thenAnswer(c -> Optional.of(cursor.get()));
-        when(allocations.lockPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation));
+        when(cursors.find("payment")).thenAnswer(c -> Optional.of(cursor.get()));
+        when(cursors.lock("payment")).thenAnswer(c -> Optional.of(cursor.get()));
+        when(allocations.lockPayment("order", "payment")).thenReturn(Optional.of(allocation));
         when(paymentRecovery.isCurrent(eq("tenant"), any(), eq(allocation), any(), eq(0L)))
                 .thenAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     return true;
                 });
-        when(extensions.deadlineVersion(eq("tenant"), any())).thenReturn(1L);
+        when(extensions.deadlineVersion(any())).thenReturn(1L);
         when(tasks.find(anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(nativeTasks.get(c.getArgument(0) + "/" + c.getArgument(1))));
         doAnswer(c -> {
@@ -218,16 +218,16 @@ class AcquireRecoveryOperationsServiceTest {
                 })
                 .when(tasks)
                 .retryFailed(anyString(), anyString());
-        when(receipts.find(eq("tenant"), anyString(), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(ledger.get(c.getArgument(1) + "/" + c.getArgument(2))));
+        when(receipts.find(anyString(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(ledger.get(c.getArgument(0) + "/" + c.getArgument(1))));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    AcquireRecoveryRetryReceipt receipt = c.getArgument(1);
+                    AcquireRecoveryRetryReceipt receipt = c.getArgument(0);
                     ledger.put(receipt.callerScopeHash() + "/" + receipt.requestKey(), receipt);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
         put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW, DelayedTaskStatus.FAILED);
     }
 
@@ -272,9 +272,9 @@ class AcquireRecoveryOperationsServiceTest {
     void detailProvidesExactPreconditionsWithoutErrorsPayloadsOrScheduling() {
         var result =
                 service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L));
-        verify(orders, never()).lockOrder(anyString(), anyString());
-        verify(allocations, never()).lockPayment(anyString(), anyString(), anyString());
-        verify(cursors, never()).lock(anyString(), anyString());
+        verify(orders, never()).lockOrder(anyString());
+        verify(allocations, never()).lockPayment(anyString(), anyString());
+        verify(cursors, never()).lock(anyString());
         assertEquals("native-task", result.nativeTaskId());
         assertEquals("FAILED", result.nativeStatus());
         assertEquals(5, result.attempts());
@@ -283,7 +283,7 @@ class AcquireRecoveryOperationsServiceTest {
         assertEquals(BusinessTime.external(NOW), result.nextExecuteAt());
         assertFalse(JsonUtil.toJson(result).contains("secret-channel-error"));
         verify(tasks, never()).retryFailed(anyString(), anyString());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
     }
 
     @Test
@@ -316,9 +316,9 @@ class AcquireRecoveryOperationsServiceTest {
                 VERSION_CONFLICT,
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
-        verify(orders).lockOrder("tenant", "order");
-        verify(allocations).lockPayment("tenant", "order", "payment");
-        verify(cursors).lock("tenant", "payment");
+        verify(orders).lockOrder("order");
+        verify(allocations).lockPayment("order", "payment");
+        verify(cursors).lock("payment");
         verify(tasks, never()).retryFailed(anyString(), anyString());
     }
 
@@ -425,13 +425,13 @@ class AcquireRecoveryOperationsServiceTest {
                         .getResultCode());
         assertEquals(1, manager.rollbacks);
         assertTrue(ledger.isEmpty());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
     }
 
     @Test
     void auditInsertFailureCannotBeAcknowledgedAfterResettingTheNativeTask() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        doThrow(failure).when(receipts).insert(anyString(), any());
+        doThrow(failure).when(receipts).insert(any());
         assertSame(failure, assertThrows(CommonException.class, () -> service.retry(command())));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
@@ -443,7 +443,7 @@ class AcquireRecoveryOperationsServiceTest {
         put(OrderDeadlineTasks.TYPE, "order.1", NOW, NOW, DelayedTaskStatus.FAILED);
         var deadline = service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.ORDER_DEADLINE, "order", 1L));
         assertTrue(deadline.retryable());
-        when(extensions.deadlineVersion(eq("tenant"), any())).thenReturn(2L);
+        when(extensions.deadlineVersion(any())).thenReturn(2L);
         assertFalse(service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.ORDER_DEADLINE, "order", 1L))
                 .businessCurrent());
         order.set(withOrder(order.get(), order.get().order().requestClose()));
@@ -459,7 +459,7 @@ class AcquireRecoveryOperationsServiceTest {
                 NOW.minusSeconds(30),
                 "",
                 0L);
-        when(closes.findIntent("tenant", "order")).thenReturn(Optional.of(intent));
+        when(closes.findIntent("order")).thenReturn(Optional.of(intent));
         when(closure.isCurrent(new OrderPaymentScope("tenant", OWNER), order.get(), intent, 0L))
                 .thenReturn(true);
         put(OrderClosureTasks.TYPE, "order.0", NOW, NOW, DelayedTaskStatus.FAILED);

@@ -25,11 +25,11 @@ public interface PaymentRecoveryGateway {
     /**
      * Nonlocking read, usable within a consistent read snapshot.
      */
-    Optional<PaymentRecoveryCursor> find(String tenant, String paymentId);
+    Optional<PaymentRecoveryCursor> find(String paymentId);
 
-    Optional<PaymentRecoveryCursor> lock(String tenant, String paymentId);
+    Optional<PaymentRecoveryCursor> lock(String paymentId);
 
-    void insert(String tenant, PaymentRecoveryCursor value);
+    void insert(PaymentRecoveryCursor value);
 
-    void update(String tenant, PaymentRecoveryCursor before, PaymentRecoveryCursor after);
+    void update(PaymentRecoveryCursor before, PaymentRecoveryCursor after);
 }

@@ -22,11 +22,11 @@ import java.util.Optional;
  * Joins the original parent/payment transaction; no independent execution claim.
  */
 public interface AllocationRecoveryGateway {
-    Optional<AllocationRecoveryCursor> find(String tenant, String paymentId);
+    Optional<AllocationRecoveryCursor> find(String paymentId);
 
-    Optional<AllocationRecoveryCursor> lock(String tenant, String paymentId);
+    Optional<AllocationRecoveryCursor> lock(String paymentId);
 
-    void insert(String tenant, AllocationRecoveryCursor value);
+    void insert(AllocationRecoveryCursor value);
 
-    void update(String tenant, AllocationRecoveryCursor before, AllocationRecoveryCursor after);
+    void update(AllocationRecoveryCursor before, AllocationRecoveryCursor after);
 }

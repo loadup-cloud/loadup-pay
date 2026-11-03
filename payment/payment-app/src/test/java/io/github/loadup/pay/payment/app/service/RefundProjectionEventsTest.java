@@ -29,7 +29,6 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -98,25 +97,24 @@ class RefundProjectionEventsTest {
 
     @BeforeEach
     void setup() {
-        when(payments.find("tenant", "payment")).thenReturn(Optional.of(successfulPayment()));
-        when(summaries.lock("tenant", "order")).thenAnswer(c -> Optional.ofNullable(summary.get()));
+        when(payments.find("payment")).thenReturn(Optional.of(successfulPayment()));
+        when(summaries.lock("order")).thenAnswer(c -> Optional.ofNullable(summary.get()));
+        doAnswer(c -> {
+                    summary.set(c.getArgument(0));
+                    return null;
+                })
+                .when(summaries)
+                .insert(any());
         doAnswer(c -> {
                     summary.set(c.getArgument(1));
                     return null;
                 })
                 .when(summaries)
-                .insert(eq("tenant"), any());
-        doAnswer(c -> {
-                    summary.set(c.getArgument(2));
-                    return null;
-                })
-                .when(summaries)
-                .update(eq("tenant"), any(), any());
-        when(reader.summary("tenant", "order"))
-                .thenAnswer(c -> new RefundSummaryFacts(summary.get(), RefundResultFixtures.NOW));
-        when(reader.child(eq("tenant"), anyString())).thenAnswer(c -> {
+                .update(any(), any());
+        when(reader.summary("order")).thenAnswer(c -> new RefundSummaryFacts(summary.get(), RefundResultFixtures.NOW));
+        when(reader.child(anyString())).thenAnswer(c -> {
             var original = RefundResultFixtures.initial().allocations().stream()
-                    .filter(a -> a.refund().id().equals(c.getArgument(1)))
+                    .filter(a -> a.refund().id().equals(c.getArgument(0)))
                     .findFirst()
                     .orElseThrow();
             var child = current.get() != null
@@ -267,7 +265,7 @@ class RefundProjectionEventsTest {
         assertEquals(2, summary.get().version());
         var capture = ArgumentCaptor.forClass(OutboxMessage.class);
         verify(outbox, times(5)).publish(capture.capture());
-        verify(summaries).update(eq("tenant"), any(), any());
+        verify(summaries).update(any(), any());
         var limitMessage = capture.getAllValues().stream()
                 .filter(m -> m.type().equals(RefundProjectionEvents.LIMIT))
                 .findFirst()
@@ -284,7 +282,7 @@ class RefundProjectionEventsTest {
         assertEquals(
                 BusinessTime.external(RefundResultFixtures.NOW).toInstant(),
                 OffsetDateTime.parse((String) limitEnvelope.get("occurredAt")).toInstant());
-        verify(payments).find("tenant", "payment");
+        verify(payments).find("payment");
         var merchant = capture.getAllValues().stream()
                 .filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT))
                 .findFirst()
@@ -308,7 +306,7 @@ class RefundProjectionEventsTest {
         assertEquals(1500, summary.get().reservedMinor());
         assertEquals(1, summary.get().version());
         verify(outbox, times(1)).publish(argThat(m -> m.type().equals(RefundProjectionEvents.CHILD)));
-        verify(summaries, never()).update(anyString(), any(), any());
+        verify(summaries, never()).update(any(), any());
         verifyNoInteractions(payments);
     }
 

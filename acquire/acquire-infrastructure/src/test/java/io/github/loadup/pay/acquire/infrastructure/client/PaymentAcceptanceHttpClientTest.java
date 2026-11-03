@@ -96,7 +96,7 @@ class PaymentAcceptanceHttpClientTest {
     void setup() throws Exception {
         client = new PaymentAcceptanceHttpClient(
                 paymentHttp,
-                (tenant, service, audience) -> credential,
+                (service, audience) -> credential,
                 new PaymentTransportProperties("tenant", "acquire", "payment"));
         writeToken(claims());
         var result = new PaymentExecutionDTO(
@@ -141,11 +141,11 @@ class PaymentAcceptanceHttpClientTest {
     @Test
     void fetchesTheCurrentServiceTokenForEachAttempt() throws Exception {
         String first = credential;
-        assertEquals("payment", client.accept("tenant", command).paymentId());
+        assertEquals("payment", client.accept(command).paymentId());
         var next = claims();
         next.put("exp", clock.instant().getEpochSecond() + 600);
         String second = writeToken(next);
-        client.accept("tenant", command);
+        client.accept(command);
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
     }
 
@@ -164,7 +164,7 @@ class PaymentAcceptanceHttpClientTest {
                 0,
                 OffsetDateTime.now(clock));
         doReturn(SuccessResponse.of(execution)).when(paymentHttp).detail(anyString(), any());
-        assertEquals("payment", client.detail("tenant", "payment").paymentId());
+        assertEquals("payment", client.detail("payment").paymentId());
         verify(paymentHttp).detail(anyString(), eq(new IdQuery("payment")));
     }
 
@@ -172,7 +172,7 @@ class PaymentAcceptanceHttpClientTest {
     void refundAuthorityReadsTheOrderSummaryThroughItsDedicatedOperation() {
         var summary = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
         doReturn(SuccessResponse.of(summary)).when(paymentHttp).refundSummary(anyString(), any());
-        assertEquals(summary, client.refundSummary("tenant", "order"));
+        assertEquals(summary, client.refundSummary("order"));
         verify(paymentHttp).refundSummary(anyString(), eq(new IdQuery("order")));
     }
 
@@ -193,7 +193,7 @@ class PaymentAcceptanceHttpClientTest {
         doReturn(SuccessResponse.of(new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
                 .when(paymentHttp)
                 .facts(anyString(), any());
-        var facts = client.facts("tenant", "payment");
+        var facts = client.facts("payment");
         assertEquals("operation", facts.limitOperationId());
         assertEquals("merchant", facts.payeeMerchantId());
     }
@@ -205,21 +205,11 @@ class PaymentAcceptanceHttpClientTest {
                 .when(paymentHttp)
                 .accept(anyString(), any());
         for (int i = 0; i < 2; i++) {
-            var failure = assertThrows(CommonException.class, () -> client.accept("tenant", command));
+            var failure = assertThrows(CommonException.class, () -> client.accept(command));
             assertSame(DEPENDENCY_UNAVAILABLE, failure.getResultCode());
             assertNull(failure.getCause());
             assertFalse(failure.toString().contains("synthetic-secret"));
         }
-    }
-
-    @Test
-    void tenantRoutingIsCheckedBeforeReadingAnyCredential() {
-        assertFalse(client.supportsTenant("other"));
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> client.accept("other", command))
-                        .getResultCode());
-        verifyNoInteractions(paymentHttp);
     }
 
     @Test
@@ -228,7 +218,7 @@ class PaymentAcceptanceHttpClientTest {
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> client.accept("tenant", command))
+                    assertThrows(CommonException.class, () -> client.accept(command))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
@@ -249,16 +239,16 @@ class PaymentAcceptanceHttpClientTest {
                 new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         var absent = new PaymentInputLookupDTO(false, null);
         doReturn(SuccessResponse.of(absent)).when(paymentHttp).inputLookup(anyString(), any());
-        assertEquals(absent, client.lookupInput("tenant", query));
+        assertEquals(absent, client.lookupInput(query));
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentHttp).inputLookup(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.lookupInput("tenant", query))
+                assertThrows(CommonException.class, () -> client.lookupInput(query))
                         .getResultCode());
         doThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT")).when(paymentHttp).inputLookup(anyString(), any());
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> client.lookupInput("tenant", query))
+                assertThrows(CommonException.class, () -> client.lookupInput(query))
                         .getResultCode());
     }
 
@@ -267,16 +257,16 @@ class PaymentAcceptanceHttpClientTest {
         var expire = mock(PaymentInputExpireCommand.class);
         var active = new PaymentInputExpiryDTO("payment", "order", PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
         doReturn(SuccessResponse.of(active)).when(paymentHttp).inputExpire(anyString(), any());
-        assertEquals(active, client.expireInput("tenant", expire));
+        assertEquals(active, client.expireInput(expire));
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentHttp).inputExpire(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.expireInput("tenant", expire))
+                assertThrows(CommonException.class, () -> client.expireInput(expire))
                         .getResultCode());
         doThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT")).when(paymentHttp).inputExpire(anyString(), any());
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> client.expireInput("tenant", expire))
+                assertThrows(CommonException.class, () -> client.expireInput(expire))
                         .getResultCode());
     }
 }

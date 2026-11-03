@@ -89,9 +89,6 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!limits.supportsTenant(actor.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.paymentId());
             DomainChecks.text(command.requestKey(), 128);
@@ -99,7 +96,7 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
             var accepted = locked.payment();
             var original = codec.decode(accepted);
             String digest = digest(actor, command, accepted.requestDigest());
-            var prior = attempts.findRequest(actor.tenantId(), command.paymentId(), command.requestKey());
+            var prior = attempts.findRequest(command.paymentId(), command.requestKey());
             if (prior.isPresent()) {
                 var attempt = prior.get();
                 if (!attempt.callerServiceId().equals(actor.serviceId())) {

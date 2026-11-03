@@ -127,10 +127,10 @@ public class PaymentControlService implements PaymentControlFacade {
                     command.requestKey(),
                     command.closeEpoch(),
                     null);
-            var prior = store.findReceipt(actor.tenantId(), "PARENT_FENCE", command.orderId(), command.requestKey());
+            var prior = store.findReceipt("PARENT_FENCE", command.orderId(), command.requestKey());
             prior.ifPresent(value -> checked(value, actor, digest));
             var current = parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
-            prior = store.findReceipt(actor.tenantId(), "PARENT_FENCE", command.orderId(), command.requestKey());
+            prior = store.findReceipt("PARENT_FENCE", command.orderId(), command.requestKey());
             if (prior.isPresent()) {
                 checked(prior.get(), actor, digest);
                 requireFence(current, prior.get().requestedEpoch());
@@ -138,22 +138,20 @@ public class PaymentControlService implements PaymentControlFacade {
             }
             var next = fence(current, command.closeEpoch());
             if (next != current) {
-                store.updateParent(actor.tenantId(), next, current.rowVersion());
+                store.updateParent(next, current.rowVersion());
             }
-            store.insertReceipt(
-                    actor.tenantId(),
-                    new PaymentControlReceipt(
-                            ids.generate(),
-                            "PARENT_FENCE",
-                            command.orderId(),
-                            command.orderId(),
-                            command.payeeMerchantId(),
-                            actor.serviceId(),
-                            command.requestKey(),
-                            digest,
-                            command.closeEpoch(),
-                            null,
-                            null));
+            store.insertReceipt(new PaymentControlReceipt(
+                    ids.generate(),
+                    "PARENT_FENCE",
+                    command.orderId(),
+                    command.orderId(),
+                    command.payeeMerchantId(),
+                    actor.serviceId(),
+                    command.requestKey(),
+                    digest,
+                    command.closeEpoch(),
+                    null,
+                    null));
             return status(actor, next, command.closeEpoch());
         });
     }
@@ -164,7 +162,7 @@ public class PaymentControlService implements PaymentControlFacade {
         var actor = actor("pay:payment:fence:read");
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.orderId());
-            var current = gates.lockParent(actor.tenantId(), query.orderId());
+            var current = gates.lockParent(query.orderId());
             if (current.isEmpty()) {
                 return converter.toParent(query.orderId(), 0, false, false, 0);
             }
@@ -195,10 +193,10 @@ public class PaymentControlService implements PaymentControlFacade {
                 command.requestKey(),
                 command.fenceEpoch(),
                 command.reasonCode());
-        var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
+        var prior = store.findReceipt("PAYMENT_CLOSE", command.paymentId(), command.requestKey());
         prior.ifPresent(value -> checked(value, actor, digest));
         var parent = parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
-        var current = gates.lockPayment(actor.tenantId(), command.paymentId());
+        var current = gates.lockPayment(command.paymentId());
         if (current.isEmpty() && prior.isPresent()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -214,10 +212,10 @@ public class PaymentControlService implements PaymentControlFacade {
                     PaymentExecutionGate.init(command.orderId(), command.paymentId())
                             .fence(command.fenceEpoch()),
                     0);
-            gates.insertPaymentGate(actor.tenantId(), next);
+            gates.insertPaymentGate(next);
         }
-        prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
-        var payment = store.lockPayment(actor.tenantId(), command.paymentId());
+        prior = store.findReceipt("PAYMENT_CLOSE", command.paymentId(), command.requestKey());
+        var payment = store.lockPayment(command.paymentId());
         payment.ifPresent(value -> checkPayment(value, actor, command));
         payment.ifPresent(value -> PaymentExecutionBindings.locked(value, parent, next));
         if (prior.isPresent()) {
@@ -227,13 +225,13 @@ public class PaymentControlService implements PaymentControlFacade {
         }
         var fenced = fence(next, command.fenceEpoch());
         if (fenced != next) {
-            store.updateGate(actor.tenantId(), fenced, next.rowVersion());
+            store.updateGate(fenced, next.rowVersion());
         }
         String evidence = null;
         if (payment.isEmpty()) {
             if (current.isPresent()) {
                 // A gate without its payment is not sufficient proof of never having collected funds.
-                var proof = store.findNoCollectionReceipt(actor.tenantId(), command.paymentId())
+                var proof = store.findNoCollectionReceipt(command.paymentId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!proof.orderId().equals(command.orderId())
                         || !proof.payeeMerchantId().equals(command.payeeMerchantId())
@@ -251,7 +249,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 evidence = ids.generate();
                 var closed = order.requestClose().close(new NoCollectionEvidence(evidence, order.id(), true));
                 var updated = converter.withPayment(previous, closed, evidence);
-                store.updatePayment(actor.tenantId(), updated, order.version());
+                store.updatePayment(updated, order.version());
                 events.publish(actor.tenantId(), updated, true, now());
                 payment = Optional.of(updated);
             } else if (order.state() == PaymentState.INIT
@@ -259,7 +257,7 @@ public class PaymentControlService implements PaymentControlFacade {
                     || order.state() == PaymentState.UNKNOWN) {
                 var unsubmitted = order.activeAttemptId() == null
                         ? Optional.<StoredPaymentAttempt>empty()
-                        : attempts.lock(actor.tenantId(), order.activeAttemptId());
+                        : attempts.lock(order.activeAttemptId());
                 var updatedOrder = order.requestClose();
                 if (unsubmitted.isPresent()
                         && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
@@ -268,13 +266,12 @@ public class PaymentControlService implements PaymentControlFacade {
                     PaymentExecutionBindings.closableContext(
                             PaymentExecutionBindings.locked(previous, parent, fenced), attempt);
                     evidence = ids.generate();
-                    attempts.update(
-                            actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
+                    attempts.update(attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
                     updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
                 }
                 var updated = converter.withPayment(
                         previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
-                store.updatePayment(actor.tenantId(), updated, order.version());
+                store.updatePayment(updated, order.version());
                 if (updatedOrder.state() == PaymentState.CLOSED) {
                     events.publish(actor.tenantId(), updated, true, now());
                 } else {
@@ -285,20 +282,18 @@ public class PaymentControlService implements PaymentControlFacade {
                 evidence = previous.terminalEvidenceId();
             }
         }
-        store.insertReceipt(
-                actor.tenantId(),
-                new PaymentControlReceipt(
-                        ids.generate(),
-                        "PAYMENT_CLOSE",
-                        command.paymentId(),
-                        command.orderId(),
-                        command.payeeMerchantId(),
-                        actor.serviceId(),
-                        command.requestKey(),
-                        digest,
-                        command.fenceEpoch(),
-                        command.reasonCode(),
-                        evidence));
+        store.insertReceipt(new PaymentControlReceipt(
+                ids.generate(),
+                "PAYMENT_CLOSE",
+                command.paymentId(),
+                command.orderId(),
+                command.payeeMerchantId(),
+                actor.serviceId(),
+                command.requestKey(),
+                digest,
+                command.fenceEpoch(),
+                command.reasonCode(),
+                evidence));
         return response(command, fenced, payment.orElse(null), evidence);
     }
 
@@ -341,15 +336,14 @@ public class PaymentControlService implements PaymentControlFacade {
             DomainChecks.positive(command.amountMinor());
             DomainChecks.cnyAmount(command.amountMinor(), command.currency());
             var close = converter.toInputExpiryClose(command);
-            var observedReceipt =
-                    store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
+            var observedReceipt = store.findReceipt("PAYMENT_CLOSE", command.paymentId(), close.requestKey());
             // Coordinate with acceptance/Y2: parent -> child gate -> payment -> input.
             parent(actor, command.orderId(), command.payeeMerchantId(), observedReceipt.isPresent());
-            var gate = gates.lockPayment(actor.tenantId(), command.paymentId());
+            var gate = gates.lockPayment(command.paymentId());
             gate.ifPresent(value ->
                     checkBinding(value, actor, command.orderId(), command.payeeMerchantId(), command.paymentId()));
-            var accepted = store.lockPayment(actor.tenantId(), command.paymentId());
-            var input = inputs.lock(actor.tenantId(), command.inputRef())
+            var accepted = store.lockPayment(command.paymentId());
+            var input = inputs.lock(command.inputRef())
                     .orElseThrow(() -> new CommonException(PaymentResultCodeEnum.NOT_FOUND));
             if (!input.callerServiceId().equals(actor.serviceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
@@ -384,7 +378,7 @@ public class PaymentControlService implements PaymentControlFacade {
             if (input.state() != PaymentInputState.INIT) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
+            var prior = store.findReceipt("PAYMENT_CLOSE", command.paymentId(), close.requestKey());
             if (!input.expired(now()) && prior.isEmpty()) {
                 return converter.toInputExpiry(command, PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
             }
@@ -398,7 +392,7 @@ public class PaymentControlService implements PaymentControlFacade {
     }
 
     private StoredPaymentGate parent(PaymentActor actor, String orderId, String payee, boolean replay) {
-        var existing = gates.lockParent(actor.tenantId(), orderId);
+        var existing = gates.lockParent(orderId);
         if (existing.isPresent()) {
             checkBinding(existing.get(), actor, orderId, payee, null);
             return existing.get();
@@ -412,7 +406,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 actor.serviceId(),
                 PaymentExecutionGate.init(orderId, null).open(),
                 0);
-        gates.insertParent(actor.tenantId(), gate);
+        gates.insertParent(gate);
         return gate;
     }
 
@@ -422,7 +416,7 @@ public class PaymentControlService implements PaymentControlFacade {
     }
 
     private ParentFenceDTO status(PaymentActor actor, StoredPaymentGate current, long requestedEpoch) {
-        var children = store.childrenStatus(actor.tenantId(), current.gate().orderId());
+        var children = store.childrenStatus(current.gate().orderId());
         boolean fenced =
                 current.gate().state() == GateState.FENCED && current.gate().fenceEpoch() >= requestedEpoch;
         return converter.toParent(

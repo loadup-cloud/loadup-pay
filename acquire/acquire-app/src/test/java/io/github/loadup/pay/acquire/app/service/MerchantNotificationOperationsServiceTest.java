@@ -141,23 +141,23 @@ class MerchantNotificationOperationsServiceTest {
 
     @BeforeEach
     void setup() {
-        when(deliveries.lock("tenant", "delivery")).thenAnswer(c -> {
+        when(deliveries.lock("delivery")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
             return Optional.of(current.get());
         });
-        when(deliveries.find("tenant", "delivery")).thenAnswer(c -> Optional.of(current.get()));
-        when(receipts.find(eq("tenant"), anyString(), anyString()))
+        when(deliveries.find("delivery")).thenAnswer(c -> Optional.of(current.get()));
+        when(receipts.find(anyString(), anyString()))
                 .thenAnswer(c ->
-                        Optional.ofNullable(accepted.get(c.<String>getArgument(1) + ":" + c.<String>getArgument(2))));
+                        Optional.ofNullable(accepted.get(c.<String>getArgument(0) + ":" + c.<String>getArgument(1))));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    var receipt = c.<MerchantNotificationWakeReceipt>getArgument(1);
+                    var receipt = c.<MerchantNotificationWakeReceipt>getArgument(0);
                     accepted.put(receipt.callerScopeHash() + ":" + receipt.requestKey(), receipt);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
         when(tasks.find(eq(MerchantNotificationService.TYPE), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(nativeTask.get()));
         when(tasks.register(eq(MerchantNotificationService.TYPE), anyString(), any()))
@@ -185,17 +185,17 @@ class MerchantNotificationOperationsServiceTest {
         assertEquals(1, accepted.size());
         assertEquals(1, manager.commits);
         verify(tasks).register(MerchantNotificationService.TYPE, "delivery:0", original.nextAttemptAt());
-        verify(deliveries, never()).update(anyString(), any(), any());
+        verify(deliveries, never()).update(any(), any());
     }
 
     @Test
     void sameRequestReplaysTheAuditWithoutDependingOnTheCurrentDelivery() {
         var command = command();
         var first = service.wake(command);
-        when(deliveries.lock(anyString(), anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(deliveries.lock(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertEquals(first, service.wake(command));
         verify(tasks, times(1)).register(anyString(), anyString(), any());
-        verify(receipts, times(1)).insert(anyString(), any());
+        verify(receipts, times(1)).insert(any());
         assertEquals(1, manager.commits);
     }
 
@@ -240,7 +240,7 @@ class MerchantNotificationOperationsServiceTest {
                         MerchantNotificationService.TYPE,
                         "delivery:0",
                         current.get().nextAttemptAt());
-        verify(deliveries, never()).update(anyString(), any(), any());
+        verify(deliveries, never()).update(any(), any());
     }
 
     @Test
@@ -285,7 +285,7 @@ class MerchantNotificationOperationsServiceTest {
                                 "delivery", "operation-3", spent.rowVersion(), "Observe exhausted budget"))
                         .result());
         verifyNoInteractions(tasks);
-        verify(deliveries, never()).update(anyString(), any(), any());
+        verify(deliveries, never()).update(any(), any());
     }
 
     @Test
@@ -326,7 +326,7 @@ class MerchantNotificationOperationsServiceTest {
 
     @Test
     void auditFailureAbortsTheWholeLocalTransactionBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(receipts).insert(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(receipts).insert(any());
         assertThrows(CommonException.class, () -> service.wake(command()));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -343,7 +343,7 @@ class MerchantNotificationOperationsServiceTest {
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.wake(command()))
                         .getResultCode());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
         assertEquals(1, manager.rollbacks);
     }
 
@@ -351,7 +351,7 @@ class MerchantNotificationOperationsServiceTest {
     void historyIsOperatorOnlyAndKeepsPaginationMetadata() {
         service.wake(command());
         var record = accepted.values().iterator().next();
-        when(receipts.page("tenant", "delivery", 2, 10)).thenReturn(PageResult.of(List.of(record), 11, 2, 10));
+        when(receipts.page("delivery", 2, 10)).thenReturn(PageResult.of(List.of(record), 11, 2, 10));
         var page = service.wakes(new MerchantNotificationWakePageQuery("delivery", 2, 10));
         var wake = page.getData().iterator().next();
         assertEquals(record.id(), wake.id());

@@ -502,7 +502,7 @@ class RefundRecoveryHandlerPersistenceIT {
                             "b".repeat(64),
                             null));
             transactions.readSnapshot(fixture.tenant(), () -> {
-                var cells = inventory.read(fixture.tenant());
+                var cells = inventory.read();
                 var refund = cells.stream()
                         .filter(value -> value.kind() == RecoveryInventoryCell.Kind.REFUND)
                         .findFirst()
@@ -511,9 +511,7 @@ class RefundRecoveryHandlerPersistenceIT {
                 assertEquals(REFUND_MINOR, refund.nominalAmountMinor());
                 assertEquals(firstUnknownAt, refund.oldestUnknownAt());
                 var queue = unknowns.list(
-                        fixture.tenant(),
-                        PaymentRecoveryKind.REFUND_REQUEST,
-                        new UnknownRecoveryWindow(firstUnknownAt, null, null, 10));
+                        PaymentRecoveryKind.REFUND_REQUEST, new UnknownRecoveryWindow(firstUnknownAt, null, null, 10));
                 assertEquals(1, queue.size());
                 var child = queue.getFirst();
                 assertEquals(fixture.refundId(), child.recordId());
@@ -523,7 +521,6 @@ class RefundRecoveryHandlerPersistenceIT {
                 assertEquals(0L, child.recoveryGeneration());
                 assertFalse(child.recoveryCompleted());
                 assertTrue(unknowns.list(
-                                fixture.tenant(),
                                 PaymentRecoveryKind.REFUND_REQUEST,
                                 new UnknownRecoveryWindow(firstUnknownAt, child.firstUnknownAt(), child.recordId(), 10))
                         .isEmpty());
@@ -546,14 +543,12 @@ class RefundRecoveryHandlerPersistenceIT {
             transactions.readSnapshot(fixture.tenant(), () -> {
                 assertEquals(
                         RecoveryInventoryCell.empty(RecoveryInventoryCell.Kind.REFUND),
-                        inventory.read(fixture.tenant()).stream()
+                        inventory.read().stream()
                                 .filter(value -> value.kind() == RecoveryInventoryCell.Kind.REFUND)
                                 .findFirst()
                                 .orElseThrow());
                 assertTrue(unknowns.list(
-                                fixture.tenant(),
-                                PaymentRecoveryKind.REFUND_REQUEST,
-                                new UnknownRecoveryWindow(now(), null, null, 10))
+                                PaymentRecoveryKind.REFUND_REQUEST, new UnknownRecoveryWindow(now(), null, null, 10))
                         .isEmpty());
                 return true;
             });
@@ -631,7 +626,7 @@ class RefundRecoveryHandlerPersistenceIT {
             transactions.readSnapshot(fixture.tenant(), () -> {
                 assertEquals(
                         RefundState.SUCCEEDED,
-                        refunds.load(fixture.tenant(), fixture.requestId())
+                        refunds.load(fixture.requestId())
                                 .request()
                                 .children()
                                 .getFirst()
@@ -735,7 +730,7 @@ class RefundRecoveryHandlerPersistenceIT {
                 day,
                 PaymentCaptureScope.WECHAT_ALL,
                 clock.getZone().getId());
-        return transactions.readSnapshot(fixture.tenant(), 10, () -> captureReader.read(fixture.tenant(), scope));
+        return transactions.readSnapshot(fixture.tenant(), 10, () -> captureReader.read(scope));
     }
 
     private RefundObservation acceptance(
@@ -758,34 +753,26 @@ class RefundRecoveryHandlerPersistenceIT {
     private RefundFixture seedSubmittedRefund() {
         var payment = FinancialPersistenceFixtures.prepared(codec, bindingCodec);
         transactions.writeLocal(payment.tenant(), () -> {
-            bindings.insertHead(payment.tenant(), payment.head());
-            bindings.insertRevision(payment.tenant(), payment.revision());
-            payments.insertParent(
-                    payment.tenant(),
-                    new StoredPaymentGate(
-                            id("parent"),
-                            payment.command().payeeMerchantId(),
-                            "acquire",
-                            PaymentExecutionGate.init(payment.command().orderId(), null)
-                                    .open(),
-                            0L));
-            payments.insertPaymentGate(
-                    payment.tenant(),
-                    new StoredPaymentGate(
-                            id("gate"),
-                            payment.command().payeeMerchantId(),
-                            "acquire",
-                            PaymentExecutionGate.init(
-                                            payment.command().orderId(),
-                                            payment.command().paymentId())
-                                    .open(),
-                            0L));
-            payments.insert(payment.tenant(), payment.payment());
-            attempts.insert(payment.tenant(), payment.attempt());
-            attempts.update(
-                    payment.tenant(),
-                    payment.attempt().beginSubmission(1L, "d".repeat(64), RiskDecision.notConnected(), AT),
-                    0L);
+            bindings.insertHead(payment.head());
+            bindings.insertRevision(payment.revision());
+            payments.insertParent(new StoredPaymentGate(
+                    id("parent"),
+                    payment.command().payeeMerchantId(),
+                    "acquire",
+                    PaymentExecutionGate.init(payment.command().orderId(), null).open(),
+                    0L));
+            payments.insertPaymentGate(new StoredPaymentGate(
+                    id("gate"),
+                    payment.command().payeeMerchantId(),
+                    "acquire",
+                    PaymentExecutionGate.init(
+                                    payment.command().orderId(),
+                                    payment.command().paymentId())
+                            .open(),
+                    0L));
+            payments.insert(payment.payment());
+            attempts.insert(payment.attempt());
+            attempts.update(payment.attempt().beginSubmission(1L, "d".repeat(64), RiskDecision.notConnected(), AT), 0L);
             return true;
         });
         var identity = payment.attempt().attempt().identity();
@@ -800,10 +787,8 @@ class RefundRecoveryHandlerPersistenceIT {
                 "c".repeat(64));
         collectionResults.record(payment.tenant(), success);
         var fixture = transactions.writeLocal(payment.tenant(), () -> {
-            payments.lockParent(payment.tenant(), payment.command().orderId()).orElseThrow();
-            var capacity = refunds.lockCapacities(
-                            payment.tenant(), payment.command().orderId())
-                    .getFirst();
+            payments.lockParent(payment.command().orderId()).orElseThrow();
+            var capacity = refunds.lockCapacities(payment.command().orderId()).getFirst();
             var amount = Money.ofMinor(REFUND_MINOR, "CNY");
             var item = new FifoRefundPolicy()
                     .plan(
@@ -841,9 +826,7 @@ class RefundRecoveryHandlerPersistenceIT {
                     AT,
                     List.of(child));
             refunds.insertPlan(
-                    payment.tenant(),
-                    stored,
-                    List.of(new RefundCapacityReservation(capacity, capacity.reserve(REFUND_MINOR))));
+                    stored, List.of(new RefundCapacityReservation(capacity, capacity.reserve(REFUND_MINOR))));
             projections.planned(
                     payment.tenant(), stored, payment.payment().payment().amount());
             recovery.register(payment.tenant(), stored);
@@ -859,7 +842,7 @@ class RefundRecoveryHandlerPersistenceIT {
                     AT,
                     null,
                     null);
-            results.update(payment.tenant(), change);
+            results.update(change);
             projections.changed(payment.tenant(), change);
             return new RefundFixture(
                     payment,
@@ -899,7 +882,7 @@ class RefundRecoveryHandlerPersistenceIT {
 
     private void assertReserved(RefundFixture fixture, RefundState state, long version) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var stored = refunds.load(fixture.tenant(), fixture.requestId());
+            var stored = refunds.load(fixture.requestId());
             assertEquals(RefundRequestState.PROCESSING, stored.request().state());
             assertEquals(version, stored.request().version());
             assertEquals(state, stored.request().children().getFirst().state());
@@ -908,7 +891,7 @@ class RefundRecoveryHandlerPersistenceIT {
                     fixture.prepared().channelRefundNo(),
                     stored.request().children().getFirst().channelRefundNo());
             var capacity = collections
-                    .capacity(fixture.tenant(), fixture.payment().command().paymentId())
+                    .capacity(fixture.payment().command().paymentId())
                     .orElseThrow();
             assertEquals(REFUND_MINOR, capacity.reservedMinor());
             assertEquals(0L, capacity.refundedMinor());
@@ -926,7 +909,7 @@ class RefundRecoveryHandlerPersistenceIT {
 
     private void assertSucceeded(RefundFixture fixture, long version, boolean hadUnknown, long receiptCount) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var stored = refunds.load(fixture.tenant(), fixture.requestId());
+            var stored = refunds.load(fixture.requestId());
             assertEquals(RefundRequestState.SUCCEEDED, stored.request().state());
             assertEquals(version, stored.request().version());
             assertEquals(REFUND_MINOR, stored.request().succeededMinor());
@@ -934,11 +917,11 @@ class RefundRecoveryHandlerPersistenceIT {
             assertEquals(RefundState.SUCCEEDED, refund.state());
             assertEquals(version, refund.version());
             assertEquals(fixture.prepared().channelRefundNo(), refund.channelRefundNo());
-            var claim = results.claim(fixture.tenant(), fixture.refundId()).orElseThrow();
+            var claim = results.claim(fixture.refundId()).orElseThrow();
             assertEquals(refund.terminalEvidenceId(), claim.receiptId());
             assertEquals(fixture.prepared().original(), claim.original());
             var capacity = collections
-                    .capacity(fixture.tenant(), fixture.payment().command().paymentId())
+                    .capacity(fixture.payment().command().paymentId())
                     .orElseThrow();
             assertEquals(REFUND_MINOR, capacity.refundedMinor());
             assertEquals(0L, capacity.reservedMinor());
@@ -965,9 +948,7 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private void assertOriginalPayment(RefundFixture fixture) {
-        var payment = payments.find(
-                        fixture.tenant(), fixture.payment().command().paymentId())
-                .orElseThrow();
+        var payment = payments.find(fixture.payment().command().paymentId()).orElseThrow();
         assertEquals(PaymentState.SUCCEEDED, payment.payment().state());
         assertEquals(10000L, payment.payment().amount().getCent());
         assertEquals(2L, payment.payment().version());
@@ -1012,7 +993,7 @@ class RefundRecoveryHandlerPersistenceIT {
 
     private void assertCursor(RefundFixture fixture, long generation, boolean completed) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var cursor = cursors.find(fixture.tenant(), fixture.requestId()).orElseThrow();
+            var cursor = cursors.find(fixture.requestId()).orElseThrow();
             assertEquals(generation, cursor.generation());
             assertEquals(completed, cursor.completed());
             assertEquals(
@@ -1108,14 +1089,14 @@ class RefundRecoveryHandlerPersistenceIT {
         }
 
         @Override
-        public void update(String tenant, RefundProgressChange change) {
-            super.update(tenant, change);
+        public void update(RefundProgressChange change) {
+            super.update(change);
             faults.after(FailurePoint.AFTER_STATE);
         }
 
         @Override
-        public void insertReceipt(String tenant, RefundChannelReceipt receipt) {
-            super.insertReceipt(tenant, receipt);
+        public void insertReceipt(RefundChannelReceipt receipt) {
+            super.insertReceipt(receipt);
             faults.after(FailurePoint.AFTER_RECEIPT);
         }
     }
@@ -1155,8 +1136,8 @@ class RefundRecoveryHandlerPersistenceIT {
         }
 
         @Override
-        public boolean remember(String tenant, RefundAcceptanceEvidence value, long expected) {
-            boolean result = super.remember(tenant, value, expected);
+        public boolean remember(RefundAcceptanceEvidence value, long expected) {
+            boolean result = super.remember(value, expected);
             String target = failAfterWrite.get();
             if (value.refundId().equals(target) && failAfterWrite.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual acceptance evidence insert");

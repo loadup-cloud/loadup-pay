@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
 import io.github.loadup.commons.error.CommonException;
@@ -35,11 +34,8 @@ public class PaymentAcquireOutcomeDelivery {
 
     public void deliver(OutboxEvent event) {
         var snapshot = support.load(event, PaymentEvents.ACQUIRE);
-        if (!acquire.supportsTenant(snapshot.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var envelope = snapshot.envelope();
-        var ack = acquire.accept(snapshot.tenantId(), envelope);
+        var ack = acquire.accept(envelope);
         if (ack == null
                 || !ack.accepted()
                 || !envelope.deliveryId().equals(ack.deliveryId())

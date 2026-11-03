@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryRetryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
@@ -51,8 +49,7 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     }
 
     @Override
-    public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
-        scope(tenant);
+    public Optional<PaymentRecoveryRetryReceipt> find(String callerScopeHash, String requestKey) {
         var args =
                 new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
@@ -72,8 +69,7 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     }
 
     @Override
-    public void insert(String tenant, PaymentRecoveryRetryReceipt receipt) {
-        scope(tenant);
+    public void insert(PaymentRecoveryRetryReceipt receipt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
@@ -81,7 +77,7 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -99,12 +95,6 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

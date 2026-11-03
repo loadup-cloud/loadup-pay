@@ -61,7 +61,7 @@ class PaymentEvidenceHttpClientTest {
 
     @BeforeEach
     void start() throws Exception {
-        ServiceAccessTokens tokens = (tenant, service, audience) -> "header.payload.signature";
+        ServiceAccessTokens tokens = (service, audience) -> "header.payload.signature";
         var properties = new ReconciliationPaymentProperties("tenant", "reconciliation", "payment");
         captureClient = new PaymentCaptureHttpClient(captures, properties, tokens);
         statementClient = new PaymentStatementHttpClient(statements, properties, tokens);
@@ -75,7 +75,7 @@ class PaymentEvidenceHttpClientTest {
                         Result.buildFailure(PaymentResultCodeEnum.INVALID_STATE), null, null));
         assertSame(
                 ReconciliationResultCodeEnum.INPUT_NOT_SEALED,
-                assertThrows(CommonException.class, () -> captureClient.lines("tenant", query))
+                assertThrows(CommonException.class, () -> captureClient.lines(query))
                         .getResultCode());
         var row = new PaymentLedgerLineDTO(
                 1,
@@ -95,7 +95,7 @@ class PaymentEvidenceHttpClientTest {
                         new PaymentCapturePageResponse(Result.buildSuccess(), List.of(row), new PageInfo(2L, 1L, 2L)));
         assertSame(
                 ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> captureClient.lines("tenant", query))
+                assertThrows(CommonException.class, () -> captureClient.lines(query))
                         .getResultCode());
     }
 
@@ -106,23 +106,23 @@ class PaymentEvidenceHttpClientTest {
                         new SuccessResponse<>(Result.buildFailure(PaymentResultCodeEnum.STATEMENT_NOT_READY), null));
         assertSame(
                 ReconciliationResultCodeEnum.STATEMENT_NOT_READY,
-                assertThrows(CommonException.class, () -> statementClient.download("tenant", null))
+                assertThrows(CommonException.class, () -> statementClient.download(null))
                         .getResultCode());
         when(statements.download(anyString(), any()))
                 .thenThrow(new IllegalStateException("loadup-result-code=PAYMENT_STATEMENT_NOT_READY"));
-        var error = assertThrows(CommonException.class, () -> statementClient.download("tenant", null));
+        var error = assertThrows(CommonException.class, () -> statementClient.download(null));
         assertSame(ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
         assertNull(error.getCause());
     }
 
     @Test
     void wrongTenantAndAnOuterTransactionDoNotReachTheProvider() {
-        assertThrows(CommonException.class, () -> captureClient.detail("another", "capture"));
+        assertThrows(CommonException.class, () -> captureClient.detail("capture"));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
                     ReconciliationResultCodeEnum.INVALID_STATE,
-                    assertThrows(CommonException.class, () -> statementClient.download("tenant", null))
+                    assertThrows(CommonException.class, () -> statementClient.download(null))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

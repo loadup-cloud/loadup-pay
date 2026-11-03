@@ -91,7 +91,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         }
         var key = validateTask(task);
         var tenant = TenantUtil.getTenantId();
-        var located = cursors.find(tenant, key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var located = cursors.find(key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var pending = transactions.writeLocal(tenant, () -> {
             var locked = lock(tenant, key, located.orderId());
             if (!current(locked.cursor(), key, task)) {
@@ -121,7 +121,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
                 });
         var command = outcomes.bound(
                 owner,
-                orders.findOrder(tenant, original.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                orders.findOrder(original.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
                 stored);
         var recovered = initiation.recover(
                 principal,
@@ -185,11 +185,11 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
 
     private AllocationView lock(String tenant, AllocationRecoveryKey key, String orderId) {
         // Consistent with A2/A3: order, allocation, then continuation cursor.
-        var order = orders.lockOrder(tenant, orderId);
+        var order = orders.lockOrder(orderId);
         var allocation = allocations
-                .lockPayment(tenant, orderId, key.paymentId())
+                .lockPayment(orderId, key.paymentId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var cursor = cursors.lock(tenant, key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var cursor = cursors.lock(key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!order.order().id().equals(orderId)
                 || !allocation.allocation().orderId().equals(orderId)
                 || !allocation.allocation().paymentId().equals(key.paymentId())
@@ -252,7 +252,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
                 || !command.requestDigest().equals(allocation.requestDigest())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var receipt = allocations.findReceipt(tenant, allocation.id());
+        var receipt = allocations.findReceipt(allocation.id());
         if (allocation.state() == AllocationState.HELD) {
             if (receipt.isPresent()
                     || locked.order().order().paymentReservedMinor()

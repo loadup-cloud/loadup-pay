@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.product.infrastructure.client;
 
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
 
@@ -46,15 +45,7 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
     }
 
     @Override
-    public boolean supportsTenant(String tenant) {
-        return properties.tenantId().equals(tenant);
-    }
-
-    @Override
-    public LimitPolicyActivationDTO activate(String tenant, LimitPolicyActivateCommand command) {
-        if (!supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    public LimitPolicyActivationDTO activate(LimitPolicyActivateCommand command) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -66,6 +57,6 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
     }
 
     private String credential() {
-        return tokens.token(properties.tenantId(), properties.serviceId(), properties.audience());
+        return tokens.token(properties.serviceId(), properties.audience());
     }
 }

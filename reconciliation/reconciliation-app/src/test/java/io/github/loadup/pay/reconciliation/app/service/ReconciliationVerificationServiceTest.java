@@ -132,27 +132,26 @@ class ReconciliationVerificationServiceTest {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     return approved;
                 });
-        when(requests.findRequest(anyString(), anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(requests.find("tenant", "request")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(requests.lock("tenant", "request")).thenAnswer(call -> {
+        when(requests.findRequest(anyString(), anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(requests.find("request")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(requests.lock("request")).thenAnswer(call -> {
             write();
             return Optional.ofNullable(stored.get());
         });
         doAnswer(call -> {
                     write();
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(requests)
-                .insert(anyString(), any());
+                .insert(any());
         doAnswer(call -> {
                     write();
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(requests)
-                .update(anyString(), any(), anyLong());
+                .update(any(), anyLong());
         when(outbox.publish(any())).thenAnswer(call -> {
             write();
             OutboxMessage message = call.getArgument(0);
@@ -167,7 +166,7 @@ class ReconciliationVerificationServiceTest {
             nativeRow.set(row("PENDING", 0));
             return true;
         });
-        when(payment.verify(eq("tenant"), any())).thenAnswer(call -> {
+        when(payment.verify(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertNotNull(stored.get());
             assertEquals(ReconciliationVerificationState.INIT, stored.get().state());
@@ -200,13 +199,13 @@ class ReconciliationVerificationServiceTest {
         assertEquals("RECORDED", service.detail(new IdQuery("request")).state().name());
         assertEquals(reference, stored.get().reference());
         deliver();
-        verify(payment, times(1)).verify(eq("tenant"), any());
+        verify(payment, times(1)).verify(any());
         nativeRow.set(row("FAILED", 1));
         service.retry(new ReconciliationVerificationRetryCommand("request", "delivery", "retry lost acknowledgement"));
         nativeRow.set(row("PROCESSING", 1));
         deliver();
         assertEquals(first, stored.get().receipt());
-        verify(payment, times(1)).verify(eq("tenant"), any());
+        verify(payment, times(1)).verify(any());
     }
 
     @Test
@@ -215,7 +214,7 @@ class ReconciliationVerificationServiceTest {
         nativeRow.set(row("PROCESSING", 1));
         doAnswer(call -> result(call.getArgument(1), PaymentVerificationDisposition.NO_LOCAL_TARGET))
                 .when(payment)
-                .verify(anyString(), any());
+                .verify(any());
         deliver();
         var receipt = stored.get().receipt();
         assertEquals(ReconciliationVerificationDisposition.NO_LOCAL_TARGET, receipt.disposition());
@@ -242,7 +241,7 @@ class ReconciliationVerificationServiceTest {
                             PaymentVerificationDisposition.NO_LOCAL_TARGET);
                 })
                 .when(payment)
-                .verify(anyString(), any());
+                .verify(any());
         assertEquals(
                 SCOPE_MISMATCH,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
@@ -252,7 +251,7 @@ class ReconciliationVerificationServiceTest {
                     return result(call.getArgument(1), PaymentVerificationDisposition.OBSERVED);
                 })
                 .when(payment)
-                .verify(anyString(), any());
+                .verify(any());
         assertEquals(
                 INVALID_STATE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());

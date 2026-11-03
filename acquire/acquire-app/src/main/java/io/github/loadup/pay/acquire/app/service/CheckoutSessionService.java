@@ -66,7 +66,7 @@ public class CheckoutSessionService implements CheckoutSessionFacade {
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.orderId());
             DomainChecks.text(command.requestKey(), 128);
-            var order = orders.lockOrder(actor.tenantId(), command.orderId());
+            var order = orders.lockOrder(command.orderId());
             if (!actor.scopeHash().equals(order.callerScopeHash())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }

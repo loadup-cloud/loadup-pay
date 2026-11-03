@@ -20,11 +20,9 @@ import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 
 public interface PaymentOutcomeClient {
-    boolean supportsTenant(String tenant);
+    PaymentOutcomeDTO outcome(String paymentId);
 
-    PaymentOutcomeDTO outcome(String tenant, String paymentId);
+    PaymentSettlementFactsDTO facts(String paymentId);
 
-    PaymentSettlementFactsDTO facts(String tenant, String paymentId);
-
-    OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId);
+    OrderRefundSummaryEventDTO refundSummary(String orderId);
 }

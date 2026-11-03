@@ -142,7 +142,7 @@ public class RefundExecutionService {
                     LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS),
                     null,
                     null);
-            changes.update(tenant, change);
+            changes.update(change);
             projections.changed(tenant, change);
         }
         return Optional.of(new RefundExecutionWork(requestId, prepared, winner));

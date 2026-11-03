@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -65,8 +63,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public Optional<StoredPaymentAcceptance> find(String tenant, String id) {
-        scope(tenant);
+    public Optional<StoredPaymentAcceptance> find(String id) {
         var args = new MapSqlParameterSource().addValue("id", id);
         return stored(jdbc
                 .query(
@@ -79,8 +76,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public Optional<StoredPaymentAcceptance> findAllocation(String tenant, String id) {
-        scope(tenant);
+    public Optional<StoredPaymentAcceptance> findAllocation(String id) {
         var args = new MapSqlParameterSource().addValue("allocation", id);
         return stored(jdbc
                 .query(
@@ -107,8 +103,8 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public Optional<StoredPaymentGate> lockParent(String tenant, String orderId) {
-        gateTransaction(tenant);
+    public Optional<StoredPaymentGate> lockParent(String orderId) {
+        gateTransaction();
         var args = new MapSqlParameterSource().addValue("orderId", orderId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, order_id, payee_merchant_id, caller_service_id,
@@ -126,8 +122,8 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public Optional<StoredPaymentGate> lockPayment(String tenant, String paymentId) {
-        gateTransaction(tenant);
+    public Optional<StoredPaymentGate> lockPayment(String paymentId) {
+        gateTransaction();
         var args = new MapSqlParameterSource().addValue("payment", paymentId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, order_id, payment_id, payee_merchant_id, caller_service_id,
@@ -144,12 +140,12 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public void insertParent(String tenant, StoredPaymentGate gate) {
-        gateTransaction(tenant);
+    public void insertParent(StoredPaymentGate gate) {
+        gateTransaction();
         if (gate.gate().paymentId() != null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var row = converter.toParentDO(tenant, gate);
+        var row = converter.toParentDO(gate);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -169,12 +165,12 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public void insertPaymentGate(String tenant, StoredPaymentGate gate) {
-        gateTransaction(tenant);
+    public void insertPaymentGate(StoredPaymentGate gate) {
+        gateTransaction();
         if (gate.gate().paymentId() == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var row = converter.toGateDO(tenant, gate);
+        var row = converter.toGateDO(gate);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -194,9 +190,9 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     }
 
     @Override
-    public void insert(String tenant, StoredPaymentAcceptance value) {
-        gateTransaction(tenant);
-        var row = converter.toPaymentDO(tenant, value);
+    public void insert(StoredPaymentAcceptance value) {
+        gateTransaction();
+        var row = converter.toPaymentDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -219,14 +215,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         }
     }
 
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
-    private void gateTransaction(String tenant) {
-        scope(tenant);
+    private void gateTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

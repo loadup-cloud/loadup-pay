@@ -93,7 +93,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
                 new SourceVersion("acquire", "AcquireOrder", event.aggregateId(), event.aggregateVersion()),
                 now());
         String hash = codec.hash(codec.encode(value));
-        return consume(actor, event, hash, () -> projections.applyOrderIfNewer(actor.tenantId(), value, hash));
+        return consume(actor, event, hash, () -> projections.applyOrderIfNewer(value, hash));
     }
 
     @Override
@@ -108,7 +108,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
                 new SourceVersion("payment", "PaymentOrder", event.aggregateId(), event.aggregateVersion()),
                 now());
         String hash = codec.hash(codec.encode(value));
-        return consume(actor, event, hash, () -> projections.applyPaymentIfNewer(actor.tenantId(), value, hash));
+        return consume(actor, event, hash, () -> projections.applyPaymentIfNewer(value, hash));
     }
 
     @Override
@@ -123,7 +123,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
                 new SourceVersion("payment", "RefundOrder", event.aggregateId(), event.aggregateVersion()),
                 now());
         String hash = codec.hash(codec.encode(value));
-        return consume(actor, event, hash, () -> projections.applyRefundIfNewer(actor.tenantId(), value, hash));
+        return consume(actor, event, hash, () -> projections.applyRefundIfNewer(value, hash));
     }
 
     @Override
@@ -141,14 +141,14 @@ public class TradeProjectionService implements TradeProjectionFacade {
                 new SourceVersion("payment", "OrderRefundSummary", event.aggregateId(), event.aggregateVersion()),
                 now());
         String hash = codec.hash(codec.encode(value));
-        return consume(actor, event, hash, () -> projections.applyRefundSummaryIfNewer(actor.tenantId(), value, hash));
+        return consume(actor, event, hash, () -> projections.applyRefundSummaryIfNewer(value, hash));
     }
 
     private ProjectionAckDTO consume(
             RealtimeActor actor, EventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
         String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), event, hash);
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var prior = receipts.find(actor.tenantId(), event.producer(), event.deliveryId());
+            var prior = receipts.find(event.producer(), event.deliveryId());
             if (prior.isPresent()) {
                 var receipt = prior.get();
                 if (!receipt.callerServiceId().equals(actor.serviceId())
@@ -170,7 +170,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
                     digest,
                     actor.serviceId(),
                     now());
-            receipts.insert(actor.tenantId(), receipt);
+            receipts.insert(receipt);
             return converter.toAck(receipt);
         });
     }

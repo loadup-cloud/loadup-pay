@@ -16,7 +16,6 @@
 package io.github.loadup.pay.customer.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.modules.merchant.client.facade.MerchantPersistenceFacade;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.gateway.MerchantFactsGateway;
@@ -35,21 +34,13 @@ public class MerchantFactsGatewayImpl implements MerchantFactsGateway {
         this.converter = converter;
     }
 
-    private static void tenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
-        }
-    }
-
     @Override
-    public Optional<MerchantFacts> find(String tenant, String id) {
-        tenant(tenant);
+    public Optional<MerchantFacts> find(String id) {
         return merchants.find(id).map(converter::toFacts);
     }
 
     @Override
-    public MerchantFacts lock(String tenant, String id) {
-        tenant(tenant);
+    public MerchantFacts lock(String id) {
         return merchants
                 .lock(id)
                 .map(converter::toFacts)

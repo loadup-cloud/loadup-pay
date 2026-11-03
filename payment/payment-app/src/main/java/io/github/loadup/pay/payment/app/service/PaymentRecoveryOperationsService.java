@@ -157,12 +157,12 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 command.requestKey(),
                 command.reason())));
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            var known = receipts.find(actor.tenantId(), scope, command.requestKey());
+            var known = receipts.find(scope, command.requestKey());
             if (known.isPresent()) {
                 return replay(actor, known.get(), scope, digest);
             }
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var existing = receipts.find(actor.tenantId(), scope, command.requestKey());
+                var existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), scope, digest);
                 }
@@ -170,7 +170,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                         lockForRetry(actor.tenantId(), command.kind(), command.subjectId(), command.generation());
                 // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order
                 // key reuse.
-                existing = receipts.find(actor.tenantId(), scope, command.requestKey());
+                existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), scope, digest);
                 }
@@ -207,7 +207,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                         digest,
                         result,
                         LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
-                receipts.insert(actor.tenantId(), receipt);
+                receipts.insert(receipt);
                 return converter.toDTO(receipt);
             });
         });
@@ -222,7 +222,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         final boolean terminal;
         switch (kind) {
             case COLLECTION -> {
-                var initial = payments.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND));
+                var initial = payments.find(subject).orElseThrow(() -> new CommonException(NOT_FOUND));
                 // The persisted calling service only validates the original binding; it is not the operator's
                 // authority.
                 var original = paymentLocks
@@ -234,8 +234,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                                 .equals(initial.payment().orderId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                var cursor =
-                        paymentCursors.lock(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var cursor = paymentCursors.lock(subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!cursor.paymentId().equals(subject)) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
@@ -250,8 +249,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 if (!original.request().id().equals(subject)) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                var cursor =
-                        refundCursors.lock(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var cursor = refundCursors.lock(subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!cursor.requestId().equals(subject)) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
@@ -279,9 +277,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         final RecoveryView view;
         switch (kind) {
             case COLLECTION -> {
-                var original = payments.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND));
-                var cursor =
-                        paymentCursors.find(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var original = payments.find(subject).orElseThrow(() -> new CommonException(NOT_FOUND));
+                var cursor = paymentCursors.find(subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!subject.equals(original.payment().id()) || !subject.equals(cursor.paymentId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
@@ -293,9 +290,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                         PaymentExecutionService.terminal(original.payment().state()));
             }
             case REFUND_REQUEST -> {
-                var original = refunds.load(tenant, subject);
-                var cursor =
-                        refundCursors.find(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var original = refunds.load(subject);
+                var cursor = refundCursors.find(subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!subject.equals(original.request().id()) || !subject.equals(cursor.requestId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }

@@ -83,7 +83,7 @@ class AllocationRecoveryQueueTest {
             return true;
         });
         var sequence = inOrder(cursors, tasks);
-        sequence.verify(cursors).insert("tenant", expected);
+        sequence.verify(cursors).insert(expected);
         sequence.verify(tasks).register(AllocationRecoveryQueue.TYPE, "payment.0", due);
         assertEquals(1, manager.commits);
     }
@@ -113,7 +113,7 @@ class AllocationRecoveryQueueTest {
             return true;
         });
         var sequence = inOrder(cursors, tasks);
-        sequence.verify(cursors).update("tenant", before, after);
+        sequence.verify(cursors).update(before, after);
         sequence.verify(tasks).register(AllocationRecoveryQueue.TYPE, "payment.1", after.dueAt());
         sequence.verifyNoMoreInteractions();
     }

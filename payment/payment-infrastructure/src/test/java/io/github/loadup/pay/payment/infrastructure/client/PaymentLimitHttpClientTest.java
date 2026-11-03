@@ -116,7 +116,7 @@ class PaymentLimitHttpClientTest {
         token(claims());
         client = new PaymentLimitHttpClient(
                 limitCenterHttp,
-                (tenant, service, audience) -> credential,
+                (service, audience) -> credential,
                 new PaymentLimitProperties("tenant", "payment", "limitcenter"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
@@ -134,9 +134,7 @@ class PaymentLimitHttpClientTest {
 
     @Test
     void confirmUsesTheConfiguredOperationAndOriginalTypedCommand() {
-        assertEquals(
-                LimitReservationState.CONFIRMED,
-                client.confirm("tenant", confirm).state());
+        assertEquals(LimitReservationState.CONFIRMED, client.confirm(confirm).state());
         verify(limitCenterHttp).confirm(anyString(), eq(confirm));
         assertEquals(1, attachments.size());
         assertTrue(attachments.getFirst().startsWith("Bearer "));
@@ -144,7 +142,7 @@ class PaymentLimitHttpClientTest {
 
     @Test
     void releaseDecodesAFencedReceiptWithoutFabricatingAReservation() {
-        var ack = client.release("tenant", release);
+        var ack = client.release(release);
         assertTrue(ack.fenced());
         assertNull(ack.reservation());
         assertEquals(2, ack.paymentVersion());
@@ -172,18 +170,18 @@ class PaymentLimitHttpClientTest {
                 })
                 .when(limitCenterHttp)
                 .restoreRefund(anyString(), any());
-        assertEquals(ack, client.restoreRefund("tenant", refundRestore));
+        assertEquals(ack, client.restoreRefund(refundRestore));
         verify(limitCenterHttp).restoreRefund(anyString(), eq(refundRestore));
     }
 
     @Test
     void serviceTokenProviderIsConsultedBetweenRetriesAndOperations() throws Exception {
         var first = token(claims());
-        client.confirm("tenant", confirm);
+        client.confirm(confirm);
         var rotated = claims();
         rotated.put("exp", clock.instant().getEpochSecond() + 600);
         var second = token(rotated);
-        client.release("tenant", release);
+        client.release(release);
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
     }
 
@@ -194,7 +192,7 @@ class PaymentLimitHttpClientTest {
                 .confirm(anyString(), any());
         assertSame(
                 PaymentResultCodeEnum.LIMIT_EXCEEDED,
-                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                assertThrows(CommonException.class, () -> client.confirm(confirm))
                         .getResultCode());
     }
 
@@ -212,7 +210,7 @@ class PaymentLimitHttpClientTest {
                     .confirm(anyString(), any());
             assertSame(
                     local,
-                    assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                    assertThrows(CommonException.class, () -> client.confirm(confirm))
                             .getResultCode());
         });
         doAnswer(invocation -> {
@@ -222,7 +220,7 @@ class PaymentLimitHttpClientTest {
                 .confirm(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                assertThrows(CommonException.class, () -> client.confirm(confirm))
                         .getResultCode());
     }
 
@@ -232,7 +230,7 @@ class PaymentLimitHttpClientTest {
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> client.release("tenant", release))
+                    assertThrows(CommonException.class, () -> client.release(release))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
@@ -246,7 +244,7 @@ class PaymentLimitHttpClientTest {
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> client.restoreRefund("tenant", refundRestore))
+                    assertThrows(CommonException.class, () -> client.restoreRefund(refundRestore))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

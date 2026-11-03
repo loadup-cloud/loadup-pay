@@ -150,25 +150,25 @@ class MerchantNotificationEventsTest {
     @BeforeEach
     void setup() {
         prepare(AcquireOrderState.PAID, 10000, NOW, 7);
-        when(orders.lockOrder(TENANT, ORDER_ID)).thenAnswer(call -> {
+        when(orders.lockOrder(ORDER_ID)).thenAnswer(call -> {
             activeTenant();
             return storedOrder.get();
         });
         when(admissions.decodeAdmission(anyString(), anyString())).thenAnswer(call -> admission.get());
-        when(factsReader.lockCurrent(TENANT, ORDER_ID)).thenAnswer(call -> {
+        when(factsReader.lockCurrent(ORDER_ID)).thenAnswer(call -> {
             activeTenant();
             return currentFacts.get();
         });
-        when(deliveries.findEvent(eq(TENANT), anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(existing.get(key(call.getArgument(1), call.getArgument(2)))));
+        when(deliveries.findEvent(anyString(), anyString()))
+                .thenAnswer(call -> Optional.ofNullable(existing.get(key(call.getArgument(0), call.getArgument(1)))));
         doAnswer(call -> {
                     activeTenant();
-                    MerchantNotificationDelivery delivery = call.getArgument(1);
+                    MerchantNotificationDelivery delivery = call.getArgument(0);
                     existing.put(key(delivery.eventId(), delivery.policy().targetRef()), delivery);
                     return null;
                 })
                 .when(deliveries)
-                .insert(eq(TENANT), any());
+                .insert(any());
         doAnswer(call -> {
                     activeTenant();
                     return null;
@@ -189,7 +189,7 @@ class MerchantNotificationEventsTest {
     void disabledOriginalContractDoesNotCreateDeliveryOrTask() {
         write(() -> events.order(TENANT, currentFacts.get()));
 
-        verify(deliveries, never()).insert(eq(TENANT), any());
+        verify(deliveries, never()).insert(any());
         verify(tasks, never()).register(anyString(), anyString(), any());
         verifyNoInteractions(ids);
     }
@@ -270,7 +270,7 @@ class MerchantNotificationEventsTest {
         write(() -> events.order(TENANT, header));
         write(() -> events.order(TENANT, header));
 
-        verify(deliveries, times(1)).insert(eq(TENANT), any());
+        verify(deliveries, times(1)).insert(any());
         verify(tasks, times(1)).register(anyString(), anyString(), any());
     }
 
@@ -301,7 +301,7 @@ class MerchantNotificationEventsTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> write(() -> events.order(TENANT, initial)))
                         .getResultCode());
-        verify(deliveries, times(1)).insert(eq(TENANT), any());
+        verify(deliveries, times(1)).insert(any());
         verify(tasks, times(1)).register(anyString(), anyString(), any());
     }
 
@@ -388,7 +388,7 @@ class MerchantNotificationEventsTest {
                 source.occurredAt().toInstant(),
                 BusinessTime.external(delivery.occurredAt()).toInstant());
         assertEquals(original, storedOrder.get());
-        verify(deliveries, times(1)).insert(eq(TENANT), any());
+        verify(deliveries, times(1)).insert(any());
         verify(tasks, times(1)).register(anyString(), anyString(), any());
     }
 

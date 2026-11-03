@@ -24,17 +24,17 @@ import java.util.Optional;
  * Local storage only; the application owns the A0/A1 transaction boundaries.
  */
 public interface OrderCreationGateway {
-    Optional<OrderCreateIntent> findIntent(String tenant, String payee, String merchantOrderNo);
+    Optional<OrderCreateIntent> findIntent(String payee, String merchantOrderNo);
 
-    OrderCreateIntent lockIntent(String tenant, String id);
+    OrderCreateIntent lockIntent(String id);
 
-    void insertIntent(String tenant, OrderCreateIntent intent);
+    void insertIntent(OrderCreateIntent intent);
 
-    void updateIntent(String tenant, OrderCreateIntent intent, long expectedVersion);
+    void updateIntent(OrderCreateIntent intent, long expectedVersion);
 
-    Optional<StoredAcquireOrder> findOrder(String tenant, String orderId);
+    Optional<StoredAcquireOrder> findOrder(String orderId);
 
-    StoredAcquireOrder lockOrder(String tenant, String orderId);
+    StoredAcquireOrder lockOrder(String orderId);
 
-    void insertOrder(String tenant, StoredAcquireOrder order, OrderFee fee, String feePolicyPayload);
+    void insertOrder(StoredAcquireOrder order, OrderFee fee, String feePolicyPayload);
 }

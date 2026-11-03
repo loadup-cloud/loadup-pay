@@ -82,7 +82,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RefundRequestDO toRequestDO(String tenant, StoredRefundRequest value);
+    RefundRequestDO toRequestDO(StoredRefundRequest value);
 
     @Mapping(target = "id", source = "value.refund.id")
     @Mapping(target = "refundRequestId", source = "value.refund.refundRequestId")
@@ -108,7 +108,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RefundOrderDO toChildDO(String tenant, StoredRefundChild value);
+    RefundOrderDO toChildDO(StoredRefundChild value);
 
     @Mapping(target = "id", source = "value.refund.id")
     @Mapping(target = "refundRequestId", source = "value.refund.refundRequestId")
@@ -119,7 +119,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RefundAllocationPlanDO toPlanDO(String tenant, StoredRefundChild value);
+    RefundAllocationPlanDO toPlanDO(StoredRefundChild value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "reservedMinor", source = "reservedMinor")

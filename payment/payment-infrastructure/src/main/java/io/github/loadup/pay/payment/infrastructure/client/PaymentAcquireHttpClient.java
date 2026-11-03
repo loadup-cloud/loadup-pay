@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.client;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
@@ -51,35 +50,26 @@ public class PaymentAcquireHttpClient implements PaymentAcquireClient {
     }
 
     @Override
-    public boolean supportsTenant(String tenant) {
-        return properties.tenantId().equals(tenant);
+    public PaymentOutcomeAckDTO accept(EventEnvelope<PaymentOutcomeEventDTO> event) {
+        return exchange(authorization -> acquireHttp.paymentOutcome(authorization, event));
     }
 
     @Override
-    public PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event) {
-        return exchange(tenant, authorization -> acquireHttp.paymentOutcome(authorization, event));
+    public FeeRefundAckDTO acceptFeeRefund(EventEnvelope<OrderRefundSummaryEventDTO> event) {
+        return exchange(authorization -> acquireHttp.feeRefund(authorization, event));
     }
 
     @Override
-    public FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(tenant, authorization -> acquireHttp.feeRefund(authorization, event));
+    public RefundNotificationAckDTO acceptRefundNotification(EventEnvelope<RefundMerchantEventDTO> event) {
+        return exchange(authorization -> acquireHttp.refundNotification(authorization, event));
     }
 
-    @Override
-    public RefundNotificationAckDTO acceptRefundNotification(
-            String tenant, EventEnvelope<RefundMerchantEventDTO> event) {
-        return exchange(tenant, authorization -> acquireHttp.refundNotification(authorization, event));
-    }
-
-    private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call) {
-        if (!supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private <R> R exchange(Function<String, SuccessResponse<R>> call) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            var token = tokens.token(tenant, properties.serviceId(), properties.audience());
+            var token = tokens.token(properties.serviceId(), properties.audience());
             return HttpServiceResponses.requiredData(call.apply("Bearer " + token));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

@@ -59,9 +59,6 @@ public class PaymentProgressService implements PaymentProgressFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!payment.supportsTenant(actor.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         return outcomes.refresh(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), command);
     }
 }

@@ -65,9 +65,9 @@ class PaymentSettlementFactsServiceTest {
 
     @BeforeEach
     void setup() {
-        when(store.find("tenant", "payment")).thenAnswer(c -> Optional.of(source.get()));
-        when(store.lockParent("tenant", "order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
-        when(store.lockPayment("tenant", "payment")).thenReturn(Optional.of(AttemptFixtures.gate(false)));
+        when(store.find("payment")).thenAnswer(c -> Optional.of(source.get()));
+        when(store.lockParent("order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
+        when(store.lockPayment("payment")).thenReturn(Optional.of(AttemptFixtures.gate(false)));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
     }
 
@@ -116,7 +116,7 @@ class PaymentSettlementFactsServiceTest {
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.paymentFacts(new IdQuery("payment")))
                         .getResultCode());
-        verify(store, never()).lockParent(anyString(), anyString());
+        verify(store, never()).lockParent(anyString());
     }
 
     @Test

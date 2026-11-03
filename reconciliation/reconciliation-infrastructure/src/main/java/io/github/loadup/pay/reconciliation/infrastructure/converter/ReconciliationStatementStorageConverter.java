@@ -130,7 +130,7 @@ public interface ReconciliationStatementStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationStatementDO toDO(String tenant, ReconciliationStatementRequest value);
+    ReconciliationStatementDO toDO(ReconciliationStatementRequest value);
 
     @Named("receivedMicros")
     default Long receivedMicros(ReconciliationOfficialReceipt value) {

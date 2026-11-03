@@ -132,7 +132,7 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
         String digest = digest(actor, command);
         return transactions.writeLocal(actor.tenantId(), () -> {
             var batch = batch(actor, command.batchId(), true);
-            var old = sources.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
+            var old = sources.findRequest(actor.serviceId(), command.requestKey());
             if (old.isPresent()) {
                 var value = old.get();
                 checked(actor, value);
@@ -154,21 +154,14 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
                                     .toLocalDate())) {
                 throw new CommonException(INPUT_INVALID);
             }
-            if (sources.activeForBatch(actor.tenantId(), command.batchId()).isPresent()
-                    || imports.activeForBatch(actor.tenantId(), command.batchId())
-                            .isPresent()) {
+            if (sources.activeForBatch(command.batchId()).isPresent()
+                    || imports.activeForBatch(command.batchId()).isPresent()) {
                 throw new CommonException(IMPORT_IN_PROGRESS);
             }
             var account = accounts.statementAccount(
-                    actor.tenantId(),
-                    actor.serviceId(),
-                    batch.channelAccountCode(),
-                    batch.batch().scope());
+                    actor.serviceId(), batch.channelAccountCode(), batch.batch().scope());
             var binding = accounts.statementBindingRevision(
-                    actor.tenantId(),
-                    actor.serviceId(),
-                    batch.channelAccountCode(),
-                    batch.batch().scope());
+                    actor.serviceId(), batch.channelAccountCode(), batch.batch().scope());
             var id = ids.generate();
             tasks.register(
                     ReconciliationStatementExecutionService.TYPE,
@@ -191,7 +184,7 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
             if (task.status() != DelayedTaskStatus.PENDING) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            sources.insert(actor.tenantId(), request);
+            sources.insert(request);
             return converter.toDTO(request, task);
         });
     }
@@ -204,10 +197,7 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
                 actor.tenantId(),
                 () -> present(
                         actor.tenantId(),
-                        checked(
-                                actor,
-                                sources.find(actor.tenantId(), query.id())
-                                        .orElseThrow(() -> new CommonException(NOT_FOUND)))));
+                        checked(actor, sources.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
@@ -217,14 +207,10 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
         var original = transactions.readSnapshot(
                 actor.tenantId(),
                 () -> checked(
-                        actor,
-                        sources.find(actor.tenantId(), command.sourceId())
-                                .orElseThrow(() -> new CommonException(NOT_FOUND))));
+                        actor, sources.find(command.sourceId()).orElseThrow(() -> new CommonException(NOT_FOUND))));
         return transactions.writeLocal(actor.tenantId(), () -> {
             batch(actor, original.batchId(), true);
-            var value = checked(
-                    actor,
-                    sources.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var value = checked(actor, sources.lock(original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var task = task(actor.tenantId(), value);
             if (!command.expectedTaskId().equals(task.id())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
@@ -247,29 +233,25 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
         if (!value.scope().equals(batch.batch().scope())
                 || !value.statementAccount()
                         .equals(accounts.statementAccount(
-                                actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), value.scope()))) {
+                                actor.serviceId(), batch.channelAccountCode(), value.scope()))) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         return value;
     }
 
     private StoredReconciliationBatch batch(ReconciliationActor actor, String id, boolean lock) {
-        var value = (lock ? batches.lock(actor.tenantId(), id) : batches.find(actor.tenantId(), id))
-                .orElseThrow(() -> new CommonException(NOT_FOUND));
+        var value = (lock ? batches.lock(id) : batches.find(id)).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!actor.serviceId().equals(value.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         accounts.authorize(
-                actor.tenantId(),
-                actor.serviceId(),
-                value.channelAccountCode(),
-                value.batch().scope());
+                actor.serviceId(), value.channelAccountCode(), value.batch().scope());
         return value;
     }
 
     private ReconciliationStatementDTO present(String tenant, ReconciliationStatementRequest value) {
         if (value.state() == ReconciliationStatementState.READY) {
-            var imported = imports.find(tenant, value.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var imported = imports.find(value.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             value.verifyImport(imported);
             official.verify(tenant, imported);
         }

@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -320,16 +319,16 @@ class PaymentActionServiceTest {
         var action = new AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
         var submission = new ChannelPaymentSubmission(
                 fixture.original().identity(), fixture.original().amount(), null, action);
-        when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
         when(codec.decode(fixture.acceptance())).thenReturn(fixture.command());
         when(actionCodec.encode(action)).thenReturn("local-artifact");
         when(actionCodec.checksum("local-artifact")).thenReturn(HASH);
-        when(actions.find(TENANT, "attempt")).thenReturn(Optional.empty());
+        when(actions.find("attempt")).thenReturn(Optional.empty());
 
         inTransaction(() -> service.record(TENANT, fixture.locked(), fixture.original(), submission, null));
 
         var captured = ArgumentCaptor.forClass(StoredPaymentAction.class);
-        verify(actions).insert(eq(TENANT), captured.capture());
+        verify(actions).insert(captured.capture());
         assertEquals(PaymentActionSource.LOCAL_SIGNED, captured.getValue().source());
         Assertions.assertNull(captured.getValue().receiptId());
         assertEquals(HASH, captured.getValue().sourceDigest());
@@ -373,8 +372,8 @@ class PaymentActionServiceTest {
         var actionDto = new PaymentActionDTO(
                 PaymentActionType.REDIRECT, EXPIRES_AT, new RedirectActionDTO(action.redirectUrl()));
         var decorated = dto(actionDto);
-        when(actions.find(TENANT, "attempt")).thenReturn(Optional.of(stored));
-        when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(actions.find("attempt")).thenReturn(Optional.of(stored));
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
         when(views.toDTO(unknown)).thenReturn(base);
         when(codec.decode(unknown)).thenReturn(fixture.command());
         when(channelViews.toAction(action)).thenReturn(actionDto);
@@ -387,13 +386,13 @@ class PaymentActionServiceTest {
     void recordsOnlyTheFirstMatchingActionAndTreatsAnIdenticalActionAsIdempotent() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var saved = new AtomicReference<StoredPaymentAction>();
-        when(actions.find(TENANT, "attempt")).thenAnswer(call -> Optional.ofNullable(saved.get()));
+        when(actions.find("attempt")).thenAnswer(call -> Optional.ofNullable(saved.get()));
         doAnswer(call -> {
-                    saved.set(call.getArgument(1));
+                    saved.set(call.getArgument(0));
                     return null;
                 })
                 .when(actions)
-                .insert(eq(TENANT), any());
+                .insert(any());
 
         inTransaction(() -> service.record(
                 TENANT, fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-1"));
@@ -408,14 +407,14 @@ class PaymentActionServiceTest {
                 TENANT, fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-2"));
 
         assertSame(first, saved.get());
-        verify(actions, Mockito.times(1)).insert(eq(TENANT), any());
+        verify(actions, Mockito.times(1)).insert(any());
     }
 
     @Test
     void rejectsASecondActionWithChangedTradeNumberOrExpiry() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var saved = new AtomicReference<>(storedAction(fixture, "trade-1", EXPIRES_AT));
-        when(actions.find(TENANT, "attempt")).thenAnswer(call -> Optional.ofNullable(saved.get()));
+        when(actions.find("attempt")).thenAnswer(call -> Optional.ofNullable(saved.get()));
 
         var changedTrade = submission(fixture, "trade-2", EXPIRES_AT);
         var tradeFailure = assertThrows(
@@ -430,13 +429,13 @@ class PaymentActionServiceTest {
                 () -> inTransaction(() ->
                         service.record(TENANT, fixture.locked(), fixture.original(), changedExpiry, "receipt-3")));
         assertEquals(OUTCOME_UNKNOWN, expiryFailure.getResultCode());
-        verify(actions, never()).insert(anyString(), any());
+        verify(actions, never()).insert(any());
     }
 
     @Test
     void validatesAttemptEpochAmountCallerAndMethodBeforeRecording() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
-        when(actions.find(TENANT, "attempt")).thenReturn(Optional.empty());
+        when(actions.find("attempt")).thenReturn(Optional.empty());
 
         var wrongEpoch = fixture(PaymentMethod.JSAPI, 2, Money.ofMinor(4000, "CNY"));
         var epochFailure = assertThrows(
@@ -482,13 +481,13 @@ class PaymentActionServiceTest {
                         submission(wrongMethod, "trade-1", EXPIRES_AT),
                         "receipt-4")));
         assertEquals(INVALID_ARGUMENT, methodFailure.getResultCode());
-        verify(actions, never()).insert(anyString(), any());
+        verify(actions, never()).insert(any());
     }
 
     @Test
     void ignoresActionsForAnotherActiveAttemptExpiredActionsAndInactivePaymentsOrGates() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
-        when(actions.find(anyString(), anyString())).thenReturn(Optional.empty());
+        when(actions.find(anyString())).thenReturn(Optional.empty());
 
         var anotherAttempt = withActiveAttempt(fixture, "new-attempt");
         inTransaction(() -> service.record(
@@ -530,7 +529,7 @@ class PaymentActionServiceTest {
                 submission(fixture, "trade-5", EXPIRES_AT),
                 "receipt-5"));
 
-        verify(actions, never()).insert(anyString(), any());
+        verify(actions, never()).insert(any());
     }
 
     @Test
@@ -542,20 +541,20 @@ class PaymentActionServiceTest {
         when(views.toDTO(fixture.acceptance())).thenReturn(base);
         when(channelViews.toAction(fixture.action())).thenReturn(actionDto);
         when(views.withAction(base, actionDto)).thenReturn(decorated);
-        when(actions.find(TENANT, "attempt")).thenReturn(Optional.of(storedAction(fixture, "trade-1", EXPIRES_AT)));
-        when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(actions.find("attempt")).thenReturn(Optional.of(storedAction(fixture, "trade-1", EXPIRES_AT)));
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
         when(codec.decode(fixture.acceptance())).thenReturn(fixture.command());
 
         assertSame(decorated, inTransaction(() -> service.present(TENANT, fixture.locked())));
 
         var expired = storedAction(fixture, "trade-1", OffsetDateTime.parse("2026-10-22T11:00:00Z"));
-        when(actions.find(TENANT, "attempt")).thenReturn(Optional.of(expired));
+        when(actions.find("attempt")).thenReturn(Optional.of(expired));
         assertSame(base, inTransaction(() -> service.present(TENANT, fixture.locked())));
 
         var stale = withActiveAttempt(fixture, "new-attempt");
         when(views.toDTO(stale.acceptance())).thenReturn(base);
         assertSame(base, inTransaction(() -> service.present(TENANT, stale.locked())));
-        verify(actions).find(TENANT, "new-attempt");
+        verify(actions).find("new-attempt");
     }
 
     private void inTransaction(Runnable work) {

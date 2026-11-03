@@ -47,7 +47,7 @@ class CheckoutAuthenticationServiceTest {
 
     @BeforeEach
     void setup() {
-        when(sessions.find("tenant", "session"))
+        when(sessions.find("session"))
                 .thenReturn(Optional.of(session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5))));
         when(tokens.matches(eq(TOKEN), any())).thenReturn(true);
     }
@@ -62,7 +62,7 @@ class CheckoutAuthenticationServiceTest {
 
     @Test
     void tenantLocatorAloneCannotSwitchTheAuthenticatedOrderScope() {
-        when(sessions.find("other", "session")).thenReturn(Optional.empty());
+        when(sessions.find("session")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, () -> service.authenticate("other", TOKEN, ORIGIN));
         when(tokens.matches(eq(TOKEN), any())).thenReturn(false);
         assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
@@ -72,12 +72,12 @@ class CheckoutAuthenticationServiceTest {
     void rejectsExactExpiryAndCancelledExpiredOrUnactivatedSessions() {
         for (var state :
                 List.of(CheckoutSessionState.INIT, CheckoutSessionState.CANCELLED, CheckoutSessionState.EXPIRED)) {
-            when(sessions.find("tenant", "session")).thenReturn(Optional.of(session(state, NOW.plusMinutes(5))));
+            when(sessions.find("session")).thenReturn(Optional.of(session(state, NOW.plusMinutes(5))));
             assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
         }
         var boundary = NOW.withNano(0);
         var expired = session(CheckoutSessionState.ACTIVE, boundary);
-        when(sessions.find("tenant", "session")).thenReturn(Optional.of(expired));
+        when(sessions.find("session")).thenReturn(Optional.of(expired));
         var atCutoff = new CheckoutAuthenticationService(
                 sessions, tokens, new OrderCreationTransactions(new UnitTransactions()), clock(boundary));
         assertThrows(CommonException.class, () -> atCutoff.authenticate("tenant", TOKEN, ORIGIN));
@@ -87,14 +87,14 @@ class CheckoutAuthenticationServiceTest {
     void aCryptographicallyMatchingRevokedCapabilityCannotAuthenticateEvenAfterCompletion() {
         for (var state : List.of(CheckoutSessionState.ACTIVE, CheckoutSessionState.COMPLETED)) {
             var revoked = session(state, NOW.plusMinutes(5)).revoke(0L, NOW);
-            when(sessions.find("tenant", "session")).thenReturn(Optional.of(revoked));
+            when(sessions.find("session")).thenReturn(Optional.of(revoked));
             assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
         }
     }
 
     @Test
     void completedSessionsRemainReadOnlyUntilTheirOriginalExpiry() {
-        when(sessions.find("tenant", "session"))
+        when(sessions.find("session"))
                 .thenReturn(Optional.of(session(CheckoutSessionState.COMPLETED, NOW.plusMinutes(5))));
         assertEquals("order", service.authenticate("tenant", TOKEN, ORIGIN).orderId());
     }

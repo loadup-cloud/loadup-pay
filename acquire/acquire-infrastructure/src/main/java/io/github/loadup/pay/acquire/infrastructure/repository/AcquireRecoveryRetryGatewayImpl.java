@@ -15,14 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.AcquireRecoveryRetryGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryRetryReceipt;
@@ -52,11 +49,9 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
     }
 
     @Override
-    public Optional<AcquireRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
-        scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("caller", callerScopeHash)
-                .addValue("key", requestKey);
+    public Optional<AcquireRecoveryRetryReceipt> find(String callerScopeHash, String requestKey) {
+        var args =
+                new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at
                 FROM acquire_recovery_retry_receipt WHERE deleted = FALSE AND caller_scope_hash = :caller AND request_key = :key
@@ -71,8 +66,7 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
     }
 
     @Override
-    public void insert(String tenant, AcquireRecoveryRetryReceipt receipt) {
-        scope(tenant);
+    public void insert(AcquireRecoveryRetryReceipt receipt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
@@ -82,7 +76,7 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -96,12 +90,6 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

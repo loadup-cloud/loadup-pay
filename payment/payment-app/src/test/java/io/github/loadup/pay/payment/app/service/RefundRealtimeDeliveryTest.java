@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -101,13 +100,12 @@ class RefundRealtimeDeliveryTest {
         when(outbox.find("summary"))
                 .thenReturn(Optional.of(
                         new OutboxRecord("summary", RefundProjectionEvents.SUMMARY, "order", "PROCESSING", 1, null)));
-        when(client.supportsTenant("tenant")).thenReturn(true);
         when(codec.child("child-payload")).thenReturn(child);
         when(codec.summary("summary-payload")).thenReturn(summary);
-        when(client.applyRefund("tenant", child))
+        when(client.applyRefund(child))
                 .thenReturn(new ProjectionAckDTO(
                         "delivery-child", "change-child", "payment", "refund", 2, 2, "APPLIED", true));
-        when(client.applyRefundSummary("tenant", summary))
+        when(client.applyRefundSummary(summary))
                 .thenReturn(new ProjectionAckDTO(
                         "delivery-summary", "change-summary", "payment", "order", 3, 3, "APPLIED", true));
     }
@@ -125,24 +123,24 @@ class RefundRealtimeDeliveryTest {
         child();
         summary();
         child();
-        verify(client, times(2)).applyRefund("tenant", child);
-        verify(client).applyRefundSummary("tenant", summary);
+        verify(client, times(2)).applyRefund(child);
+        verify(client).applyRefundSummary(summary);
     }
 
     @Test
     void failureOfTheChildDoesNotPreventTheIndependentSummaryTarget() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).applyRefund(anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).applyRefund(any());
         assertThrows(CommonException.class, this::child);
         assertDoesNotThrow(this::summary);
     }
 
     @Test
     void aStaleSummaryAckMustStillMatchTheOriginalIncomingVersionAndIdentity() {
-        when(client.applyRefundSummary("tenant", summary))
+        when(client.applyRefundSummary(summary))
                 .thenReturn(new ProjectionAckDTO(
                         "delivery-summary", "change-summary", "payment", "order", 3, 7, "STALE", true));
         assertDoesNotThrow(this::summary);
-        when(client.applyRefundSummary("tenant", summary))
+        when(client.applyRefundSummary(summary))
                 .thenReturn(new ProjectionAckDTO("other", "change-summary", "payment", "order", 3, 7, "STALE", true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
@@ -150,10 +148,9 @@ class RefundRealtimeDeliveryTest {
     }
 
     @Test
-    void wrongTenantAndUnclaimedQueueCannotMakeTheNetworkCall() {
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.child(childEvent)));
+    void unclaimedQueueCannotMakeTheNetworkCall() {
         when(outbox.find("child")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::child);
-        verify(client, never()).applyRefund(anyString(), any());
+        verify(client, never()).applyRefund(any());
     }
 }

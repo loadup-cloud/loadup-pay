@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
@@ -25,7 +24,6 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
@@ -89,21 +87,20 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     }
 
     @Override
-    public Optional<String> requestId(String tenant, String refundId) {
-        scoped(tenant);
-        var row = child(tenant, refundId, false);
+    public Optional<String> requestId(String refundId) {
+        var row = child(refundId, false);
         return Optional.ofNullable(row).map(RefundOrderDO::getRefundRequestId);
     }
 
     @Override
-    public RefundExecutionFacts lockChild(String tenant, String refundId) {
-        writable(tenant);
+    public RefundExecutionFacts lockChild(String refundId) {
+        writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = child(tenant, refundId, true);
+        var row = child(refundId, true);
         if (row == null) {
             throw new CommonException(NOT_FOUND);
         }
@@ -129,9 +126,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     }
 
     @Override
-    public Optional<RefundChannelReceipt> receipt(
-            String tenant, String refundId, RefundObservation.Source source, String key) {
-        scoped(tenant);
+    public Optional<RefundChannelReceipt> receipt(String refundId, RefundObservation.Source source, String key) {
         var args = new MapSqlParameterSource()
                 .addValue("refund", refundId)
                 .addValue("source", source.name())
@@ -147,14 +142,14 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     }
 
     @Override
-    public void insertReceipt(String tenant, RefundChannelReceipt receipt) {
-        writable(tenant);
+    public void insertReceipt(RefundChannelReceipt receipt) {
+        writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toReceiptDO(tenant, receipt);
+        var row = converter.toReceiptDO(receipt);
         var now = LocalDateTime.now(databaseClock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -174,14 +169,14 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     }
 
     @Override
-    public void recordAnomaly(String tenant, RefundResultAnomaly value) {
-        writable(tenant);
+    public void recordAnomaly(RefundResultAnomaly value) {
+        writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toAnomalyDO(tenant, value);
+        var row = converter.toAnomalyDO(value);
         var now = LocalDateTime.now(databaseClock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -199,7 +194,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
 
     @Override
     public Optional<RefundTransactionClaim> transaction(Channel channel, String scope, String number) {
-        writable(TenantUtil.getTenantId());
+        writable();
         // One exact immutable financial key must see aliases across tenants. Never expose this lookup as an API.
         var row = getOne(QueryWrapper.create()
                 .eq("channel", channel.name())
@@ -209,8 +204,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     }
 
     @Override
-    public Optional<RefundTransactionClaim> claim(String tenant, String refundId) {
-        scoped(tenant);
+    public Optional<RefundTransactionClaim> claim(String refundId) {
         var row = getOne(QueryWrapper.create().eq("refund_id", refundId));
         return claim(row);
     }
@@ -223,7 +217,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
 
     @Override
     public void insertClaim(RefundTransactionClaim value) {
-        writable(value.tenantId());
+        writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
@@ -247,8 +241,8 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     }
 
     @Override
-    public void update(String tenant, RefundProgressChange change) {
-        writable(tenant);
+    public void update(RefundProgressChange change) {
+        writable();
         var before = change.before().child().refund();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
@@ -258,7 +252,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         LocalDateTime firstUnknownAt = null;
         if (change.refund().state() == RefundState.UNKNOWN) {
             // Preserve the first observation across later UNKNOWN results and recovery generations.
-            var row = child(tenant, before.id(), false);
+            var row = child(before.id(), false);
             if (row == null || !row.getRowVersion().equals(before.version())) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
@@ -342,7 +336,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         }
     }
 
-    private RefundOrderDO child(String tenant, String id, boolean lock) {
+    private RefundOrderDO child(String id, boolean lock) {
         var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query(
@@ -355,14 +349,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
                 .orElse(null);
     }
 
-    private void scoped(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
-    private void writable(String tenant) {
-        scoped(tenant);
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);

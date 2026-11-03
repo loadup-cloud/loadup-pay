@@ -121,12 +121,12 @@ class RefundSettlementFactsServiceTest {
 
     @BeforeEach
     void setup() {
-        when(results.requestId("tenant", "refund")).thenReturn(Optional.of("request"));
+        when(results.requestId("refund")).thenReturn(Optional.of("request"));
         when(locks.lock("tenant", "request", "refund")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return locked.get();
         });
-        when(results.claim("tenant", "refund")).thenReturn(Optional.of(claim));
+        when(results.claim("refund")).thenReturn(Optional.of(claim));
         when(results.transaction(
                         claim.original().channel(),
                         claim.original().accountScopeHash(),
@@ -144,7 +144,7 @@ class RefundSettlementFactsServiceTest {
                 first.original().attemptId(),
                 first.original().attemptId(),
                 3);
-        when(payments.find("tenant", "payment"))
+        when(payments.find("payment"))
                 .thenReturn(Optional.of(new StoredPaymentAcceptance(
                         payment, "admission", "a".repeat(64), "acquire", "{}", "b".repeat(64), "payment-proof")));
     }
@@ -204,12 +204,12 @@ class RefundSettlementFactsServiceTest {
                 INVALID_STATE,
                 assertThrows(CommonException.class, () -> service.refundFacts(new IdQuery("refund")))
                         .getResultCode());
-        verify(results, never()).claim(anyString(), anyString());
+        verify(results, never()).claim(anyString());
     }
 
     @Test
     void missingRefundIsNotAZeroRefundProof() {
-        when(results.requestId("tenant", "refund")).thenReturn(Optional.empty());
+        when(results.requestId("refund")).thenReturn(Optional.empty());
         assertSame(
                 NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.refundFacts(new IdQuery("refund")))

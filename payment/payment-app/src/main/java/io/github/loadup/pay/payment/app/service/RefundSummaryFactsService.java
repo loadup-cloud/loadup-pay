@@ -73,8 +73,7 @@ public class RefundSummaryFactsService implements RefundSummaryFactsFacade {
         }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var parent =
-                    payments.lockParent(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var parent = payments.lockParent(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.serviceId().equals(parent.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
@@ -83,7 +82,7 @@ public class RefundSummaryFactsService implements RefundSummaryFactsFacade {
                     || parent.gate().state() == GateState.INIT) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var value = summaries.lock(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var value = summaries.lock(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!value.orderId().equals(query.id()) || !value.payeeMerchantId().equals(parent.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }

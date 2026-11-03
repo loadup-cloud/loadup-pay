@@ -22,7 +22,6 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
@@ -67,7 +66,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         this.codec = codec;
     }
 
-    private OrderCreateIntentDO intent(String tenant, String predicate, MapSqlParameterSource args, boolean lock) {
+    private OrderCreateIntentDO intent(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
                         """
@@ -83,23 +82,16 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     @Override
-    public Optional<OrderCreateIntent> findIntent(String tenant, String payee, String merchantOrderNo) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("payee", payee)
-                .addValue("number", merchantOrderNo);
-        return Optional.ofNullable(
-                        intent(tenant, "payee_merchant_id = :payee AND merchant_order_no = :number", args, false))
+    public Optional<OrderCreateIntent> findIntent(String payee, String merchantOrderNo) {
+        var args = new MapSqlParameterSource().addValue("payee", payee).addValue("number", merchantOrderNo);
+        return Optional.ofNullable(intent("payee_merchant_id = :payee AND merchant_order_no = :number", args, false))
                 .map(converter::toIntent);
     }
 
     @Override
-    public OrderCreateIntent lockIntent(String tenant, String id) {
+    public OrderCreateIntent lockIntent(String id) {
         requireTransaction();
-        var row = intent(
-                tenant,
-                "id = :id",
-                new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id),
-                true);
+        var row = intent("id = :id", new MapSqlParameterSource().addValue("id", id), true);
         if (row == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -107,9 +99,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     @Override
-    public void insertIntent(String tenant, OrderCreateIntent intent) {
+    public void insertIntent(OrderCreateIntent intent) {
         requireTransaction();
-        var row = converter.toIntentDO(tenant, intent);
+        var row = converter.toIntentDO(intent);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -131,10 +123,10 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     @Override
-    public void updateIntent(String tenant, OrderCreateIntent value, long expectedVersion) {
+    public void updateIntent(OrderCreateIntent value, long expectedVersion) {
         requireTransaction();
-        var row = converter.toIntentDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var row = converter.toIntentDO(value);
+        var args = new MapSqlParameterSource()
                 .addValue("id", value.id())
                 .addValue("expected", expectedVersion)
                 .addValue("state", row.getState())
@@ -155,18 +147,14 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     @Override
-    public Optional<StoredAcquireOrder> findOrder(String tenant, String id) {
-        var row = order(tenant, id, false);
+    public Optional<StoredAcquireOrder> findOrder(String id) {
+        var row = order(id, false);
         if (row == null) {
             return Optional.empty();
         }
         try {
-            var intentRow = intent(
-                    tenant,
-                    "order_id = :order",
-                    new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", id),
-                    false);
-            var snapshotArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+            var intentRow = intent("order_id = :order", new MapSqlParameterSource().addValue("order", id), false);
+            var snapshotArgs = new MapSqlParameterSource()
                     .addValue("id", row.getContractSnapshotId())
                     .addValue("order", id);
             var snapshot =
@@ -188,17 +176,17 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             switch (intent.entryMode()) {
                 case "ORDER" -> {
                     command = codec.decodeIntent(intent);
-                    digest = codec.requestDigest(tenant, intent.callerScopeHash(), command);
+                    digest = codec.requestDigest(intent.callerScopeHash(), command);
                 }
                 case "CHECKOUT" -> {
                     var checkout = codec.decodeCheckout(intent);
                     command = business.toOrderCreate(checkout);
-                    digest = codec.checkoutDigest(tenant, intent.callerScopeHash(), checkout);
+                    digest = codec.checkoutDigest(intent.callerScopeHash(), checkout);
                 }
                 case "DIRECT_PAY" -> {
                     var direct = codec.decodeDirectPay(intent);
                     command = business.toOrderCreate(direct);
-                    digest = codec.directPayDigest(tenant, intent.callerScopeHash(), direct);
+                    digest = codec.directPayDigest(intent.callerScopeHash(), direct);
                 }
                 default -> throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -237,18 +225,18 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     @Override
-    public StoredAcquireOrder lockOrder(String tenant, String id) {
+    public StoredAcquireOrder lockOrder(String id) {
         requireTransaction();
-        var row = order(tenant, id, true);
+        var row = order(id, true);
         if (row == null) {
             throw new CommonException(NOT_FOUND);
         }
         // The held header lock serializes new sessions with future order lifecycle writes.
-        return findOrder(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        return findOrder(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
     }
 
     @Override
-    public void insertOrder(String tenant, StoredAcquireOrder value, OrderFee fee, String feePayload) {
+    public void insertOrder(StoredAcquireOrder value, OrderFee fee, String feePayload) {
         requireTransaction();
         if (!value.order().id().equals(fee.orderId()) || !value.order().amount().equals(fee.baseAmount())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -259,7 +247,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             throw new CommonException(INVALID_STATE);
         }
         var now = LocalDateTime.now(clock);
-        var snapshot = converter.toSnapshotDO(tenant, value);
+        var snapshot = converter.toSnapshotDO(value);
         snapshot.setCreatedAt(now);
         snapshot.setUpdatedAt(now);
         int snapshotCount = jdbc.update("""
@@ -272,7 +260,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         if (snapshotCount != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        var row = converter.toOrderDO(tenant, value);
+        var row = converter.toOrderDO(value);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
@@ -288,7 +276,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        var feeRow = converter.toFeeDO(tenant, fee, feePayload);
+        var feeRow = converter.toFeeDO(fee, feePayload);
         feeRow.setCreatedAt(now);
         feeRow.setUpdatedAt(now);
         int feeCount = jdbc.update("""
@@ -304,8 +292,8 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         }
     }
 
-    private AcquireOrderDO order(String tenant, String id, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
+    private AcquireOrderDO order(String id, boolean lock) {
+        var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query("""
                         SELECT id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,

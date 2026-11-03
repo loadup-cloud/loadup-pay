@@ -19,7 +19,7 @@ import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
 import java.util.Optional;
 
 public interface RefundNotificationReceiptGateway {
-    Optional<RefundNotificationReceipt> find(String tenant, String deliveryId);
+    Optional<RefundNotificationReceipt> find(String deliveryId);
 
-    void insert(String tenant, RefundNotificationReceipt receipt);
+    void insert(RefundNotificationReceipt receipt);
 }

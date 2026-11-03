@@ -128,28 +128,28 @@ class PaymentRecoveryOperationsServiceTest {
 
     @BeforeEach
     void setup() {
-        when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(accepted.get()));
+        when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
         when(paymentLocks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
             return PaymentExecutionBindings.locked(
                     accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
-        when(paymentCursors.find("tenant", "payment")).thenAnswer(c -> {
+        when(paymentCursors.find("payment")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return Optional.of(cursor.get());
         });
-        when(refundCursors.find("tenant", "request")).thenAnswer(c -> Optional.of(refundCursor.get()));
-        when(refunds.load("tenant", "request")).thenAnswer(c -> {
+        when(refundCursors.find("request")).thenAnswer(c -> Optional.of(refundCursor.get()));
+        when(refunds.load("request")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return refund.get();
         });
-        when(paymentCursors.lock("tenant", "payment")).thenAnswer(c -> Optional.of(cursor.get()));
+        when(paymentCursors.lock("payment")).thenAnswer(c -> Optional.of(cursor.get()));
         when(refundLocks.request("tenant", "request")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return refund.get();
         });
-        when(refundCursors.lock("tenant", "request")).thenAnswer(c -> Optional.of(refundCursor.get()));
+        when(refundCursors.lock("request")).thenAnswer(c -> Optional.of(refundCursor.get()));
         when(tasks.find(anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(nativeTasks.get(c.getArgument(0) + "/" + c.getArgument(1))));
         doAnswer(c -> {
@@ -174,16 +174,16 @@ class PaymentRecoveryOperationsServiceTest {
                 })
                 .when(tasks)
                 .retryFailed(anyString(), anyString());
-        when(receipts.find(eq("tenant"), anyString(), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(ledger.get(c.getArgument(1) + "/" + c.getArgument(2))));
+        when(receipts.find(anyString(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(ledger.get(c.getArgument(0) + "/" + c.getArgument(1))));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    PaymentRecoveryRetryReceipt value = c.getArgument(1);
+                    PaymentRecoveryRetryReceipt value = c.getArgument(0);
                     ledger.put(value.callerScopeHash() + "/" + value.requestKey(), value);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
         put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, DelayedTaskStatus.FAILED);
     }
 
@@ -233,7 +233,7 @@ class PaymentRecoveryOperationsServiceTest {
         assertEquals("FAILED", dto.nativeStatus());
         assertFalse(JsonUtil.toJson(dto).contains("private-wire-error"));
         verifyNoInteractions(paymentLocks, refundLocks);
-        verify(paymentCursors, never()).lock(anyString(), anyString());
+        verify(paymentCursors, never()).lock(anyString());
         verify(tasks, never()).retryFailed(anyString(), anyString());
         verifyNoInteractions(refundLocks, refundCursors, receipts);
     }
@@ -258,10 +258,10 @@ class PaymentRecoveryOperationsServiceTest {
         put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, DelayedTaskStatus.FAILED);
         assertTrue(service.detail(new PaymentRecoveryTaskQuery(PaymentRecoveryKind.REFUND_REQUEST, "request", 0L))
                 .retryable());
-        verify(refunds).load("tenant", "request");
-        verify(refundCursors).find("tenant", "request");
+        verify(refunds).load("request");
+        verify(refundCursors).find("request");
         verifyNoInteractions(refundLocks, paymentLocks);
-        verify(refundCursors, never()).lock(anyString(), anyString());
+        verify(refundCursors, never()).lock(anyString());
     }
 
     @Test
@@ -274,7 +274,7 @@ class PaymentRecoveryOperationsServiceTest {
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
         verify(paymentLocks).lock("tenant", "payment", "acquire");
-        verify(paymentCursors).lock("tenant", "payment");
+        verify(paymentCursors).lock("payment");
         verify(tasks, never()).retryFailed(anyString(), anyString());
     }
 
@@ -299,7 +299,7 @@ class PaymentRecoveryOperationsServiceTest {
         verifyNoInteractions(payments, paymentLocks, paymentCursors);
         var sequence = inOrder(refundLocks, refundCursors, tasks);
         sequence.verify(refundLocks).request("tenant", "request");
-        sequence.verify(refundCursors).lock("tenant", "request");
+        sequence.verify(refundCursors).lock("request");
         sequence.verify(tasks).find(RefundRecoveryService.TYPE, "request.0");
     }
 
@@ -420,14 +420,14 @@ class PaymentRecoveryOperationsServiceTest {
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
         assertEquals(1, manager.rollbacks);
     }
 
     @Test
     void auditInsertFailureRollsBackTheNativeRetryTransaction() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        doThrow(failure).when(receipts).insert(anyString(), any());
+        doThrow(failure).when(receipts).insert(any());
         assertSame(failure, assertThrows(CommonException.class, () -> service.retry(command())));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);

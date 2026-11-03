@@ -30,7 +30,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -140,9 +139,9 @@ class RoutingProfileServiceTest {
 
     void binding(String id, String code) {
         var head = head(id, code);
-        when(bindings.find("tenant", "merchant", code)).thenReturn(Optional.of(head));
-        when(bindings.lock("tenant", "merchant", code)).thenReturn(Optional.of(head));
-        when(bindings.revision("tenant", head.currentRevisionId())).thenReturn(Optional.of(revision(head)));
+        when(bindings.find("merchant", code)).thenReturn(Optional.of(head));
+        when(bindings.lock("merchant", code)).thenReturn(Optional.of(head));
+        when(bindings.revision(head.currentRevisionId())).thenReturn(Optional.of(revision(head)));
     }
 
     @BeforeEach
@@ -152,21 +151,20 @@ class RoutingProfileServiceTest {
         when(codec.checksum(anyString())).thenReturn("a".repeat(64));
         when(codec.requestDigest(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn("b".repeat(64));
-        when(profiles.find(eq("tenant"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(1))));
-        when(profiles.findRequest(eq("tenant"), anyString(), anyString()))
+        when(profiles.find(anyString())).thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(0))));
+        when(profiles.findRequest(anyString(), anyString()))
                 .thenAnswer(c -> saved.values().stream()
-                        .filter(p -> p.callerServiceId().equals(c.getArgument(1))
-                                && p.requestKey().equals(c.getArgument(2)))
+                        .filter(p -> p.callerServiceId().equals(c.getArgument(0))
+                                && p.requestKey().equals(c.getArgument(1)))
                         .findFirst());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    RoutingProfile value = c.getArgument(1);
+                    RoutingProfile value = c.getArgument(0);
                     saved.put(value.spec().profileRef(), value);
                     return null;
                 })
                 .when(profiles)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -192,7 +190,7 @@ class RoutingProfileServiceTest {
         clearInvocations(bindings, profiles);
         assertEquals(result, service.publish(command));
         verifyNoInteractions(bindings);
-        verify(profiles, never()).insert(anyString(), any());
+        verify(profiles, never()).insert(any());
     }
 
     @Test
@@ -232,8 +230,8 @@ class RoutingProfileServiceTest {
         binding("a-binding", "secondary");
         var result = service.publish(command("routing-v1", "publish", List.of(rule("primary"), rule("secondary"))));
         var calls = inOrder(bindings);
-        calls.verify(bindings).lock("tenant", "merchant", "secondary");
-        calls.verify(bindings).lock("tenant", "merchant", "primary");
+        calls.verify(bindings).lock("merchant", "secondary");
+        calls.verify(bindings).lock("merchant", "primary");
         assertEquals("primary", result.spec().rules().getFirst().bindingCode());
     }
 
@@ -245,7 +243,7 @@ class RoutingProfileServiceTest {
                                 CommonException.class,
                                 () -> service.publish(command("routing-v1", "missing", List.of(rule("absent")))))
                         .getResultCode());
-        when(bindings.lock("tenant", "merchant", "primary"))
+        when(bindings.lock("merchant", "primary"))
                 .thenReturn(Optional.of(head("binding-primary", "primary").suspend()));
         assertSame(
                 CHANNEL_BINDING_UNAVAILABLE,
@@ -253,7 +251,7 @@ class RoutingProfileServiceTest {
                                 CommonException.class,
                                 () -> service.publish(command("routing-v1", "stopped", List.of(rule("primary")))))
                         .getResultCode());
-        verify(profiles, never()).insert(anyString(), any());
+        verify(profiles, never()).insert(any());
     }
 
     @Test
@@ -265,7 +263,7 @@ class RoutingProfileServiceTest {
                                 CommonException.class,
                                 () -> service.publish(command("routing-v1", "publish", List.of(unsupported))))
                         .getResultCode());
-        verify(profiles, never()).insert(anyString(), any());
+        verify(profiles, never()).insert(any());
     }
 
     @Test

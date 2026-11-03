@@ -117,7 +117,7 @@ class PaymentStatementServiceTest {
 
     @Test
     void onlyImmutableBindingReadUsesATransactionAndOriginalTenantIsScopedForNetwork() throws Exception {
-        when(bindings.findRevision("tenant", "revision")).thenAnswer(call -> {
+        when(bindings.findRevision("revision")).thenAnswer(call -> {
             assertEquals("tenant", TenantUtil.getTenantId());
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
@@ -142,7 +142,7 @@ class PaymentStatementServiceTest {
         assertArrayEquals(content, result.content());
         assertFalse(result.toString().contains("private-statement"));
         assertFalse(result.toString().contains("private-signed-grant"));
-        verify(bindings, never()).lockActive(any(), any(), any(), any(), any());
+        verify(bindings, never()).lockActive(any(), any(), any(), any());
     }
 
     @Test
@@ -171,12 +171,12 @@ class PaymentStatementServiceTest {
 
     @Test
     void bindingScopeMismatchAndUnknownRevisionNeverDownload() {
-        when(bindings.findRevision("tenant", "revision")).thenReturn(Optional.empty());
+        when(bindings.findRevision("revision")).thenReturn(Optional.empty());
         assertEquals(
                 NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.download(query))
                         .getResultCode());
-        when(bindings.findRevision("tenant", "revision")).thenReturn(Optional.of(binding));
+        when(bindings.findRevision("revision")).thenReturn(Optional.of(binding));
         var other = new PaymentStatementQuery(
                 query.bindingRevisionId(),
                 query.channel(),
@@ -193,7 +193,7 @@ class PaymentStatementServiceTest {
 
     @Test
     void signedAbsenceIsExplicitAndOtherChannelFailuresRemainDependencyFailures() {
-        when(bindings.findRevision("tenant", "revision")).thenReturn(Optional.of(binding));
+        when(bindings.findRevision("revision")).thenReturn(Optional.of(binding));
         when(channels.download(any(), any())).thenThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_FOUND));
         assertEquals(
                 STATEMENT_NOT_FOUND,
@@ -214,7 +214,7 @@ class PaymentStatementServiceTest {
 
     @Test
     void providerCannotReturnAnotherAccount() {
-        when(bindings.findRevision("tenant", "revision")).thenReturn(Optional.of(binding));
+        when(bindings.findRevision("revision")).thenReturn(Optional.of(binding));
         when(channels.download(any(), any())).thenAnswer(call -> source("b".repeat(64)));
         assertEquals(
                 SNAPSHOT_INVALID,

@@ -26,32 +26,30 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface PaymentResultGateway {
-    Optional<PaymentChannelReceipt> receipt(
-            String tenant, String attemptId, PaymentObservation.Source source, String key);
+    Optional<PaymentChannelReceipt> receipt(String attemptId, PaymentObservation.Source source, String key);
 
-    void insertReceipt(String tenant, PaymentChannelReceipt receipt);
+    void insertReceipt(PaymentChannelReceipt receipt);
 
     /**
      * Idempotent only for the same receipt/facts/reason, while holding the owning payment lock.
      */
-    void recordAnomaly(String tenant, PaymentResultAnomaly anomaly);
+    void recordAnomaly(PaymentResultAnomaly anomaly);
 
     /**
      * Exact global immutable financial key. Internal only; never expose another tenant's claim.
      */
     Optional<ChannelTransactionClaim> transaction(Channel channel, String accountScopeHash, String transactionNo);
 
-    Optional<ChannelTransactionClaim> attemptClaim(String tenant, String attemptId);
+    Optional<ChannelTransactionClaim> attemptClaim(String attemptId);
 
     void insertClaim(ChannelTransactionClaim claim);
 
     /**
      * State, evidence and authoritative channel success time are one payment-row CAS.
      */
-    void completeSuccess(
-            String tenant, StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt);
+    void completeSuccess(StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt);
 
-    Optional<PaymentRefundCapacity> capacity(String tenant, String paymentId);
+    Optional<PaymentRefundCapacity> capacity(String paymentId);
 
-    void insertCapacity(String tenant, String id, PaymentRefundCapacity capacity);
+    void insertCapacity(String id, PaymentRefundCapacity capacity);
 }

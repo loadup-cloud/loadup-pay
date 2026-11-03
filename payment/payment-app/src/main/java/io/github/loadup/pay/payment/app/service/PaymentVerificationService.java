@@ -93,7 +93,7 @@ public class PaymentVerificationService implements PaymentVerificationFacade {
         }
         var started = now();
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            var target = transactions.readSnapshot(actor.tenantId(), 10, () -> reader.read(actor.tenantId(), query));
+            var target = transactions.readSnapshot(actor.tenantId(), 10, () -> reader.read(query));
             if (target == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }

@@ -113,46 +113,40 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         return transactions.withTenantContext(actor.tenantId(), () -> {
             validateBinding(command);
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var prior = store.find(actor.tenantId(), command.paymentId());
+                var prior = store.find(command.paymentId());
                 if (prior.isPresent()) {
                     return replay(actor, command, prior.get());
                 }
                 // Gate creation races roll back the entire transaction before a fresh retry.
-                var parent = store.lockParent(actor.tenantId(), command.orderId());
+                var parent = store.lockParent(command.orderId());
                 if (parent.isPresent()) {
                     checkGate(actor, command, parent.get(), null);
                 } else {
-                    store.insertParent(
-                            actor.tenantId(),
-                            new StoredPaymentGate(
-                                    ids.generate(),
-                                    command.payeeMerchantId(),
-                                    actor.serviceId(),
-                                    PaymentExecutionGate.init(command.orderId(), null)
-                                            .open(),
-                                    0));
+                    store.insertParent(new StoredPaymentGate(
+                            ids.generate(),
+                            command.payeeMerchantId(),
+                            actor.serviceId(),
+                            PaymentExecutionGate.init(command.orderId(), null).open(),
+                            0));
                 }
-                var gate = store.lockPayment(actor.tenantId(), command.paymentId());
+                var gate = store.lockPayment(command.paymentId());
                 if (gate.isPresent()) {
                     checkGate(actor, command, gate.get(), command.paymentId());
                 } else {
-                    store.insertPaymentGate(
-                            actor.tenantId(),
-                            new StoredPaymentGate(
-                                    ids.generate(),
-                                    command.payeeMerchantId(),
-                                    actor.serviceId(),
-                                    PaymentExecutionGate.init(command.orderId(), command.paymentId())
-                                            .open(),
-                                    0));
+                    store.insertPaymentGate(new StoredPaymentGate(
+                            ids.generate(),
+                            command.payeeMerchantId(),
+                            actor.serviceId(),
+                            PaymentExecutionGate.init(command.orderId(), command.paymentId())
+                                    .open(),
+                            0));
                 }
                 // A competing payment under this parent may have committed while acquiring the gate.
-                prior = store.find(actor.tenantId(), command.paymentId());
+                prior = store.find(command.paymentId());
                 if (prior.isPresent()) {
                     return replay(actor, command, prior.get());
                 }
-                if (store.findAllocation(actor.tenantId(), command.allocationId())
-                        .isPresent()) {
+                if (store.findAllocation(command.allocationId()).isPresent()) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
                 if (!clock.instant().isBefore(command.payableUntil().toInstant())) {
@@ -175,7 +169,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                         actor.serviceId(),
                         payload,
                         codec.checksum(payload));
-                store.insert(actor.tenantId(), stored);
+                store.insert(stored);
                 recovery.register(actor.tenantId(), stored);
                 events.publishSnapshot(actor.tenantId(), stored, now());
                 return converter.toDTO(stored);
@@ -199,17 +193,15 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         var actor = actor("pay:payment:read");
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var initial = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var initial = store.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.serviceId().equals(initial.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
-            var parent = store.lockParent(actor.tenantId(), initial.payment().orderId())
+            var parent = store.lockParent(initial.payment().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var gate = store.lockPayment(actor.tenantId(), query.id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var gate = store.lockPayment(query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             // All payment writers hold these gates before changing a payment or its terminal proof.
-            var current =
-                    store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = store.find(query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!query.id().equals(current.payment().id())
                     || !initial.payment().orderId().equals(current.payment().orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);

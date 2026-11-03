@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
@@ -126,14 +125,11 @@ public class PaymentSubmissionPreparation {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!limits.supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
-            var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
-            var stored = attempts.find(tenant, attemptId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var accepted = payments.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var stored = attempts.find(attemptId).orElseThrow(() -> new CommonException(NOT_FOUND));
             requireBinding(accepted, stored);
             if (stored.attempt().state() != PaymentAttemptState.INIT
                     || accepted.payment().state() != PaymentState.PROCESSING) {
@@ -168,14 +164,12 @@ public class PaymentSubmissionPreparation {
             }
             final LimitExecutionPermitDTO permit;
             try {
-                var reservation = limits.reserve(
-                        tenant,
-                        converter.toReserve(
-                                accepted, original.admittedTerms().terms().limits()));
+                var reservation = limits.reserve(converter.toReserve(
+                        accepted, original.admittedTerms().terms().limits()));
                 validateReservation(accepted, original.admittedTerms().terms().limits(), reservation);
-                permit = limits.begin(tenant, converter.toBegin(stored));
+                permit = limits.begin(converter.toBegin(stored));
                 validatePermit(accepted, stored, permit);
-                var observation = limits.verify(tenant, converter.toVerify(accepted, permit));
+                var observation = limits.verify(converter.toVerify(accepted, permit));
                 if (observation == null || !observation.valid() || !"VALID".equals(observation.reasonCode())) {
                     throw new CommonException(EXECUTION_PERMIT_INVALID);
                 }
@@ -191,8 +185,7 @@ public class PaymentSubmissionPreparation {
             try {
                 return transactions.writeLocal(tenant, () -> {
                     var locked = locks.lock(tenant, paymentId, accepted.callerServiceId());
-                    var current =
-                            attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                    var current = attempts.lock(attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     requireBinding(locked.payment(), current);
                     if (current.attempt().state() != PaymentAttemptState.INIT) {
                         return Optional.empty();
@@ -203,7 +196,7 @@ public class PaymentSubmissionPreparation {
                     }
                     inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
                     var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
-                    attempts.update(tenant, started, current.rowVersion());
+                    attempts.update(started, current.rowVersion());
                     return Optional.of(
                             new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
                 });
@@ -268,7 +261,7 @@ public class PaymentSubmissionPreparation {
             String tenant, StoredPaymentAcceptance original, String attemptId, RiskDecision decision) {
         transactions.writeLocal(tenant, () -> {
             var locked = locks.lock(tenant, original.payment().id(), original.callerServiceId());
-            var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = attempts.lock(attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(locked.payment(), current);
             if (current.attempt().state() != PaymentAttemptState.INIT) {
                 return false;
@@ -283,13 +276,13 @@ public class PaymentSubmissionPreparation {
             if (gate.gate().state() != GateState.FENCED) {
                 var fenced = updates.withGate(
                         gate, gate.gate().fence(Math.max(1, gate.gate().fenceEpoch())));
-                changes.updateGate(tenant, fenced, gate.rowVersion());
+                changes.updateGate(fenced, gate.rowVersion());
             }
             var closed = current.closeBeforeSubmission(evidence, decision);
-            attempts.update(tenant, closed, current.rowVersion());
+            attempts.update(closed, current.rowVersion());
             var proof = new NoCollectionEvidence(evidence, order.id(), true);
             var failed = order.state() == PaymentState.CLOSING ? order.close(proof) : order.fail(proof);
-            changes.updatePayment(tenant, updates.withPayment(locked.payment(), failed, evidence), order.version());
+            changes.updatePayment(updates.withPayment(locked.payment(), failed, evidence), order.version());
             events.publish(tenant, updates.withPayment(locked.payment(), failed, evidence), true, now());
             return true;
         });

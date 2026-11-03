@@ -22,13 +22,13 @@ import java.util.Optional;
  * Persistence or integration port; implementations own transactions and trusted tenant isolation.
  */
 public interface CheckoutSessionGateway {
-    Optional<StoredCheckoutSession> find(String tenantId, String sessionId);
+    Optional<StoredCheckoutSession> find(String sessionId);
 
-    Optional<StoredCheckoutSession> lock(String tenantId, String sessionId);
+    Optional<StoredCheckoutSession> lock(String sessionId);
 
-    Optional<StoredCheckoutSession> findRequest(String tenantId, String orderId, String requestKey);
+    Optional<StoredCheckoutSession> findRequest(String orderId, String requestKey);
 
-    void insert(String tenantId, StoredCheckoutSession session);
+    void insert(StoredCheckoutSession session);
 
-    void revoke(String tenantId, StoredCheckoutSession before, StoredCheckoutSession after);
+    void revoke(StoredCheckoutSession before, StoredCheckoutSession after);
 }

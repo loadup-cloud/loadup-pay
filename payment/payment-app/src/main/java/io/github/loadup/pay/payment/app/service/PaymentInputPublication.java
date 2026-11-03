@@ -48,7 +48,7 @@ public class PaymentInputPublication {
 
     public StoredPaymentGate lockParent(PaymentActor actor, PaymentInputPrepareCommand command) {
         writable(actor);
-        var parent = payments.lockParent(actor.tenantId(), command.orderId());
+        var parent = payments.lockParent(command.orderId());
         if (parent.isPresent()) {
             bound(parent.get(), actor, command, null);
             return parent.get();
@@ -60,7 +60,7 @@ public class PaymentInputPublication {
                 actor.serviceId(),
                 PaymentExecutionGate.init(command.orderId(), null).open(),
                 0L);
-        payments.insertParent(actor.tenantId(), value);
+        payments.insertParent(value);
         return value;
     }
 
@@ -73,19 +73,19 @@ public class PaymentInputPublication {
         if (parent.gate().state() != GateState.OPEN) {
             throw new CommonException(EXECUTION_FENCED);
         }
-        var child = payments.lockPayment(actor.tenantId(), command.paymentId());
+        var child = payments.lockPayment(command.paymentId());
         if (child.isPresent()) {
             bound(child.get(), actor, command, command.paymentId());
             if (child.get().gate().state() == GateState.FENCED) {
                 throw new CommonException(EXECUTION_FENCED);
             }
             // A published input cannot be retrofitted into an already accepted inputless payment.
-            if (payments.find(actor.tenantId(), command.paymentId()).isPresent()) {
+            if (payments.find(command.paymentId()).isPresent()) {
                 throw new CommonException(INVALID_STATE);
             }
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        if (payments.find(actor.tenantId(), command.paymentId()).isPresent()) {
+        if (payments.find(command.paymentId()).isPresent()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }

@@ -109,7 +109,7 @@ class RefundResultServiceTest {
                 original.request().apply(started.refund()),
                 List.of(started, original.allocations().get(1))));
         facts.set(new RefundExecutionFacts(started, RefundResultFixtures.NOW, null, null));
-        when(results.requestId("tenant", "refund")).thenReturn(Optional.of("request"));
+        when(results.requestId("refund")).thenReturn(Optional.of("request"));
         when(locks.lock("tenant", "request", "refund")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return new LockedRefund(request.get(), facts.get(), capacity.get());
@@ -129,9 +129,9 @@ class RefundResultServiceTest {
                             o.succeededAt(),
                             o.acceptedAt())));
         });
-        when(results.receipt(eq("tenant"), eq("refund"), any(), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(2) + "/" + c.getArgument(3))));
-        when(results.claim("tenant", "refund"))
+        when(results.receipt(eq("refund"), any(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(1) + "/" + c.getArgument(2))));
+        when(results.claim("refund"))
                 .thenAnswer(c -> Optional.ofNullable(claim.get())
                         .filter(v ->
                                 v.tenantId().equals("tenant") && v.refundId().equals("refund")));
@@ -145,7 +145,7 @@ class RefundResultServiceTest {
                 .when(results)
                 .insertClaim(any());
         doAnswer(c -> {
-                    RefundProgressChange change = c.getArgument(1);
+                    RefundProgressChange change = c.getArgument(0);
                     var updated = converter.withRefund(facts.get().child(), change.refund());
                     request.set(converter.withRequest(
                             request.get(),
@@ -160,20 +160,20 @@ class RefundResultServiceTest {
                     return null;
                 })
                 .when(results)
-                .update(eq("tenant"), any());
+                .update(any());
         doAnswer(c -> {
-                    RefundChannelReceipt r = c.getArgument(1);
+                    RefundChannelReceipt r = c.getArgument(0);
                     receipts.put(r.source() + "/" + r.receiptKey(), r);
                     return null;
                 })
                 .when(results)
-                .insertReceipt(eq("tenant"), any());
+                .insertReceipt(any());
         doAnswer(c -> {
-                    anomalies.add(c.getArgument(1));
+                    anomalies.add(c.getArgument(0));
                     return null;
                 })
                 .when(results)
-                .recordAnomaly(eq("tenant"), any());
+                .recordAnomaly(any());
     }
 
     @AfterEach
@@ -212,7 +212,7 @@ class RefundResultServiceTest {
                 IGNORED,
                 service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "other-event"))
                         .disposition());
-        verify(results, times(1)).update(eq("tenant"), any());
+        verify(results, times(1)).update(any());
         verify(results, times(1)).insertClaim(any());
         assertEquals(1000, capacity.get().refundedMinor());
         verify(projections, times(1)).changed(eq("tenant"), any());
@@ -277,7 +277,7 @@ class RefundResultServiceTest {
                 null);
         assertEquals(CONFLICT, service.record("tenant", changed).disposition());
         assertEquals("REFUND_IDENTITY_MISMATCH", anomalies.getFirst().reasonCode());
-        verify(results, never()).update(anyString(), any());
+        verify(results, never()).update(any());
         verify(results, never()).insertClaim(any());
     }
 
@@ -298,7 +298,7 @@ class RefundResultServiceTest {
         assertEquals(CONFLICT, service.record("tenant", o).disposition());
         assertEquals("REFUND_TRANSACTION_ALREADY_CLAIMED", anomalies.getFirst().reasonCode());
         assertEquals(0, capacity.get().refundedMinor());
-        verify(results, never()).update(anyString(), any());
+        verify(results, never()).update(any());
     }
 
     @Test
@@ -311,7 +311,7 @@ class RefundResultServiceTest {
                 service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"))
                         .disposition());
         assertEquals("OBSERVATION_BEFORE_SUBMISSION", anomalies.getFirst().reasonCode());
-        verify(results, never()).update(anyString(), any());
+        verify(results, never()).update(any());
     }
 
     @Test
@@ -322,13 +322,13 @@ class RefundResultServiceTest {
                 () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        verify(results, never()).insertReceipt(anyString(), any());
+        verify(results, never()).insertReceipt(any());
         // Source-only boundary proof; real database rollback remains unverified.
     }
 
     @Test
     void receiptFailureAbortsTheWholeResultTransactionBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(results).insertReceipt(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(results).insertReceipt(any());
         assertThrows(
                 CommonException.class,
                 () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
@@ -343,7 +343,7 @@ class RefundResultServiceTest {
         service.uncertain("tenant", "request", "refund");
         assertEquals(RefundState.UNKNOWN, facts.get().child().refund().state());
         assertEquals(1000, capacity.get().reservedMinor());
-        verify(results, never()).insertReceipt(anyString(), any());
+        verify(results, never()).insertReceipt(any());
         verify(results, never()).insertClaim(any());
     }
 
@@ -351,17 +351,15 @@ class RefundResultServiceTest {
     void acceptedTimeIsCommittedWithItsReceiptWithoutConfirmingRefundOrChangingCapacity() {
         var original = observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted");
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
-        when(acceptances.remember(eq("tenant"), any(), ArgumentMatchers.anyLong()))
-                .thenReturn(true);
+        when(acceptances.remember(any(), ArgumentMatchers.anyLong())).thenReturn(true);
         var result = service.record("tenant", observed);
         assertEquals(RefundState.PROCESSING, facts.get().child().refund().state());
         assertEquals(0L, capacity.get().refundedMinor());
         assertEquals(1000L, capacity.get().reservedMinor());
         var order = Mockito.inOrder(results, acceptances);
-        order.verify(results).insertReceipt(eq("tenant"), any());
+        order.verify(results).insertReceipt(any());
         order.verify(acceptances)
                 .remember(
-                        eq("tenant"),
                         eq(converter.toAcceptance(observed, result.receiptId())),
                         eq(facts.get().child().refund().version()));
     }
@@ -370,8 +368,7 @@ class RefundResultServiceTest {
     void metadataConflictRecordsAnomalyWithoutOverridingConfirmedFinancialOutcome() {
         var original = observation(ChannelRefundOutcome.Kind.SUCCEEDED, "accepted-success");
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
-        when(acceptances.remember(eq("tenant"), any(), ArgumentMatchers.anyLong()))
-                .thenReturn(false);
+        when(acceptances.remember(any(), ArgumentMatchers.anyLong())).thenReturn(false);
         var result = service.record("tenant", observed);
         assertEquals(APPLIED, result.disposition());
         assertEquals(RefundState.SUCCEEDED, facts.get().child().refund().state());
@@ -386,7 +383,7 @@ class RefundResultServiceTest {
                 facts.get().child().originalSucceededAt().minusSeconds(1));
         assertEquals(CONFLICT, service.record("tenant", observed).disposition());
         Mockito.verifyNoInteractions(acceptances);
-        verify(results, never()).update(anyString(), any());
+        verify(results, never()).update(any());
         assertTrue(anomalies.stream().anyMatch(value -> value.reasonCode().equals("REFUND_ACCEPTANCE_TIME_MISMATCH")));
     }
 

@@ -65,7 +65,7 @@ public class AllocationRecoveryQueue {
                 allocation.allocation().paymentId(),
                 allocation.allocation().orderId(),
                 initiatedAt.truncatedTo(ChronoUnit.MICROS).plusSeconds(pollDelaySeconds));
-        cursors.insert(tenant, cursor);
+        cursors.insert(cursor);
         tasks.register(
                 TYPE, new AllocationRecoveryKey(cursor.paymentId(), cursor.generation()).bizId(), cursor.dueAt());
     }
@@ -75,14 +75,14 @@ public class AllocationRecoveryQueue {
         var base = observedAt.isBefore(before.dueAt()) ? before.dueAt() : observedAt;
         var after =
                 before.schedule(base.truncatedTo(ChronoUnit.MICROS).plusSeconds(pollDelaySeconds), before.generation());
-        cursors.update(tenant, before, after);
+        cursors.update(before, after);
         tasks.register(TYPE, new AllocationRecoveryKey(after.paymentId(), after.generation()).bizId(), after.dueAt());
     }
 
     void finish(String tenant, AllocationRecoveryCursor before) {
         writable(tenant);
         if (!before.completed()) {
-            cursors.update(tenant, before, before.finish());
+            cursors.update(before, before.finish());
         }
     }
 

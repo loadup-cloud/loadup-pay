@@ -89,7 +89,7 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationBatchDO toDO(String tenant, StoredReconciliationBatch value);
+    ReconciliationBatchDO toDO(StoredReconciliationBatch value);
 
     @Mapping(target = "id", source = "value.artifactId")
     @Mapping(target = "side", source = "value.side")
@@ -112,7 +112,7 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationInputDO toInput(String tenant, String fileId, ReconciliationManifest value);
+    ReconciliationInputDO toInput(String fileId, ReconciliationManifest value);
 
     @Mapping(target = "key", source = "row")
     @Mapping(
@@ -140,5 +140,5 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationEntryDO toEntry(String tenant, String inputId, ReconciliationLine value);
+    ReconciliationEntryDO toEntry(String inputId, ReconciliationLine value);
 }

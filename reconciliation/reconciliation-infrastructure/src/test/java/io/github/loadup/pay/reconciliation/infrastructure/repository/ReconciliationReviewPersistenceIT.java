@@ -192,9 +192,7 @@ class ReconciliationReviewPersistenceIT {
                 actors.call(fixture.tenant(), "maker", () -> service.propose(propose(fixture, "proposal", null))));
         var original = transactions.readSnapshot(
                 fixture.tenant(),
-                () -> batches.find(fixture.tenant(), fixture.batchId())
-                        .orElseThrow()
-                        .batch());
+                () -> batches.find(fixture.batchId()).orElseThrow().batch());
         assertEquals("DIFFERENCES", original.state().name());
         assertEquals(fixture.resultHash(), original.result().resultHash());
         assertEquals(1L, original.result().differenceCount());
@@ -239,27 +237,27 @@ class ReconciliationReviewPersistenceIT {
                 key, "payment", Money.ofMinor(100L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
         var ledgerLine = new ReconciliationLine(
                 key, "payment", Money.ofMinor(90L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
-        var cFile = upload(tenant, "channel");
-        var lFile = upload(tenant, "ledger");
+        var cFile = upload("channel");
+        var lFile = upload("ledger");
         var channel = dataset(scope, cFile, channelLine, ReconciliationSide.CHANNEL);
         var ledger = dataset(scope, lFile, ledgerLine, ReconciliationSide.LEDGER);
         var result = new ReconciliationMatcher().compare(channel, ledger);
         transactions.writeLocal(tenant, () -> {
             var initial = ReconciliationBatch.init(batchId, scope);
-            batches.insert(tenant, stored(initial));
-            batches.lock(tenant, batchId).orElseThrow();
-            files.attach(tenant, "batch-owner", cFile, cFile.fileId());
-            files.attach(tenant, "batch-owner", lFile, lFile.fileId());
-            inputs.insertSealed(tenant, cFile.fileId(), channel);
-            inputs.insertSealed(tenant, lFile.fileId(), ledger);
+            batches.insert(stored(initial));
+            batches.lock(batchId).orElseThrow();
+            files.attach("batch-owner", cFile, cFile.fileId());
+            files.attach("batch-owner", lFile, lFile.fileId());
+            inputs.insertSealed(cFile.fileId(), channel);
+            inputs.insertSealed(lFile.fileId(), ledger);
             var first = initial.attach(channel.manifest());
-            batches.update(tenant, stored(first), initial.version());
+            batches.update(stored(first), initial.version());
             var ready = first.attach(ledger.manifest());
-            batches.update(tenant, stored(ready), first.version());
+            batches.update(stored(ready), first.version());
             var running = ready.begin(run);
-            batches.update(tenant, stored(running), ready.version());
-            results.insert(tenant, batchId, run, result);
-            batches.update(tenant, stored(running.complete(run, result)), running.version());
+            batches.update(stored(running), ready.version());
+            results.insert(batchId, run, result);
+            batches.update(stored(running.complete(run, result)), running.version());
             return true;
         });
         var differenceId = jdbc.queryForObject(
@@ -267,10 +265,9 @@ class ReconciliationReviewPersistenceIT {
         return new Fixture(tenant, batchId, differenceId, result.summary().resultHash());
     }
 
-    ReconciliationFileSnapshot upload(String tenant, String value) {
+    ReconciliationFileSnapshot upload(String value) {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         return files.upload(
-                tenant,
                 "batch-owner",
                 value + ".bin",
                 "application/octet-stream",
@@ -360,12 +357,11 @@ class ReconciliationReviewPersistenceIT {
 
         @Override
         public void commit(
-                String tenant,
                 ReconciliationReview before,
                 ReconciliationReview after,
                 ReconciliationReviewProposal proposal,
                 ReconciliationReviewEvent event) {
-            super.commit(tenant, before, after, proposal, event);
+            super.commit(before, after, proposal, event);
             String target = failRequest.get();
             if (event.requestKey().equals(target) && failRequest.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual review commit");
@@ -406,12 +402,12 @@ class ReconciliationReviewPersistenceIT {
         ReconciliationAccountDirectory accounts() {
             return new ReconciliationAccountDirectory() {
                 @Override
-                public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
+                public ReconciliationScope resolve(String caller, String code, LocalDate date) {
                     return new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, "wechat-trade-all-20260116");
                 }
 
                 @Override
-                public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
+                public void authorize(String caller, String code, ReconciliationScope scope) {
                     if (!Set.of("maker", "checker").contains(caller) || !"account".equals(code)) {
                         throw new CommonException(ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
                     }
@@ -419,13 +415,12 @@ class ReconciliationReviewPersistenceIT {
 
                 @Override
                 public ReconciliationStatementAccount statementAccount(
-                        String tenant, String caller, String code, ReconciliationScope scope) {
+                        String caller, String code, ReconciliationScope scope) {
                     throw new AssertionError("Not a source operation");
                 }
 
                 @Override
-                public String statementBindingRevision(
-                        String tenant, String caller, String code, ReconciliationScope scope) {
+                public String statementBindingRevision(String caller, String code, ReconciliationScope scope) {
                     throw new AssertionError("Not a source operation");
                 }
             };

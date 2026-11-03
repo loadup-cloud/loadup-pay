@@ -111,16 +111,15 @@ class PaymentOutcomeDeliverySupportTest {
         when(outbox.find("queue-event"))
                 .thenReturn(Optional.of(
                         new OutboxRecord("queue-event", PaymentEvents.LIMIT, "payment", "PROCESSING", 1, null)));
-        when(payments.find("tenant", "payment"))
-                .thenAnswer(c -> Optional.of(source.get().payment()));
+        when(payments.find("payment")).thenAnswer(c -> Optional.of(source.get().payment()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(source.get().payment(), AttemptFixtures.gate(true), gate.get());
         });
-        when(attempts.lock("tenant", "attempt"))
+        when(attempts.lock("attempt"))
                 .thenAnswer(c -> Optional.ofNullable(source.get().attempt()));
         when(intents.decode(any())).thenReturn(AttemptFixtures.command());
-        when(results.attemptClaim("tenant", "attempt")).thenAnswer(c -> {
+        when(results.attemptClaim("attempt")).thenAnswer(c -> {
             var current = source.get();
             return Optional.of(new ChannelTransactionClaim(
                     "claim",
@@ -131,7 +130,7 @@ class PaymentOutcomeDeliverySupportTest {
                     AttemptFixtures.NOW,
                     "evidence"));
         });
-        when(results.capacity("tenant", "payment"))
+        when(results.capacity("payment"))
                 .thenAnswer(c -> Optional.of(new PaymentRefundCapacity(
                         "payment",
                         "order",
@@ -172,7 +171,7 @@ class PaymentOutcomeDeliverySupportTest {
 
     @Test
     void currentRefundReservationsDoNotRewriteTheOriginalSuccessfulLimitBasis() {
-        when(results.capacity("tenant", "payment"))
+        when(results.capacity("payment"))
                 .thenReturn(Optional.of(new PaymentRefundCapacity(
                         "payment",
                         "order",
@@ -257,9 +256,9 @@ class PaymentOutcomeDeliverySupportTest {
 
     @Test
     void successWithoutATransactionClaimOrRefundCapacityCannotBeConfirmed() {
-        when(results.attemptClaim("tenant", "attempt")).thenReturn(Optional.empty());
+        when(results.attemptClaim("attempt")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::load);
-        when(results.attemptClaim("tenant", "attempt"))
+        when(results.attemptClaim("attempt"))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim",
                         "tenant",
@@ -268,13 +267,13 @@ class PaymentOutcomeDeliverySupportTest {
                         "transaction",
                         AttemptFixtures.NOW,
                         "evidence")));
-        when(results.capacity("tenant", "payment")).thenReturn(Optional.empty());
+        when(results.capacity("payment")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::load);
     }
 
     @Test
     void aClaimForAnotherTenantCannotServeAsLocalFinancialEvidence() {
-        when(results.attemptClaim("tenant", "attempt"))
+        when(results.attemptClaim("attempt"))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim",
                         "other-tenant",

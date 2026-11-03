@@ -69,11 +69,11 @@ class RefundSummaryFactsServiceTest {
 
     @BeforeEach
     void setup() {
-        when(payments.lockParent("tenant", "order")).thenAnswer(c -> {
+        when(payments.lockParent("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(parent.get());
         });
-        when(summaries.lock("tenant", "order")).thenReturn(Optional.of(summary));
+        when(summaries.lock("order")).thenReturn(Optional.of(summary));
     }
 
     @AfterEach
@@ -89,13 +89,13 @@ class RefundSummaryFactsServiceTest {
         assertEquals(500, result.refundReservedMinor());
         assertEquals(3, result.refundSummaryVersion());
         var order = inOrder(payments, summaries);
-        order.verify(payments).lockParent("tenant", "order");
-        order.verify(summaries).lock("tenant", "order");
+        order.verify(payments).lockParent("order");
+        order.verify(summaries).lock("order");
     }
 
     @Test
     void missingSummaryIsNotAZeroRefundProof() {
-        when(summaries.lock("tenant", "order")).thenReturn(Optional.empty());
+        when(summaries.lock("order")).thenReturn(Optional.empty());
         assertSame(
                 NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.refundSummary(new IdQuery("order")))
@@ -131,7 +131,7 @@ class RefundSummaryFactsServiceTest {
 
     @Test
     void summaryMustMatchTheOriginalCollectingMerchant() {
-        when(summaries.lock("tenant", "order"))
+        when(summaries.lock("order"))
                 .thenReturn(Optional.of(new OrderRefundSummary(
                         "order", "another-merchant", DomainChecks.cnyAmount(10000, "CNY"), 1000, 500, 3)));
         assertSame(

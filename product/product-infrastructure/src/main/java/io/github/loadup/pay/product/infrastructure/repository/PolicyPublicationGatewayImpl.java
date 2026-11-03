@@ -96,28 +96,28 @@ public class PolicyPublicationGatewayImpl
     }
 
     @Override
-    public Optional<PolicyPublication> findById(String tenant, String id) {
+    public Optional<PolicyPublication> findById(String id) {
         return read(() -> Optional.ofNullable(getById(id)));
     }
 
     @Override
-    public Optional<PolicyPublication> lockById(String tenant, String id) {
+    public Optional<PolicyPublication> lockById(String id) {
         return locked(id);
     }
 
     @Override
-    public Optional<PolicyPublication> findByContract(String tenant, String contract, int revision) {
+    public Optional<PolicyPublication> findByContract(String contract, int revision) {
         return read(() -> Optional.ofNullable(
                 getOne(QueryWrapper.create().eq("contract_id", contract).eq("contract_revision", revision))));
     }
 
     @Override
-    public Optional<PolicyPublication> findByMerchant(String tenant, String merchant) {
+    public Optional<PolicyPublication> findByMerchant(String merchant) {
         return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("payee_merchant_id", merchant))));
     }
 
     @Override
-    public Optional<PolicyPublication> findByPolicy(String tenant, String policy) {
+    public Optional<PolicyPublication> findByPolicy(String policy) {
         return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("policy_id", policy))));
     }
 
@@ -134,8 +134,8 @@ public class PolicyPublicationGatewayImpl
     }
 
     @Override
-    public void insert(String tenant, PolicyPublication value) {
-        ContractLimitPublicationDO row = converter.toDO(tenant, value);
+    public void insert(PolicyPublication value) {
+        ContractLimitPublicationDO row = converter.toDO(value);
         LocalDateTime now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -161,8 +161,8 @@ public class PolicyPublicationGatewayImpl
     }
 
     @Override
-    public void update(String tenant, PolicyPublication value, long expectedVersion) {
-        ContractLimitPublicationDO row = converter.toDO(tenant, value);
+    public void update(PolicyPublication value, long expectedVersion) {
+        ContractLimitPublicationDO row = converter.toDO(value);
         row.setUpdatedAt(LocalDateTime.now(clock));
         var source = new BeanPropertySqlParameterSource(row);
         var args = new MapSqlParameterSource();

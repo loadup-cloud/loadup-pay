@@ -105,7 +105,7 @@ public class MerchantNotificationEvents {
         if (payment.kind() != VerifiedPaymentOutcome.Kind.SUCCEEDED) {
             return;
         }
-        var header = facts.lockCurrent(tenant, orderId);
+        var header = facts.lockCurrent(orderId);
         if (!orderId.equals(payment.orderId())
                 || !orderId.equals(header.orderId())
                 || payment.amount().getCent() > header.paidMinor()) {
@@ -126,7 +126,7 @@ public class MerchantNotificationEvents {
         writable(tenant);
         source.data().requireEnvelope(source);
         var data = source.data();
-        var stored = orders.lockOrder(tenant, data.orderId());
+        var stored = orders.lockOrder(data.orderId());
         var order = stored.order();
         if (!order.id().equals(data.orderId())
                 || !order.payeeMerchantId().equals(data.payeeMerchantId())
@@ -175,7 +175,7 @@ public class MerchantNotificationEvents {
             long version,
             String paymentId,
             long amount) {
-        var stored = orders.lockOrder(tenant, header.orderId());
+        var stored = orders.lockOrder(header.orderId());
         if (stored.order().version() != header.sourceVersion()
                 || !stored.order().payeeMerchantId().equals(header.payeeMerchantId())
                 || !stored.order().amount().equals(header.amount())
@@ -245,7 +245,7 @@ public class MerchantNotificationEvents {
             MerchantNotificationPolicy policy,
             LocalDateTime occurredAt) {
         String digest = DigestUtils.sha256(body);
-        var prior = deliveries.findEvent(tenant, eventId, policy.targetRef());
+        var prior = deliveries.findEvent(eventId, policy.targetRef());
         if (prior.isPresent()) {
             var existing = prior.get();
             if (!existing.body().equals(body)
@@ -269,7 +269,7 @@ public class MerchantNotificationEvents {
                 digest,
                 policy,
                 occurredAt);
-        deliveries.insert(tenant, delivery);
+        deliveries.insert(delivery);
         tasks.register(
                 MerchantNotificationService.TYPE,
                 new MerchantNotificationKey(delivery.id(), 0).bizId(),

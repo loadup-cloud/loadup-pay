@@ -55,7 +55,7 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentCaptureDO toDO(String tenant, PaymentCapture value);
+    PaymentCaptureDO toDO(PaymentCapture value);
 
     @Mapping(
             target = "amount",
@@ -87,5 +87,5 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentCaptureLineDO toLineDO(String tenant, String captureId, PaymentLedgerLine value);
+    PaymentCaptureLineDO toLineDO(String captureId, PaymentLedgerLine value);
 }

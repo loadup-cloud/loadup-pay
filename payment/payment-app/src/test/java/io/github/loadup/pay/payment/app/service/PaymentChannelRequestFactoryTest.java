@@ -145,8 +145,8 @@ class PaymentChannelRequestFactoryTest {
 
         assertSame(expected, factory.create(TENANT, prepared));
 
-        verify(payments).find(TENANT, prepared.identity().paymentId());
-        verify(attempts).find(TENANT, prepared.identity().attemptId());
+        verify(payments).find(prepared.identity().paymentId());
+        verify(attempts).find(prepared.identity().attemptId());
         verify(codec).decode(acceptance);
         verify(inputs)
                 .openForAttempt(
@@ -307,8 +307,8 @@ class PaymentChannelRequestFactoryTest {
 
     private void stubRecords(
             StoredPaymentAcceptance acceptance, StoredPaymentAttempt storedAttempt, PaymentExecuteCommand command) {
-        when(payments.find(TENANT, "payment")).thenReturn(Optional.of(acceptance));
-        when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(storedAttempt));
+        when(payments.find("payment")).thenReturn(Optional.of(acceptance));
+        when(attempts.find("attempt")).thenReturn(Optional.of(storedAttempt));
         when(codec.decode(acceptance)).thenReturn(command);
     }
 }

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.repository;
 
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
@@ -23,7 +22,6 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import io.github.loadup.pay.limitcenter.domain.model.GateState;
@@ -63,8 +61,7 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
     }
 
     @Override
-    public Optional<LimitSettlementReceipt> findReceipt(String tenant, String operation) {
-        scope(tenant);
+    public Optional<LimitSettlementReceipt> findReceipt(String operation) {
         var row = Optional.ofNullable(getOne(QueryWrapper.create().eq("operation_id", operation)))
                 .orElse(null);
         if (row == null) {
@@ -78,10 +75,9 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
     }
 
     @Override
-    public void insertReceipt(String tenant, LimitSettlementReceipt receipt) {
+    public void insertReceipt(LimitSettlementReceipt receipt) {
         transaction();
-        scope(tenant);
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -101,9 +97,8 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
     }
 
     @Override
-    public void fenceGate(String tenant, LimitOperationGate gate) {
+    public void fenceGate(LimitOperationGate gate) {
         transaction();
-        scope(tenant);
         if (gate.state() != GateState.FENCED) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -139,9 +134,8 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
     }
 
     @Override
-    public void updateItems(String tenant, List<LimitReservationItem> before, List<LimitReservationItem> after) {
+    public void updateItems(List<LimitReservationItem> before, List<LimitReservationItem> after) {
         transaction();
-        scope(tenant);
         if (before.size() != after.size()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -188,12 +182,6 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 

@@ -27,19 +27,19 @@ public interface OrderCreationCodec {
 
     AcquireOrderCreateCommand decodeIntent(OrderCreateIntent intent);
 
-    String requestDigest(String tenant, String scopeHash, AcquireOrderCreateCommand command);
+    String requestDigest(String scopeHash, AcquireOrderCreateCommand command);
 
     String encodeCheckout(CheckoutCreateCommand command);
 
     CheckoutCreateCommand decodeCheckout(OrderCreateIntent intent);
 
-    String checkoutDigest(String tenant, String scopeHash, CheckoutCreateCommand command);
+    String checkoutDigest(String scopeHash, CheckoutCreateCommand command);
 
     String encodeDirectPay(DirectPayRecoverCommand command);
 
     DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent);
 
-    String directPayDigest(String tenant, String scopeHash, DirectPayRecoverCommand command);
+    String directPayDigest(String scopeHash, DirectPayRecoverCommand command);
 
     String encodeAdmission(OrderAdmissionDTO admission);
 

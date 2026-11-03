@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryWindow;
 import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
@@ -47,7 +45,7 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
     }
 
     @Override
-    public List<UnknownRecoveryEntry> list(String tenant, PaymentRecoveryKind kind, UnknownRecoveryWindow window) {
+    public List<UnknownRecoveryEntry> list(PaymentRecoveryKind kind, UnknownRecoveryWindow window) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
@@ -56,9 +54,6 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         if (kind == null || window == null) {
             throw new CommonException(INVALID_ARGUMENT);

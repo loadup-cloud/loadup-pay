@@ -22,7 +22,7 @@ import io.github.loadup.pay.payment.app.model.RefundSummaryFacts;
  * Complete newly persisted source rows, read in their owning writable transaction.
  */
 public interface RefundSnapshotReader {
-    RefundSnapshotFacts child(String tenant, String refundId);
+    RefundSnapshotFacts child(String refundId);
 
-    RefundSummaryFacts summary(String tenant, String orderId);
+    RefundSummaryFacts summary(String orderId);
 }

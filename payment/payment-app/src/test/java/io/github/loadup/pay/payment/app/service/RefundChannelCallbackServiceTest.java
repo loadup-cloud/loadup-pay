@@ -125,7 +125,6 @@ class RefundChannelCallbackServiceTest {
                 TENANT, target().original().channel(), target().original().bindingRevisionId());
         when(endpoints.resolve(ENDPOINT_REF)).thenReturn(Optional.of(endpoint));
         when(targets.find(
-                        TENANT,
                         endpoint.bindingRevisionId(),
                         target().original().channelRequestNo(),
                         target().channelRefundNo()))
@@ -179,11 +178,7 @@ class RefundChannelCallbackServiceTest {
         var calls = inOrder(notifications, channels, results);
         verify(endpoints).resolve(ENDPOINT_REF);
         verify(targets)
-                .find(
-                        TENANT,
-                        endpoint.bindingRevisionId(),
-                        prepared.original().channelRequestNo(),
-                        prepared.channelRefundNo());
+                .find(endpoint.bindingRevisionId(), prepared.original().channelRequestNo(), prepared.channelRefundNo());
         calls.verify(notifications).identifyRefund(endpoint.channel(), endpoint.bindingRevisionId(), input);
         calls.verify(notifications).verifyRefund(prepared, input);
         calls.verify(channels).queryRefund(prepared);
@@ -291,7 +286,7 @@ class RefundChannelCallbackServiceTest {
                 target().amount(),
                 target().originalAmount(),
                 target().originalChannelTransactionNo());
-        when(targets.find(anyString(), anyString(), anyString(), anyString())).thenReturn(Optional.of(wrongTarget));
+        when(targets.find(anyString(), anyString(), anyString())).thenReturn(Optional.of(wrongTarget));
 
         assertEquals(
                 acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));

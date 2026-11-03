@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
@@ -72,10 +71,7 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
     }
 
     @Override
-    public PaymentVerificationTarget read(String tenant, PaymentVerificationQuery query) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    public PaymentVerificationTarget read(PaymentVerificationQuery query) {
         if (query == null
                 || !TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
@@ -101,12 +97,12 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
             if (rows.size() > 1) {
                 return missing(PaymentVerificationDisposition.AMBIGUOUS_TARGET);
             }
-            var stored = attempt(tenant, rows.getFirst());
+            var stored = attempt(rows.getFirst());
             identity(query, stored);
             if (stored.attempt().executionEpoch() == 0L) {
                 return missing(PaymentVerificationDisposition.NOT_SUBMITTED);
             }
-            observable(tenant, stored);
+            observable(stored);
             return new PaymentVerificationTarget(
                     new ChannelPaymentTarget(
                             stored.attempt().identity(), stored.attempt().amount()),
@@ -143,14 +139,14 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
         if ("INIT".equals(row.getState())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var original = attempt(tenant, row.getOriginalAttemptId());
+        var original = attempt(row.getOriginalAttemptId());
         identity(query, original);
-        observable(tenant, original);
+        observable(original);
         if (!original.attempt().identity().equals(refunds.toIdentity(row))) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var claim = claims.attemptClaim(tenant, original.attempt().id())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var claim =
+                claims.attemptClaim(original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var capacityArgs = new MapSqlParameterSource().addValue("payment", row.getPaymentId());
         var capacity =
                 jdbc.query("""
@@ -160,7 +156,7 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
                         .findFirst()
                         .orElse(null);
         if (capacity == null
-                || !tenant.equals(claim.tenantId())
+                || !TenantUtil.getTenantId().equals(claim.tenantId())
                 || !claim.identity().equals(original.attempt().identity())
                 || !claim.amount().equals(original.attempt().amount())
                 || !claim.channelTransactionNo().equals(row.getOriginalChannelTransactionNo())
@@ -179,13 +175,13 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
                 PaymentVerificationDisposition.OBSERVED);
     }
 
-    private StoredPaymentAttempt attempt(String tenant, String id) {
-        return attempts.find(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+    private StoredPaymentAttempt attempt(String id) {
+        return attempts.find(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
     }
 
-    private void observable(String tenant, StoredPaymentAttempt stored) {
-        var accepted = payments.find(tenant, stored.attempt().paymentId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+    private void observable(StoredPaymentAttempt stored) {
+        var accepted =
+                payments.find(stored.attempt().paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         commands.decode(accepted);
         PaymentExecutionBindings.observable(accepted, stored);
     }

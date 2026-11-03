@@ -22,6 +22,5 @@ import java.util.Optional;
  * Reads only an already started refund under its original immutable binding and both channel numbers.
  */
 public interface RefundCallbackTargetGateway {
-    Optional<PreparedChannelRefund> find(
-            String tenant, String bindingRevisionId, String channelRequestNo, String channelRefundNo);
+    Optional<PreparedChannelRefund> find(String bindingRevisionId, String channelRequestNo, String channelRefundNo);
 }

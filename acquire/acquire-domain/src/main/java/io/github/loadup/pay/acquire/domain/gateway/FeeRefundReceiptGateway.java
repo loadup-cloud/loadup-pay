@@ -19,7 +19,7 @@ import io.github.loadup.pay.acquire.domain.model.FeeRefundReceipt;
 import java.util.Optional;
 
 public interface FeeRefundReceiptGateway {
-    Optional<FeeRefundReceipt> find(String tenant, String deliveryId);
+    Optional<FeeRefundReceipt> find(String deliveryId);
 
-    void insert(String tenant, FeeRefundReceipt value);
+    void insert(FeeRefundReceipt value);
 }

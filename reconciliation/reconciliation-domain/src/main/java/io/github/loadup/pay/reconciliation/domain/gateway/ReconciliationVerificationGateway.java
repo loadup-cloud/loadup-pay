@@ -19,13 +19,13 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificati
 import java.util.Optional;
 
 public interface ReconciliationVerificationGateway {
-    Optional<ReconciliationVerificationRequest> findRequest(String tenant, String caller, String key);
+    Optional<ReconciliationVerificationRequest> findRequest(String caller, String key);
 
-    Optional<ReconciliationVerificationRequest> find(String tenant, String id);
+    Optional<ReconciliationVerificationRequest> find(String id);
 
-    Optional<ReconciliationVerificationRequest> lock(String tenant, String id);
+    Optional<ReconciliationVerificationRequest> lock(String id);
 
-    void insert(String tenant, ReconciliationVerificationRequest value);
+    void insert(ReconciliationVerificationRequest value);
 
-    void update(String tenant, ReconciliationVerificationRequest value, long expectedVersion);
+    void update(ReconciliationVerificationRequest value, long expectedVersion);
 }

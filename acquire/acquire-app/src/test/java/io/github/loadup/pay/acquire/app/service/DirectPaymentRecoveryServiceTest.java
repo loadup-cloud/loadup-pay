@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -126,8 +125,8 @@ class DirectPaymentRecoveryServiceTest {
 
     @BeforeEach
     void setup() {
-        when(store.findIntent("tenant", "merchant", "M001")).thenAnswer(call -> Optional.ofNullable(intent.get()));
-        when(codec.directPayDigest("tenant", OWNER, command)).thenReturn("a".repeat(64));
+        when(store.findIntent("merchant", "M001")).thenAnswer(call -> Optional.ofNullable(intent.get()));
+        when(codec.directPayDigest(OWNER, command)).thenReturn("a".repeat(64));
         when(codec.decodeDirectPay(any())).thenReturn(command);
         when(orders.resumeDirectPay(command)).thenReturn(order);
         when(payments.recover(any()))
@@ -150,7 +149,7 @@ class DirectPaymentRecoveryServiceTest {
         assertNull(result.order());
         assertNull(result.payment());
         verifyNoInteractions(orders, payments, codec);
-        verify(store, never()).insertIntent(anyString(), any());
+        verify(store, never()).insertIntent(any());
     }
 
     @Test
@@ -231,7 +230,7 @@ class DirectPaymentRecoveryServiceTest {
                 4000,
                 command.choice(),
                 command.interactionKind());
-        when(codec.directPayDigest("tenant", OWNER, changed)).thenReturn("a".repeat(64));
+        when(codec.directPayDigest(OWNER, changed)).thenReturn("a".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.recover(changed))

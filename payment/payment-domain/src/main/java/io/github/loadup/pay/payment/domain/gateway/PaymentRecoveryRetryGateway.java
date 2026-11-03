@@ -19,7 +19,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import java.util.Optional;
 
 public interface PaymentRecoveryRetryGateway {
-    Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey);
+    Optional<PaymentRecoveryRetryReceipt> find(String callerScopeHash, String requestKey);
 
-    void insert(String tenant, PaymentRecoveryRetryReceipt receipt);
+    void insert(PaymentRecoveryRetryReceipt receipt);
 }

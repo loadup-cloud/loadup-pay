@@ -22,15 +22,15 @@ import java.util.Optional;
  * All writes and locks require the caller's actual writable local transaction and trusted tenant.
  */
 public interface ReconciliationBatchGateway {
-    Optional<StoredReconciliationBatch> findRequest(String tenant, String caller, String requestKey);
+    Optional<StoredReconciliationBatch> findRequest(String caller, String requestKey);
 
-    Optional<StoredReconciliationBatch> find(String tenant, String batchId);
+    Optional<StoredReconciliationBatch> find(String batchId);
 
-    Optional<StoredReconciliationBatch> lock(String tenant, String batchId);
+    Optional<StoredReconciliationBatch> lock(String batchId);
 
-    Optional<StoredReconciliationBatch> findRun(String tenant, String runId);
+    Optional<StoredReconciliationBatch> findRun(String runId);
 
-    void insert(String tenant, StoredReconciliationBatch value);
+    void insert(StoredReconciliationBatch value);
 
-    void update(String tenant, StoredReconciliationBatch value, long expectedVersion);
+    void update(StoredReconciliationBatch value, long expectedVersion);
 }

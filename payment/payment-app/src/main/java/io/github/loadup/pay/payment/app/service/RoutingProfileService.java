@@ -98,7 +98,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
             String hash = codec.checksum(codec.encode(spec));
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), command.requestKey(), hash);
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var prior = profiles.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
+                var prior = profiles.findRequest(actor.serviceId(), command.requestKey());
                 if (prior.isPresent()) {
                     var original = prior.get();
                     if (!original.requestDigest().equals(digest)
@@ -109,7 +109,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
                     return converter.toDTO(original);
                 }
                 // A reference is a version, never a mutable "latest" alias.
-                if (profiles.find(actor.tenantId(), spec.profileRef()).isPresent()) {
+                if (profiles.find(spec.profileRef()).isPresent()) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
                 requireBindings(actor.tenantId(), spec);
@@ -121,7 +121,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
                         command.requestKey(),
                         digest,
                         LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()));
-                profiles.insert(actor.tenantId(), profile);
+                profiles.insert(profile);
                 return converter.toDTO(profile);
             });
         });
@@ -132,7 +132,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
         var resolved = new TreeMap<String, ChannelMerchantBinding>();
         for (var code :
                 spec.rules().stream().map(RoutingRule::bindingCode).distinct().toList()) {
-            var head = bindings.find(tenant, spec.payeeMerchantId(), code)
+            var head = bindings.find(spec.payeeMerchantId(), code)
                     .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
             if (!head.payeeMerchantId().equals(spec.payeeMerchantId())
                     || !head.bindingCode().equals(code)) {
@@ -142,7 +142,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
         }
         var locked = new HashMap<String, RoutableChannelBinding>();
         for (var prior : resolved.values()) {
-            var head = bindings.lock(tenant, spec.payeeMerchantId(), prior.bindingCode())
+            var head = bindings.lock(spec.payeeMerchantId(), prior.bindingCode())
                     .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
             if (!head.id().equals(prior.id())
                     || !head.bindingCode().equals(prior.bindingCode())
@@ -152,7 +152,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
             if (head.state() != ChannelBindingState.ACTIVE) {
                 throw new CommonException(CHANNEL_BINDING_UNAVAILABLE);
             }
-            var revision = bindings.revision(tenant, head.currentRevisionId())
+            var revision = bindings.revision(head.currentRevisionId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             try {
                 locked.put(head.bindingCode(), new RoutableChannelBinding(head, revision));
@@ -178,7 +178,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.payeeMerchantId());
             DomainChecks.text(query.profileRef(), 128);
-            var profile = profiles.find(actor.tenantId(), query.profileRef())
+            var profile = profiles.find(query.profileRef())
                     .orElseThrow(() -> new CommonException(ROUTING_PROFILE_UNAVAILABLE));
             if (!profile.spec().payeeMerchantId().equals(query.payeeMerchantId())) {
                 throw new CommonException(ROUTING_PROFILE_UNAVAILABLE);

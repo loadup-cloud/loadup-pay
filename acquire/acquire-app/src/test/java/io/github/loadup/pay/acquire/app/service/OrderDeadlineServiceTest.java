@@ -25,9 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -80,12 +78,12 @@ class OrderDeadlineServiceTest {
     @BeforeEach
     void setup() {
         when(tasks.find(OrderDeadlineTasks.TYPE, "order.1")).thenReturn(Optional.of(task));
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> {
+        when(orders.lockOrder("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
             return order.get();
         });
-        when(extensions.deadlineVersion(eq("tenant"), any())).thenReturn(1L);
+        when(extensions.deadlineVersion(any())).thenReturn(1L);
     }
 
     void handle() {
@@ -109,7 +107,7 @@ class OrderDeadlineServiceTest {
                         order.get(),
                         new AcquireOrderCloseCommand("order", "order-deadline/1", "ORDER_EXPIRED"));
         verify(operations, never()).resume(any(), any());
-        verify(closes, never()).keepPending(anyString(), any(), any());
+        verify(closes, never()).keepPending(any(), any());
         assertEquals(1, manager.commits);
     }
 
@@ -122,9 +120,9 @@ class OrderDeadlineServiceTest {
                     return null;
                 })
                 .when(closes)
-                .keepPending(eq("tenant"), any(), any());
+                .keepPending(any(), any());
         handle();
-        verify(closes).keepPending("tenant", order.get().order(), expected);
+        verify(closes).keepPending(order.get().order(), expected);
         verify(snapshots).publish("tenant", "order", expected.version());
         assertTrue(expected.canAcceptNewPayment(NOW.plusDays(1)));
         verifyNoInteractions(operations);
@@ -140,7 +138,7 @@ class OrderDeadlineServiceTest {
     @Test
     void extensionVersionMakesTheOldNativeDeadlineHarmless() {
         order.set(CheckoutFixtures.order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10)));
-        when(extensions.deadlineVersion(eq("tenant"), any())).thenReturn(2L);
+        when(extensions.deadlineVersion(any())).thenReturn(2L);
         handle();
         verifyNoInteractions(operations, closes, snapshots);
     }
@@ -158,7 +156,7 @@ class OrderDeadlineServiceTest {
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());
-        when(extensions.deadlineVersion(eq("tenant"), any())).thenReturn(0L);
+        when(extensions.deadlineVersion(any())).thenReturn(0L);
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());

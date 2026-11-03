@@ -25,7 +25,6 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
@@ -71,16 +70,16 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
     }
 
     @Override
-    public Optional<ReconciliationManifest> sealedManifest(String tenant, String artifactId) {
-        ReconciliationStoreContext.readable(tenant);
-        var row = input(tenant, artifactId, false);
+    public Optional<ReconciliationManifest> sealedManifest(String artifactId) {
+        ReconciliationStoreContext.readable();
+        var row = input(artifactId, false);
         return row == null || !"SEALED".equals(row.getState()) ? Optional.empty() : Optional.of(manifest(row));
     }
 
     @Override
-    public ReconciliationDataset loadSealed(String tenant, String artifactId) {
-        ReconciliationStoreContext.readable(tenant);
-        var row = input(tenant, artifactId, false);
+    public ReconciliationDataset loadSealed(String artifactId) {
+        ReconciliationStoreContext.readable();
+        var row = input(artifactId, false);
         if (row == null || !"SEALED".equals(row.getState())) {
             throw new CommonException(INPUT_NOT_SEALED);
         }
@@ -88,9 +87,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         if (manifest.totals().recordCount() > maxRecords) {
             throw new CommonException(INPUT_INVALID);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("input", artifactId)
-                .addValue("limit", maxRecords + 1);
+        var args = new MapSqlParameterSource().addValue("input", artifactId).addValue("limit", maxRecords + 1);
         var rows = jdbc.query(
                 "SELECT id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE input_id = :input "
                         + "AND deleted = FALSE ORDER BY record_number ASC LIMIT :limit",
@@ -113,8 +110,8 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
     }
 
     @Override
-    public void insertSealed(String tenant, String fileId, ReconciliationDataset dataset) {
-        ReconciliationStoreContext.writable(tenant);
+    public void insertSealed(String fileId, ReconciliationDataset dataset) {
+        ReconciliationStoreContext.writable();
         DomainChecks.id(fileId);
         if (dataset == null || dataset.records().size() > maxRecords) {
             throw new CommonException(INPUT_INVALID);
@@ -124,15 +121,15 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(ReconciliationResultCodeEnum.INVALID_STATE);
         }
-        var original = input(tenant, dataset.manifest().artifactId(), true);
+        var original = input(dataset.manifest().artifactId(), true);
         if (original != null) {
             if (!fileId.equals(original.getFileId())
-                    || !dataset.equals(loadSealed(tenant, dataset.manifest().artifactId()))) {
+                    || !dataset.equals(loadSealed(dataset.manifest().artifactId()))) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             return;
         }
-        var input = converter.toInput(tenant, fileId, dataset.manifest());
+        var input = converter.toInput(fileId, dataset.manifest());
         var inputNow = LocalDateTime.now(clock);
         input.setCreatedAt(inputNow);
         input.setUpdatedAt(inputNow);
@@ -156,7 +153,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         for (int offset = 0; offset < records.size(); offset += 500) {
             var rows = records.subList(offset, Math.min(offset + 500, records.size())).stream()
                     .map(line -> {
-                        var entry = converter.toEntry(tenant, dataset.manifest().artifactId(), line);
+                        var entry = converter.toEntry(dataset.manifest().artifactId(), line);
                         entry.setId(ids.generate());
                         entry.setCreatedAt(now);
                         entry.setUpdatedAt(now);
@@ -195,7 +192,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         }
     }
 
-    private ReconciliationInputDO input(String tenant, String id, boolean lock) {
+    private ReconciliationInputDO input(String id, boolean lock) {
         DomainChecks.id(id);
         if (lock
                 && (jdbc.getJdbcTemplate().getDataSource() == null
@@ -203,7 +200,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
                                 jdbc.getJdbcTemplate().getDataSource()))) {
             throw new CommonException(ReconciliationResultCodeEnum.INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
+        var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query(
                         "SELECT id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE id = :id AND deleted = FALSE"

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
@@ -24,7 +23,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
@@ -99,15 +97,15 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     }
 
     @Override
-    public Optional<RefundRequestReference> reference(String tenant, String id) {
-        requireReadTransaction(tenant);
+    public Optional<RefundRequestReference> reference(String id) {
+        requireReadTransaction();
         requireJdbc();
         return read(() -> Optional.ofNullable(getById(id)).map(converter::toReference));
     }
 
     @Override
-    public Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String number) {
-        requireReadTransaction(tenant);
+    public Optional<RefundRequestReference> merchantReference(String merchant, String number) {
+        requireReadTransaction();
         requireJdbc();
         return read(() -> Optional.ofNullable(getOne(
                         QueryWrapper.create().eq("payee_merchant_id", merchant).eq("merchant_refund_no", number)))
@@ -115,19 +113,19 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     }
 
     @Override
-    public StoredRefundRequest lock(String tenant, String id) {
-        requireTransaction(tenant);
+    public StoredRefundRequest lock(String id) {
+        requireTransaction();
         requireJdbc();
         var args = new MapSqlParameterSource().addValue("id", id);
         if (request("id = :id", args, true) == null) {
             throw new CommonException(NOT_FOUND);
         }
-        return load(tenant, id);
+        return load(id);
     }
 
     @Override
-    public StoredRefundRequest load(String tenant, String id) {
-        requireReadTransaction(tenant);
+    public StoredRefundRequest load(String id) {
+        requireReadTransaction();
         requireJdbc();
         return read(() -> {
             var row = request("id = :id", new MapSqlParameterSource().addValue("id", id), false);
@@ -189,8 +187,8 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     }
 
     @Override
-    public List<PaymentRefundCapacity> lockCapacities(String tenant, String orderId) {
-        requireTransaction(tenant);
+    public List<PaymentRefundCapacity> lockCapacities(String orderId) {
+        requireTransaction();
         requireJdbc();
         var args = new MapSqlParameterSource().addValue("order", orderId);
         return read(
@@ -205,8 +203,8 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     }
 
     @Override
-    public void insertPlan(String tenant, StoredRefundRequest value, List<RefundCapacityReservation> reservations) {
-        requireTransaction(tenant);
+    public void insertPlan(StoredRefundRequest value, List<RefundCapacityReservation> reservations) {
+        requireTransaction();
         requireJdbc();
         if (value.request().state() != RefundRequestState.INIT
                 || value.request().version() != 0
@@ -239,7 +237,7 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
                 throw new CommonException(INVALID_STATE);
             }
         }
-        var requestRow = converter.toRequestDO(tenant, value);
+        var requestRow = converter.toRequestDO(value);
         var requestNow = LocalDateTime.now(clock);
         requestRow.setCreatedAt(requestNow);
         requestRow.setUpdatedAt(requestNow);
@@ -259,7 +257,7 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
             throw new CommonException(CONCURRENT_UPDATE);
         }
         for (var child : value.allocations()) {
-            var plan = converter.toPlanDO(tenant, child);
+            var plan = converter.toPlanDO(child);
             var now = LocalDateTime.now(clock);
             plan.setCreatedAt(now);
             plan.setUpdatedAt(now);
@@ -269,7 +267,7 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
                     VALUES (:id, :createdAt, :updatedAt, FALSE, :refundRequestId, :planVersion, :sequenceNo,
                         :paymentId, :refundId, :amountMinor)
                     """, new BeanPropertySqlParameterSource(plan));
-            var childRow = converter.toChildDO(tenant, child);
+            var childRow = converter.toChildDO(child);
             childRow.setCreatedAt(now);
             childRow.setUpdatedAt(now);
             int childCount = jdbc.update("""
@@ -326,19 +324,16 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
                 .orElse(null);
     }
 
-    private void requireTransaction(String tenant) {
-        requireReadTransaction(tenant);
+    private void requireTransaction() {
+        requireReadTransaction();
         if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
     }
 
-    private void requireReadTransaction(String tenant) {
+    private void requireReadTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 

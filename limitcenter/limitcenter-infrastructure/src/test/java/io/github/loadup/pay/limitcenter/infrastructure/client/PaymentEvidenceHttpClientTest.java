@@ -103,7 +103,7 @@ class PaymentEvidenceHttpClientTest {
         token();
         client = new PaymentEvidenceHttpClient(
                 paymentHttp,
-                (tenant, service, audience) -> credential,
+                (service, audience) -> credential,
                 new PaymentEvidenceProperties("tenant", "limitcenter", "payment"));
         doAnswer(invocation -> {
                     assertEquals("Bearer " + credential, invocation.getArgument(0, String.class));
@@ -115,7 +115,7 @@ class PaymentEvidenceHttpClientTest {
 
     @Test
     void refundFactsUsesItsNamedOperationTypedQueryAndServiceCredential() {
-        assertEquals(facts, client.refundFacts("tenant", "refund"));
+        assertEquals(facts, client.refundFacts("refund"));
         verify(paymentHttp).refundFacts(anyString(), eq(new IdQuery("refund")));
     }
 
@@ -123,13 +123,13 @@ class PaymentEvidenceHttpClientTest {
     void refundFactsCannotRouteAnotherTenantOrRemainInsideAnOuterTransaction() {
         assertSame(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> client.refundFacts("other-tenant", "refund"))
+                assertThrows(CommonException.class, () -> client.refundFacts("refund"))
                         .getResultCode());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> client.refundFacts("tenant", "refund"))
+                    assertThrows(CommonException.class, () -> client.refundFacts("refund"))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

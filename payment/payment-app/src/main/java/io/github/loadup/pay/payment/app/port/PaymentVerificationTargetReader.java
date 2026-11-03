@@ -22,5 +22,5 @@ import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
  * Bounded owner-only consistent local snapshot, no locks, channel I/O or writes.
  */
 public interface PaymentVerificationTargetReader {
-    PaymentVerificationTarget read(String tenant, PaymentVerificationQuery query);
+    PaymentVerificationTarget read(PaymentVerificationQuery query);
 }

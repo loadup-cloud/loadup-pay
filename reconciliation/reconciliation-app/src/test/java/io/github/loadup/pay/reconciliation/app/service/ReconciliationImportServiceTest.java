@@ -137,36 +137,36 @@ class ReconciliationImportServiceTest {
 
     @BeforeEach
     void setup() {
-        when(batches.find("tenant", "batch")).thenAnswer(call -> Optional.of(batch.get()));
-        when(batches.lock("tenant", "batch")).thenAnswer(call -> Optional.of(batch.get()));
-        when(accounts.statementAccount("tenant", "ops", "account", scope)).thenReturn(account);
+        when(batches.find("batch")).thenAnswer(call -> Optional.of(batch.get()));
+        when(batches.lock("batch")).thenAnswer(call -> Optional.of(batch.get()));
+        when(accounts.statementAccount("ops", "account", scope)).thenReturn(account);
         when(parser.supports(scope)).thenReturn(true);
-        when(files.inspect("tenant", "ops", "file")).thenAnswer(call -> {
+        when(files.inspect("ops", "file")).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return source;
         });
-        when(imports.findRequest("tenant", "ops", "request")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(imports.find("tenant", "import")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(imports.lock("tenant", "import")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.empty());
+        when(imports.findRequest("ops", "request")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(imports.find("import")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(imports.lock("import")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(imports.activeForBatch("batch")).thenReturn(Optional.empty());
         doAnswer(call -> {
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(imports)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(call -> {
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(imports)
-                .update(eq("tenant"), any(), anyLong());
+                .update(any(), anyLong());
         doAnswer(call -> {
-                    batch.set(call.getArgument(1));
+                    batch.set(call.getArgument(0));
                     return null;
                 })
                 .when(batches)
-                .update(eq("tenant"), any(), anyLong());
+                .update(any(), anyLong());
         when(tasks.submit(
                         eq("ops"),
                         eq(TransferKind.IMPORT),
@@ -194,8 +194,8 @@ class ReconciliationImportServiceTest {
         assertEquals("MANUAL_UPLOAD", first.sourceKind().name());
         assertEquals("INIT", first.state().name());
         assertNull(first.artifactId());
-        verify(files).attach("tenant", "ops", source, "import");
-        verify(imports).insert(eq("tenant"), any());
+        verify(files).attach("ops", source, "import");
+        verify(imports).insert(any());
         clearInvocations(files, tasks, imports);
         assertEquals(first, service.submit(command("file")));
         verifyNoInteractions(files);
@@ -218,12 +218,12 @@ class ReconciliationImportServiceTest {
         verify(tasks, never()).submit(anyString(), any(), anyString(), anyString(), anyMap());
         var another = ReconciliationImportRequest.init(
                 "other-import", "batch", "ops", "other-request", "e".repeat(64), scope, account, source, "other-task");
-        when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.of(another));
+        when(imports.activeForBatch("batch")).thenReturn(Optional.of(another));
         assertEquals(
                 IMPORT_IN_PROGRESS,
                 assertThrows(CommonException.class, () -> service.submit(command("file")))
                         .getResultCode());
-        verify(files, never()).attach(anyString(), anyString(), any(), anyString());
+        verify(files, never()).attach(anyString(), any(), anyString());
     }
 
     @Test
@@ -232,7 +232,7 @@ class ReconciliationImportServiceTest {
                 .thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.submit(command("file")));
         assertNull(stored.get());
-        verify(imports, never()).insert(anyString(), any());
+        verify(imports, never()).insert(any());
         // Mockito proves call ordering only; File/Transfer/intent SQL rollback still requires the real-DB IT.
     }
 
@@ -245,15 +245,15 @@ class ReconciliationImportServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return data;
         });
-        when(inputs.sealedManifest("tenant", "import")).thenReturn(Optional.of(data.manifest()));
+        when(inputs.sealedManifest("import")).thenReturn(Optional.of(data.manifest()));
         var execution = execution();
         TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream()));
         assertEquals(ReconciliationImportState.SEALED, stored.get().state());
         assertEquals(data.manifest(), batch.get().batch().channel());
         TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream()));
         verify(parser, times(1)).parse(any(), any());
-        verify(inputs, times(1)).insertSealed("tenant", "file", data);
-        verify(imports, times(1)).update(eq("tenant"), any(), eq(0L));
+        verify(inputs, times(1)).insertSealed("file", data);
+        verify(imports, times(1)).update(any(), eq(0L));
     }
 
     @Test
@@ -279,7 +279,7 @@ class ReconciliationImportServiceTest {
         assertEquals(ReconciliationImportState.REJECTED, stored.get().state());
         assertNull(batch.get().batch().channel());
         verify(parser, times(2)).parse(any(), any());
-        verify(inputs, never()).insertSealed(anyString(), anyString(), any());
+        verify(inputs, never()).insertSealed(anyString(), any());
     }
 
     @Test
@@ -307,7 +307,7 @@ class ReconciliationImportServiceTest {
                 "QUEUED",
                 service.retry(new ReconciliationImportRetryCommand("import", "task"))
                         .taskStatus());
-        verify(files).verify("tenant", "ops", source, "import");
+        verify(files).verify("ops", source, "import");
     }
 
     private ReconciliationImportExecutionService execution() {

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.client;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
@@ -59,49 +58,41 @@ public class PaymentLimitHttpClient implements PaymentLimitClient {
     }
 
     @Override
-    public boolean supportsTenant(String tenant) {
-        return properties.tenantId().equals(tenant);
+    public LimitReservationDTO reserve(LimitReserveCommand command) {
+        return exchange(authorization -> limitCenterHttp.reserve(authorization, command));
     }
 
     @Override
-    public LimitReservationDTO reserve(String tenant, LimitReserveCommand command) {
-        return exchange(tenant, authorization -> limitCenterHttp.reserve(authorization, command));
+    public LimitExecutionPermitDTO begin(LimitBeginExecutionCommand command) {
+        return exchange(authorization -> limitCenterHttp.begin(authorization, command));
     }
 
     @Override
-    public LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command) {
-        return exchange(tenant, authorization -> limitCenterHttp.begin(authorization, command));
+    public LimitExecutionVerificationDTO verify(LimitExecutionVerifyCommand command) {
+        return exchange(authorization -> limitCenterHttp.verify(authorization, command));
     }
 
     @Override
-    public LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command) {
-        return exchange(tenant, authorization -> limitCenterHttp.verify(authorization, command));
+    public LimitReservationDTO confirm(LimitConfirmCommand command) {
+        return exchange(authorization -> limitCenterHttp.confirm(authorization, command));
     }
 
     @Override
-    public LimitReservationDTO confirm(String tenant, LimitConfirmCommand command) {
-        return exchange(tenant, authorization -> limitCenterHttp.confirm(authorization, command));
+    public LimitReleaseDTO release(LimitReleaseCommand command) {
+        return exchange(authorization -> limitCenterHttp.release(authorization, command));
     }
 
     @Override
-    public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
-        return exchange(tenant, authorization -> limitCenterHttp.release(authorization, command));
+    public LimitRestoreDTO restoreRefund(LimitRefundRestoreCommand command) {
+        return exchange(authorization -> limitCenterHttp.restoreRefund(authorization, command));
     }
 
-    @Override
-    public LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command) {
-        return exchange(tenant, authorization -> limitCenterHttp.restoreRefund(authorization, command));
-    }
-
-    private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call) {
-        if (!supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private <R> R exchange(Function<String, SuccessResponse<R>> call) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            return HttpServiceResponses.requiredData(call.apply("Bearer " + credential(tenant)));
+            return HttpServiceResponses.requiredData(call.apply("Bearer " + credential()));
         } catch (RuntimeException failure) {
             var code =
                     switch (HttpServiceResponses.resultCode(failure)) {
@@ -115,7 +106,7 @@ public class PaymentLimitHttpClient implements PaymentLimitClient {
         }
     }
 
-    private String credential(String tenant) {
-        return tokens.token(tenant, properties.serviceId(), properties.audience());
+    private String credential() {
+        return tokens.token(properties.serviceId(), properties.audience());
     }
 }

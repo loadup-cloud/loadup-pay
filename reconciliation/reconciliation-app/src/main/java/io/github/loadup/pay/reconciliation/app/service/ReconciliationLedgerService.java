@@ -29,7 +29,6 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
@@ -139,8 +138,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         // Stable keys are scoped to the original batch and caller, even when remote Create loses its response.
         var requestKey =
                 DigestUtils.sha256(frame(actor.tenantId(), actor.serviceId(), command.batchId(), command.requestKey()));
-        var capture =
-                source.create(actor.tenantId(), ledger.toCreate(batch.batch().scope(), requestKey));
+        var capture = source.create(ledger.toCreate(batch.batch().scope(), requestKey));
         scope(batch.batch().scope(), capture, capture == null ? null : capture.captureId());
         transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
         return ledger.toDTO(capture);
@@ -151,15 +149,14 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         validate(command);
         var actor = actor("retry");
         var batch = transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
-        var original = source.detail(actor.tenantId(), command.captureId());
+        var original = source.detail(command.captureId());
         scope(batch.batch().scope(), original, command.captureId());
         if (!command.expectedTaskId().equals(original.nativeTaskId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         // Recheck the current local grant after source lookup, before the explicit remote retry.
         transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
-        var result = source.retry(
-                actor.tenantId(), new PaymentCaptureRetryCommand(command.captureId(), command.expectedTaskId()));
+        var result = source.retry(new PaymentCaptureRetryCommand(command.captureId(), command.expectedTaskId()));
         scope(batch.batch().scope(), result, command.captureId());
         if (!command.expectedTaskId().equals(result.nativeTaskId())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -180,7 +177,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
             throw new CommonException(INVALID_STATE);
         }
         long started = System.nanoTime();
-        var capture = source.detail(actor.tenantId(), command.captureId());
+        var capture = source.detail(command.captureId());
         scope(original.batch().scope(), capture, command.captureId());
         if (capture.state() != PaymentCaptureState.SEALED) {
             throw new CommonException(INPUT_NOT_SEALED);
@@ -193,7 +190,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         int page = 1;
         while (true) {
             budget(started);
-            var result = source.lines(actor.tenantId(), new PaymentCaptureLinesQuery(capture.captureId(), page, 100));
+            var result = source.lines(new PaymentCaptureLinesQuery(capture.captureId(), page, 100));
             if (result == null
                     || result.getPageInfo() == null
                     || result.getData() == null
@@ -223,7 +220,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         if (!matches(capture, rows)) {
             throw new CommonException(INPUT_INVALID);
         }
-        var latest = source.detail(actor.tenantId(), command.captureId());
+        var latest = source.detail(command.captureId());
         scope(original.batch().scope(), latest, command.captureId());
         if (latest.state() == PaymentCaptureState.SEALED) {
             total(latest);
@@ -249,7 +246,6 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
             throw new CommonException(INPUT_INVALID);
         }
         var file = files.upload(
-                actor.tenantId(),
                 actor.serviceId(),
                 "payment-ledger-" + capture.captureId() + ".bin",
                 "application/octet-stream",
@@ -269,14 +265,11 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
             if (current.batch().state() != ReconciliationState.INIT) {
                 throw new CommonException(INVALID_STATE);
             }
-            files.attach(actor.tenantId(), actor.serviceId(), file, artifactId);
-            files.verify(actor.tenantId(), actor.serviceId(), file, artifactId);
-            inputs.insertSealed(actor.tenantId(), file.fileId(), data);
+            files.attach(actor.serviceId(), file, artifactId);
+            files.verify(actor.serviceId(), file, artifactId);
+            inputs.insertSealed(file.fileId(), data);
             var next = current.batch().attach(manifest);
-            batches.update(
-                    actor.tenantId(),
-                    converter.withBatch(current, next),
-                    current.batch().version());
+            batches.update(converter.withBatch(current, next), current.batch().version());
             return converter.toDTO(next);
         });
     }
@@ -305,8 +298,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
                 || !captureId.equals(batch.batch().ledger().sourceCaptureId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
-        var actual = inputs.sealedManifest(
-                        TenantUtil.getTenantId(), batch.batch().ledger().artifactId())
+        var actual = inputs.sealedManifest(batch.batch().ledger().artifactId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!actual.equals(batch.batch().ledger())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -315,16 +307,12 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
     }
 
     private StoredReconciliationBatch owned(ReconciliationActor actor, String id, boolean lock) {
-        var stored = (lock ? batches.lock(actor.tenantId(), id) : batches.find(actor.tenantId(), id))
-                .orElseThrow(() -> new CommonException(NOT_FOUND));
+        var stored = (lock ? batches.lock(id) : batches.find(id)).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!actor.serviceId().equals(stored.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         accounts.authorize(
-                actor.tenantId(),
-                actor.serviceId(),
-                stored.channelAccountCode(),
-                stored.batch().scope());
+                actor.serviceId(), stored.channelAccountCode(), stored.batch().scope());
         return stored;
     }
 

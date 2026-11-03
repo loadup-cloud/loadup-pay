@@ -148,10 +148,10 @@ class PaymentChannelCallbackServiceTest {
                 stored.get().attempt().binding().channel(),
                 stored.get().attempt().binding().id()));
         when(endpoints.resolve(ENDPOINT_REF)).thenAnswer(call -> Optional.of(endpoint.get()));
-        when(attempts.findChannelRequest(anyString(), anyString(), anyString()))
+        when(attempts.findChannelRequest(anyString(), anyString()))
                 .thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(payments.find(anyString(), anyString())).thenAnswer(call -> {
-            if (!TENANT.equals(call.getArgument(0))) {
+        when(payments.find(anyString())).thenAnswer(call -> {
+            if (!TENANT.equals(TenantUtil.getTenantId())) {
                 return Optional.empty();
             }
             return Optional.ofNullable(accepted.get());
@@ -208,10 +208,9 @@ class PaymentChannelCallbackServiceTest {
         verify(endpoints).resolve(ENDPOINT_REF);
         verify(attempts)
                 .findChannelRequest(
-                        TENANT,
                         endpoint.get().bindingRevisionId(),
                         stored.get().attempt().channelRequestNo());
-        verify(payments).find(TENANT, stored.get().attempt().paymentId());
+        verify(payments).find(stored.get().attempt().paymentId());
         calls.verify(notifications)
                 .identify(endpoint.get().channel(), endpoint.get().bindingRevisionId(), input);
         calls.verify(notifications).verify(target(), input);
@@ -288,7 +287,7 @@ class PaymentChannelCallbackServiceTest {
         assertEquals(
                 acknowledgement(false),
                 TenantUtil.callWithTenant("other-tenant", () -> service.receive(ENDPOINT_REF, input)));
-        verify(payments).find("other-tenant", stored.get().attempt().paymentId());
+        verify(payments).find(stored.get().attempt().paymentId());
         assertNoFinancialQueryAndNegativeAck();
     }
 
@@ -298,7 +297,7 @@ class PaymentChannelCallbackServiceTest {
 
         assertEquals(
                 acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        verify(payments, never()).find(anyString(), anyString());
+        verify(payments, never()).find(anyString());
         assertNoFinancialQueryAndNegativeAck();
     }
 

@@ -21,5 +21,5 @@ public interface OrderSnapshotReader {
     /**
      * Requires the caller's writable order transaction; never reads from a replica.
      */
-    OrderSnapshotFacts lockCurrent(String tenant, String orderId);
+    OrderSnapshotFacts lockCurrent(String orderId);
 }

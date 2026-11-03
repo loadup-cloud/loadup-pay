@@ -15,17 +15,14 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -85,9 +82,8 @@ class PaymentLimitOutcomeDeliveryTest {
     @BeforeEach
     void setup() {
         source(true);
-        when(limits.supportsTenant("tenant")).thenReturn(true);
         when(intents.decode(any())).thenReturn(AttemptFixtures.command());
-        when(limits.confirm(eq("tenant"), any())).thenAnswer(call -> {
+        when(limits.confirm(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return reservation(LimitReservationState.CONFIRMED);
         });
@@ -102,18 +98,15 @@ class PaymentLimitOutcomeDeliveryTest {
     void confirmedQuotaUsesOriginalSuccessTimeEvidenceVersionAndAmount() {
         delivery.deliver(event);
         verify(limits)
-                .confirm(
-                        eq("tenant"),
-                        argThat(c -> c.operationId().equals("operation")
-                                && c.paymentId().equals("payment")
-                                && c.businessEventId().equals("evidence")
-                                && c.successEvidenceId().equals("evidence")
-                                && c.paymentVersion()
-                                        == snapshot.payment().payment().version()
-                                && c.amountMinor() == 4000
-                                && c.currency().equals("CNY")
-                                && c.succeededAt().equals(BusinessTime.external(AttemptFixtures.NOW))));
-        verify(limits, never()).release(anyString(), any());
+                .confirm(argThat(c -> c.operationId().equals("operation")
+                        && c.paymentId().equals("payment")
+                        && c.businessEventId().equals("evidence")
+                        && c.successEvidenceId().equals("evidence")
+                        && c.paymentVersion() == snapshot.payment().payment().version()
+                        && c.amountMinor() == 4000
+                        && c.currency().equals("CNY")
+                        && c.succeededAt().equals(BusinessTime.external(AttemptFixtures.NOW))));
+        verify(limits, never()).release(any());
     }
 
     @Test
@@ -122,13 +115,13 @@ class PaymentLimitOutcomeDeliveryTest {
         delivery.deliver(event);
         var expected = context.getBean(PaymentOutcomeDeliveryConverter.class)
                 .toConfirm(snapshot.payment(), "evidence", AttemptFixtures.NOW);
-        verify(limits, times(2)).confirm("tenant", expected);
+        verify(limits, times(2)).confirm(expected);
     }
 
     @Test
     void releaseBeforeReserveAcceptsNullableReservationAndRequiresFencedEvidence() {
         source(false);
-        when(limits.release(eq("tenant"), any())).thenAnswer(call -> {
+        when(limits.release(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new LimitReleaseDTO(
                     "operation",
@@ -140,18 +133,16 @@ class PaymentLimitOutcomeDeliveryTest {
         });
         delivery.deliver(event);
         verify(limits)
-                .release(
-                        eq("tenant"),
-                        argThat(c -> c.reasonCode().equals("PAYMENT_FAILED")
-                                && c.businessEventId().equals("evidence")
-                                && c.noCollectionEvidenceId().equals("evidence")));
-        verify(limits, never()).confirm(anyString(), any());
+                .release(argThat(c -> c.reasonCode().equals("PAYMENT_FAILED")
+                        && c.businessEventId().equals("evidence")
+                        && c.noCollectionEvidenceId().equals("evidence")));
+        verify(limits, never()).confirm(any());
     }
 
     @Test
     void previouslyExpiredReservationIsAValidNoCollectionReleaseReceipt() {
         source(false);
-        when(limits.release(eq("tenant"), any()))
+        when(limits.release(any()))
                 .thenReturn(new LimitReleaseDTO(
                         "operation",
                         "payment",
@@ -164,12 +155,12 @@ class PaymentLimitOutcomeDeliveryTest {
 
     @Test
     void confirmAckCannotClaimAnotherOperationOrWrongState() {
-        when(limits.confirm(eq("tenant"), any())).thenReturn(reservation(LimitReservationState.RELEASED));
+        when(limits.confirm(any())).thenReturn(reservation(LimitReservationState.RELEASED));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> delivery.deliver(event))
                         .getResultCode());
-        when(limits.confirm(eq("tenant"), any()))
+        when(limits.confirm(any()))
                 .thenReturn(new LimitReservationDTO(
                         "reservation",
                         "other-operation",
@@ -185,7 +176,7 @@ class PaymentLimitOutcomeDeliveryTest {
     @Test
     void releaseAckMustBindTheExactPositivePaymentVersionAndProof() {
         source(false);
-        when(limits.release(eq("tenant"), any()))
+        when(limits.release(any()))
                 .thenReturn(new LimitReleaseDTO(
                         "operation",
                         "payment",
@@ -201,18 +192,7 @@ class PaymentLimitOutcomeDeliveryTest {
 
     @Test
     void receiverFailurePropagatesSoDispatcherCanRetryWithoutPretendingDeliverySucceeded() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(limits).confirm(eq("tenant"), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(limits).confirm(any());
         assertThrows(CommonException.class, () -> delivery.deliver(event));
-    }
-
-    @Test
-    void tenantWithoutConfiguredOutboundIdentityNeverCallsSettlement() {
-        when(limits.supportsTenant("tenant")).thenReturn(false);
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> delivery.deliver(event))
-                        .getResultCode());
-        verify(limits, never()).confirm(anyString(), any());
-        verify(limits, never()).release(anyString(), any());
     }
 }

@@ -61,7 +61,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentOrderDO toPaymentDO(String tenant, StoredPaymentAcceptance value);
+    PaymentOrderDO toPaymentDO(StoredPaymentAcceptance value);
 
     @Mapping(target = "id", source = "value.payment.id")
     @Mapping(target = "orderId", source = "value.payment.orderId")
@@ -81,7 +81,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "firstUnknownAt", source = "firstUnknownAt")
-    PaymentOrderDO toPaymentPatch(String tenant, StoredPaymentAcceptance value, LocalDateTime firstUnknownAt);
+    PaymentOrderDO toPaymentPatch(StoredPaymentAcceptance value, LocalDateTime firstUnknownAt);
 
     @Mapping(target = "orderId", source = "orderId")
     @Mapping(target = "paymentId", ignore = true)
@@ -106,7 +106,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentParentGateDO toParentDO(String tenant, StoredPaymentGate value);
+    PaymentParentGateDO toParentDO(StoredPaymentGate value);
 
     @Mapping(target = "orderId", source = "value.gate.orderId")
     @Mapping(target = "paymentId", source = "value.gate.paymentId")
@@ -117,5 +117,5 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentGateDO toGateDO(String tenant, StoredPaymentGate value);
+    PaymentGateDO toGateDO(StoredPaymentGate value);
 }

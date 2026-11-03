@@ -94,8 +94,8 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
         var actor = actor("pay:acquire:session:read");
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var session = sessions.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            var order = orders.findOrder(actor.tenantId(), session.session().orderId())
+            var session = sessions.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var order = orders.findOrder(session.session().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             owned(actor, order, session);
             return converter.toStatus(session);
@@ -121,24 +121,21 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
                     command.requestKey(),
                     command.expectedVersion(),
                     command.reason())));
-            var known = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
+            var known = receipts.find(actor.scopeHash(), command.requestKey());
             if (known.isPresent()) {
                 return replay(actor, known.get(), digest);
             }
-            var observed =
-                    sessions.find(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var observed = sessions.find(command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var existing = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
+                var existing = receipts.find(actor.scopeHash(), command.requestKey());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
                 }
-                var order =
-                        orders.lockOrder(actor.tenantId(), observed.session().orderId());
-                var before =
-                        sessions.lock(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+                var order = orders.lockOrder(observed.session().orderId());
+                var before = sessions.lock(command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 owned(actor, order, before);
                 // A concurrent original request can commit while this transaction waits on the order/session locks.
-                var serialized = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
+                var serialized = receipts.find(actor.scopeHash(), command.requestKey());
                 if (serialized.isPresent()) {
                     return replay(actor, serialized.get(), digest);
                 }
@@ -148,11 +145,11 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
                 var at = now();
                 var after = before.revoke(command.expectedVersion(), at);
                 if (!after.equals(before)) {
-                    sessions.revoke(actor.tenantId(), before, after);
+                    sessions.revoke(before, after);
                 }
                 var receipt =
                         converter.toReceipt(ids.generate(), command, before, after, actor.scopeHash(), digest, at);
-                receipts.insert(actor.tenantId(), receipt);
+                receipts.insert(receipt);
                 return converter.toDTO(receipt);
             });
         });
@@ -164,12 +161,11 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
         var actor = actor("pay:acquire:session:read");
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.sessionId());
-            var session = sessions.find(actor.tenantId(), query.sessionId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
-            var order = orders.findOrder(actor.tenantId(), session.session().orderId())
+            var session = sessions.find(query.sessionId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var order = orders.findOrder(session.session().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             owned(actor, order, session);
-            var page = receipts.page(actor.tenantId(), query.sessionId(), query.page(), query.size());
+            var page = receipts.page(query.sessionId(), query.page(), query.size());
             for (var receipt : page.records()) {
                 if (!receipt.sessionId().equals(query.sessionId())
                         || !receipt.orderId().equals(order.order().id())

@@ -28,5 +28,5 @@ public interface PaymentEventStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentEventReceiptDO toDO(String tenant, PaymentEventReceipt value);
+    PaymentEventReceiptDO toDO(PaymentEventReceipt value);
 }

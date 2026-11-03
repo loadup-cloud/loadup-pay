@@ -59,8 +59,7 @@ public class MerchantNotificationQueryService implements MerchantNotificationQue
         var actor = access.reader();
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var delivery =
-                    deliveries.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var delivery = deliveries.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (actor.merchant() && !actor.merchantId().equals(delivery.payeeMerchantId())) {
                 throw new CommonException(NOT_FOUND);
             }
@@ -77,9 +76,7 @@ public class MerchantNotificationQueryService implements MerchantNotificationQue
         }
         return transactions.withTenantContext(
                 actor.tenantId(),
-                () -> PageDTO.of(deliveries
-                        .page(actor.tenantId(), converter.toFilter(query))
-                        .map(converter::toDTO)));
+                () -> PageDTO.of(deliveries.page(converter.toFilter(query)).map(converter::toDTO)));
     }
 
     private void validate(Object value) {

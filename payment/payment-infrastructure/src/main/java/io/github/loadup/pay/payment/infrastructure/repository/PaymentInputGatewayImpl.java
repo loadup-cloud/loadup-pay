@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -23,7 +22,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
@@ -62,31 +60,23 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
         this.clock = clock;
     }
 
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
     @Override
-    public Optional<PaymentInput> findByPayment(String tenant, String paymentId) {
-        scope(tenant);
+    public Optional<PaymentInput> findByPayment(String paymentId) {
         return read(getOne(QueryWrapper.create().eq("payment_id", paymentId)));
     }
 
     @Override
-    public Optional<PaymentInput> find(String tenant, String inputRef) {
-        return input(tenant, inputRef, false);
+    public Optional<PaymentInput> find(String inputRef) {
+        return input(inputRef, false);
     }
 
     @Override
-    public Optional<PaymentInput> lock(String tenant, String inputRef) {
-        requireTransaction(tenant);
-        return input(tenant, inputRef, true);
+    public Optional<PaymentInput> lock(String inputRef) {
+        requireTransaction();
+        return input(inputRef, true);
     }
 
-    private Optional<PaymentInput> input(String tenant, String inputRef, boolean lock) {
-        scope(tenant);
+    private Optional<PaymentInput> input(String inputRef, boolean lock) {
         if (!lock) {
             return read(getById(inputRef));
         }
@@ -110,12 +100,12 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
     }
 
     @Override
-    public void insert(String tenant, PaymentInput value) {
-        requireTransaction(tenant);
+    public void insert(PaymentInput value) {
+        requireTransaction();
         if (value.state() != PaymentInputState.INIT || value.rowVersion() != 0) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -139,8 +129,8 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
     }
 
     @Override
-    public void bind(String tenant, PaymentInput value, long expectedVersion) {
-        requireTransaction(tenant);
+    public void bind(PaymentInput value, long expectedVersion) {
+        requireTransaction();
         if (expectedVersion != 0 || value.rowVersion() != 1 || value.state() != PaymentInputState.BOUND) {
             throw new CommonException(INVALID_STATE);
         }
@@ -160,8 +150,7 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
         }
     }
 
-    private void requireTransaction(String tenant) {
-        scope(tenant);
+    private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

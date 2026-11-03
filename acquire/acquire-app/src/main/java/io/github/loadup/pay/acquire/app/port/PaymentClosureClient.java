@@ -22,11 +22,9 @@ import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 public interface PaymentClosureClient {
-    boolean supportsTenant(String tenant);
+    ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);
 
-    ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command);
+    PaymentCloseDTO close(PaymentCloseCommand command);
 
-    PaymentCloseDTO close(String tenant, PaymentCloseCommand command);
-
-    ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query);
+    ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query);
 }

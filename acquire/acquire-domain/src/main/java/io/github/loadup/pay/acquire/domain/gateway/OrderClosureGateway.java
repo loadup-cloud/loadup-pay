@@ -23,20 +23,20 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderClosureGateway {
-    Optional<OrderCloseIntent> findIntent(String tenant, String orderId);
+    Optional<OrderCloseIntent> findIntent(String orderId);
 
     /**
      * Persist only the exact INIT to PENDING transition prescribed by an expired KEEP_PENDING order.
      */
-    void keepPending(String tenant, AcquireOrder before, AcquireOrder after);
+    void keepPending(AcquireOrder before, AcquireOrder after);
 
-    void start(String tenant, AcquireOrder closing, OrderCloseIntent intent, long expectedOrderVersion);
+    void start(AcquireOrder closing, OrderCloseIntent intent, long expectedOrderVersion);
 
-    List<StoredPaymentAllocation> heldAfter(String tenant, String orderId, String afterPaymentId, int limit);
+    List<StoredPaymentAllocation> heldAfter(String orderId, String afterPaymentId, int limit);
 
-    void advanceCursor(String tenant, OrderCloseIntent updated, long expectedVersion);
+    void advanceCursor(OrderCloseIntent updated, long expectedVersion);
 
-    boolean allAllocationsSettled(String tenant, String orderId);
+    boolean allAllocationsSettled(String orderId);
 
-    void finish(String tenant, AcquireOrder closed, long expectedOrderVersion, LocalDateTime closedAt);
+    void finish(AcquireOrder closed, long expectedOrderVersion, LocalDateTime closedAt);
 }

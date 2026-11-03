@@ -72,18 +72,6 @@ class MerchantAuthorizationGatewayImplTest {
     }
 
     @Test
-    void rejectsReadWithDifferentTenantBeforeExecutingSql() {
-        var jdbc = mock(JdbcTemplate.class);
-        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
-        TenantUtil.runWithTenant(
-                "tenant-a",
-                () -> assertThrows(CommonException.class, () -> gateway.findRelationship("tenant-b", "relationship")));
-        verifyNoInteractions(jdbc);
-        verifyNoInteractions(relationships);
-        verifyNoInteractions(grants);
-    }
-
-    @Test
     void mapsRelationshipAndGrantRowsToDomainModels() {
         var gateway = new MerchantAuthorizationGatewayImpl(
                 mock(JdbcTemplate.class), relationships, grants, Clock.systemUTC());
@@ -94,7 +82,7 @@ class MerchantAuthorizationGatewayImplTest {
             assertEquals(
                     MerchantRelationship.init("relationship", "parent", "child", from, null)
                             .activate(),
-                    gateway.findRelationship("tenant-a", "relationship").orElseThrow());
+                    gateway.findRelationship("relationship").orElseThrow());
             assertEquals(
                     MerchantActionGrant.init(
                                     "grant",
@@ -106,8 +94,7 @@ class MerchantAuthorizationGatewayImplTest {
                                     from,
                                     null)
                             .activate(),
-                    gateway.findGrant(
-                                    "tenant-a", PrincipalType.MERCHANT, "parent", "child", MerchantAction.CREATE_ORDER)
+                    gateway.findGrant(PrincipalType.MERCHANT, "parent", "child", MerchantAction.CREATE_ORDER)
                             .orElseThrow());
         });
     }
@@ -117,8 +104,7 @@ class MerchantAuthorizationGatewayImplTest {
         var jdbc = mock(JdbcTemplate.class);
         var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
         TenantUtil.runWithTenant(
-                "tenant-a",
-                () -> assertThrows(CommonException.class, () -> gateway.lockRelationship("tenant-a", "relationship")));
+                "tenant-a", () -> assertThrows(CommonException.class, () -> gateway.lockRelationship("relationship")));
         verifyNoInteractions(jdbc);
     }
 
@@ -149,11 +135,11 @@ class MerchantAuthorizationGatewayImplTest {
         TransactionSynchronizationManager.bindResource(source, new Object());
         try {
             TenantUtil.runWithTenant("tenant-a", () -> {
-                gateway.saveRelationship("tenant-a", relationship, -1);
-                gateway.saveGrant("tenant-a", grant, -1);
-                gateway.saveRelationship("tenant-a", relationship.revoke(), relationship.version());
-                gateway.saveGrant("tenant-a", grant.revoke(), grant.version());
-                assertThrows(CommonException.class, () -> gateway.saveGrant("tenant-a", grant.revoke(), 0));
+                gateway.saveRelationship(relationship, -1);
+                gateway.saveGrant(grant, -1);
+                gateway.saveRelationship(relationship.revoke(), relationship.version());
+                gateway.saveGrant(grant.revoke(), grant.version());
+                assertThrows(CommonException.class, () -> gateway.saveGrant(grant.revoke(), 0));
             });
         } finally {
             TransactionSynchronizationManager.unbindResource(source);

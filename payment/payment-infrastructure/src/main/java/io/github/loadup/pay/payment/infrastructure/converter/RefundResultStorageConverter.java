@@ -43,12 +43,12 @@ public interface RefundResultStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RefundChannelReceiptDO toReceiptDO(String tenant, RefundChannelReceipt value);
+    RefundChannelReceiptDO toReceiptDO(RefundChannelReceipt value);
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    RefundResultAnomalyDO toAnomalyDO(String tenant, RefundResultAnomaly value);
+    RefundResultAnomalyDO toAnomalyDO(RefundResultAnomaly value);
 
     ChannelPaymentIdentity toIdentity(RefundTransactionClaimDO row);
 

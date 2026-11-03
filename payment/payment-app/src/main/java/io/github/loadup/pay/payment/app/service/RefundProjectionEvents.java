@@ -83,7 +83,7 @@ public class RefundProjectionEvents {
     public void planned(String tenant, StoredRefundRequest request, Money orderAmount) {
         writable(tenant);
         var aggregate = request.request();
-        var prior = summaries.lock(tenant, aggregate.orderId());
+        var prior = summaries.lock(aggregate.orderId());
         var before = prior.orElseGet(
                 () -> OrderRefundSummary.init(aggregate.orderId(), aggregate.payeeMerchantId(), orderAmount));
         if (!before.payeeMerchantId().equals(aggregate.payeeMerchantId())
@@ -92,9 +92,9 @@ public class RefundProjectionEvents {
         }
         var next = before.reserve(aggregate.amount().getCent());
         if (prior.isEmpty()) {
-            summaries.insert(tenant, next);
+            summaries.insert(next);
         } else {
-            summaries.update(tenant, before, next);
+            summaries.update(before, next);
         }
         for (var child : request.allocations()) {
             publishChild(
@@ -125,9 +125,8 @@ public class RefundProjectionEvents {
                 || !Objects.equals(facts.succeededAt(), change.succeededAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var before = summaries
-                .lock(tenant, change.request().orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var before =
+                summaries.lock(change.request().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!before.payeeMerchantId().equals(change.request().payeeMerchantId())
                 || !before.orderAmount()
                         .getCurrencyValue()
@@ -136,7 +135,7 @@ public class RefundProjectionEvents {
         }
         var next = before.settle(
                 change.refund().amount().getCent(), change.refund().state() == RefundState.SUCCEEDED);
-        summaries.update(tenant, before, next);
+        summaries.update(before, next);
         publishSummary(tenant, next);
         send(
                 MERCHANT,
@@ -153,8 +152,8 @@ public class RefundProjectionEvents {
                     converter.toMerchantEvent(change.request()));
         }
         if (change.refund().state() == RefundState.SUCCEEDED) {
-            var original = payments.find(tenant, change.refund().paymentId())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var original =
+                    payments.find(change.refund().paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var payment = original.payment();
             if (payment.state() != PaymentState.SUCCEEDED
                     || original.terminalEvidenceId() == null
@@ -174,7 +173,7 @@ public class RefundProjectionEvents {
 
     private RefundSnapshotFacts publishChild(
             String tenant, String order, String merchant, String refundId, long version) {
-        var facts = reader.child(tenant, refundId);
+        var facts = reader.child(refundId);
         if (facts == null
                 || !refundId.equals(facts.refundId())
                 || !order.equals(facts.orderId())
@@ -193,7 +192,7 @@ public class RefundProjectionEvents {
     }
 
     private void publishSummary(String tenant, OrderRefundSummary expected) {
-        var facts = reader.summary(tenant, expected.orderId());
+        var facts = reader.summary(expected.orderId());
         if (facts == null || !expected.equals(facts.summary())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

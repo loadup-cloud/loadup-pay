@@ -61,7 +61,7 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
         if (tenant == null || tenant.isBlank()) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        var binding = bindings.findRevision(tenant, bindingRevisionId)
+        var binding = bindings.findRevision(bindingRevisionId)
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         if (binding.channel() != channel) {
             throw new CommonException(INVALID_ARGUMENT);
@@ -81,7 +81,7 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
         if (tenant == null || tenant.isBlank()) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        var binding = bindings.findRevision(tenant, target.identity().bindingRevisionId())
+        var binding = bindings.findRevision(target.identity().bindingRevisionId())
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         return notifications.verify(new ChannelExecutionContext(tenant, binding), target, input);
     }
@@ -113,8 +113,8 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
         if (tenant == null || tenant.isBlank()) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        var binding = bindings.findRevision(tenant, revision)
-                .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
+        var binding =
+                bindings.findRevision(revision).orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         if (binding.channel() != channel) {
             throw new CommonException(INVALID_ARGUMENT);
         }

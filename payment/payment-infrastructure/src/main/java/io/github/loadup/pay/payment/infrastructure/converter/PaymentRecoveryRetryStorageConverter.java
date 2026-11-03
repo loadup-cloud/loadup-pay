@@ -28,5 +28,5 @@ public interface PaymentRecoveryRetryStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentRecoveryRetryReceiptDO toDO(String tenant, PaymentRecoveryRetryReceipt value);
+    PaymentRecoveryRetryReceiptDO toDO(PaymentRecoveryRetryReceipt value);
 }

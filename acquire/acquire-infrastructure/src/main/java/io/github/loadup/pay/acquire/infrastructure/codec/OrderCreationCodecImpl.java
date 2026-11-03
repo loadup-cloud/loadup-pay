@@ -73,12 +73,11 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public String requestDigest(String tenant, String scope, AcquireOrderCreateCommand command) {
+    public String requestDigest(String scope, AcquireOrderCreateCommand command) {
         // UTF-8 byte-length framing is independent of transport JSON ordering/number serializers.
         var canonical = new StringBuilder();
         for (String field : Arrays.asList(
                 "acquire.order-create.v1",
-                tenant,
                 scope,
                 "ORDER",
                 command.payeeMerchantId(),
@@ -127,11 +126,10 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public String checkoutDigest(String tenant, String scope, CheckoutCreateCommand command) {
+    public String checkoutDigest(String scope, CheckoutCreateCommand command) {
         var canonical = new StringBuilder();
         for (String field : Arrays.asList(
                 "acquire.checkout-create.v1",
-                tenant,
                 scope,
                 "CHECKOUT",
                 command.payeeMerchantId(),
@@ -192,11 +190,10 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public String directPayDigest(String tenant, String scope, DirectPayRecoverCommand command) {
+    public String directPayDigest(String scope, DirectPayRecoverCommand command) {
         var canonical = new StringBuilder();
         for (String field : Arrays.asList(
                 "acquire.direct-pay-create.v1",
-                tenant,
                 scope,
                 "DIRECT_PAY",
                 command.payeeMerchantId(),

@@ -70,10 +70,10 @@ public class PaymentChannelRequestFactory {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.withTenantContext(tenant, () -> {
-            var accepted = payments.find(tenant, prepared.identity().paymentId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
-            var stored = attempts.find(tenant, prepared.identity().attemptId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var accepted =
+                    payments.find(prepared.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var stored =
+                    attempts.find(prepared.identity().attemptId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var binding = PaymentExecutionBindings.submissionRequest(accepted, stored);
             var attempt = stored.attempt();
             if (!attempt.identity().equals(prepared.identity())

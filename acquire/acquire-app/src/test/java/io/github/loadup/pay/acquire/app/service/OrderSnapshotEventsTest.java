@@ -81,7 +81,7 @@ class OrderSnapshotEventsTest {
 
     @BeforeEach
     void setup() {
-        when(headers.lockCurrent("tenant", "order")).thenReturn(header);
+        when(headers.lockCurrent("order")).thenReturn(header);
     }
 
     @AfterEach

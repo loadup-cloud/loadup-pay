@@ -91,7 +91,7 @@ class PaymentEventsTest {
 
     @BeforeEach
     void setup() {
-        when(attempts.find("tenant", "attempt"))
+        when(attempts.find("attempt"))
                 .thenReturn(Optional.of(AttemptFixtures.prepared().closeBeforeSubmission("evidence", null)));
     }
 
@@ -158,9 +158,9 @@ class PaymentEventsTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TenantUtil.runWithTenant("tenant", () -> {
             events.publishSnapshot("tenant", init, AttemptFixtures.NOW);
-            when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(AttemptFixtures.prepared()));
+            when(attempts.find("attempt")).thenReturn(Optional.of(AttemptFixtures.prepared()));
             events.publishSnapshot("tenant", processing, AttemptFixtures.NOW);
-            when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(unknownAttempt));
+            when(attempts.find("attempt")).thenReturn(Optional.of(unknownAttempt));
             events.publishSnapshot("tenant", unknown, AttemptFixtures.NOW.plusSeconds(1));
             events.publishSnapshot("tenant", closing, AttemptFixtures.NOW.plusSeconds(2));
         });
@@ -216,7 +216,7 @@ class PaymentEventsTest {
                                         () -> events.publishSnapshot("tenant", processing, AttemptFixtures.NOW)))
                         .getResultCode());
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(false);
-        when(attempts.find("tenant", "attempt")).thenReturn(Optional.empty());
+        when(attempts.find("attempt")).thenReturn(Optional.empty());
         assertSame(
                 PaymentResultCodeEnum.SNAPSHOT_INVALID,
                 assertThrows(
@@ -243,8 +243,8 @@ class PaymentEventsTest {
                         submitted.attempt().amount(),
                         "evidence"),
                 false);
-        when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(succeeded));
-        when(results.attemptClaim("tenant", "attempt"))
+        when(attempts.find("attempt")).thenReturn(Optional.of(succeeded));
+        when(results.attemptClaim("attempt"))
                 .thenReturn(Optional.of(new ChannelTransactionClaim(
                         "claim",
                         "tenant",

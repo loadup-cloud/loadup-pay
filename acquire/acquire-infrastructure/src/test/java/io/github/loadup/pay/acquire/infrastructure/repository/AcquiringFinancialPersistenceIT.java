@@ -36,6 +36,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
@@ -164,9 +165,7 @@ class AcquiringFinancialPersistenceIT {
     void originalCreationModesRebuildFromTheirOwnPayloadAndDigest(String mode) {
         var fixture = seed(mode);
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var rebuilt = orders.findOrder(
-                            fixture.tenant(), fixture.stored().order().id())
-                    .orElseThrow();
+            var rebuilt = orders.findOrder(fixture.stored().order().id()).orElseThrow();
             assertEquals(fixture.stored(), rebuilt);
             return true;
         });
@@ -222,7 +221,7 @@ class AcquiringFinancialPersistenceIT {
             assertEquals(0L, outboxCount(fixture));
             return true;
         });
-        verify(remote.acceptance, never()).accept(anyString(), any());
+        verify(remote.acceptance, never()).accept(any());
     }
 
     @Test
@@ -242,7 +241,7 @@ class AcquiringFinancialPersistenceIT {
             assertEquals(10000L, order.paymentReservedMinor());
             assertEquals(
                     AllocationState.HELD,
-                    outcomes.findPayment(fixture.tenant(), order.id(), payment)
+                    outcomes.findPayment(order.id(), payment)
                             .orElseThrow()
                             .allocation()
                             .state());
@@ -304,10 +303,9 @@ class AcquiringFinancialPersistenceIT {
     private AcquiringPersistenceFixtures.Fixture seed(String mode) {
         var fixture = AcquiringPersistenceFixtures.order(codec, converter, mode);
         transactions.writeLocal(fixture.tenant(), () -> {
-            orders.insertIntent(fixture.tenant(), fixture.intent());
-            orders.insertOrder(fixture.tenant(), fixture.stored(), fixture.fee(), fixture.feePayload());
+            orders.insertIntent(fixture.intent());
+            orders.insertOrder(fixture.stored(), fixture.fee(), fixture.feePayload());
             orders.updateIntent(
-                    fixture.tenant(),
                     fixture.intent()
                             .finish(
                                     "COMPLETED",
@@ -332,7 +330,7 @@ class AcquiringFinancialPersistenceIT {
     }
 
     private StoredAcquireOrder current(AcquiringPersistenceFixtures.Fixture fixture) {
-        return orders.findOrder(fixture.tenant(), fixture.stored().order().id()).orElseThrow();
+        return orders.findOrder(fixture.stored().order().id()).orElseThrow();
     }
 
     private void assertPaidOnce(AcquiringPersistenceFixtures.Fixture fixture, String payment) {
@@ -346,7 +344,7 @@ class AcquiringFinancialPersistenceIT {
             assertEquals(2L, order.version());
             assertEquals(
                     AllocationState.CONSUMED,
-                    outcomes.findPayment(fixture.tenant(), order.id(), payment)
+                    outcomes.findPayment(order.id(), payment)
                             .orElseThrow()
                             .allocation()
                             .state());
@@ -421,13 +419,10 @@ class AcquiringFinancialPersistenceIT {
         final PaymentOutcomeClient outcomes = mock(PaymentOutcomeClient.class);
 
         RemotePayment() {
-            when(acceptance.supportsTenant(anyString())).thenReturn(true);
-            when(closure.supportsTenant(anyString())).thenReturn(true);
-            when(outcomes.supportsTenant(anyString())).thenReturn(true);
-            when(acceptance.accept(anyString(), any())).thenAnswer(c -> {
+            when(acceptance.accept(any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                PaymentExecuteCommand command = c.getArgument(1);
-                String key = c.getArgument(0) + "/" + command.paymentId();
+                PaymentExecuteCommand command = c.getArgument(0);
+                String key = TenantUtil.getTenantId() + "/" + command.paymentId();
                 commands.compute(key, (ignored, old) -> {
                     if (old != null) {
                         assertEquals(old, command);
@@ -436,9 +431,9 @@ class AcquiringFinancialPersistenceIT {
                 });
                 return response(command, false);
             });
-            when(outcomes.outcome(anyString(), anyString())).thenAnswer(c -> {
+            when(outcomes.outcome(anyString())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                PaymentExecuteCommand command = commands.get(c.getArgument(0) + "/" + c.getArgument(1));
+                PaymentExecuteCommand command = commands.get(TenantUtil.getTenantId() + "/" + c.getArgument(0));
                 assertNotNull(command);
                 return new PaymentOutcomeDTO(response(command, successful.contains(command.paymentId())), false);
             });

@@ -51,8 +51,7 @@ class RefundCallbackTargetGatewayImplTest {
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of());
-        assertTrue(TenantUtil.callWithTenant(
-                        "tenant", () -> gateway.find("tenant", "original-revision", "order", "refund"))
+        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.find("original-revision", "order", "refund"))
                 .isEmpty());
         when(capacities.query(
                         contains("FROM refund_order"),
@@ -61,8 +60,7 @@ class RefundCallbackTargetGatewayImplTest {
                 .thenReturn(List.of(new RefundOrderDO(), new RefundOrderDO()));
         TenantUtil.runWithTenant(
                 "tenant",
-                () -> assertThrows(
-                        CommonException.class, () -> gateway.find("tenant", "original-revision", "order", "refund")));
+                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
         verify(capacities, never())
                 .query(
                         contains("FROM payment_refund_capacity"),
@@ -82,8 +80,7 @@ class RefundCallbackTargetGatewayImplTest {
                 .thenReturn(List.of(row));
         TenantUtil.runWithTenant(
                 "tenant",
-                () -> assertThrows(
-                        CommonException.class, () -> gateway.find("tenant", "original-revision", "order", "refund")));
+                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
         verify(capacities, never())
                 .query(
                         contains("FROM payment_refund_capacity"),
@@ -115,33 +112,24 @@ class RefundCallbackTargetGatewayImplTest {
                 .thenReturn(List.of(capacity));
         TenantUtil.runWithTenant(
                 "tenant",
-                () -> assertThrows(
-                        CommonException.class, () -> gateway.find("tenant", "original-revision", "order", "refund")));
+                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
         capacity.setSucceededAt(row.getOriginalSucceededAt());
         capacity.setCurrency("USD");
         TenantUtil.runWithTenant(
                 "tenant",
-                () -> assertThrows(
-                        CommonException.class, () -> gateway.find("tenant", "original-revision", "order", "refund")));
+                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
         verifyNoInteractions(converter);
     }
 
     @Test
-    void tenantAndLocalTransactionAreCheckedBeforePersistence() {
-        TenantUtil.runWithTenant(
-                "other",
-                () -> assertThrows(
-                        CommonException.class, () -> gateway.find("tenant", "original-revision", "order", "refund")));
+    void findIsRejectedInsideAnActiveTransaction() {
+        assertTrue(gateway.find("original-revision", "order", "refund").isEmpty());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            TenantUtil.runWithTenant(
-                    "tenant",
-                    () -> assertThrows(
-                            CommonException.class,
-                            () -> gateway.find("tenant", "original-revision", "order", "refund")));
+            assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund"));
         } finally {
             TransactionSynchronizationManager.clear();
         }
-        verifyNoInteractions(capacities, converter);
+        verifyNoInteractions(converter);
     }
 }

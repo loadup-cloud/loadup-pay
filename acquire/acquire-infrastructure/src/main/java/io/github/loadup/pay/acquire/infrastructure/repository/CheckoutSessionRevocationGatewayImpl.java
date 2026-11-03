@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_PAGE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
@@ -24,8 +23,6 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SN
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionRevocationGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
@@ -55,11 +52,9 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     }
 
     @Override
-    public Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey) {
-        scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("caller", callerScopeHash)
-                .addValue("key", requestKey);
+    public Optional<CheckoutSessionRevocationReceipt> find(String callerScopeHash, String requestKey) {
+        var args =
+                new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row =
                 jdbc
                         .query("""
@@ -74,8 +69,7 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     }
 
     @Override
-    public void insert(String tenant, CheckoutSessionRevocationReceipt value) {
-        scope(tenant);
+    public void insert(CheckoutSessionRevocationReceipt value) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
@@ -85,7 +79,7 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -103,10 +97,9 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     }
 
     @Override
-    public PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size) {
+    public PageResult<CheckoutSessionRevocationReceipt> page(String sessionId, int page, int size) {
         PageQuery.normalized(page, size, INVALID_PAGE);
-        scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("subject", sessionId)
                 .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
@@ -121,12 +114,6 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
                 ORDER BY accepted_at DESC, id DESC LIMIT :limit OFFSET :offset
                 """, args, BeanPropertyRowMapper.newInstance(CheckoutSessionRevocationReceiptDO.class));
         return PageResult.of(rows.stream().map(this::decode).toList(), total, page, size);
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
     }
 
     private CheckoutSessionRevocationReceipt decode(CheckoutSessionRevocationReceiptDO row) {

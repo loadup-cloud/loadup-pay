@@ -116,7 +116,7 @@ public class PaymentEvents {
         }
         StoredPaymentAttempt attempt = payment.payment().activeAttemptId() == null
                 ? null
-                : attempts.find(tenant, payment.payment().activeAttemptId())
+                : attempts.find(payment.payment().activeAttemptId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (attempt != null) {
             PaymentExecutionBindings.active(payment, attempt);
@@ -143,7 +143,7 @@ public class PaymentEvents {
             if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var claim = results.attemptClaim(tenant, attempt.attempt().id())
+            var claim = results.attemptClaim(attempt.attempt().id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!claim.tenantId().equals(tenant)
                     || !claim.identity().equals(attempt.attempt().identity())

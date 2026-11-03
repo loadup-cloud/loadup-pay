@@ -22,7 +22,6 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationStatementGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementRequest;
@@ -53,38 +52,34 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     }
 
     @Override
-    public Optional<ReconciliationStatementRequest> findRequest(String tenant, String caller, String requestKey) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationStatementRequest> findRequest(String caller, String requestKey) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("caller", caller)
-                .addValue("key", requestKey);
+        var args = new MapSqlParameterSource().addValue("caller", caller).addValue("key", requestKey);
         return read(row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
     @Override
-    public Optional<ReconciliationStatementRequest> find(String tenant, String id) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationStatementRequest> find(String id) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(id);
-        return read(row(
-                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
+        return read(row("id = :id", new MapSqlParameterSource().addValue("id", id), false));
     }
 
     @Override
-    public Optional<ReconciliationStatementRequest> lock(String tenant, String id) {
-        ReconciliationStoreContext.writable(tenant);
+    public Optional<ReconciliationStatementRequest> lock(String id) {
+        ReconciliationStoreContext.writable();
         DomainChecks.id(id);
         requireJdbc();
-        return read(row(
-                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
+        return read(row("id = :id", new MapSqlParameterSource().addValue("id", id), true));
     }
 
     @Override
-    public Optional<ReconciliationStatementRequest> activeForBatch(String tenant, String batchId) {
-        ReconciliationStoreContext.writable(tenant);
+    public Optional<ReconciliationStatementRequest> activeForBatch(String batchId) {
+        ReconciliationStoreContext.writable();
         DomainChecks.id(batchId);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
+        var args = new MapSqlParameterSource().addValue("batch", batchId);
         var rows = jdbc.query(
                 "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE deleted = FALSE "
                         + "AND batch_id = :batch AND state = 'INIT' LIMIT 2",
@@ -97,13 +92,13 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     }
 
     @Override
-    public void insert(String tenant, ReconciliationStatementRequest value) {
-        ReconciliationStoreContext.writable(tenant);
+    public void insert(ReconciliationStatementRequest value) {
+        ReconciliationStoreContext.writable();
         if (value == null || value.state() != ReconciliationStatementState.INIT || value.version() != 0L) {
             throw new CommonException(INVALID_STATE);
         }
         requireJdbc();
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -122,15 +117,15 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     }
 
     @Override
-    public void update(String tenant, ReconciliationStatementRequest value, long expectedVersion) {
-        ReconciliationStoreContext.writable(tenant);
+    public void update(ReconciliationStatementRequest value, long expectedVersion) {
+        ReconciliationStoreContext.writable();
         if (value == null
                 || expectedVersion < 0
                 || expectedVersion == Long.MAX_VALUE
                 || value.version() != expectedVersion + 1L) {
             throw new CommonException(INVALID_STATE);
         }
-        var original = lock(tenant, value.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var original = lock(value.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (original.version() != expectedVersion) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -140,8 +135,8 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
             throw new CommonException(SNAPSHOT_INVALID);
         }
         requireJdbc();
-        var row = converter.toDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var row = converter.toDO(value);
+        var args = new MapSqlParameterSource()
                 .addValue("id", value.id())
                 .addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(clock));

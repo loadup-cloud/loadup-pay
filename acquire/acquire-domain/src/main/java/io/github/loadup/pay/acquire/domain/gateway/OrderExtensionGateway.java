@@ -20,12 +20,12 @@ import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
 import java.util.Optional;
 
 public interface OrderExtensionGateway {
-    Optional<OrderExtensionReceipt> findReceipt(String tenant, String orderId, String requestKey);
+    Optional<OrderExtensionReceipt> findReceipt(String orderId, String requestKey);
 
     /**
      * Read under the already-held order lock and verify the header still matches the domain order.
      */
-    long deadlineVersion(String tenant, AcquireOrder order);
+    long deadlineVersion(AcquireOrder order);
 
-    void extend(String tenant, AcquireOrder updated, OrderExtensionReceipt receipt);
+    void extend(AcquireOrder updated, OrderExtensionReceipt receipt);
 }

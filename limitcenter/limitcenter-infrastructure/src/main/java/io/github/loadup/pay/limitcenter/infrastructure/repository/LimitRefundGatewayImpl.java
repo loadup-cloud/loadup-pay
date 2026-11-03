@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.repository;
 
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
@@ -23,7 +22,6 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitRefundGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRefundReceipt;
@@ -58,8 +56,7 @@ public class LimitRefundGatewayImpl extends ServiceImpl<LimitRefundReceiptMapper
     }
 
     @Override
-    public Optional<LimitRefundReceipt> find(String tenant, String refundId) {
-        scope(tenant);
+    public Optional<LimitRefundReceipt> find(String refundId) {
         try {
             return Optional.ofNullable(getOne(QueryWrapper.create().eq("refund_id", refundId)))
                     .map(converter::toDomain);
@@ -72,8 +69,7 @@ public class LimitRefundGatewayImpl extends ServiceImpl<LimitRefundReceiptMapper
     }
 
     @Override
-    public void insert(String tenant, LimitRefundReceipt value) {
-        scope(tenant);
+    public void insert(LimitRefundReceipt value) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
@@ -81,7 +77,7 @@ public class LimitRefundGatewayImpl extends ServiceImpl<LimitRefundReceiptMapper
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         LocalDateTime now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -101,12 +97,6 @@ public class LimitRefundGatewayImpl extends ServiceImpl<LimitRefundReceiptMapper
         }
         if (inserted != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

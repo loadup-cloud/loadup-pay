@@ -52,7 +52,7 @@ public interface PaymentOutcomeStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    OrderPaymentOutcomeDO toDO(String tenant, PaymentOutcomeReceipt value);
+    OrderPaymentOutcomeDO toDO(PaymentOutcomeReceipt value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "paidAmountMinor", source = "order.paidAmountMinor")

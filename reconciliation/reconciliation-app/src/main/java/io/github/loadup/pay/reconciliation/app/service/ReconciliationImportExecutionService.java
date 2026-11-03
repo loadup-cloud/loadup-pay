@@ -107,7 +107,7 @@ public class ReconciliationImportExecutionService {
         }
         String tenant = TenantUtil.getTenantId();
         var request = transactions.readSnapshot(tenant, () -> {
-            var value = imports.find(tenant, context.options().get("importId"))
+            var value = imports.find(context.options().get("importId"))
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!context.taskId().equals(value.taskId()) || !context.ownerId().equals(value.callerServiceId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -118,7 +118,7 @@ public class ReconciliationImportExecutionService {
                     TransferStatus.RUNNING);
             var batch = authorized(tenant, value, false);
             if (value.state() == ReconciliationImportState.SEALED) {
-                var manifest = inputs.sealedManifest(tenant, value.artifactId())
+                var manifest = inputs.sealedManifest(value.artifactId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 value.seal(manifest);
                 if (!manifest.equals(batch.batch().channel())) {
@@ -126,7 +126,7 @@ public class ReconciliationImportExecutionService {
                 }
             }
             official.verify(tenant, value);
-            files.verify(tenant, value.callerServiceId(), value.file(), value.id());
+            files.verify(value.callerServiceId(), value.file(), value.id());
             return value;
         });
         if (request.state() == ReconciliationImportState.SEALED) {
@@ -143,14 +143,13 @@ public class ReconciliationImportExecutionService {
             // The content-addressed file, sealed rows, batch reference and logical outcome commit together.
             transactions.writeLocal(tenant, () -> {
                 var batch = authorized(tenant, request, true);
-                var current =
-                        imports.lock(tenant, request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var current = imports.lock(request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!request.equals(current) && current.state() != ReconciliationImportState.SEALED) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 var sealed = current.seal(data.manifest());
                 if (sealed == current) {
-                    var manifest = inputs.sealedManifest(tenant, current.artifactId())
+                    var manifest = inputs.sealedManifest(current.artifactId())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (!manifest.equals(data.manifest())
                             || !manifest.equals(batch.batch().channel())) {
@@ -163,12 +162,11 @@ public class ReconciliationImportExecutionService {
                     throw new CommonException(IMPORT_SUPERSEDED);
                 }
                 official.verify(tenant, current);
-                files.verify(tenant, current.callerServiceId(), current.file(), current.id());
-                inputs.insertSealed(tenant, current.file().fileId(), data);
+                files.verify(current.callerServiceId(), current.file(), current.id());
+                inputs.insertSealed(current.file().fileId(), data);
                 var next = batch.batch().attach(data.manifest());
-                batches.update(
-                        tenant, converter.withBatch(batch, next), batch.batch().version());
-                imports.update(tenant, sealed, current.version());
+                batches.update(converter.withBatch(batch, next), batch.batch().version());
+                imports.update(sealed, current.version());
                 return true;
             });
             context.report(data.records().size(), data.records().size());
@@ -176,11 +174,9 @@ public class ReconciliationImportExecutionService {
             if (failure.getResultCode() == INPUT_INVALID || failure.getResultCode() == IMPORT_SUPERSEDED) {
                 transactions.writeLocal(tenant, () -> {
                     authorized(tenant, request, true);
-                    var current =
-                            imports.lock(tenant, request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                    var current = imports.lock(request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (current.state() == ReconciliationImportState.INIT) {
-                        imports.update(
-                                tenant, current.reject(failure.getResultCode().getCode()), current.version());
+                        imports.update(current.reject(failure.getResultCode().getCode()), current.version());
                     }
                     return true;
                 });
@@ -190,13 +186,13 @@ public class ReconciliationImportExecutionService {
     }
 
     private StoredReconciliationBatch authorized(String tenant, ReconciliationImportRequest request, boolean lock) {
-        var batch = (lock ? batches.lock(tenant, request.batchId()) : batches.find(tenant, request.batchId()))
+        var batch = (lock ? batches.lock(request.batchId()) : batches.find(request.batchId()))
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!request.callerServiceId().equals(batch.callerServiceId())
                 || !request.scope().equals(batch.batch().scope())
                 || !request.statementAccount()
                         .equals(accounts.statementAccount(
-                                tenant, request.callerServiceId(), batch.channelAccountCode(), request.scope()))) {
+                                request.callerServiceId(), batch.channelAccountCode(), request.scope()))) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         return batch;

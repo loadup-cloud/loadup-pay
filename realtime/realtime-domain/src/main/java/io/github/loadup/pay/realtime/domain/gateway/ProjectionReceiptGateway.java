@@ -19,7 +19,7 @@ import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
 import java.util.Optional;
 
 public interface ProjectionReceiptGateway {
-    Optional<ProjectionReceipt> find(String tenant, String producer, String deliveryId);
+    Optional<ProjectionReceipt> find(String producer, String deliveryId);
 
-    void insert(String tenant, ProjectionReceipt receipt);
+    void insert(ProjectionReceipt receipt);
 }

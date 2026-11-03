@@ -23,9 +23,9 @@ import java.util.Optional;
  * Reads only this service's sealed normalized storage; no file, source-service or channel I/O under batch locks.
  */
 public interface ReconciliationInputGateway {
-    Optional<ReconciliationManifest> sealedManifest(String tenant, String artifactId);
+    Optional<ReconciliationManifest> sealedManifest(String artifactId);
 
-    ReconciliationDataset loadSealed(String tenant, String artifactId);
+    ReconciliationDataset loadSealed(String artifactId);
 
-    void insertSealed(String tenant, String fileId, ReconciliationDataset dataset);
+    void insertSealed(String fileId, ReconciliationDataset dataset);
 }

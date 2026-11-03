@@ -482,8 +482,8 @@ class ProjectionPersistenceIT {
         }
 
         @Override
-        public void insert(String tenant, ProjectionReceipt receipt) {
-            super.insert(tenant, receipt);
+        public void insert(ProjectionReceipt receipt) {
+            super.insert(receipt);
             if (failAfterInsert.compareAndSet(true, false)) {
                 throw new IllegalStateException("Injected after actual receipt insert");
             }

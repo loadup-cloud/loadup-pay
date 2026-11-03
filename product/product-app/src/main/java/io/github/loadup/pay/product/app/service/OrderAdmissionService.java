@@ -168,22 +168,22 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
                     command.requestedDueAt() == null ? null : BusinessTime.local(command.requestedDueAt()),
                     actor.scopeHash());
-            var prior = admissions.findByOrder(actor.tenantId(), intent.orderId());
+            var prior = admissions.findByOrder(intent.orderId());
             if (prior.isPresent()) {
                 return replay(prior.get(), intent);
             }
-            var eligibility = customer.authorizeNewOrder(actor.tenantId(), intent.payeeMerchantId());
+            var eligibility = customer.authorizeNewOrder(intent.payeeMerchantId());
             var merchant = converter.toFacts(intent.payeeMerchantId(), eligibility);
             String admissionId = ids.generate();
             try {
                 StoredOrderAdmission stored = Objects.requireNonNull(transaction.execute(status -> {
-                    var first = admissions.findByOrder(actor.tenantId(), intent.orderId());
+                    var first = admissions.findByOrder(intent.orderId());
                     if (first.isPresent()) {
                         return checked(first.get(), intent);
                     }
                     var header = contracts.lockByScope(intent.payeeMerchantId(), intent.productScopeKey());
                     // Serialize against both status changes and another admission waiting on this contract.
-                    var afterLock = admissions.findByOrder(actor.tenantId(), intent.orderId());
+                    var afterLock = admissions.findByOrder(intent.orderId());
                     if (afterLock.isPresent()) {
                         return checked(afterLock.get(), intent);
                     }
@@ -197,7 +197,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     } else {
                         decision = decide(admissionId, intent, header.get(), eligibility, merchant, at, now);
                     }
-                    admissions.insert(actor.tenantId(), decision);
+                    admissions.insert(decision);
                     return decision;
                 }));
                 return present(stored);
@@ -205,7 +205,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                 // TransactionTemplate has rolled back the losing insert before this fresh primary read.
                 return replay(
                         admissions
-                                .findByOrder(actor.tenantId(), intent.orderId())
+                                .findByOrder(intent.orderId())
                                 .orElseThrow(() -> new CommonException(DEPENDENCY_UNAVAILABLE)),
                         intent);
             }
@@ -313,7 +313,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         return invoke(actor, () -> {
             DomainChecks.id(query.id());
             StoredOrderAdmission stored =
-                    admissions.findById(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+                    admissions.findById(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.scopeHash().equals(stored.intent().callerScopeHash())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }

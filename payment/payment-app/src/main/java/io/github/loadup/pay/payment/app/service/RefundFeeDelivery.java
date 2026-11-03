@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -63,16 +62,13 @@ public class RefundFeeDelivery {
                 || !"PROCESSING".equals(row.status())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        if (!acquire.supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var envelope = codec.fee(message.payload());
         if (!row.businessId().equals(envelope.aggregateId())
                 || !row.type().equals(envelope.eventType())
                 || envelope.aggregateVersion() <= 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var ack = acquire.acceptFeeRefund(tenant, envelope);
+        var ack = acquire.acceptFeeRefund(envelope);
         if (ack == null
                 || !ack.accepted()
                 || !envelope.deliveryId().equals(ack.deliveryId())

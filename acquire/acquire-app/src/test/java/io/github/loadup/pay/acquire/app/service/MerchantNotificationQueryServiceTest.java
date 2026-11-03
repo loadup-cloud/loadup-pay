@@ -24,8 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -76,7 +74,7 @@ class MerchantNotificationQueryServiceTest {
     @Test
     void detailProjectsOnlyMerchantSafeMetadata() {
         var original = MerchantNotificationOperationsServiceTest.delivery(NOW);
-        when(deliveries.find("tenant", "delivery")).thenReturn(Optional.of(original));
+        when(deliveries.find("delivery")).thenReturn(Optional.of(original));
         var result = service.detail(new IdQuery("delivery"));
         assertEquals("event", result.eventId());
         assertEquals(3, result.maxAttempts());
@@ -90,7 +88,7 @@ class MerchantNotificationQueryServiceTest {
 
     @Test
     void foreignMerchantCannotReadAnExistingDeliveryOrPageAnotherScope() {
-        when(deliveries.find("tenant", "delivery"))
+        when(deliveries.find("delivery"))
                 .thenReturn(Optional.of(MerchantNotificationOperationsServiceTest.delivery(NOW)));
         actor.set(new MerchantNotificationActor(
                 "tenant", "MERCHANT_APP", "foreign-app", "other-merchant", Set.of("pay:acquire:notification:read")));
@@ -105,19 +103,19 @@ class MerchantNotificationQueryServiceTest {
                                 () -> service.page(new MerchantNotificationPageQuery(
                                         "merchant", null, null, null, null, null, 1, 20)))
                         .getResultCode());
-        verify(deliveries, never()).page(anyString(), any());
+        verify(deliveries, never()).page(any());
     }
 
     @Test
     void pageUsesExplicitMerchantAndSourceTimeFiltersAndSharedPageContract() {
         var original = MerchantNotificationOperationsServiceTest.delivery(NOW);
-        when(deliveries.page(eq("tenant"), any())).thenReturn(PageResult.of(List.of(original), 21, 2, 20));
+        when(deliveries.page(any())).thenReturn(PageResult.of(List.of(original), 21, 2, 20));
         var page = service.page(new MerchantNotificationPageQuery("merchant", "order", null, null, null, null, 2, 20));
         var first = page.getData().iterator().next();
         assertEquals(1, page.getData().size());
         assertEquals(original.id(), first.id());
         var filter = ArgumentCaptor.forClass(MerchantNotificationFilter.class);
-        verify(deliveries).page(eq("tenant"), filter.capture());
+        verify(deliveries).page(filter.capture());
         assertEquals("merchant", filter.getValue().payeeMerchantId());
         assertEquals("order", filter.getValue().orderId());
         assertEquals(2, filter.getValue().page());

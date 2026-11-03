@@ -121,51 +121,50 @@ class OrderClosureOperationsTest {
 
     @BeforeEach
     void setup() {
-        when(payment.supportsTenant("tenant")).thenReturn(true);
         when(codec.checksum(anyString())).thenAnswer(c -> DigestUtils.sha256((String) c.getArgument(0)));
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> {
+        when(orders.lockOrder("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return order.get();
         });
-        when(orders.findOrder("tenant", "order")).thenAnswer(c -> Optional.of(order.get()));
-        when(store.findIntent("tenant", "order")).thenAnswer(c -> Optional.ofNullable(intent.get()));
-        when(store.heldAfter(eq("tenant"), eq("order"), anyString(), eq(16))).thenReturn(List.of());
+        when(orders.findOrder("order")).thenAnswer(c -> Optional.of(order.get()));
+        when(store.findIntent("order")).thenAnswer(c -> Optional.ofNullable(intent.get()));
+        when(store.heldAfter(eq("order"), anyString(), eq(16))).thenReturn(List.of());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(order.get().order().version(), (long) c.getArgument(3));
-                    order.set(withOrder(order.get(), c.getArgument(1)));
-                    intent.set(c.getArgument(2));
-                    return null;
-                })
-                .when(store)
-                .start(eq("tenant"), any(), any(), anyLong());
-        doAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(intent.get().rowVersion(), (long) c.getArgument(2));
+                    assertEquals(order.get().order().version(), (long) c.getArgument(2));
+                    order.set(withOrder(order.get(), c.getArgument(0)));
                     intent.set(c.getArgument(1));
                     return null;
                 })
                 .when(store)
-                .advanceCursor(eq("tenant"), any(), anyLong());
+                .start(any(), any(), anyLong());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    order.set(withOrder(order.get(), c.getArgument(1)));
+                    assertEquals(intent.get().rowVersion(), (long) c.getArgument(1));
+                    intent.set(c.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .finish(eq("tenant"), any(), anyLong(), any());
+                .advanceCursor(any(), anyLong());
+        doAnswer(c -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    order.set(withOrder(order.get(), c.getArgument(0)));
+                    return null;
+                })
+                .when(store)
+                .finish(any(), anyLong(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     return null;
                 })
                 .when(nativeTasks)
                 .register(anyString(), anyString(), any());
-        when(payment.fenceParent(eq("tenant"), any())).thenAnswer(c -> {
+        when(payment.fenceParent(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(manager.commits > 0);
             return new ParentFenceDTO("order", intent.get().closeEpoch(), true, false, 1);
         });
-        when(payment.parentFenceStatus(eq("tenant"), any())).thenAnswer(c -> {
+        when(payment.parentFenceStatus(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new ParentFenceDTO("order", intent.get().closeEpoch(), true, false, 1);
         });
@@ -185,7 +184,7 @@ class OrderClosureOperationsTest {
         assertEquals(first.orderId(), second.orderId());
         assertEquals(1, ids.get());
         assertEquals(2L, intent.get().rowVersion());
-        verify(store, times(1)).start(anyString(), any(), any(), anyLong());
+        verify(store, times(1)).start(any(), any(), anyLong());
         verify(nativeTasks).register(OrderClosureTasks.TYPE, "order.0", NOW);
         verify(nativeTasks).register(OrderClosureTasks.TYPE, "order.1", NOW.plusSeconds(30));
         verify(nativeTasks).register(OrderClosureTasks.TYPE, "order.2", NOW.plusSeconds(30));
@@ -200,7 +199,7 @@ class OrderClosureOperationsTest {
         assertSame(failure, assertThrows(CommonException.class, () -> operations.close(scope, command)));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
-        verify(payment, never()).fenceParent(anyString(), any());
+        verify(payment, never()).fenceParent(any());
         verifyNoInteractions(snapshots, outcomes);
     }
 
@@ -208,13 +207,13 @@ class OrderClosureOperationsTest {
     void aParentFenceWithoutConvergenceNeverFinishesTheOrder() {
         operations.close(scope, command);
         assertEquals(AcquireOrderState.CLOSING, order.get().order().state());
-        verify(store, never()).finish(anyString(), any(), anyLong(), any());
+        verify(store, never()).finish(any(), anyLong(), any());
     }
 
     @Test
     void authoritativeParentConvergenceAndSettledAllocationsCanFinishClosure() {
-        when(payment.parentFenceStatus(eq("tenant"), any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
-        when(store.allAllocationsSettled("tenant", "order")).thenReturn(true);
+        when(payment.parentFenceStatus(any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
+        when(store.allAllocationsSettled("order")).thenReturn(true);
         var result = operations.close(scope, command);
         assertEquals(AcquireOrderState.CLOSED, result.state());
         assertEquals(AcquireOrderState.CLOSED, order.get().order().state());
@@ -272,10 +271,10 @@ class OrderClosureOperationsTest {
                                 Money.ofMinor(1000L, "CNY")),
                         NOW);
         order.set(withOrder(original, change.order()));
-        when(payment.parentFenceStatus(eq("tenant"), any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
-        when(store.allAllocationsSettled("tenant", "order")).thenReturn(true);
+        when(payment.parentFenceStatus(any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
+        when(store.allAllocationsSettled("order")).thenReturn(true);
         operations.close(scope, command);
         assertEquals(1000L, order.get().order().paymentReservedMinor());
-        verify(store, never()).finish(anyString(), any(), anyLong(), any());
+        verify(store, never()).finish(any(), anyLong(), any());
     }
 }

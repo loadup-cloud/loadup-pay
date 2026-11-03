@@ -142,22 +142,22 @@ class PaymentControlServiceTest {
 
     @BeforeEach
     void setup() {
-        when(inputs.lock("tenant", "input")).thenAnswer(call -> {
+        when(inputs.lock("input")).thenAnswer(call -> {
             active();
             return Optional.ofNullable(input.get());
         });
-        when(gates.lockParent("tenant", "order")).thenAnswer(c -> Optional.ofNullable(parent.get()));
-        when(gates.lockPayment("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(gate.get()));
-        when(gates.find("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(payment.get()));
-        when(store.lockPayment("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(payment.get()));
-        when(store.findReceipt(eq("tenant"), anyString(), anyString(), anyString()))
+        when(gates.lockParent("order")).thenAnswer(c -> Optional.ofNullable(parent.get()));
+        when(gates.lockPayment("payment")).thenAnswer(c -> Optional.ofNullable(gate.get()));
+        when(gates.find("payment")).thenAnswer(c -> Optional.ofNullable(payment.get()));
+        when(store.lockPayment("payment")).thenAnswer(c -> Optional.ofNullable(payment.get()));
+        when(store.findReceipt(anyString(), anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(
-                        receipts.get(c.getArgument(1) + ":" + c.getArgument(2) + ":" + c.getArgument(3))));
-        when(store.findNoCollectionReceipt("tenant", "payment"))
+                        receipts.get(c.getArgument(0) + ":" + c.getArgument(1) + ":" + c.getArgument(2))));
+        when(store.findNoCollectionReceipt("payment"))
                 .thenAnswer(c -> receipts.values().stream()
                         .filter(r -> "PAYMENT_CLOSE".equals(r.kind()) && r.noCollectionEvidenceId() != null)
                         .findFirst());
-        when(store.childrenStatus("tenant", "order")).thenAnswer(c -> {
+        when(store.childrenStatus("order")).thenAnswer(c -> {
             var current = payment.get();
             if (current == null) {
                 return new PaymentChildrenStatus(0, 0);
@@ -176,50 +176,50 @@ class PaymentControlServiceTest {
                                 .digest(((String) c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
         doAnswer(c -> {
                     active();
-                    parent.set(c.getArgument(1));
+                    parent.set(c.getArgument(0));
                     return null;
                 })
                 .when(gates)
-                .insertParent(eq("tenant"), any());
+                .insertParent(any());
         doAnswer(c -> {
                     active();
-                    gate.set(c.getArgument(1));
+                    gate.set(c.getArgument(0));
                     return null;
                 })
                 .when(gates)
-                .insertPaymentGate(eq("tenant"), any());
+                .insertPaymentGate(any());
         doAnswer(c -> {
                     active();
-                    assertEquals(parent.get().rowVersion(), (Long) c.getArgument(2));
-                    parent.set(c.getArgument(1));
+                    assertEquals(parent.get().rowVersion(), (Long) c.getArgument(1));
+                    parent.set(c.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .updateParent(eq("tenant"), any(), anyLong());
+                .updateParent(any(), anyLong());
         doAnswer(c -> {
                     active();
-                    assertEquals(gate.get().rowVersion(), (Long) c.getArgument(2));
-                    gate.set(c.getArgument(1));
+                    assertEquals(gate.get().rowVersion(), (Long) c.getArgument(1));
+                    gate.set(c.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .updateGate(eq("tenant"), any(), anyLong());
+                .updateGate(any(), anyLong());
         doAnswer(c -> {
                     active();
-                    assertEquals(payment.get().payment().version(), (Long) c.getArgument(2));
-                    payment.set(c.getArgument(1));
+                    assertEquals(payment.get().payment().version(), (Long) c.getArgument(1));
+                    payment.set(c.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .updatePayment(eq("tenant"), any(), anyLong());
+                .updatePayment(any(), anyLong());
         doAnswer(c -> {
                     active();
-                    PaymentControlReceipt value = c.getArgument(1);
+                    PaymentControlReceipt value = c.getArgument(0);
                     receipts.put(value.kind() + ":" + value.targetId() + ":" + value.requestKey(), value);
                     return null;
                 })
                 .when(store)
-                .insertReceipt(eq("tenant"), any());
+                .insertReceipt(any());
     }
 
     void active() {
@@ -347,8 +347,8 @@ class PaymentControlServiceTest {
         assertEquals("INPUT_EXPIRED", receipt.reasonCode());
         clearInvocations(store, gates);
         assertEquals(result, service.expireInput(expiryCommand()));
-        verify(store, never()).insertReceipt(anyString(), any());
-        verify(gates, never()).insertPaymentGate(anyString(), any());
+        verify(store, never()).insertReceipt(any());
+        verify(gates, never()).insertPaymentGate(any());
         verifyNoInteractions(attempts, events);
         assertSame(
                 EXECUTION_FENCED,
@@ -379,7 +379,7 @@ class PaymentControlServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.expireInput(expiryCommand()))
                         .getResultCode());
-        verify(gates, never()).insertParent(anyString(), any());
+        verify(gates, never()).insertParent(any());
     }
 
     @Test
@@ -454,12 +454,12 @@ class PaymentControlServiceTest {
         assertNull(payment.get());
         assertEquals(1, manager.commits);
         var calls = inOrder(gates, store);
-        calls.verify(gates).lockParent("tenant", "order");
-        calls.verify(gates).insertParent(eq("tenant"), any());
-        calls.verify(gates).lockPayment("tenant", "payment");
-        calls.verify(gates).insertPaymentGate(eq("tenant"), any());
-        calls.verify(store).lockPayment("tenant", "payment");
-        calls.verify(store).insertReceipt(eq("tenant"), any());
+        calls.verify(gates).lockParent("order");
+        calls.verify(gates).insertParent(any());
+        calls.verify(gates).lockPayment("payment");
+        calls.verify(gates).insertPaymentGate(any());
+        calls.verify(store).lockPayment("payment");
+        calls.verify(store).insertReceipt(any());
     }
 
     @Test
@@ -467,9 +467,9 @@ class PaymentControlServiceTest {
         var first = service.close(close("close", 1));
         clearInvocations(gates, store);
         assertEquals(first, service.close(close("close", 1)));
-        verify(store, never()).insertReceipt(anyString(), any());
-        verify(store, never()).updatePayment(anyString(), any(), anyLong());
-        verify(gates, never()).insertPaymentGate(anyString(), any());
+        verify(store, never()).insertReceipt(any());
+        verify(store, never()).updatePayment(any(), anyLong());
+        verify(gates, never()).insertPaymentGate(any());
     }
 
     @Test
@@ -519,13 +519,12 @@ class PaymentControlServiceTest {
     @Test
     void anInitAttemptCanCloseLocallyOnlyBeforeY2Committed() {
         accept(PaymentState.PROCESSING);
-        when(attempts.lock("tenant", "attempt")).thenReturn(Optional.of(AttemptFixtures.prepared()));
+        when(attempts.lock("attempt")).thenReturn(Optional.of(AttemptFixtures.prepared()));
         var result = service.close(close("before-y2", 1));
         assertEquals("CLOSED", result.payment().state().name());
         assertNotNull(result.noCollectionEvidenceId());
         verify(attempts)
                 .update(
-                        eq("tenant"),
                         argThat(value -> value.attempt().state() == PaymentAttemptState.CLOSED
                                 && value.attempt().executionEpoch() == 0
                                 && value.attempt().noCollectionEvidenceId() != null),
@@ -538,11 +537,11 @@ class PaymentControlServiceTest {
         accept(PaymentState.PROCESSING);
         var submitting = AttemptFixtures.prepared()
                 .beginSubmission(1, "b".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
-        when(attempts.lock("tenant", "attempt")).thenReturn(Optional.of(submitting));
+        when(attempts.lock("attempt")).thenReturn(Optional.of(submitting));
         var result = service.close(close("after-y2", 1));
         assertEquals("CLOSING", result.payment().state().name());
         assertNull(result.noCollectionEvidenceId());
-        verify(attempts, never()).update(anyString(), any(), anyLong());
+        verify(attempts, never()).update(any(), anyLong());
         verify(events).publishSnapshot(eq("tenant"), eq(payment.get()), any());
         verify(events, never()).publish(anyString(), any(), anyBoolean(), any());
     }
@@ -567,7 +566,7 @@ class PaymentControlServiceTest {
         assertEquals("SUCCEEDED", result.payment().state().name());
         assertEquals("terminal-proof", result.payment().terminalEvidenceId());
         assertNull(result.noCollectionEvidenceId());
-        verify(store, never()).updatePayment(anyString(), any(), anyLong());
+        verify(store, never()).updatePayment(any(), anyLong());
         verifyNoInteractions(events);
     }
 
@@ -580,7 +579,7 @@ class PaymentControlServiceTest {
             assertSame(original, payment.get());
             assertEquals("terminal-proof", result.noCollectionEvidenceId());
         }
-        verify(store, never()).updatePayment(anyString(), any(), anyLong());
+        verify(store, never()).updatePayment(any(), anyLong());
         verifyNoInteractions(events);
     }
 
@@ -594,7 +593,7 @@ class PaymentControlServiceTest {
                                 () -> TenantUtil.callWithTenant(
                                         "tenant", () -> acceptance().accept(PaymentFixtures.command())))
                         .getResultCode());
-        verify(gates, never()).insert(anyString(), any());
+        verify(gates, never()).insert(any());
     }
 
     @Test
@@ -610,7 +609,7 @@ class PaymentControlServiceTest {
                                 () -> TenantUtil.callWithTenant(
                                         "tenant", () -> acceptance().accept(PaymentFixtures.command())))
                         .getResultCode());
-        verify(gates, never()).insertPaymentGate(anyString(), any());
+        verify(gates, never()).insertPaymentGate(any());
     }
 
     @Test
@@ -676,7 +675,7 @@ class PaymentControlServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.close(close("close", 1)))
                         .getResultCode());
-        verify(store, never()).insertReceipt(anyString(), any());
+        verify(store, never()).insertReceipt(any());
         assertEquals(1, manager.rollbacks);
     }
 
@@ -689,7 +688,7 @@ class PaymentControlServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.close(close("close", 1)))
                         .getResultCode());
-        verify(gates, never()).insertPaymentGate(anyString(), any());
+        verify(gates, never()).insertPaymentGate(any());
     }
 
     @Test
@@ -702,7 +701,7 @@ class PaymentControlServiceTest {
                                 () -> service.close(
                                         new PaymentCloseCommand("payment", "order", "other", "close", 1, "CANCELLED")))
                         .getResultCode());
-        verify(store, never()).updatePayment(anyString(), any(), anyLong());
+        verify(store, never()).updatePayment(any(), anyLong());
     }
 
     @Test
@@ -740,7 +739,7 @@ class PaymentControlServiceTest {
 
     @Test
     void aReceiptWriteFailureRollsBackTheControlTransaction() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insertReceipt(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insertReceipt(any());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.close(close("close", 1)))

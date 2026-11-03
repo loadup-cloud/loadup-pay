@@ -40,7 +40,7 @@ public class OrderSnapshotReaderImpl implements OrderSnapshotReader {
     }
 
     @Override
-    public OrderSnapshotFacts lockCurrent(String tenant, String orderId) {
+    public OrderSnapshotFacts lockCurrent(String orderId) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

@@ -30,7 +30,6 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -94,30 +93,30 @@ class PaymentRecoveryServiceTest {
     @BeforeEach
     void setup() {
         when(tasks.find(PaymentRecoveryService.TYPE, "payment.0")).thenReturn(Optional.of(task));
-        when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(accepted.get()));
+        when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
             return PaymentExecutionBindings.locked(
                     accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
-        when(cursors.lock("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
+        when(cursors.lock("payment")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertNull(cursor.get());
+                    cursor.set(c.getArgument(0));
+                    return null;
+                })
+                .when(cursors)
+                .insert(any());
+        doAnswer(c -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertEquals(cursor.get(), c.getArgument(0));
                     cursor.set(c.getArgument(1));
                     return null;
                 })
                 .when(cursors)
-                .insert(eq("tenant"), any());
-        doAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(cursor.get(), c.getArgument(1));
-                    cursor.set(c.getArgument(2));
-                    return null;
-                })
-                .when(cursors)
-                .update(eq("tenant"), any(), any());
+                .update(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     return null;
@@ -196,7 +195,7 @@ class PaymentRecoveryServiceTest {
         assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
         assertTrue(cursor.get().completed());
         verifyNoInteractions(execution);
-        verify(cursors).update(eq("tenant"), any(), argThat(PaymentRecoveryCursor::completed));
+        verify(cursors).update(any(), argThat(PaymentRecoveryCursor::completed));
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
 
@@ -235,7 +234,7 @@ class PaymentRecoveryServiceTest {
                 assertThrows(CommonException.class, this::handle).getResultCode());
 
         assertEquals(before, cursor.get());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
 
@@ -314,7 +313,7 @@ class PaymentRecoveryServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());
         verify(tasks, never()).register(anyString(), anyString(), any());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);
     }

@@ -24,19 +24,19 @@ import java.util.Optional;
  * Persistence or integration port; implementations own transactions and trusted tenant isolation.
  */
 public interface PaymentOrderGateway {
-    Optional<PaymentOrder> find(String tenantId, String paymentId);
+    Optional<PaymentOrder> find(String paymentId);
 
-    PaymentOrder lock(String tenantId, String paymentId);
+    PaymentOrder lock(String paymentId);
 
-    void save(String tenantId, PaymentOrder payment, long expectedVersion);
+    void save(PaymentOrder payment, long expectedVersion);
 
-    Optional<PaymentAttempt> findAttempt(String tenantId, String attemptId);
+    Optional<PaymentAttempt> findAttempt(String attemptId);
 
-    void saveAttempt(String tenantId, PaymentAttempt attempt);
+    void saveAttempt(PaymentAttempt attempt);
 
-    PaymentExecutionGate lockParentGate(String tenantId, String orderId);
+    PaymentExecutionGate lockParentGate(String orderId);
 
-    PaymentExecutionGate lockPaymentGate(String tenantId, String paymentId);
+    PaymentExecutionGate lockPaymentGate(String paymentId);
 
-    void saveGate(String tenantId, PaymentExecutionGate gate);
+    void saveGate(PaymentExecutionGate gate);
 }

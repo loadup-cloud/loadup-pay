@@ -72,23 +72,23 @@ class CustomerEligibilityHttpLookupTest {
     @Test
     void delegatesTokenPerRequestAndAcceptsOnlyFactsForTheExpectedPayee() {
         respond(allowed("merchant"));
-        assertTrue(lookup.authorizeNewOrder("tenant", "merchant").allowed());
+        assertTrue(lookup.authorizeNewOrder("merchant").allowed());
         verify(http)
                 .authorize(
                         eq("Bearer " + TOKEN),
                         argThat(command -> command.payeeMerchantId().equals("merchant")
                                 && command.action().name().equals("CREATE_ORDER")));
-        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "another-merchant"));
+        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("another-merchant"));
     }
 
     @Test
     void wrongTenantMissingAudienceAndActiveTransactionsPreventNetworkAccess() {
-        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("another-tenant", "merchant"));
+        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         var missingAudience = new CustomerEligibilityHttpLookup(
                 http, () -> new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()));
-        assertThrows(CommonException.class, () -> missingAudience.authorizeNewOrder("tenant", "merchant"));
+        assertThrows(CommonException.class, () -> missingAudience.authorizeNewOrder("merchant"));
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
+        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         verifyNoInteractions(http);
     }
 
@@ -98,24 +98,24 @@ class CustomerEligibilityHttpLookupTest {
                 .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.NOT_FOUND), null));
         assertEquals(
                 CustomerResultCodeEnum.NOT_FOUND.getCode(),
-                lookup.authorizeNewOrder("tenant", "merchant").reasonCode());
+                lookup.authorizeNewOrder("merchant").reasonCode());
         when(http.authorize(anyString(), any()))
                 .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.ACTION_FORBIDDEN), null));
-        var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
+        var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         assertSame(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
         respond(new MerchantEligibilityDTO(
                 false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null));
-        assertFalse(lookup.authorizeNewOrder("tenant", "merchant").allowed());
+        assertFalse(lookup.authorizeNewOrder("merchant").allowed());
     }
 
     @Test
     void malformedRepliesAndTransportFailuresStayDependencyFailures() {
         respond(null);
-        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
+        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         respond(new MerchantEligibilityDTO(true, "ALLOWED", allowed("merchant").merchant(), 0, "grant", 1L));
-        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
+        assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         when(http.authorize(anyString(), any())).thenThrow(new IllegalStateException("sensitive remote detail"));
-        var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("tenant", "merchant"));
+        var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         assertSame(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
         assertNull(error.getCause());
     }

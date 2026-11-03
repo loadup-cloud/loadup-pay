@@ -22,7 +22,7 @@ import java.util.Optional;
  * Actions are append-only and keyed by the original attempt.
  */
 public interface PaymentActionGateway {
-    Optional<StoredPaymentAction> find(String tenant, String attemptId);
+    Optional<StoredPaymentAction> find(String attemptId);
 
-    void insert(String tenant, StoredPaymentAction value);
+    void insert(StoredPaymentAction value);
 }

@@ -105,21 +105,20 @@ public class ReconciliationService implements ReconciliationFacade {
         var actor = actor("create");
         var digest = digest(actor, command);
         var existing = transactions.readSnapshot(
-                actor.tenantId(), () -> batches.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey()));
+                actor.tenantId(), () -> batches.findRequest(actor.serviceId(), command.requestKey()));
         if (existing.isPresent()) {
             return replay(actor, existing.get(), digest);
         }
-        var scope =
-                accounts.resolve(actor.tenantId(), actor.serviceId(), command.channelAccountCode(), command.billDate());
+        var scope = accounts.resolve(actor.serviceId(), command.channelAccountCode(), command.billDate());
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var raced = batches.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
+            var raced = batches.findRequest(actor.serviceId(), command.requestKey());
             if (raced.isPresent()) {
                 return replay(actor, raced.get(), digest);
             }
             var root = ReconciliationBatch.init(ids.generate(), scope);
             var stored = converter.toStored(
                     root, actor.serviceId(), command.requestKey(), digest, command.channelAccountCode());
-            batches.insert(actor.tenantId(), stored);
+            batches.insert(stored);
             return converter.toDTO(root);
         });
     }
@@ -129,11 +128,9 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(command);
         var actor = actor("attach");
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var stored = checked(
-                    actor,
-                    batches.lock(actor.tenantId(), command.batchId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
-            var input = inputs.sealedManifest(actor.tenantId(), command.artifactId())
+            var stored =
+                    checked(actor, batches.lock(command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var input = inputs.sealedManifest(command.artifactId())
                     .orElseThrow(() -> new CommonException(INPUT_NOT_SEALED));
             var side = command.side();
             if (input.side() != side || !stored.batch().scope().equals(input.scope())) {
@@ -149,10 +146,7 @@ public class ReconciliationService implements ReconciliationFacade {
                 return converter.toDTO(stored.batch());
             }
             var next = stored.batch().attach(input);
-            batches.update(
-                    actor.tenantId(),
-                    converter.withBatch(stored, next),
-                    stored.batch().version());
+            batches.update(converter.withBatch(stored, next), stored.batch().version());
             return converter.toDTO(next);
         });
     }
@@ -162,10 +156,8 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(command);
         var actor = actor("start");
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var stored = checked(
-                    actor,
-                    batches.lock(actor.tenantId(), command.batchId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var stored =
+                    checked(actor, batches.lock(command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (stored.batch().state() == ReconciliationState.RUNNING || terminal(stored.batch())) {
                 return converter.toDTO(stored.batch());
             }
@@ -173,10 +165,7 @@ public class ReconciliationService implements ReconciliationFacade {
                 throw new CommonException(INPUT_NOT_SEALED);
             }
             var next = stored.batch().begin(ids.generate());
-            batches.update(
-                    actor.tenantId(),
-                    converter.withBatch(stored, next),
-                    stored.batch().version());
+            batches.update(converter.withBatch(stored, next), stored.batch().version());
             tasks.register(
                     ReconciliationExecutionService.TYPE,
                     next.runId(),
@@ -190,10 +179,8 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(command);
         var actor = actor("retry");
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var stored = checked(
-                    actor,
-                    batches.lock(actor.tenantId(), command.batchId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var stored =
+                    checked(actor, batches.lock(command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var batch = stored.batch();
             if (batch.state() != ReconciliationState.RUNNING) {
                 throw new CommonException(INVALID_STATE);
@@ -222,10 +209,7 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(query);
         var actor = actor("read");
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var batch = checked(
-                            actor,
-                            batches.find(actor.tenantId(), query.id())
-                                    .orElseThrow(() -> new CommonException(NOT_FOUND)))
+            var batch = checked(actor, batches.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))
                     .batch();
             var dto = converter.toDTO(batch);
             if (batch.runId() == null) {
@@ -256,10 +240,7 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(query);
         var actor = actor("read");
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var batch = checked(
-                            actor,
-                            batches.find(actor.tenantId(), query.id())
-                                    .orElseThrow(() -> new CommonException(NOT_FOUND)))
+            var batch = checked(actor, batches.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))
                     .batch();
             if (batch.runId() == null) {
                 throw new CommonException(INVALID_STATE);
@@ -273,14 +254,12 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(query);
         var actor = actor("read");
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var stored = checked(
-                    actor,
-                    batches.find(actor.tenantId(), query.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var stored =
+                    checked(actor, batches.find(query.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!terminal(stored.batch())) {
                 throw new CommonException(INVALID_STATE);
             }
-            var page = differences.page(
-                    actor.tenantId(), query.batchId(), query.kind(), query.reason(), query.page(), query.size());
+            var page = differences.page(query.batchId(), query.kind(), query.reason(), query.page(), query.size());
             if (page.page() != query.page()
                     || page.size() != query.size()
                     || page.total() < page.records().size()
@@ -329,10 +308,7 @@ public class ReconciliationService implements ReconciliationFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         accounts.authorize(
-                actor.tenantId(),
-                actor.serviceId(),
-                stored.channelAccountCode(),
-                stored.batch().scope());
+                actor.serviceId(), stored.channelAccountCode(), stored.batch().scope());
         return stored;
     }
 

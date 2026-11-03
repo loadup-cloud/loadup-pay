@@ -19,13 +19,14 @@ import io.github.loadup.pay.customer.domain.model.MerchantFacts;
 import java.util.Optional;
 
 /**
- * Persistence port; application owns the transaction and adapters enforce explicit tenant isolation.
+ * Persistence port; application owns the transaction and tenant/schema routing is resolved from the
+ * execution context before the connection is acquired.
  */
 public interface MerchantFactsGateway {
     /**
      * Serializes eligibility and authorization changes for this payee in the current transaction.
      */
-    MerchantFacts lock(String tenantId, String merchantId);
+    MerchantFacts lock(String merchantId);
 
-    Optional<MerchantFacts> find(String tenantId, String merchantId);
+    Optional<MerchantFacts> find(String merchantId);
 }

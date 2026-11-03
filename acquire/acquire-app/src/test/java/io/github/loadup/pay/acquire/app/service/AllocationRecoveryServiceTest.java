@@ -164,30 +164,30 @@ class AllocationRecoveryServiceTest {
         order.set(withOrder(original, change.order()));
         allocation.set(new StoredPaymentAllocation(change.allocation(), OWNER, "original-payload", "f".repeat(64), 0L));
         when(tasks.find(AllocationRecoveryQueue.TYPE, "payment.0")).thenReturn(Optional.of(task));
-        when(cursors.find("tenant", "payment")).thenAnswer(c -> Optional.of(cursor.get()));
-        when(cursors.lock("tenant", "payment")).thenAnswer(c -> {
+        when(cursors.find("payment")).thenAnswer(c -> Optional.of(cursor.get()));
+        when(cursors.lock("payment")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(cursor.get());
         });
-        when(orders.findOrder("tenant", "order")).thenAnswer(c -> Optional.of(order.get()));
-        when(orders.lockOrder("tenant", "order")).thenAnswer(c -> {
+        when(orders.findOrder("order")).thenAnswer(c -> Optional.of(order.get()));
+        when(orders.lockOrder("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return order.get();
         });
-        when(allocations.lockPayment("tenant", "order", "payment")).thenAnswer(c -> {
+        when(allocations.lockPayment("order", "payment")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(allocation.get());
         });
-        when(allocations.findReceipt("tenant", "allocation")).thenAnswer(c -> Optional.ofNullable(receipt.get()));
+        when(allocations.findReceipt("allocation")).thenAnswer(c -> Optional.ofNullable(receipt.get()));
         when(outcomes.bound(any(), any(), any())).thenReturn(command);
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(cursor.get(), c.getArgument(1));
-                    cursor.set(c.getArgument(2));
+                    assertEquals(cursor.get(), c.getArgument(0));
+                    cursor.set(c.getArgument(1));
                     return null;
                 })
                 .when(cursors)
-                .update(eq("tenant"), any(), any());
+                .update(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals("tenant", TenantUtil.getTenantId());
@@ -283,7 +283,7 @@ class AllocationRecoveryServiceTest {
         });
         handle();
         assertEquals(1L, cursor.get().generation());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
 
@@ -291,15 +291,15 @@ class AllocationRecoveryServiceTest {
     void lockOrderIsStableAcrossInspectionAndTheSuccessorTransaction() {
         handle();
         var sequence = inOrder(orders, allocations, cursors);
-        sequence.verify(cursors).find("tenant", "payment");
-        sequence.verify(orders).lockOrder("tenant", "order");
-        sequence.verify(allocations).lockPayment("tenant", "order", "payment");
-        sequence.verify(cursors).lock("tenant", "payment");
-        sequence.verify(allocations).findReceipt("tenant", "allocation");
-        sequence.verify(orders).findOrder("tenant", "order");
-        sequence.verify(orders).lockOrder("tenant", "order");
-        sequence.verify(allocations).lockPayment("tenant", "order", "payment");
-        sequence.verify(cursors).lock("tenant", "payment");
+        sequence.verify(cursors).find("payment");
+        sequence.verify(orders).lockOrder("order");
+        sequence.verify(allocations).lockPayment("order", "payment");
+        sequence.verify(cursors).lock("payment");
+        sequence.verify(allocations).findReceipt("allocation");
+        sequence.verify(orders).findOrder("order");
+        sequence.verify(orders).lockOrder("order");
+        sequence.verify(allocations).lockPayment("order", "payment");
+        sequence.verify(cursors).lock("payment");
     }
 
     @Test
@@ -311,7 +311,7 @@ class AllocationRecoveryServiceTest {
                 assertThrows(CommonException.class, this::handle).getResultCode());
         assertFalse(cursor.get().completed());
         verifyNoInteractions(initiation);
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
     }
 
     @Test
@@ -322,7 +322,7 @@ class AllocationRecoveryServiceTest {
         handle();
         verifyNoInteractions(initiation, outcomes);
         verify(tasks, never()).register(anyString(), anyString(), any());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
     }
 
     @Test
@@ -335,7 +335,7 @@ class AllocationRecoveryServiceTest {
         assertFalse(cursor.get().completed());
         verify(tasks, never()).register(anyString(), anyString(), any());
         verify(outcomes, never()).refresh(any(), any());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
     }
 
     @Test

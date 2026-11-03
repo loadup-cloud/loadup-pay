@@ -26,11 +26,11 @@ import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
  * Network calls only, with a trusted tenant and the reconciliation service credential; no local transaction.
  */
 public interface ReconciliationPaymentCaptures {
-    PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command);
+    PaymentCaptureDTO create(PaymentCaptureCreateCommand command);
 
-    PaymentCaptureDTO retry(String tenant, PaymentCaptureRetryCommand command);
+    PaymentCaptureDTO retry(PaymentCaptureRetryCommand command);
 
-    PaymentCaptureDTO detail(String tenant, String captureId);
+    PaymentCaptureDTO detail(String captureId);
 
-    PageDTO<PaymentLedgerLineDTO> lines(String tenant, PaymentCaptureLinesQuery query);
+    PageDTO<PaymentLedgerLineDTO> lines(PaymentCaptureLinesQuery query);
 }

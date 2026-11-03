@@ -108,7 +108,7 @@ class PaymentRealtimeHttpClientTest {
         credential("realtime");
         client = new PaymentRealtimeHttpClient(
                 realtimeHttp,
-                (tenant, service, audience) -> credential,
+                (service, audience) -> credential,
                 new PaymentRealtimeProperties("tenant", "payment", "realtime"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
@@ -121,7 +121,7 @@ class PaymentRealtimeHttpClientTest {
 
     @Test
     void usesTheNamedProjectionOperationAndTypedAck() {
-        assertTrue(client.apply("tenant", event).accepted());
+        assertTrue(client.apply(event).accepted());
         verify(realtimeHttp).payment(anyString(), any());
         assertEquals(1, attachments.size());
         assertTrue(attachments.getFirst().startsWith("Bearer "));
@@ -169,15 +169,15 @@ class PaymentRealtimeHttpClientTest {
         doAnswer(invocation -> SuccessResponse.of(summaryAck))
                 .when(realtimeHttp)
                 .refundSummary(anyString(), any());
-        assertEquals(refundAck, client.applyRefund("tenant", refund));
-        assertEquals(summaryAck, client.applyRefundSummary("tenant", summary));
+        assertEquals(refundAck, client.applyRefund(refund));
+        assertEquals(summaryAck, client.applyRefundSummary(summary));
         verify(realtimeHttp).refund(anyString(), any());
         verify(realtimeHttp).refundSummary(anyString(), any());
     }
 
     @Test
     void unconfiguredTenantCannotBeRoutedToTheReadModel() {
-        assertThrows(CommonException.class, () -> client.apply("other-tenant", event));
+        assertThrows(CommonException.class, () -> client.apply(event));
         verifyNoInteractions(realtimeHttp);
     }
 
@@ -185,7 +185,7 @@ class PaymentRealtimeHttpClientTest {
     void localTransactionCannotContainTheProjectionNetworkCall() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertThrows(CommonException.class, () -> client.apply("tenant", event));
+            assertThrows(CommonException.class, () -> client.apply(event));
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
@@ -197,6 +197,6 @@ class PaymentRealtimeHttpClientTest {
         doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(CommonResultCodeEnum.CONFLICT), null))
                 .when(realtimeHttp)
                 .payment(anyString(), any());
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
+        assertThrows(CommonException.class, () -> client.apply(event));
     }
 }

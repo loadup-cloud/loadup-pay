@@ -50,7 +50,7 @@ class PolicyPublicationStorageConverterTest {
                 new AnnotationConfigApplicationContext(PolicyPublicationStorageConverter.class.getPackageName())) {
             var converter = context.getBean(PolicyPublicationStorageConverter.class);
             for (var model : List.of(init, publishing, active)) {
-                var row = converter.toDO("tenant", model);
+                var row = converter.toDO(model);
                 assertEquals(model, converter.toModel(row));
             }
         }

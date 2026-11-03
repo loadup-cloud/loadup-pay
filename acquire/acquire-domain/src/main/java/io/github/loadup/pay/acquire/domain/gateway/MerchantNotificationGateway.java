@@ -21,15 +21,15 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
 import java.util.Optional;
 
 public interface MerchantNotificationGateway {
-    Optional<MerchantNotificationDelivery> find(String tenant, String deliveryId);
+    Optional<MerchantNotificationDelivery> find(String deliveryId);
 
-    PageResult<MerchantNotificationDelivery> page(String tenant, MerchantNotificationFilter filter);
+    PageResult<MerchantNotificationDelivery> page(MerchantNotificationFilter filter);
 
-    Optional<MerchantNotificationDelivery> findEvent(String tenant, String eventId, String targetRef);
+    Optional<MerchantNotificationDelivery> findEvent(String eventId, String targetRef);
 
-    Optional<MerchantNotificationDelivery> lock(String tenant, String deliveryId);
+    Optional<MerchantNotificationDelivery> lock(String deliveryId);
 
-    void insert(String tenant, MerchantNotificationDelivery delivery);
+    void insert(MerchantNotificationDelivery delivery);
 
-    void update(String tenant, MerchantNotificationDelivery before, MerchantNotificationDelivery after);
+    void update(MerchantNotificationDelivery before, MerchantNotificationDelivery after);
 }

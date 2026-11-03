@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -113,20 +112,19 @@ class PaymentCaptureServiceTest {
 
     @BeforeEach
     void setup() {
-        when(captures.findRequest(anyString(), anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(captures.find("tenant", "capture")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(captures.lock("tenant", "capture")).thenAnswer(call -> {
+        when(captures.findRequest(anyString(), anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(captures.find("capture")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(captures.lock("capture")).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return Optional.ofNullable(stored.get());
         });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(captures)
-                .insert(eq("tenant"), any());
+                .insert(any());
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertNotNull(stored.get());
@@ -139,11 +137,11 @@ class PaymentCaptureServiceTest {
                 .thenAnswer(call -> Optional.ofNullable(nativeTask.get()));
         doAnswer(call -> {
                     assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                    stored.set(call.getArgument(2));
+                    stored.set(call.getArgument(1));
                     return null;
                 })
                 .when(captures)
-                .complete(eq("tenant"), any(), any(), any());
+                .complete(any(), any(), any());
     }
 
     @AfterEach
@@ -179,7 +177,7 @@ class PaymentCaptureServiceTest {
         service.create(command);
         nativeTask.set(task(DelayedTaskStatus.RUNNING, 1));
         var scope = stored.get().scope();
-        when(reader.read("tenant", scope)).thenAnswer(call -> {
+        when(reader.read(scope)).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
             assertEquals(7, manager.timeout);
@@ -207,8 +205,8 @@ class PaymentCaptureServiceTest {
         assertEquals(PaymentCaptureState.SEALED, stored.get().state());
         assertNotNull(stored.get().contentHash());
         TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeTask.get()));
-        verify(reader, times(1)).read("tenant", scope);
-        verify(captures, times(1)).complete(eq("tenant"), any(), any(), any());
+        verify(reader, times(1)).read(scope);
+        verify(captures, times(1)).complete(any(), any(), any());
     }
 
     @Test
@@ -224,7 +222,7 @@ class PaymentCaptureServiceTest {
                         .getResultCode());
         verifyNoInteractions(reader);
         nativeTask.set(running);
-        when(reader.read(eq("tenant"), any()))
+        when(reader.read(any()))
                 .thenAnswer(call -> new PaymentCaptureRead(
                         stored.get().scope(),
                         at,

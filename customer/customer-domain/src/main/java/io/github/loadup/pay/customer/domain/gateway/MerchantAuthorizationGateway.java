@@ -22,29 +22,30 @@ import io.github.loadup.pay.customer.domain.model.PrincipalType;
 import java.util.Optional;
 
 /**
- * Persistence port; application owns the transaction and adapters enforce explicit tenant isolation.
+ * Persistence port; application owns the transaction and tenant/schema routing is resolved from the
+ * execution context before the connection is acquired.
  */
 public interface MerchantAuthorizationGateway {
-    Optional<MerchantRelationship> findRelationship(String tenantId, String relationshipId);
+    Optional<MerchantRelationship> findRelationship(String relationshipId);
 
-    Optional<MerchantRelationship> findLiveRelationship(String tenantId, String parentId, String childId);
+    Optional<MerchantRelationship> findLiveRelationship(String parentId, String childId);
 
-    Optional<MerchantActionGrant> findGrantById(String tenantId, String grantId);
+    Optional<MerchantActionGrant> findGrantById(String grantId);
 
-    MerchantRelationship lockRelationship(String tenantId, String relationshipId);
+    MerchantRelationship lockRelationship(String relationshipId);
 
-    MerchantActionGrant lockGrant(String tenantId, String grantId);
+    MerchantActionGrant lockGrant(String grantId);
 
     Optional<MerchantActionGrant> findGrant(
-            String tenantId, PrincipalType type, String principalId, String payeeMerchantId, MerchantAction action);
+            PrincipalType type, String principalId, String payeeMerchantId, MerchantAction action);
 
     /**
      * An expected version of -1 inserts a new resource; other values require a matching persisted version.
      */
-    void saveRelationship(String tenantId, MerchantRelationship relationship, long expectedVersion);
+    void saveRelationship(MerchantRelationship relationship, long expectedVersion);
 
     /**
      * An expected version of -1 inserts a new resource; other values require a matching persisted version.
      */
-    void saveGrant(String tenantId, MerchantActionGrant grant, long expectedVersion);
+    void saveGrant(MerchantActionGrant grant, long expectedVersion);
 }

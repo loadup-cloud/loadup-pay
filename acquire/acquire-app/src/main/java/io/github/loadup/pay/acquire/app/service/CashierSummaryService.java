@@ -75,8 +75,7 @@ public class CashierSummaryService {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            var stored = orders.findOrder(actor.tenantId(), actor.orderId())
-                    .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
+            var stored = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
             if (!now.isBefore(actor.expiresAt())) {
                 throw new CommonException(SESSION_UNAUTHORIZED);

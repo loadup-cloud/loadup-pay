@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -86,8 +85,7 @@ class PaymentRealtimeDeliveryTest {
                 .thenReturn(Optional.of(
                         new OutboxRecord("queue", PaymentEvents.REALTIME, "payment", "PROCESSING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
-        when(client.supportsTenant("tenant")).thenReturn(true);
-        when(client.apply("tenant", snapshot)).thenAnswer(c -> {
+        when(client.apply(snapshot)).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new ProjectionAckDTO("delivery", "proof", "payment", "payment", 2, 2, "APPLIED", true);
         });
@@ -100,40 +98,38 @@ class PaymentRealtimeDeliveryTest {
     @Test
     void sendsTheCompleteOriginalSnapshotWithoutAnyLiveTradingDatabaseLookup() {
         send();
-        verify(client).apply("tenant", snapshot);
+        verify(client).apply(snapshot);
     }
 
     @Test
     void aStaleSnapshotAckCanCompleteItsIndependentTarget() {
-        when(client.apply("tenant", snapshot))
+        when(client.apply(snapshot))
                 .thenReturn(new ProjectionAckDTO("delivery", "proof", "payment", "payment", 2, 5, "STALE", true));
         assertDoesNotThrow(this::send);
     }
 
     @Test
     void wrongSourceVersionOrOlderProjectedVersionCannotBeAValidAck() {
-        when(client.apply("tenant", snapshot))
+        when(client.apply(snapshot))
                 .thenReturn(new ProjectionAckDTO("delivery", "proof", "payment", "payment", 3, 3, "APPLIED", true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::send).getResultCode());
-        when(client.apply("tenant", snapshot))
+        when(client.apply(snapshot))
                 .thenReturn(new ProjectionAckDTO("delivery", "proof", "payment", "payment", 2, 1, "APPLIED", true));
         assertThrows(CommonException.class, this::send);
     }
 
     @Test
     void downstreamFailureRemainsAnIndependentRetry() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).apply(anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).apply(any());
         assertThrows(CommonException.class, this::send);
     }
 
     @Test
-    void tenantContextAndQueueRegistrationCannotBeBypassed() {
-        assertThrows(
-                CommonException.class, () -> TenantUtil.runWithTenant("other-tenant", () -> delivery.deliver(event)));
+    void queueRegistrationCannotBeBypassed() {
         when(outbox.find("queue")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::send);
-        verify(client, never()).apply(anyString(), any());
+        verify(client, never()).apply(any());
     }
 }

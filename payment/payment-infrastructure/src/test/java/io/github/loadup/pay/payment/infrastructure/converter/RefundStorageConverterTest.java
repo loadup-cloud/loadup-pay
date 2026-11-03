@@ -66,9 +66,9 @@ class RefundStorageConverterTest {
     void roundTripsTheOriginalPaymentIdentityAndFrozenPlanWithoutAuditTimeSubstitution() {
         var value = stored();
         var child = value.allocations().getFirst();
-        var header = converter.toRequestDO("tenant", value);
-        var childRow = converter.toChildDO("tenant", child);
-        var planRow = converter.toPlanDO("tenant", child);
+        var header = converter.toRequestDO(value);
+        var childRow = converter.toChildDO(child);
+        var planRow = converter.toPlanDO(child);
         assertEquals("FIFO", header.getAllocationPolicy());
         assertEquals("INIT", header.getState());
         assertEquals(0L, header.getRowVersion().longValue());

@@ -109,7 +109,7 @@ public class PaymentChannelGatewayImpl implements PaymentChannelGateway {
         if (tenant == null || tenant.isBlank()) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        var binding = bindings.findRevision(tenant, identity.bindingRevisionId())
+        var binding = bindings.findRevision(identity.bindingRevisionId())
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         return new ChannelExecutionContext(tenant, binding);
     }

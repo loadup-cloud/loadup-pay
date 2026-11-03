@@ -83,7 +83,7 @@ public class PaymentRecoveryService {
         }
         var cursor = PaymentRecoveryCursor.init(
                 stored.payment().id(), stored.payment().initiatedAt());
-        cursors.insert(tenant, cursor);
+        cursors.insert(cursor);
         tasks.register(TYPE, new PaymentRecoveryKey(cursor.paymentId(), cursor.generation()).bizId(), cursor.dueAt());
     }
 
@@ -103,7 +103,7 @@ public class PaymentRecoveryService {
                 return false;
             }
             if (terminal(request)) {
-                cursors.update(tenant, cursor, cursor.finish());
+                cursors.update(cursor, cursor.finish());
                 return false;
             }
             return true;
@@ -121,7 +121,7 @@ public class PaymentRecoveryService {
                 return RecoveryHandlingOutcome.SKIPPED;
             }
             if (terminal(request)) {
-                cursors.update(tenant, before, before.finish());
+                cursors.update(before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;
             } else {
                 var nextAt = polling.nextAt(
@@ -133,7 +133,7 @@ public class PaymentRecoveryService {
                         before.dueAt(),
                         LocalDateTime.now(clock));
                 var next = before.schedule(nextAt, key.generation());
-                cursors.update(tenant, before, next);
+                cursors.update(before, next);
                 // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
                 tasks.register(TYPE, new PaymentRecoveryKey(next.paymentId(), next.generation()).bizId(), next.dueAt());
                 return RecoveryHandlingOutcome.CONTINUED;
@@ -142,12 +142,12 @@ public class PaymentRecoveryService {
     }
 
     private PaymentRecoveryCursor cursor(String tenant, PaymentRecoveryKey key) {
-        var value = cursors.lock(tenant, key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var value = cursors.lock(key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         return value;
     }
 
     private StoredPaymentAcceptance lockPayment(String tenant, String paymentId) {
-        var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var accepted = payments.find(paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         return locks.lock(tenant, paymentId, accepted.callerServiceId()).payment();
     }
 

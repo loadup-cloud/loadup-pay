@@ -15,14 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
@@ -61,12 +58,6 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
                 .build();
     }
 
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
     private Optional<StoredCheckoutSession> query(String predicate, MapSqlParameterSource args, boolean lock) {
         var rows = jdbc.query(
                 """
@@ -81,28 +72,21 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     }
 
     @Override
-    public Optional<StoredCheckoutSession> find(String tenant, String id) {
-        scope(tenant);
-        return query(
-                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false);
+    public Optional<StoredCheckoutSession> find(String id) {
+        return query("id = :id", new MapSqlParameterSource().addValue("id", id), false);
     }
 
     @Override
-    public Optional<StoredCheckoutSession> lock(String tenant, String id) {
-        scope(tenant);
+    public Optional<StoredCheckoutSession> lock(String id) {
         writable();
-        return query(
-                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
+        return query("id = :id", new MapSqlParameterSource().addValue("id", id), true);
     }
 
     @Override
-    public Optional<StoredCheckoutSession> findRequest(String tenant, String order, String key) {
-        scope(tenant);
+    public Optional<StoredCheckoutSession> findRequest(String order, String key) {
         return query(
                 "order_id = :order AND request_key = :key",
-                new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                        .addValue("order", order)
-                        .addValue("key", key),
+                new MapSqlParameterSource().addValue("order", order).addValue("key", key),
                 false);
     }
 
@@ -122,14 +106,13 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     }
 
     @Override
-    public void insert(String tenant, StoredCheckoutSession value) {
-        scope(tenant);
+    public void insert(StoredCheckoutSession value) {
         writable();
         var payload = json.writeValueAsString(value.scope());
         if (payload.length() > 8192) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = converter.toDO(tenant, value, payload);
+        var row = converter.toDO(value, payload);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -151,8 +134,7 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     }
 
     @Override
-    public void revoke(String tenant, StoredCheckoutSession before, StoredCheckoutSession after) {
-        scope(tenant);
+    public void revoke(StoredCheckoutSession before, StoredCheckoutSession after) {
         writable();
         if (before == null
                 || after == null
@@ -161,7 +143,7 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
                 || !before.revoke(before.rowVersion(), after.revokedAt()).equals(after)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", before.session().id())
                 .addValue("expected", before.rowVersion())
                 .addValue("version", after.rowVersion())

@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
@@ -54,8 +52,8 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
     }
 
     @Override
-    public Optional<OrderRefundSummary> lock(String tenant, String orderId) {
-        writable(tenant);
+    public Optional<OrderRefundSummary> lock(String orderId) {
+        writable();
         var args = new MapSqlParameterSource().addValue("order", orderId);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
@@ -75,12 +73,12 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
     }
 
     @Override
-    public void insert(String tenant, OrderRefundSummary value) {
-        writable(tenant);
+    public void insert(OrderRefundSummary value) {
+        writable();
         if (value.version() != 1 || value.refundedMinor() != 0 || value.reservedMinor() <= 0) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toSummaryDO(tenant, ids.generate(), value);
+        var row = converter.toSummaryDO(ids.generate(), value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -100,8 +98,8 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
     }
 
     @Override
-    public void update(String tenant, OrderRefundSummary before, OrderRefundSummary value) {
-        writable(tenant);
+    public void update(OrderRefundSummary before, OrderRefundSummary value) {
+        writable();
         if (!before.orderId().equals(value.orderId())
                 || !before.payeeMerchantId().equals(value.payeeMerchantId())
                 || !before.orderAmount().equals(value.orderAmount())
@@ -128,16 +126,13 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
         }
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

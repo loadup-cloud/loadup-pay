@@ -21,5 +21,5 @@ import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
  * Implementations validate response scope and delegate only transport-verified caller credentials.
  */
 public interface CustomerEligibilityLookup {
-    MerchantEligibilityDTO authorizeNewOrder(String tenantId, String payeeMerchantId);
+    MerchantEligibilityDTO authorizeNewOrder(String payeeMerchantId);
 }

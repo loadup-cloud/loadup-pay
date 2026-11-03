@@ -70,7 +70,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         this.codec = codec;
     }
 
-    private ChannelMerchantBindingDO headRow(String tenant, String payee, String code, boolean lock) {
+    private ChannelMerchantBindingDO headRow(String payee, String code, boolean lock) {
         var args = new MapSqlParameterSource().addValue("payee", payee).addValue("code", code);
         return jdbc
                 .query(
@@ -88,14 +88,14 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public Optional<ChannelMerchantBinding> find(String tenant, String payee, String code) {
-        return head(headRow(tenant, payee, code, false));
+    public Optional<ChannelMerchantBinding> find(String payee, String code) {
+        return head(headRow(payee, code, false));
     }
 
     @Override
-    public Optional<ChannelMerchantBinding> lock(String tenant, String payee, String code) {
+    public Optional<ChannelMerchantBinding> lock(String payee, String code) {
         requireTransaction();
-        return head(headRow(tenant, payee, code, true));
+        return head(headRow(payee, code, true));
     }
 
     private Optional<ChannelMerchantBinding> head(ChannelMerchantBindingDO row) {
@@ -107,7 +107,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public Optional<StoredChannelBindingRevision> revision(String tenant, String revisionId) {
+    public Optional<StoredChannelBindingRevision> revision(String revisionId) {
         if (revisionId == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -149,13 +149,13 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public Optional<ChannelBindingRevision> findRevision(String tenant, String revisionId) {
-        return revision(tenant, revisionId).map(StoredChannelBindingRevision::binding);
+    public Optional<ChannelBindingRevision> findRevision(String revisionId) {
+        return revision(revisionId).map(StoredChannelBindingRevision::binding);
     }
 
     @Override
     public List<RoutableChannelBinding> lockActive(
-            String tenant, String payee, Channel channel, Set<AccessMode> allowedModes, PaymentMethod method) {
+            String payee, Channel channel, Set<AccessMode> allowedModes, PaymentMethod method) {
         requireTransaction();
         if (allowedModes.isEmpty()) {
             return List.of();
@@ -174,8 +174,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         var candidates = new ArrayList<RoutableChannelBinding>();
         for (var row : rows) {
             var head = head(row).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var revision =
-                    revision(tenant, head.currentRevisionId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var revision = revision(head.currentRevisionId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             final RoutableChannelBinding candidate;
             try {
                 candidate = new RoutableChannelBinding(head, revision);
@@ -193,7 +192,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public Optional<ChannelBindingChangeReceipt> receipt(String tenant, String bindingId, String key) {
+    public Optional<ChannelBindingChangeReceipt> receipt(String bindingId, String key) {
         var args = new MapSqlParameterSource().addValue("binding", bindingId).addValue("key", key);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, binding_id, kind, request_key, request_digest, caller_service_id,
@@ -211,12 +210,12 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public void insertHead(String tenant, ChannelMerchantBinding head) {
+    public void insertHead(ChannelMerchantBinding head) {
         requireTransaction();
         if (head.state() != ChannelBindingState.ACTIVE || head.rowVersion() != 1 || head.currentRevision() != 1) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toHeadDO(tenant, head);
+        var row = converter.toHeadDO(head);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -236,7 +235,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public void updateHead(String tenant, ChannelMerchantBinding head, long expectedVersion) {
+    public void updateHead(ChannelMerchantBinding head, long expectedVersion) {
         requireTransaction();
         if (head.rowVersion() != Math.incrementExact(expectedVersion) || head.state() == ChannelBindingState.INIT) {
             throw new CommonException(INVALID_STATE);
@@ -267,13 +266,13 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public void insertRevision(String tenant, StoredChannelBindingRevision value) {
+    public void insertRevision(StoredChannelBindingRevision value) {
         requireTransaction();
         String payload = codec.encodeIdentity(value.binding().identity());
         if (!codec.checksum(payload).equals(value.identityHash())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = converter.toRevisionDO(tenant, value, payload);
+        var row = converter.toRevisionDO(value, payload);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -295,9 +294,9 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     @Override
-    public void insertReceipt(String tenant, ChannelBindingChangeReceipt receipt) {
+    public void insertReceipt(ChannelBindingChangeReceipt receipt) {
         requireTransaction();
-        var row = converter.toReceiptDO(tenant, receipt);
+        var row = converter.toReceiptDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);

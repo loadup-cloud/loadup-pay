@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -67,57 +66,55 @@ class PaymentInputPublicationTest {
 
     @BeforeEach
     void setup() {
-        when(payments.lockParent("tenant", "order")).thenReturn(Optional.empty());
-        when(payments.lockPayment("tenant", "payment")).thenReturn(Optional.empty());
-        when(payments.find("tenant", "payment")).thenReturn(Optional.empty());
+        when(payments.lockParent("order")).thenReturn(Optional.empty());
+        when(payments.lockPayment("payment")).thenReturn(Optional.empty());
+        when(payments.find("payment")).thenReturn(Optional.empty());
     }
 
     @Test
     void firstPublicationCreatesOnlyAnOpenParentAndUsesTheAcceptanceLockOrder() {
         publish();
         var order = inOrder(payments);
-        order.verify(payments).lockParent("tenant", "order");
+        order.verify(payments).lockParent("order");
         order.verify(payments)
-                .insertParent(
-                        eq("tenant"),
-                        argThat(value ->
-                                value.gate().paymentId() == null && value.gate().state() == GateState.OPEN));
-        order.verify(payments).lockPayment("tenant", "payment");
-        order.verify(payments).find("tenant", "payment");
-        verify(payments, never()).insertPaymentGate(anyString(), any());
+                .insertParent(argThat(value ->
+                        value.gate().paymentId() == null && value.gate().state() == GateState.OPEN));
+        order.verify(payments).lockPayment("payment");
+        order.verify(payments).find("payment");
+        verify(payments, never()).insertPaymentGate(any());
     }
 
     @Test
     void aFencedParentCanBeLockedForReplayButRejectsANewPublication() {
         var fenced = gate(null, true);
-        when(payments.lockParent("tenant", "order")).thenReturn(Optional.of(fenced));
+        when(payments.lockParent("order")).thenReturn(Optional.of(fenced));
         assertEquals(fenced, transactions.writeLocal("tenant", () -> publication.lockParent(actor, command)));
         assertEquals(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, this::publish).getResultCode());
-        verify(payments, never()).lockPayment(anyString(), anyString());
-        verify(payments, never()).insertParent(anyString(), any());
+        verify(payments, never()).lockPayment(anyString());
+        verify(payments, never()).insertParent(any());
     }
 
     @Test
     void originalChildTombstoneStopsALateCiphertextFromBeingPublished() {
-        when(payments.lockParent("tenant", "order")).thenReturn(Optional.of(gate(null, false)));
-        when(payments.lockPayment("tenant", "payment")).thenReturn(Optional.of(gate("payment", true)));
+        when(payments.lockParent("order")).thenReturn(Optional.of(gate(null, false)));
+        when(payments.lockPayment("payment")).thenReturn(Optional.of(gate("payment", true)));
         assertEquals(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, this::publish).getResultCode());
-        verify(payments, never()).find(anyString(), anyString());
-        verify(payments, never()).insertPaymentGate(anyString(), any());
+        verify(payments, never()).find(anyString());
+        verify(payments, never()).insertPaymentGate(any());
     }
 
     @Test
     void anAcceptedInputlessPaymentOrAnOrphanChildCannotReceiveANewInput() {
-        when(payments.lockParent("tenant", "order")).thenReturn(Optional.of(gate(null, false)));
-        when(payments.lockPayment("tenant", "payment")).thenReturn(Optional.of(gate("payment", false)));
+        when(payments.lockParent("order")).thenReturn(Optional.of(gate(null, false)));
+        when(payments.lockPayment("payment")).thenReturn(Optional.of(gate("payment", false)));
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::publish).getResultCode());
-        when(payments.find("tenant", "payment")).thenReturn(Optional.of(AttemptFixtures.accepted(false)));
+        when(payments.find("payment")).thenReturn(Optional.of(AttemptFixtures.accepted(false)));
         assertEquals(
                 INVALID_STATE,
                 assertThrows(CommonException.class, this::publish).getResultCode());
@@ -137,11 +134,11 @@ class PaymentInputPublicationTest {
                 "other-service",
                 PaymentExecutionGate.init("order", null).open(),
                 0L);
-        when(payments.lockParent("tenant", "order")).thenReturn(Optional.of(other));
+        when(payments.lockParent("order")).thenReturn(Optional.of(other));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, this::publish).getResultCode());
-        verify(payments, never()).insertParent(anyString(), any());
+        verify(payments, never()).insertParent(any());
     }
 
     private boolean publish() {

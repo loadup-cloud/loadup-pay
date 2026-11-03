@@ -96,9 +96,8 @@ public class MerchantNotificationService implements DelayedTaskHandler {
         String tenant = TenantUtil.getTenantId();
         var sending = transactions
                 .writeLocal(tenant, () -> {
-                    var before = deliveries
-                            .lock(tenant, key.deliveryId())
-                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                    var before =
+                            deliveries.lock(key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (before.finished() || key.sequence() < before.attemptCount()) {
                         return Optional.<MerchantNotificationDelivery>empty();
                     }
@@ -109,7 +108,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                     var startedAt = now();
                     if (before.expired(startedAt)
                             || before.attemptCount() >= before.policy().retryMaxAttempts()) {
-                        deliveries.update(tenant, before, before.exhaust());
+                        deliveries.update(before, before.exhaust());
                         return Optional.<MerchantNotificationDelivery>empty();
                     }
                     String route = null;
@@ -119,7 +118,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                         /* Missing local configuration consumes no network call. */
                     }
                     var next = before.begin(startedAt, route);
-                    deliveries.update(tenant, before, next);
+                    deliveries.update(before, next);
                     tasks.register(
                             TYPE,
                             new MerchantNotificationKey(next.id(), next.attemptCount()).bizId(),
@@ -140,8 +139,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
         }
         final boolean acknowledged = ack;
         transactions.writeLocal(tenant, () -> {
-            var current =
-                    deliveries.lock(tenant, key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = deliveries.lock(key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.finished()) {
                 return Boolean.TRUE;
             }
@@ -151,9 +149,9 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             if (current.expired(now())) {
-                deliveries.update(tenant, current, current.exhaust());
+                deliveries.update(current, current.exhaust());
             } else if (acknowledged) {
-                deliveries.update(tenant, current, current.acknowledge(now()));
+                deliveries.update(current, current.acknowledge(now()));
             }
             return Boolean.TRUE;
         });

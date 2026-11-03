@@ -24,11 +24,9 @@ import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 
 public interface PaymentAcquireClient {
-    boolean supportsTenant(String tenant);
+    PaymentOutcomeAckDTO accept(EventEnvelope<PaymentOutcomeEventDTO> event);
 
-    PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event);
+    FeeRefundAckDTO acceptFeeRefund(EventEnvelope<OrderRefundSummaryEventDTO> event);
 
-    FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event);
-
-    RefundNotificationAckDTO acceptRefundNotification(String tenant, EventEnvelope<RefundMerchantEventDTO> event);
+    RefundNotificationAckDTO acceptRefundNotification(EventEnvelope<RefundMerchantEventDTO> event);
 }

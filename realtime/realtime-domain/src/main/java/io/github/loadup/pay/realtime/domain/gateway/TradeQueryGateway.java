@@ -26,15 +26,15 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface TradeQueryGateway {
-    Optional<TradeOrderProjection> findOrder(String tenant, String payee, String orderId);
+    Optional<TradeOrderProjection> findOrder(String payee, String orderId);
 
-    Optional<TradeRefundSummary> findRefundSummary(String tenant, String payee, String orderId);
+    Optional<TradeRefundSummary> findRefundSummary(String payee, String orderId);
 
-    Map<String, TradeRefundSummary> refundSummaries(String tenant, String payee, Set<String> orderIds);
+    Map<String, TradeRefundSummary> refundSummaries(String payee, Set<String> orderIds);
 
-    PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter);
+    PageResult<TradeOrderProjection> orders(TradePageFilter filter);
 
-    PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter);
+    PageResult<TradePaymentProjection> payments(TradePageFilter filter);
 
-    PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter);
+    PageResult<TradeRefundProjection> refunds(TradePageFilter filter);
 }

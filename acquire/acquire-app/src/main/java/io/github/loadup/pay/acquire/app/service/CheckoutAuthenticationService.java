@@ -58,8 +58,7 @@ public class CheckoutAuthenticationService {
         }
         String sessionId = token.substring(0, token.indexOf('.'));
         return transactions.withTenantContext(tenantLocator, () -> {
-            var stored = sessions.find(tenantLocator, sessionId)
-                    .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
+            var stored = sessions.find(sessionId).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
             var state = stored.session().state();
             if (!tokens.matches(token, stored)

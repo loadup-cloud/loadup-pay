@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.client;
 
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_NOT_SEALED;
@@ -58,32 +57,26 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
     }
 
     @Override
-    public PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command) {
-        return call(
-                tenant,
-                authorization -> PaymentCaptureContracts.capture(
-                        HttpServiceResponses.requiredData(paymentCaptureHttp.create(authorization, command))));
+    public PaymentCaptureDTO create(PaymentCaptureCreateCommand command) {
+        return call(authorization -> PaymentCaptureContracts.capture(
+                HttpServiceResponses.requiredData(paymentCaptureHttp.create(authorization, command))));
     }
 
     @Override
-    public PaymentCaptureDTO retry(String tenant, PaymentCaptureRetryCommand command) {
-        return call(
-                tenant,
-                authorization -> PaymentCaptureContracts.capture(
-                        HttpServiceResponses.requiredData(paymentCaptureHttp.retry(authorization, command))));
+    public PaymentCaptureDTO retry(PaymentCaptureRetryCommand command) {
+        return call(authorization -> PaymentCaptureContracts.capture(
+                HttpServiceResponses.requiredData(paymentCaptureHttp.retry(authorization, command))));
     }
 
     @Override
-    public PaymentCaptureDTO detail(String tenant, String captureId) {
-        return call(
-                tenant,
-                authorization -> PaymentCaptureContracts.capture(HttpServiceResponses.requiredData(
-                        paymentCaptureHttp.detail(authorization, new IdQuery(captureId)))));
+    public PaymentCaptureDTO detail(String captureId) {
+        return call(authorization -> PaymentCaptureContracts.capture(
+                HttpServiceResponses.requiredData(paymentCaptureHttp.detail(authorization, new IdQuery(captureId)))));
     }
 
     @Override
-    public PageDTO<PaymentLedgerLineDTO> lines(String tenant, PaymentCaptureLinesQuery query) {
-        return call(tenant, authorization -> {
+    public PageDTO<PaymentLedgerLineDTO> lines(PaymentCaptureLinesQuery query) {
+        return call(authorization -> {
             var response = paymentCaptureHttp.lines(authorization, query);
             if (response == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -93,15 +86,12 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
         });
     }
 
-    private <R> R call(String tenant, Function<String, R> request) {
+    private <R> R call(Function<String, R> request) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!properties.tenantId().equals(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         try {
-            var result = request.apply("Bearer " + tokens.token(tenant, properties.serviceId(), properties.audience()));
+            var result = request.apply("Bearer " + tokens.token(properties.serviceId(), properties.audience()));
             if (result == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }

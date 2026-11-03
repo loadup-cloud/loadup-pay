@@ -63,15 +63,15 @@ class ReconciliationReviewStorageConverterTest {
                 1L,
                 null,
                 at);
-        assertEquals(head, converter.head(converter.toDO("tenant", head)));
-        assertEquals(event, converter.event(converter.toDO("tenant", event)));
+        assertEquals(head, converter.head(converter.toDO(head)));
+        assertEquals(event, converter.event(converter.toDO(event)));
         var approved = head.decide(proposal, "checker", "approved", true, 1L);
-        assertEquals(approved, converter.head(converter.toDO("tenant", approved)));
+        assertEquals(approved, converter.head(converter.toDO(approved)));
     }
 
     @Test
     void absentEvidenceNeverBecomesImplicitZeroSizeAndPartialPresenceIsRejected() {
-        var row = converter.toDO("tenant", proposal(null));
+        var row = converter.toDO(proposal(null));
         assertNull(row.getEvidenceSize());
         assertNull(row.getEvidenceFileId());
         assertEquals(proposal(null), converter.proposal(row));
@@ -83,7 +83,7 @@ class ReconciliationReviewStorageConverterTest {
     void completePrivateEvidenceAndBusinessTimestampKeepExactValues() {
         var file = new ReconciliationFileSnapshot("file", "private-storage", 321L, "d".repeat(64));
         var proposal = proposal(file);
-        var row = converter.toDO("tenant", proposal);
+        var row = converter.toDO(proposal);
         assertEquals(proposal, converter.proposal(row));
         assertEquals(at, row.getProposedAt());
         assertEquals(Long.valueOf(321L), row.getEvidenceSize());

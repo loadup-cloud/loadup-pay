@@ -175,46 +175,44 @@ class ReconciliationStatementServiceTest {
 
     @BeforeEach
     void setup() {
-        when(batches.find("tenant", "batch")).thenAnswer(call -> Optional.of(batch.get()));
-        when(batches.lock("tenant", "batch")).thenAnswer(call -> {
+        when(batches.find("batch")).thenAnswer(call -> Optional.of(batch.get()));
+        when(batches.lock("batch")).thenAnswer(call -> {
             assertWrite();
             return Optional.of(batch.get());
         });
-        when(accounts.statementAccount("tenant", "ops", "account", scope)).thenReturn(account);
-        when(accounts.statementBindingRevision("tenant", "ops", "account", scope))
-                .thenReturn("revision");
+        when(accounts.statementAccount("ops", "account", scope)).thenReturn(account);
+        when(accounts.statementBindingRevision("ops", "account", scope)).thenReturn("revision");
         when(parser.supports(scope)).thenReturn(true);
-        when(sources.findRequest(anyString(), anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(sources.find("tenant", "source")).thenAnswer(call -> Optional.ofNullable(stored.get()));
-        when(sources.lock("tenant", "source")).thenAnswer(call -> {
+        when(sources.findRequest(anyString(), anyString())).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(sources.find("source")).thenAnswer(call -> Optional.ofNullable(stored.get()));
+        when(sources.lock("source")).thenAnswer(call -> {
             assertWrite();
             return Optional.ofNullable(stored.get());
         });
-        when(sources.activeForBatch(anyString(), anyString())).thenReturn(Optional.empty());
-        when(imports.activeForBatch(anyString(), anyString())).thenReturn(Optional.empty());
-        when(imports.find("tenant", "source")).thenAnswer(call -> Optional.ofNullable(imported.get()));
+        when(sources.activeForBatch(anyString())).thenReturn(Optional.empty());
+        when(imports.activeForBatch(anyString())).thenReturn(Optional.empty());
+        when(imports.find("source")).thenAnswer(call -> Optional.ofNullable(imported.get()));
         doAnswer(call -> {
                     assertWrite();
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(sources)
-                .insert(anyString(), any());
+                .insert(any());
         doAnswer(call -> {
                     assertWrite();
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(sources)
-                .update(anyString(), any(), anyLong());
+                .update(any(), anyLong());
         doAnswer(call -> {
                     assertWrite();
-                    imported.set(call.getArgument(1));
+                    imported.set(call.getArgument(0));
                     return null;
                 })
                 .when(imports)
-                .insert(anyString(), any());
+                .insert(any());
         doAnswer(call -> {
                     assertWrite();
                     nativeTask.set(task(DelayedTaskStatus.PENDING));
@@ -224,14 +222,14 @@ class ReconciliationStatementServiceTest {
                 .register(ReconciliationStatementExecutionService.TYPE, "source", now);
         when(tasks.find(ReconciliationStatementExecutionService.TYPE, "source"))
                 .thenAnswer(call -> Optional.ofNullable(nativeTask.get()));
-        when(payment.download(eq("tenant"), any())).thenAnswer(call -> {
+        when(payment.download(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertNotNull(stored.get());
             assertEquals(ReconciliationStatementState.INIT, stored.get().state());
             assertEquals("revision", ((PaymentStatementQuery) call.getArgument(1)).bindingRevisionId());
             return downloaded("revision");
         });
-        when(files.upload(anyString(), anyString(), anyString(), anyString(), anyLong(), any()))
+        when(files.upload(anyString(), anyString(), anyString(), anyLong(), any()))
                 .thenAnswer(call -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                     return ((String) call.getArgument(2)).endsWith(".csv") ? file : evidence;
@@ -270,10 +268,10 @@ class ReconciliationStatementServiceTest {
         assertEquals("official:source", imported.get().requestKey());
         assertEquals(ReconciliationImportState.INIT, imported.get().state());
         assertEquals("source", service.detail(new IdQuery("source")).importId());
-        verify(files).attach("tenant", "ops", file, "source");
-        verify(files).attach("tenant", "ops", evidence, "source");
+        verify(files).attach("ops", file, "source");
+        verify(files).attach("ops", evidence, "source");
         handle();
-        verify(payment, times(1)).download(eq("tenant"), any());
+        verify(payment, times(1)).download(any());
         verify(transfers, times(1)).submit(anyString(), any(), anyString(), anyString(), anyMap());
         nativeTask.set(task(DelayedTaskStatus.FAILED));
         doAnswer(call -> {
@@ -284,21 +282,21 @@ class ReconciliationStatementServiceTest {
                 .retryFailed(ReconciliationStatementExecutionService.TYPE, "source");
         service.retry(new ReconciliationStatementRetryCommand("source", "download-task"));
         assertEquals(ReconciliationStatementState.READY, stored.get().state());
-        verify(payment, times(1)).download(eq("tenant"), any());
+        verify(payment, times(1)).download(any());
     }
 
     @Test
     void unavailableSourceAndWrongBindingNeverRegisterFilesOrTransfer() {
         service.submit(new ReconciliationStatementSubmitCommand("batch", "request"));
         nativeTask.set(task(DelayedTaskStatus.RUNNING));
-        doThrow(new CommonException(STATEMENT_NOT_FOUND)).when(payment).download(anyString(), any());
+        doThrow(new CommonException(STATEMENT_NOT_FOUND)).when(payment).download(any());
         assertEquals(
                 STATEMENT_NOT_FOUND,
                 assertThrows(CommonException.class, this::handle).getResultCode());
         assertEquals(ReconciliationStatementState.INIT, stored.get().state());
         assertNull(imported.get());
         verifyNoInteractions(files, transfers);
-        doReturn(downloaded("different")).when(payment).download(anyString(), any());
+        doReturn(downloaded("different")).when(payment).download(any());
         assertEquals(
                 SCOPE_MISMATCH,
                 assertThrows(CommonException.class, this::handle).getResultCode());
@@ -309,14 +307,14 @@ class ReconciliationStatementServiceTest {
     void anActiveManualImportStopsDownloadAndAnExpiredLeaseCannotCommit() {
         service.submit(new ReconciliationStatementSubmitCommand("batch", "request"));
         nativeTask.set(task(DelayedTaskStatus.RUNNING));
-        when(imports.activeForBatch("tenant", "batch"))
+        when(imports.activeForBatch("batch"))
                 .thenReturn(Optional.of(ReconciliationImportRequest.init(
                         "manual", "batch", "ops", "manual", "b".repeat(64), scope, account, file, "manual-task")));
         assertEquals(
                 IMPORT_IN_PROGRESS,
                 assertThrows(CommonException.class, this::handle).getResultCode());
         verifyNoInteractions(payment, files, transfers);
-        when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.empty());
+        when(imports.activeForBatch("batch")).thenReturn(Optional.empty());
         var running = nativeTask.get();
         doAnswer(call -> {
                     nativeTask.set(new DelayedTask(
@@ -333,7 +331,7 @@ class ReconciliationStatementServiceTest {
                     return downloaded("revision");
                 })
                 .when(payment)
-                .download(anyString(), any());
+                .download(any());
         assertEquals(
                 INVALID_STATE, assertThrows(CommonException.class, this::handle).getResultCode());
         assertEquals(ReconciliationStatementState.INIT, stored.get().state());

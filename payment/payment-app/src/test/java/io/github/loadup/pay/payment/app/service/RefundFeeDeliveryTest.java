@@ -20,7 +20,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -70,8 +69,7 @@ class RefundFeeDeliveryTest {
                 .thenReturn(Optional.of(
                         new OutboxRecord("queue-fee", RefundProjectionEvents.FEE, "order", "PROCESSING", 1, null)));
         when(codec.fee("fee-payload")).thenReturn(envelope);
-        when(acquire.supportsTenant("tenant")).thenReturn(true);
-        when(acquire.acceptFeeRefund("tenant", envelope))
+        when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("delivery-fee", "business-fee", "order", 3, 4, true));
     }
 
@@ -83,24 +81,24 @@ class RefundFeeDeliveryTest {
     void retriesReplayTheOriginalFeeSnapshotAndRequireTheMatchingAcknowledgement() {
         deliver();
         deliver();
-        verify(acquire, times(2)).acceptFeeRefund("tenant", envelope);
+        verify(acquire, times(2)).acceptFeeRefund(envelope);
 
-        when(acquire.acceptFeeRefund("tenant", envelope))
+        when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("other", "business-fee", "order", 3, 4, true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(acquire.acceptFeeRefund("tenant", envelope))
+        when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("delivery-fee", "other", "order", 3, 4, true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(acquire.acceptFeeRefund("tenant", envelope))
+        when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("delivery-fee", "business-fee", "other-order", 3, 4, true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(acquire.acceptFeeRefund("tenant", envelope))
+        when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("delivery-fee", "business-fee", "order", 2, 4, true));
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
@@ -108,8 +106,7 @@ class RefundFeeDeliveryTest {
     }
 
     @Test
-    void unclaimedQueueAndWrongTenantCannotCallAcquire() {
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
+    void unclaimedQueueCannotCallAcquire() {
         when(outbox.find("queue-fee")).thenReturn(Optional.empty());
         assertSame(
                 SNAPSHOT_INVALID,
@@ -120,6 +117,6 @@ class RefundFeeDeliveryTest {
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
-        verify(acquire, never()).acceptFeeRefund(anyString(), any());
+        verify(acquire, never()).acceptFeeRefund(any());
     }
 }

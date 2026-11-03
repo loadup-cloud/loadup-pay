@@ -97,8 +97,8 @@ class OrderClosureRecoveryServiceTest {
     @BeforeEach
     void setup() {
         when(tasks.find(OrderClosureTasks.TYPE, "order.3")).thenReturn(Optional.of(task));
-        when(orders.lockOrder("tenant", "order")).thenReturn(order);
-        when(closes.findIntent("tenant", "order")).thenReturn(Optional.of(intent));
+        when(orders.lockOrder("order")).thenReturn(order);
+        when(closes.findIntent("order")).thenReturn(Optional.of(intent));
         when(operations.isCurrent(scope, order, intent, 3L)).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return true;
@@ -138,7 +138,7 @@ class OrderClosureRecoveryServiceTest {
                                 CommonException.class,
                                 () -> TenantUtil.runWithTenant("another-tenant", () -> service.handle(task)))
                         .getResultCode());
-        when(closes.findIntent("tenant", "order")).thenReturn(Optional.empty());
+        when(closes.findIntent("order")).thenReturn(Optional.empty());
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());

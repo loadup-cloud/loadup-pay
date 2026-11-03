@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
 import io.github.loadup.pay.payment.infrastructure.converter.RecoveryInventoryConverter;
@@ -44,7 +42,7 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
     }
 
     @Override
-    public List<RecoveryInventoryCell> read(String tenant) {
+    public List<RecoveryInventoryCell> read() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
@@ -53,9 +51,6 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         var args = new MapSqlParameterSource();
         var mapper = BeanPropertyRowMapper.newInstance(RecoveryInventoryAggregate.class);

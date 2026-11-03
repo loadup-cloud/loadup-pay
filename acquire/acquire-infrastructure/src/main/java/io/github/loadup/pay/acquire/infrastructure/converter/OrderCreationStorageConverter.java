@@ -41,7 +41,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    OrderCreateIntentDO toIntentDO(String tenant, OrderCreateIntent value);
+    OrderCreateIntentDO toIntentDO(OrderCreateIntent value);
 
     @Mapping(
             target = "amount",
@@ -90,7 +90,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    AcquireOrderDO toOrderDO(String tenant, StoredAcquireOrder value);
+    AcquireOrderDO toOrderDO(StoredAcquireOrder value);
 
     @Mapping(target = "id", source = "value.snapshotId")
     @Mapping(target = "orderId", source = "value.order.id")
@@ -105,7 +105,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    OrderContractSnapshotDO toSnapshotDO(String tenant, StoredAcquireOrder value);
+    OrderContractSnapshotDO toSnapshotDO(StoredAcquireOrder value);
 
     @Mapping(target = "feeType", constant = "ORDER_AMOUNT")
     @Mapping(target = "currency", source = "value.baseAmount.currencyValue")
@@ -118,5 +118,5 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    OrderFeeDO toFeeDO(String tenant, OrderFee value, String payload);
+    OrderFeeDO toFeeDO(OrderFee value, String payload);
 }

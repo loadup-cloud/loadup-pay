@@ -41,7 +41,6 @@ public interface FeeAdjustmentStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     FeeAdjustmentDO toDO(
-            String tenant,
             FeeAdjustment value,
             String sourceEventId,
             long cumulativeRefundedMinor,

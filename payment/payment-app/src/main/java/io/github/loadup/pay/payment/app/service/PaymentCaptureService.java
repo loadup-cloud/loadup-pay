@@ -107,7 +107,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         }
         String digest = digest(actor, command, scope.systemZone());
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var existing = captures.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
+            var existing = captures.findRequest(actor.serviceId(), command.requestKey());
             if (existing.isPresent()) {
                 var value = authorized(actor, existing.get());
                 if (!value.requestDigest().equals(digest)) {
@@ -116,7 +116,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
                 return present(actor.tenantId(), value);
             }
             var value = PaymentCapture.init(ids.generate(), actor.serviceId(), command.requestKey(), digest, scope);
-            captures.insert(actor.tenantId(), value);
+            captures.insert(value);
             tasks.register(
                     PaymentCaptureExecutionService.TYPE,
                     value.id(),
@@ -131,9 +131,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         var actor = actor("retry");
         return transactions.writeLocal(actor.tenantId(), () -> {
             var value = authorized(
-                    actor,
-                    captures.lock(actor.tenantId(), command.captureId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
+                    actor, captures.lock(command.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var task = present(actor.tenantId(), value);
             if (!command.expectedTaskId().equals(task.nativeTaskId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
@@ -161,9 +159,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
                 () -> present(
                         actor.tenantId(),
                         authorized(
-                                actor,
-                                captures.find(actor.tenantId(), query.id())
-                                        .orElseThrow(() -> new CommonException(NOT_FOUND)))));
+                                actor, captures.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
@@ -172,13 +168,11 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         var actor = actor("read");
         return transactions.readSnapshot(actor.tenantId(), () -> {
             var capture = authorized(
-                    actor,
-                    captures.find(actor.tenantId(), query.captureId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
+                    actor, captures.find(query.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (capture.state() != PaymentCaptureState.SEALED) {
                 throw new CommonException(INVALID_STATE);
             }
-            var page = captures.page(actor.tenantId(), capture, query.page(), query.size());
+            var page = captures.page(capture, query.page(), query.size());
             if (page.page() != query.page()
                     || page.size() != query.size()
                     || page.total() != Math.addExact(capture.paymentCount(), capture.refundCount())) {

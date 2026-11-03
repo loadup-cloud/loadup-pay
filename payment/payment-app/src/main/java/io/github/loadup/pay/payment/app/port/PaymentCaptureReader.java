@@ -22,5 +22,5 @@ import io.github.loadup.pay.payment.domain.model.PaymentCaptureScope;
  * All source queries are on payment's own DataSource and the caller's actual read-only RR transaction.
  */
 public interface PaymentCaptureReader {
-    PaymentCaptureRead read(String tenant, PaymentCaptureScope scope);
+    PaymentCaptureRead read(PaymentCaptureScope scope);
 }

@@ -32,11 +32,7 @@ public interface ChannelBindingGateway {
      * Lock route heads in a stable order before selecting a new attempt's immutable binding.
      */
     List<RoutableChannelBinding> lockActive(
-            String tenantId,
-            String payeeMerchantId,
-            Channel channel,
-            Set<AccessMode> allowedModes,
-            PaymentMethod method);
+            String payeeMerchantId, Channel channel, Set<AccessMode> allowedModes, PaymentMethod method);
 
-    Optional<ChannelBindingRevision> findRevision(String tenantId, String bindingRevisionId);
+    Optional<ChannelBindingRevision> findRevision(String bindingRevisionId);
 }

@@ -22,9 +22,9 @@ import java.util.Optional;
  * Tenant-local immutable resources; publication uniqueness is enforced by the database.
  */
 public interface RoutingProfileGateway {
-    Optional<RoutingProfile> find(String tenantId, String profileRef);
+    Optional<RoutingProfile> find(String profileRef);
 
-    Optional<RoutingProfile> findRequest(String tenantId, String callerServiceId, String requestKey);
+    Optional<RoutingProfile> findRequest(String callerServiceId, String requestKey);
 
-    void insert(String tenantId, RoutingProfile profile);
+    void insert(RoutingProfile profile);
 }

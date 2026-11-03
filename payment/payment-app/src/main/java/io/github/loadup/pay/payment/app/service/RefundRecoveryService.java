@@ -78,7 +78,7 @@ public class RefundRecoveryService {
             throw new CommonException(INVALID_STATE);
         }
         var cursor = RefundRecoveryCursor.init(stored.request().id(), stored.plannedAt());
-        cursors.insert(tenant, cursor);
+        cursors.insert(cursor);
         tasks.register(TYPE, new RefundRecoveryKey(cursor.requestId(), cursor.generation()).bizId(), cursor.dueAt());
     }
 
@@ -98,7 +98,7 @@ public class RefundRecoveryService {
                 return false;
             }
             if (terminal(request)) {
-                cursors.update(tenant, cursor, cursor.finish());
+                cursors.update(cursor, cursor.finish());
                 return false;
             }
             return true;
@@ -115,7 +115,7 @@ public class RefundRecoveryService {
                 return RecoveryHandlingOutcome.SKIPPED;
             }
             if (terminal(request)) {
-                cursors.update(tenant, before, before.finish());
+                cursors.update(before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;
             } else {
                 var nextAt = polling.nextAt(
@@ -127,7 +127,7 @@ public class RefundRecoveryService {
                         before.dueAt(),
                         LocalDateTime.now(clock));
                 var next = before.schedule(nextAt, key.generation());
-                cursors.update(tenant, before, next);
+                cursors.update(before, next);
                 // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
                 tasks.register(TYPE, new RefundRecoveryKey(next.requestId(), next.generation()).bizId(), next.dueAt());
                 return RecoveryHandlingOutcome.CONTINUED;
@@ -136,7 +136,7 @@ public class RefundRecoveryService {
     }
 
     private RefundRecoveryCursor cursor(String tenant, RefundRecoveryKey key) {
-        var value = cursors.lock(tenant, key.requestId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var value = cursors.lock(key.requestId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         return value;
     }
 

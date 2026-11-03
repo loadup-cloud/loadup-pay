@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -90,14 +89,14 @@ class PaymentUnknownRecoveryServiceTest {
         var urgent = entry(COLLECTION, "pay-a", "pay-a", at.minusDays(1));
         var review = entry(COLLECTION, "pay-b", "pay-b", at.minusMinutes(15));
         var next = entry(COLLECTION, "pay-c", "pay-c", review.firstUnknownAt());
-        when(reader.list(eq("tenant"), eq(COLLECTION), any())).thenAnswer(call -> {
+        when(reader.list(eq(COLLECTION), any())).thenAnswer(call -> {
             assertEquals("tenant", TenantUtil.getTenantId());
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals(
                     TransactionDefinition.ISOLATION_REPEATABLE_READ,
                     TransactionSynchronizationManager.getCurrentTransactionIsolationLevel());
-            UnknownRecoveryWindow window = call.getArgument(2);
+            UnknownRecoveryWindow window = call.getArgument(1);
             assertEquals(at.minusMinutes(15), window.cutoff());
             return window.afterRecordId() == null ? List.of(urgent, review, next) : List.of(next);
         });
@@ -139,7 +138,7 @@ class PaymentUnknownRecoveryServiceTest {
                 2L,
                 null,
                 null);
-        when(reader.list(eq("tenant"), eq(REFUND_REQUEST), any())).thenReturn(List.of(one, two));
+        when(reader.list(eq(REFUND_REQUEST), any())).thenReturn(List.of(one, two));
         var page = service.list(new PaymentUnknownRecoveryQuery(REFUND_REQUEST, NORMAL, null, null, 10));
         assertEquals(
                 List.of("refund-a", "refund-b"),
@@ -168,8 +167,8 @@ class PaymentUnknownRecoveryServiceTest {
     void clockRegressionKeepsExistingFutureStampedUnknownRowsVisibleAndPageable() {
         var one = entry(COLLECTION, "pay-a", "pay-a", at.plusHours(1));
         var two = entry(COLLECTION, "pay-b", "pay-b", one.firstUnknownAt());
-        when(reader.list(eq("tenant"), eq(COLLECTION), any())).thenAnswer(call -> {
-            UnknownRecoveryWindow window = call.getArgument(2);
+        when(reader.list(eq(COLLECTION), any())).thenAnswer(call -> {
+            UnknownRecoveryWindow window = call.getArgument(1);
             assertNull(window.cutoff());
             return window.afterRecordId() == null ? List.of(one, two) : List.of(two);
         });
@@ -204,17 +203,17 @@ class PaymentUnknownRecoveryServiceTest {
     void inconsistentReaderResultsFailInsteadOfPublishingAnIncompleteOrIncorrectQueue() {
         var row = entry(COLLECTION, "pay-a", "pay-a", at.minusHours(1));
         var query = new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, null, null, 1);
-        doReturn(List.of(row, row)).when(reader).list(anyString(), any(), any());
+        doReturn(List.of(row, row)).when(reader).list(any(), any());
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.list(query)).getResultCode());
-        doReturn(List.of(entry(COLLECTION, "pay-a", "pay-a", at))).when(reader).list(anyString(), any(), any());
+        doReturn(List.of(entry(COLLECTION, "pay-a", "pay-a", at))).when(reader).list(any(), any());
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.list(query)).getResultCode());
         doReturn(List.of(entry(REFUND_REQUEST, "refund-a", "request", row.firstUnknownAt())))
                 .when(reader)
-                .list(anyString(), any(), any());
+                .list(any(), any());
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.list(query)).getResultCode());

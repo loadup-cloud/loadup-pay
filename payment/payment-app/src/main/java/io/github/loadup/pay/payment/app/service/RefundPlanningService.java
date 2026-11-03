@@ -131,17 +131,17 @@ public class RefundPlanningService implements RefundFacade {
             DomainChecks.text(command.merchantRefundNo(), 64);
             DomainChecks.text(command.reasonCode(), 64);
             String digest = digest(actor, command);
-            var known = refunds.merchantReference(actor.tenantId(), actor.merchantId(), command.merchantRefundNo());
+            var known = refunds.merchantReference(actor.merchantId(), command.merchantRefundNo());
             if (known.isPresent()) {
                 return replay(actor, known.get(), digest);
             }
             lockParent(actor, command.orderId());
             // A competing key on another order must fail by digest, not expose or load that order's children.
-            known = refunds.merchantReference(actor.tenantId(), actor.merchantId(), command.merchantRefundNo());
+            known = refunds.merchantReference(actor.merchantId(), command.merchantRefundNo());
             if (known.isPresent()) {
                 return replayLocked(actor, known.get(), command.orderId(), digest);
             }
-            var capacities = refunds.lockCapacities(actor.tenantId(), command.orderId());
+            var capacities = refunds.lockCapacities(command.orderId());
             if (capacities.isEmpty()) {
                 throw new CommonException(REFUND_AMOUNT_EXCEEDED);
             }
@@ -151,8 +151,8 @@ public class RefundPlanningService implements RefundFacade {
             var claims = new HashMap<String, ChannelTransactionClaim>();
             var eligible = new ArrayList<PaymentRefundCapacity>();
             for (var capacity : capacities) {
-                var accepted = payments.find(actor.tenantId(), capacity.paymentId())
-                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var accepted =
+                        payments.find(capacity.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var payment = accepted.payment();
                 var original = codec.decode(accepted);
                 if (!actor.merchantId().equals(capacity.payeeMerchantId())
@@ -172,9 +172,9 @@ public class RefundPlanningService implements RefundFacade {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 grossCollected += capacity.succeededAmount().getCent();
-                var claim = results.attemptClaim(actor.tenantId(), payment.successfulAttemptId())
+                var claim = results.attemptClaim(payment.successfulAttemptId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                var attempt = attempts.find(actor.tenantId(), payment.successfulAttemptId())
+                var attempt = attempts.find(payment.successfulAttemptId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!claim.tenantId().equals(actor.tenantId())
                         || !claim.identity().paymentId().equals(payment.id())
@@ -248,7 +248,7 @@ public class RefundPlanningService implements RefundFacade {
                     codec.checksum(payload),
                     now,
                     children);
-            refunds.insertPlan(actor.tenantId(), stored, reservations);
+            refunds.insertPlan(stored, reservations);
             projections.planned(
                     actor.tenantId(), stored, DomainChecks.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
             recovery.register(actor.tenantId(), stored);
@@ -264,13 +264,12 @@ public class RefundPlanningService implements RefundFacade {
         var actor = actor("pay:payment:refund:read");
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var reference =
-                    refunds.reference(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var reference = refunds.reference(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.merchantId().equals(reference.payeeMerchantId())) {
                 throw new CommonException(NOT_FOUND);
             }
             lockParent(actor, reference.orderId());
-            return dto(refunds.load(actor.tenantId(), reference.id()));
+            return dto(refunds.load(reference.id()));
         });
     }
 
@@ -287,7 +286,7 @@ public class RefundPlanningService implements RefundFacade {
         if (!reference.requestDigest().equals(digest) || !reference.orderId().equals(lockedOrder)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
-        var stored = refunds.load(actor.tenantId(), reference.id());
+        var stored = refunds.load(reference.id());
         if (!stored.requestDigest().equals(digest)
                 || !actor.merchantId().equals(stored.request().payeeMerchantId())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -296,7 +295,7 @@ public class RefundPlanningService implements RefundFacade {
     }
 
     private void lockParent(RefundActor actor, String order) {
-        var parent = payments.lockParent(actor.tenantId(), order).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var parent = payments.lockParent(order).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!actor.merchantId().equals(parent.payeeMerchantId())) {
             throw new CommonException(NOT_FOUND);
         }

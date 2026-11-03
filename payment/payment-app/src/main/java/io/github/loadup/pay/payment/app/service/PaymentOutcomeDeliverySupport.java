@@ -113,8 +113,7 @@ public class PaymentOutcomeDeliverySupport {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return transactions.withTenantContext(tenant, () -> {
-            var original =
-                    payments.find(tenant, data.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var original = payments.find(data.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             return transactions.writeLocal(tenant, () -> {
                 var locked = locks.lock(tenant, data.paymentId(), original.callerServiceId());
                 var current = locked.payment();
@@ -129,7 +128,7 @@ public class PaymentOutcomeDeliverySupport {
                 }
                 StoredPaymentAttempt attempt = null;
                 if (current.payment().activeAttemptId() != null) {
-                    attempt = attempts.lock(tenant, current.payment().activeAttemptId())
+                    attempt = attempts.lock(current.payment().activeAttemptId())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     PaymentExecutionBindings.route(
                             PaymentExecutionBindings.activeContext(locked, attempt)
@@ -143,9 +142,9 @@ public class PaymentOutcomeDeliverySupport {
                     if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) {
                         throw new CommonException(SNAPSHOT_INVALID);
                     }
-                    var claim = results.attemptClaim(tenant, attempt.attempt().id())
+                    var claim = results.attemptClaim(attempt.attempt().id())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                    var capacity = results.capacity(tenant, current.payment().id())
+                    var capacity = results.capacity(current.payment().id())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (!claim.tenantId().equals(tenant)
                             || !claim.identity().equals(attempt.attempt().identity())

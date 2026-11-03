@@ -15,14 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.RefundNotificationReceiptGateway;
 import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
@@ -52,9 +49,8 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
     }
 
     @Override
-    public Optional<RefundNotificationReceipt> find(String tenant, String id) {
-        scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("delivery", id);
+    public Optional<RefundNotificationReceipt> find(String id) {
+        var args = new MapSqlParameterSource().addValue("delivery", id);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, delivery_id, business_event_id, aggregate_id, source_version, order_id, payee_merchant_id, request_digest, caller_service_id, merchant_event_id, disposition, accepted_at
                 FROM refund_notification_receipt WHERE deleted = FALSE AND delivery_id = :delivery
@@ -69,8 +65,7 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
     }
 
     @Override
-    public void insert(String tenant, RefundNotificationReceipt value) {
-        scope(tenant);
+    public void insert(RefundNotificationReceipt value) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
@@ -80,7 +75,7 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -94,12 +89,6 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

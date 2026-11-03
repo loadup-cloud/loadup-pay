@@ -56,7 +56,7 @@ class ReconciliationStatementStorageConverterTest {
 
     @Test
     void initialAndSupersededNeverAcquireImplicitZeroReceiptFields() {
-        var row = converter.toDO("tenant", initial);
+        var row = converter.toDO(initial);
         assertNull(row.getReceivedEpochMicros());
         assertNull(row.getDownloadedEpochMicros());
         assertNull(row.getFileSize());
@@ -64,7 +64,7 @@ class ReconciliationStatementStorageConverterTest {
         assertNull(row.getFormat());
         assertNull(row.getProofSha256());
         assertEquals(initial, converter.toModel(row));
-        row = converter.toDO("tenant", initial.supersede());
+        row = converter.toDO(initial.supersede());
         assertEquals(initial.supersede(), converter.toModel(row));
         row.setReceivedEpochMicros(0L);
         var corrupt = row;
@@ -84,7 +84,7 @@ class ReconciliationStatementStorageConverterTest {
                 new ReconciliationFileSnapshot("file", "storage", 100, "c".repeat(64)),
                 new ReconciliationFileSnapshot("proof", "proof-storage", 200, "d".repeat(64)));
         var ready = initial.ready(receipt);
-        var row = converter.toDO("tenant", ready);
+        var row = converter.toDO(ready);
         assertEquals(ready, converter.toModel(row));
         assertEquals(Long.valueOf(receipt.receivedEpochMicros()), row.getReceivedEpochMicros());
         assertEquals(initial, converter.toInitial(ready));

@@ -50,12 +50,11 @@ class PaymentAcceptanceStorageConverterTest {
                 LocalDateTime.of(2026, 10, 22, 12, 0));
         var value = new StoredPaymentAcceptance(
                 payment, "admission", "a".repeat(64), "acquire", "payload", "b".repeat(64), null);
-        var row = converter.toPaymentDO("tenant", value);
+        var row = converter.toPaymentDO(value);
         assertNull(row.getFirstUnknownAt());
         var firstUnknownAt = payment.initiatedAt().plusMinutes(2);
         assertEquals(
-                firstUnknownAt,
-                converter.toPaymentPatch("tenant", value, firstUnknownAt).getFirstUnknownAt());
+                firstUnknownAt, converter.toPaymentPatch(value, firstUnknownAt).getFirstUnknownAt());
         row.setFirstUnknownAt(firstUnknownAt);
         assertEquals(value, converter.toStored(row, converter.toPayment(row)));
     }
@@ -68,7 +67,7 @@ class PaymentAcceptanceStorageConverterTest {
                 "acquire",
                 PaymentExecutionGate.init("order", null).fence(3),
                 0);
-        var row = converter.toParentDO("tenant", value);
+        var row = converter.toParentDO(value);
         assertEquals(3L, row.getCloseEpoch());
         assertEquals(value, converter.toStoredParent(row, converter.toParentGate(row)));
     }
@@ -81,7 +80,7 @@ class PaymentAcceptanceStorageConverterTest {
                 "acquire",
                 PaymentExecutionGate.init("order", "payment").fence(2),
                 0);
-        var row = converter.toGateDO("tenant", value);
+        var row = converter.toGateDO(value);
         assertEquals("payment", row.getPaymentId());
         assertEquals(value, converter.toStoredGate(row, converter.toPaymentGate(row)));
     }

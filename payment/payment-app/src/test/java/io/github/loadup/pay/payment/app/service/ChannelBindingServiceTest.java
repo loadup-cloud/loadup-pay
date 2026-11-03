@@ -31,7 +31,6 @@ import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -121,47 +120,46 @@ class ChannelBindingServiceTest {
 
     @BeforeEach
     void setup() {
-        when(store.lock("tenant", "merchant", "primary")).thenAnswer(call -> Optional.ofNullable(head.get()));
-        when(store.find("tenant", "merchant", "primary")).thenAnswer(call -> Optional.ofNullable(head.get()));
-        when(store.receipt(eq("tenant"), anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(receipts.get(call.getArgument(2))));
-        when(store.revision(eq("tenant"), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(revisions.get(call.getArgument(1))));
+        when(store.lock("merchant", "primary")).thenAnswer(call -> Optional.ofNullable(head.get()));
+        when(store.find("merchant", "primary")).thenAnswer(call -> Optional.ofNullable(head.get()));
+        when(store.receipt(anyString(), anyString()))
+                .thenAnswer(call -> Optional.ofNullable(receipts.get(call.getArgument(1))));
+        when(store.revision(anyString())).thenAnswer(call -> Optional.ofNullable(revisions.get(call.getArgument(0))));
         when(codec.accountScopeHash(any(), any())).thenReturn("a".repeat(64));
         when(codec.requestDigest(anyString(), anyString(), anyString(), any())).thenReturn("b".repeat(64));
         when(codec.encodeIdentity(any())).thenReturn("typed-identity-payload");
         when(codec.checksum(anyString())).thenReturn("c".repeat(64));
         doAnswer(call -> {
                     active();
-                    head.set(call.getArgument(1));
+                    head.set(call.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .insertHead(eq("tenant"), any());
+                .insertHead(any());
         doAnswer(call -> {
                     active();
-                    assertEquals(head.get().rowVersion(), (Long) call.getArgument(2));
-                    head.set(call.getArgument(1));
+                    assertEquals(head.get().rowVersion(), (Long) call.getArgument(1));
+                    head.set(call.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .updateHead(eq("tenant"), any(), anyLong());
+                .updateHead(any(), anyLong());
         doAnswer(call -> {
                     active();
-                    StoredChannelBindingRevision value = call.getArgument(1);
+                    StoredChannelBindingRevision value = call.getArgument(0);
                     revisions.put(value.binding().id(), value);
                     return null;
                 })
                 .when(store)
-                .insertRevision(eq("tenant"), any());
+                .insertRevision(any());
         doAnswer(call -> {
                     active();
-                    ChannelBindingChangeReceipt value = call.getArgument(1);
+                    ChannelBindingChangeReceipt value = call.getArgument(0);
                     receipts.put(value.requestKey(), value);
                     return null;
                 })
                 .when(store)
-                .insertReceipt(eq("tenant"), any());
+                .insertReceipt(any());
     }
 
     void active() {
@@ -183,9 +181,9 @@ class ChannelBindingServiceTest {
         assertEquals(result.bindingRevisionId(), head.get().currentRevisionId());
         assertEquals(1, manager.commits);
         var calls = inOrder(store);
-        calls.verify(store).insertRevision(eq("tenant"), any());
-        calls.verify(store).insertHead(eq("tenant"), any());
-        calls.verify(store).insertReceipt(eq("tenant"), any());
+        calls.verify(store).insertRevision(any());
+        calls.verify(store).insertHead(any());
+        calls.verify(store).insertReceipt(any());
     }
 
     @Test
@@ -209,7 +207,7 @@ class ChannelBindingServiceTest {
         assertEquals(original.bindingRevisionId(), suspended.bindingRevisionId());
         assertEquals(original, service.publish(command));
         assertEquals(2, head.get().rowVersion());
-        verify(store, times(1)).insertRevision(anyString(), any());
+        verify(store, times(1)).insertRevision(any());
     }
 
     @Test
@@ -329,7 +327,7 @@ class ChannelBindingServiceTest {
 
     @Test
     void receiptFailureRollsBackThePublishBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insertReceipt(eq("tenant"), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insertReceipt(any());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.publish(publish("first", 0, "v1", 100)))

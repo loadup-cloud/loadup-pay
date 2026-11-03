@@ -67,7 +67,7 @@ class ReconciliationVerificationStorageConverterTest {
 
     @Test
     void initNeverAcquiresImplicitZeroOrPartialReceiptMetadata() {
-        var row = converter.toDO("tenant", initial);
+        var row = converter.toDO(initial);
         assertNull(row.getStartedEpochMicros());
         assertNull(row.getAmountMinor());
         assertNull(row.getSourceVersion());
@@ -96,7 +96,7 @@ class ReconciliationVerificationStorageConverterTest {
                 1000000L,
                 2000000L,
                 null);
-        var gapRow = converter.toDO("tenant", initial.complete(gap));
+        var gapRow = converter.toDO(initial.complete(gap));
         assertNull(gapRow.getAmountMinor());
         assertNull(gapRow.getOutcome());
         assertEquals(initial.complete(gap), converter.toModel(gapRow));
@@ -117,7 +117,7 @@ class ReconciliationVerificationStorageConverterTest {
                 2000000L,
                 3000000L,
                 null);
-        var row = converter.toDO("tenant", initial.complete(receipt));
+        var row = converter.toDO(initial.complete(receipt));
         assertEquals(initial.complete(receipt), converter.toModel(row));
         assertEquals(initial, converter.toInitial(converter.toModel(row)));
         assertEquals("transaction", row.getChannelTransactionNo());

@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -107,7 +105,7 @@ class OrderAdmissionServiceTest {
             transactions);
 
     OrderAdmissionServiceTest() {
-        when(customer.authorizeNewOrder("tenant", "merchant")).thenAnswer(call -> {
+        when(customer.authorizeNewOrder("merchant")).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new MerchantEligibilityDTO(
                     true,
@@ -197,7 +195,7 @@ class OrderAdmissionServiceTest {
 
     @Test
     void originalDenialRemainsStickyAfterCurrentQualificationCouldChange() {
-        when(admissions.findByOrder("tenant", "order")).thenReturn(Optional.of(denied("POLICY_NOT_ACTIVE")));
+        when(admissions.findByOrder("order")).thenReturn(Optional.of(denied("POLICY_NOT_ACTIVE")));
         assertEquals("POLICY_NOT_ACTIVE", service.authorize(command(100)).reasonCode());
         verifyNoInteractions(customer, contracts);
     }
@@ -217,7 +215,7 @@ class OrderAdmissionServiceTest {
                 new ContractReference("contract", 1, 1, "snapshot", "c".repeat(64)),
                 now.minusDays(1),
                 now.minusHours(23));
-        when(admissions.findByOrder("tenant", "order"))
+        when(admissions.findByOrder("order"))
                 .thenReturn(Optional.of(new StoredOrderAdmission(intent(100), original, 2, 1, "compiled")));
         when(codec.decode(any()))
                 .thenReturn(new CompiledAcquiringTerms(1, "contract", 1, "snapshot", terms, configuration.origins()));
@@ -229,7 +227,7 @@ class OrderAdmissionServiceTest {
 
     @Test
     void changedAmountWithTheSameDigestConflictsBeforeRemoteLookup() {
-        when(admissions.findByOrder("tenant", "order")).thenReturn(Optional.of(denied("POLICY_NOT_ACTIVE")));
+        when(admissions.findByOrder("order")).thenReturn(Optional.of(denied("POLICY_NOT_ACTIVE")));
         var error = assertThrows(CommonException.class, () -> service.authorize(command(200)));
         assertSame(ProductResultCodeEnum.IDEMPOTENCY_CONFLICT, error.getResultCode());
         verifyNoInteractions(customer, contracts);
@@ -237,11 +235,11 @@ class OrderAdmissionServiceTest {
 
     @Test
     void dependencyFailureDoesNotPersistAFalseDecision() {
-        when(customer.authorizeNewOrder("tenant", "merchant"))
+        when(customer.authorizeNewOrder("merchant"))
                 .thenThrow(new CommonException(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.authorize(command(100)));
         verifyNoInteractions(contracts);
-        verify(admissions, never()).insert(anyString(), any());
+        verify(admissions, never()).insert(any());
     }
 
     @Test
@@ -295,24 +293,24 @@ class OrderAdmissionServiceTest {
         assertEquals(now.plusMinutes(5), dto.materializeBefore().toLocalDateTime());
         assertEquals("routing-v1", dto.terms().routingProfileRef());
         var saved = ArgumentCaptor.forClass(StoredOrderAdmission.class);
-        verify(admissions).insert(eq("tenant"), saved.capture());
+        verify(admissions).insert(saved.capture());
         assertEquals("compiled-json", saved.getValue().compiledTerms());
     }
 
     @Test
     void lockWaitRechecksTheWinnerBeforeMakingAnotherDecision() {
         current(ContractStatus.NORMAL);
-        when(admissions.findByOrder("tenant", "order"))
+        when(admissions.findByOrder("order"))
                 .thenReturn(Optional.empty(), Optional.empty(), Optional.of(denied("ORIGINAL")));
         assertEquals("ORIGINAL", service.authorize(command(100)).reasonCode());
-        verify(admissions, never()).insert(anyString(), any());
+        verify(admissions, never()).insert(any());
         verify(contracts, never()).snapshot(any());
     }
 
     @Test
     void duplicateInsertRollsBackBeforeReadingTheWinner() {
         AtomicInteger reads = new AtomicInteger();
-        when(admissions.findByOrder("tenant", "order")).thenAnswer(call -> {
+        when(admissions.findByOrder("order")).thenAnswer(call -> {
             if (reads.incrementAndGet() < 4) {
                 return Optional.empty();
             }
@@ -320,7 +318,7 @@ class OrderAdmissionServiceTest {
             assertEquals(1, transactions.rollbacks);
             return Optional.of(denied("WINNER"));
         });
-        doThrow(new Exception("")).when(admissions).insert(anyString(), any());
+        doThrow(new Exception("")).when(admissions).insert(any());
         assertEquals("WINNER", service.authorize(command(100)).reasonCode());
     }
 

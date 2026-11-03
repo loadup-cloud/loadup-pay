@@ -89,13 +89,13 @@ public class PaymentCloseService {
 
     private PaymentResultApplication closeOriginal(String tenant, StoredPaymentAttempt original) {
         var saved = transactions.readSnapshot(tenant, () -> {
-            var current = attempts.find(tenant, original.attempt().id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var accepted = payments.find(tenant, original.attempt().paymentId())
+            var current =
+                    attempts.find(original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var accepted = payments.find(original.attempt().paymentId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             PaymentExecutionBindings.observable(accepted, current);
             sameAttempt(original, current);
-            var known = checked(evidence.find(tenant, current.attempt().id()), current);
+            var known = checked(evidence.find(current.attempt().id()), current);
             if (known.isEmpty() && accepted.payment().state() != PaymentState.CLOSING) {
                 throw new CommonException(INVALID_STATE);
             }
@@ -125,16 +125,16 @@ public class PaymentCloseService {
         var proof = transactions.writeLocal(tenant, () -> {
             // The same parent -> payment gate -> payment -> attempt order as Y3; no remote IO under these locks.
             var locked = locks.lock(tenant, original.attempt().paymentId(), original.callerServiceId());
-            var current = attempts.lock(tenant, original.attempt().id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current =
+                    attempts.lock(original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             PaymentExecutionBindings.observableContext(locked, current);
             sameAttempt(original, current);
-            var prior = checked(evidence.find(tenant, current.attempt().id()), current);
+            var prior = checked(evidence.find(current.attempt().id()), current);
             if (prior.isPresent()) {
                 return prior.get();
             }
             var value = converter.toEvidence(observed, current.attempt().executionEpoch(), recordedAt);
-            evidence.insert(tenant, value);
+            evidence.insert(value);
             return value;
         });
         // Failure here leaves the immutable proof committed. A later recovery applies this original observation only.

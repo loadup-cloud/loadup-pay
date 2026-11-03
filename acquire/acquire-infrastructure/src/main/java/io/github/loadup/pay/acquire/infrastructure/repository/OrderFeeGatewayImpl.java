@@ -15,17 +15,14 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
@@ -73,50 +70,48 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     }
 
     @Override
-    public void confirmPaid(
-            String tenant, AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt) {
-        writable(tenant);
+    public void confirmPaid(AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt) {
+        writable();
         if (paid.state() != AcquireOrderState.PAID
                 || paid.paidAmountMinor() != paid.amount().getCent()
                 || confirmedAt == null) {
             throw new CommonException(INVALID_STATE);
         }
-        var row = lock(tenant, paid.id());
+        var row = lock(paid.id());
         var current = decode(row, paid, expectedPolicy);
         if (current.state() == FeeState.CONFIRMED) {
             return;
         }
         var confirmed = current.confirm();
-        adjust(tenant, row, confirmed, "FEE_CONFIRMED", current.id(), confirmedAt);
-        save(tenant, row, confirmed.acknowledgeAdjustment(), confirmedAt);
+        adjust(row, confirmed, "FEE_CONFIRMED", current.id(), confirmedAt);
+        save(row, confirmed.acknowledgeAdjustment(), confirmedAt);
     }
 
     @Override
     public void applyRefundBasis(
-            String tenant,
             AcquireOrder order,
             OrderFeePolicy expectedPolicy,
             long sourceVersion,
             long cumulativeMinor,
             String sourceEventId,
             LocalDateTime appliedAt) {
-        writable(tenant);
+        writable();
         DomainChecks.id(sourceEventId);
         if (sourceVersion <= 0 || appliedAt == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var row = lock(tenant, order.id());
+        var row = lock(order.id());
         var current = decode(row, order, expectedPolicy);
         var based = current.recordRefundBasis(sourceVersion, cumulativeMinor);
         if (based.equals(current)) {
             return;
         }
-        adjust(tenant, row, based, "REFUND_SUMMARY:" + sourceVersion, sourceEventId, appliedAt);
-        save(tenant, row, based.acknowledgeAdjustment(), row.getConfirmedAt());
+        adjust(row, based, "REFUND_SUMMARY:" + sourceVersion, sourceEventId, appliedAt);
+        save(row, based.acknowledgeAdjustment(), row.getConfirmedAt());
     }
 
-    private OrderFeeDO lock(String tenant, String order) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", order);
+    private OrderFeeDO lock(String order) {
+        var args = new MapSqlParameterSource().addValue("order", order);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
                        fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
@@ -148,14 +143,13 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
         }
     }
 
-    private void adjust(
-            String tenant, OrderFeeDO row, OrderFee based, String trigger, String eventId, LocalDateTime at) {
+    private void adjust(OrderFeeDO row, OrderFee based, String trigger, String eventId, LocalDateTime at) {
         if (based.adjustmentDueMinor() == 0) {
             return;
         }
         var adjustment = adjustmentConverter.toAdjustment(ids.generate(), based, trigger);
-        var record = adjustmentConverter.toDO(
-                tenant, adjustment, eventId, based.refundBasisMinor(), row.getFeeRuleSnapshot(), at);
+        var record =
+                adjustmentConverter.toDO(adjustment, eventId, based.refundBasisMinor(), row.getFeeRuleSnapshot(), at);
         var now = LocalDateTime.now(clock);
         record.setCreatedAt(now);
         record.setUpdatedAt(now);
@@ -170,9 +164,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
         }
     }
 
-    private void save(String tenant, OrderFeeDO before, OrderFee next, LocalDateTime confirmedAt) {
+    private void save(OrderFeeDO before, OrderFee next, LocalDateTime confirmedAt) {
         var patch = converter.toProgressPatch(next, Math.incrementExact(before.getRowVersion()), confirmedAt);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", before.getId())
                 .addValue("oldState", before.getState())
                 .addValue("expected", before.getRowVersion())
@@ -192,16 +186,13 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
         }
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (!tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

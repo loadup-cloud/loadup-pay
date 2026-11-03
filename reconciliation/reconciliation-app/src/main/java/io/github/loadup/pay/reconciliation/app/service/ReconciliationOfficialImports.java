@@ -42,13 +42,13 @@ public class ReconciliationOfficialImports {
         if (request.sourceKind() == ReconciliationSourceKind.MANUAL_UPLOAD) {
             return;
         }
-        var source = sources.find(tenant, request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var source = sources.find(request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         try {
             source.verifyImport(request);
         } catch (DomainViolation invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        files.verify(tenant, request.callerServiceId(), source.receipt().content(), source.id());
-        files.verify(tenant, request.callerServiceId(), source.receipt().evidence(), source.id());
+        files.verify(request.callerServiceId(), source.receipt().content(), source.id());
+        files.verify(request.callerServiceId(), source.receipt().evidence(), source.id());
     }
 }

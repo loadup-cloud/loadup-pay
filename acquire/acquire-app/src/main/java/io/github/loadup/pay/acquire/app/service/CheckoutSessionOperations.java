@@ -82,14 +82,14 @@ public class CheckoutSessionOperations {
         requireTransaction();
         String target = target(order, command.returnTargetCode());
         String digest = digest(actor, command, target);
-        var prior = sessions.findRequest(actor.tenantId(), command.orderId(), command.requestKey());
+        var prior = sessions.findRequest(command.orderId(), command.requestKey());
         if (prior.isPresent()) {
             checked(actor, order, prior.get(), command.requestKey(), digest, target);
             return present(actor, order, prior.get());
         }
         var prepared = prepare(actor, order, ids.generate(), command.requestKey(), digest, target);
         var result = present(actor, order, prepared);
-        sessions.insert(actor.tenantId(), prepared);
+        sessions.insert(prepared);
         return result;
     }
 
@@ -109,12 +109,11 @@ public class CheckoutSessionOperations {
 
     public void insertInitial(String tenant, StoredCheckoutSession prepared) {
         requireTransaction();
-        sessions.insert(tenant, prepared);
+        sessions.insert(prepared);
     }
 
     public CheckoutDTO replayInitial(AcquireActor actor, StoredAcquireOrder order, String sessionId) {
-        var stored =
-                sessions.find(actor.tenantId(), sessionId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var stored = sessions.find(sessionId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         String target = target(order, stored.scope().returnTargetCode());
         String key = initialKey(sessionId);
         String digest =

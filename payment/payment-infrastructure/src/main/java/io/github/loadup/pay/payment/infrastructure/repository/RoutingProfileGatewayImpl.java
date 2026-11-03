@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.port.RoutingProfileCodec;
@@ -59,15 +57,8 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         this.clock = clock;
     }
 
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
     @Override
-    public Optional<RoutingProfile> find(String tenant, String ref) {
-        scope(tenant);
+    public Optional<RoutingProfile> find(String ref) {
         var args = new MapSqlParameterSource().addValue("ref", ref);
         var row = jdbc
                 .query(
@@ -81,8 +72,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     }
 
     @Override
-    public Optional<RoutingProfile> findRequest(String tenant, String caller, String key) {
-        scope(tenant);
+    public Optional<RoutingProfile> findRequest(String caller, String key) {
         var args = new MapSqlParameterSource().addValue("caller", caller).addValue("key", key);
         var row = jdbc
                 .query(
@@ -119,8 +109,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     }
 
     @Override
-    public void insert(String tenant, RoutingProfile profile) {
-        scope(tenant);
+    public void insert(RoutingProfile profile) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
@@ -130,11 +119,15 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         }
         String payload = codec.encode(profile.spec());
         if (!codec.checksum(payload).equals(profile.contentHash())
-                || !codec.requestDigest(tenant, profile.callerServiceId(), profile.requestKey(), profile.contentHash())
+                || !codec.requestDigest(
+                                TenantContext.tenantId(),
+                                profile.callerServiceId(),
+                                profile.requestKey(),
+                                profile.contentHash())
                         .equals(profile.requestDigest())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = converter.toDO(tenant, profile, payload);
+        var row = converter.toDO(profile, payload);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);

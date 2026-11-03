@@ -106,7 +106,7 @@ class AcquireRealtimeHttpClientTest {
         credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
         client = new AcquireRealtimeHttpClient(
                 realtimeHttp,
-                (tenant, service, audience) -> credential,
+                (service, audience) -> credential,
                 new AcquireRealtimeProperties("tenant", "acquire", "realtime"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
@@ -121,10 +121,10 @@ class AcquireRealtimeHttpClientTest {
     void usesTheOrderProjectionOperationWithTheCurrentServiceToken() throws Exception {
         String first =
                 credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
-        assertTrue(client.apply("tenant", event).accepted());
+        assertTrue(client.apply(event).accepted());
         String second =
                 credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v2");
-        assertTrue(client.apply("tenant", event).accepted());
+        assertTrue(client.apply(event).accepted());
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
     }
 
@@ -132,7 +132,7 @@ class AcquireRealtimeHttpClientTest {
     void localTransactionCannotContainTheProjectionNetworkCall() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertThrows(CommonException.class, () -> client.apply("tenant", event));
+            assertThrows(CommonException.class, () -> client.apply(event));
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
@@ -146,8 +146,8 @@ class AcquireRealtimeHttpClientTest {
                 })
                 .when(realtimeHttp)
                 .order(anyString(), any());
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
+        assertThrows(CommonException.class, () -> client.apply(event));
         doAnswer(invocation -> null).when(realtimeHttp).order(anyString(), any());
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
+        assertThrows(CommonException.class, () -> client.apply(event));
     }
 }

@@ -83,16 +83,14 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
         }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var first = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var first = store.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (acquireAccess && !actor.serviceId().equals(first.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
-            var parent = store.lockParent(actor.tenantId(), first.payment().orderId())
+            var parent = store.lockParent(first.payment().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var gate = store.lockPayment(actor.tenantId(), query.id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var current =
-                    store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var gate = store.lockPayment(query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = store.find(query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             codec.decode(current);
             if (acquireAccess && !actor.serviceId().equals(current.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);

@@ -22,15 +22,15 @@ import java.util.Optional;
  * Mutations and active lookup require the original batch lock first.
  */
 public interface ReconciliationStatementGateway {
-    Optional<ReconciliationStatementRequest> findRequest(String tenant, String caller, String requestKey);
+    Optional<ReconciliationStatementRequest> findRequest(String caller, String requestKey);
 
-    Optional<ReconciliationStatementRequest> find(String tenant, String id);
+    Optional<ReconciliationStatementRequest> find(String id);
 
-    Optional<ReconciliationStatementRequest> lock(String tenant, String id);
+    Optional<ReconciliationStatementRequest> lock(String id);
 
-    Optional<ReconciliationStatementRequest> activeForBatch(String tenant, String batchId);
+    Optional<ReconciliationStatementRequest> activeForBatch(String batchId);
 
-    void insert(String tenant, ReconciliationStatementRequest value);
+    void insert(ReconciliationStatementRequest value);
 
-    void update(String tenant, ReconciliationStatementRequest value, long expectedVersion);
+    void update(ReconciliationStatementRequest value, long expectedVersion);
 }

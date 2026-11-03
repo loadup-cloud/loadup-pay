@@ -95,13 +95,12 @@ class LimitExecutionServiceTest {
     }
 
     void stored(StoredLimitReservation value) {
-        when(f.reservations.findByOperation("tenant", "operation")).thenReturn(Optional.of(value));
-        when(f.reservations.lockGate("tenant", "operation"))
+        when(f.reservations.findByOperation("operation")).thenReturn(Optional.of(value));
+        when(f.reservations.lockGate("operation"))
                 .thenReturn(Optional.of(
                         LimitOperationGate.init("operation", "payment-id").open()));
-        when(f.policies.lockHead("tenant", "policy"))
-                .thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
-        when(f.reservations.findExecutionGrant("tenant", "operation", 1)).thenReturn(Optional.of(grant()));
+        when(f.policies.lockHead("policy")).thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
+        when(f.reservations.findExecutionGrant("operation", 1)).thenReturn(Optional.of(grant()));
         when(issuer.activeKeyId()).thenReturn("new-key");
         when(issuer.issue(eq("tenant"), any(), eq("attempt"), eq(1L), eq("begin-key"), anyString()))
                 .thenReturn(permit);
@@ -122,14 +121,11 @@ class LimitExecutionServiceTest {
         assertEquals(1, result.executionEpoch());
         assertEquals(permit, result.permit());
         verify(f.reservations)
-                .insertExecutionGrant(
-                        eq("tenant"),
-                        argThat(grant -> grant.permitKeyId().equals("new-key")
-                                && grant.permitHash().equals(DigestUtils.sha256(permit))
-                                && !grant.toString().contains(permit)));
+                .insertExecutionGrant(argThat(grant -> grant.permitKeyId().equals("new-key")
+                        && grant.permitHash().equals(DigestUtils.sha256(permit))
+                        && !grant.toString().contains(permit)));
         verify(f.reservations)
                 .updateReservation(
-                        eq("tenant"),
                         argThat(value -> value.reservation().state() == LimitReservationState.EXECUTING
                                 && value.reservation().activeAttemptId().equals("attempt")),
                         eq(1L));
@@ -142,8 +138,8 @@ class LimitExecutionServiceTest {
         var late = service(Clock.offset(f.clock, Duration.ofDays(1)));
         assertEquals(permit, late.beginExecution(begin()).permit());
         verify(issuer).issue(eq("tenant"), any(), eq("attempt"), eq(1L), eq("begin-key"), eq("old-key"));
-        verify(f.reservations, never()).updateReservation(anyString(), any(), anyLong());
-        verify(f.reservations, never()).insertExecutionGrant(anyString(), any());
+        verify(f.reservations, never()).updateReservation(any(), anyLong());
+        verify(f.reservations, never()).insertExecutionGrant(any());
     }
 
     @Test
@@ -164,7 +160,7 @@ class LimitExecutionServiceTest {
                 () -> service.beginExecution(
                         new LimitBeginExecutionCommand("operation", "another", "new", "claimed-evidence")));
         assertSame(LimitCenterResultCodeEnum.OUTCOME_UNKNOWN, error.getResultCode());
-        verify(f.reservations, never()).insertExecutionGrant(anyString(), any());
+        verify(f.reservations, never()).insertExecutionGrant(any());
     }
 
     @Test
@@ -173,7 +169,7 @@ class LimitExecutionServiceTest {
         var atDeadline = service(Clock.offset(f.clock, Duration.ofSeconds(120)));
         var error = assertThrows(CommonException.class, () -> atDeadline.beginExecution(begin()));
         assertSame(LimitCenterResultCodeEnum.RESERVATION_EXPIRED, error.getResultCode());
-        verify(f.reservations, never()).updateBuckets(anyString(), any(), any());
+        verify(f.reservations, never()).updateBuckets(any(), any());
         verifyNoInteractions(issuer);
     }
 
@@ -183,8 +179,8 @@ class LimitExecutionServiceTest {
         when(issuer.issue(anyString(), any(), anyString(), anyLong(), anyString(), anyString()))
                 .thenThrow(new CommonException(LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.beginExecution(begin()));
-        verify(f.reservations, never()).updateReservation(anyString(), any(), anyLong());
-        verify(f.reservations, never()).insertExecutionGrant(anyString(), any());
+        verify(f.reservations, never()).updateReservation(any(), anyLong());
+        verify(f.reservations, never()).insertExecutionGrant(any());
         assertEquals(1, f.manager.rollbacks);
     }
 
@@ -208,8 +204,7 @@ class LimitExecutionServiceTest {
     void stateIsReadAgainAfterWaitingForTheGate() {
         var expired = reserved().transitionTo(reserved().reservation().expire(f.now.plusSeconds(120)));
         stored(reserved());
-        when(f.reservations.findByOperation("tenant", "operation"))
-                .thenReturn(Optional.of(reserved()), Optional.of(expired));
+        when(f.reservations.findByOperation("operation")).thenReturn(Optional.of(reserved()), Optional.of(expired));
         var error = assertThrows(CommonException.class, () -> service.beginExecution(begin()));
         assertSame(LimitCenterResultCodeEnum.RESERVATION_EXPIRED, error.getResultCode());
         verifyNoInteractions(issuer);

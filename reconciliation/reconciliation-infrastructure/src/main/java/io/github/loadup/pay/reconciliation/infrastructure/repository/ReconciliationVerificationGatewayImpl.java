@@ -22,7 +22,6 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationVerificationGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
@@ -53,45 +52,41 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
     }
 
     @Override
-    public Optional<ReconciliationVerificationRequest> findRequest(String tenant, String caller, String requestKey) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationVerificationRequest> findRequest(String caller, String requestKey) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("caller", caller)
-                .addValue("key", requestKey);
+        var args = new MapSqlParameterSource().addValue("caller", caller).addValue("key", requestKey);
         return read(row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
     @Override
-    public Optional<ReconciliationVerificationRequest> find(String tenant, String id) {
-        ReconciliationStoreContext.readable(tenant);
+    public Optional<ReconciliationVerificationRequest> find(String id) {
+        ReconciliationStoreContext.readable();
         DomainChecks.id(id);
-        return read(row(
-                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
+        return read(row("id = :id", new MapSqlParameterSource().addValue("id", id), false));
     }
 
     @Override
-    public Optional<ReconciliationVerificationRequest> lock(String tenant, String id) {
-        ReconciliationStoreContext.writable(tenant);
+    public Optional<ReconciliationVerificationRequest> lock(String id) {
+        ReconciliationStoreContext.writable();
         DomainChecks.id(id);
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        return read(row(
-                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
+        return read(row("id = :id", new MapSqlParameterSource().addValue("id", id), true));
     }
 
     @Override
-    public void insert(String tenant, ReconciliationVerificationRequest value) {
-        ReconciliationStoreContext.writable(tenant);
+    public void insert(ReconciliationVerificationRequest value) {
+        ReconciliationStoreContext.writable();
         if (value == null || value.state() != ReconciliationVerificationState.INIT || value.version() != 0L) {
             throw new CommonException(INVALID_STATE);
         }
         requireJdbc();
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -110,15 +105,15 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
     }
 
     @Override
-    public void update(String tenant, ReconciliationVerificationRequest value, long expectedVersion) {
-        ReconciliationStoreContext.writable(tenant);
+    public void update(ReconciliationVerificationRequest value, long expectedVersion) {
+        ReconciliationStoreContext.writable();
         if (value == null
                 || expectedVersion < 0
                 || expectedVersion == Long.MAX_VALUE
                 || value.version() != expectedVersion + 1L) {
             throw new CommonException(INVALID_STATE);
         }
-        var original = lock(tenant, value.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var original = lock(value.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (original.version() != expectedVersion) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -128,9 +123,9 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
             throw new CommonException(SNAPSHOT_INVALID);
         }
         requireJdbc();
-        var row = converter.toDO(tenant, value);
+        var row = converter.toDO(value);
         row.setUpdatedAt(LocalDateTime.now(clock));
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", value.id())
                 .addValue("expected", expectedVersion)
                 .addValue("updated", row.getUpdatedAt());

@@ -23,17 +23,17 @@ import java.util.Optional;
  * All writes and gate locks share the payment database transaction.
  */
 public interface PaymentAcceptanceGateway {
-    Optional<StoredPaymentAcceptance> find(String tenant, String paymentId);
+    Optional<StoredPaymentAcceptance> find(String paymentId);
 
-    Optional<StoredPaymentAcceptance> findAllocation(String tenant, String allocationId);
+    Optional<StoredPaymentAcceptance> findAllocation(String allocationId);
 
-    Optional<StoredPaymentGate> lockParent(String tenant, String orderId);
+    Optional<StoredPaymentGate> lockParent(String orderId);
 
-    Optional<StoredPaymentGate> lockPayment(String tenant, String paymentId);
+    Optional<StoredPaymentGate> lockPayment(String paymentId);
 
-    void insertParent(String tenant, StoredPaymentGate gate);
+    void insertParent(StoredPaymentGate gate);
 
-    void insertPaymentGate(String tenant, StoredPaymentGate gate);
+    void insertPaymentGate(StoredPaymentGate gate);
 
-    void insert(String tenant, StoredPaymentAcceptance acceptance);
+    void insert(StoredPaymentAcceptance acceptance);
 }

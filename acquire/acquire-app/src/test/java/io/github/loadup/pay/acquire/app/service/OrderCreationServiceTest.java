@@ -197,7 +197,7 @@ class OrderCreationServiceTest {
                 })
                 .when(deadlineTasks)
                 .register(eq("tenant"), any(), anyLong());
-        when(codec.directPayDigest(anyString(), anyString(), any())).thenReturn("d".repeat(64));
+        when(codec.directPayDigest(anyString(), any())).thenReturn("d".repeat(64));
         when(codec.encodeDirectPay(any())).thenReturn("direct-metadata");
         when(codec.decodeDirectPay(any())).thenReturn(direct());
         doAnswer(c -> {
@@ -209,7 +209,7 @@ class OrderCreationServiceTest {
                 })
                 .when(snapshots)
                 .publish(eq("tenant"), anyString(), anyLong());
-        when(codec.checkoutDigest(anyString(), anyString(), any())).thenReturn("a".repeat(64));
+        when(codec.checkoutDigest(anyString(), any())).thenReturn("a".repeat(64));
         when(codec.encodeCheckout(any())).thenReturn("checkout-json");
         when(codec.decodeCheckout(any())).thenReturn(checkout);
         when(codec.decodeAdmission(anyString(), anyString()))
@@ -225,46 +225,45 @@ class OrderCreationServiceTest {
         when(presentation.allowedOrigin()).thenReturn("https://pay.example");
         when(presentation.url(anyString(), anyString(), anyString()))
                 .thenAnswer(c -> "https://pay.example/checkout#token=" + c.getArgument(2));
-        when(sessions.find(eq("tenant"), anyString())).thenAnswer(c -> Optional.ofNullable(session.get()));
+        when(sessions.find(anyString())).thenAnswer(c -> Optional.ofNullable(session.get()));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertNotNull(order.get());
                     assertEquals("INIT", intent.get().state());
-                    session.set(c.getArgument(1));
+                    session.set(c.getArgument(0));
                     return null;
                 })
                 .when(sessions)
-                .insert(eq("tenant"), any());
-        when(codec.requestDigest(anyString(), anyString(), any())).thenReturn("a".repeat(64));
+                .insert(any());
+        when(codec.requestDigest(anyString(), any())).thenReturn("a".repeat(64));
         when(codec.encodeIntent(any())).thenReturn("intent-json");
         when(codec.decodeIntent(any())).thenReturn(command);
         when(codec.encodeAdmission(any())).thenReturn("admission-json");
         when(codec.checksum(anyString())).thenReturn("c".repeat(64));
         when(codec.encodeFee(any())).thenReturn("fee-json");
-        when(store.findIntent(anyString(), anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(intent.get()));
-        when(store.lockIntent(eq("tenant"), anyString())).thenAnswer(call -> intent.get());
-        when(store.findOrder(eq("tenant"), anyString())).thenAnswer(call -> Optional.ofNullable(order.get()));
+        when(store.findIntent(anyString(), anyString())).thenAnswer(call -> Optional.ofNullable(intent.get()));
+        when(store.lockIntent(anyString())).thenAnswer(call -> intent.get());
+        when(store.findOrder(anyString())).thenAnswer(call -> Optional.ofNullable(order.get()));
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    intent.set(call.getArgument(1));
+                    intent.set(call.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .insertIntent(eq("tenant"), any());
+                .insertIntent(any());
         doAnswer(call -> {
-                    intent.set(call.getArgument(1));
+                    intent.set(call.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .updateIntent(eq("tenant"), any(), anyLong());
+                .updateIntent(any(), anyLong());
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    order.set(call.getArgument(1));
+                    order.set(call.getArgument(0));
                     return null;
                 })
                 .when(store)
-                .insertOrder(eq("tenant"), any(), any(), anyString());
+                .insertOrder(any(), any(), anyString());
         when(product.authorize(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(1, manager.commits);
@@ -299,8 +298,8 @@ class OrderCreationServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.createDirectPay(changed))
                         .getResultCode());
-        verify(store, times(1)).insertIntent(anyString(), any());
-        verify(store, times(1)).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, times(1)).insertIntent(any());
+        verify(store, times(1)).insertOrder(any(), any(), anyString());
         verifyNoInteractions(sessions);
     }
 
@@ -311,8 +310,8 @@ class OrderCreationServiceTest {
                 assertThrows(CommonException.class, () -> service.resumeDirectPay(direct()))
                         .getResultCode());
         assertEquals(0, sequence.get());
-        verify(store, never()).insertIntent(anyString(), any());
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, never()).insertIntent(any());
+        verify(store, never()).insertOrder(any(), any(), anyString());
         verifyNoInteractions(product, sessions);
     }
 
@@ -327,8 +326,8 @@ class OrderCreationServiceTest {
         assertEquals(original.orderId(), resumed.orderId());
         assertEquals(original.id(), intent.get().id());
         assertEquals("COMPLETED", intent.get().state());
-        verify(store, times(1)).insertIntent(anyString(), any());
-        verify(store, times(1)).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, times(1)).insertIntent(any());
+        verify(store, times(1)).insertOrder(any(), any(), anyString());
         verifyNoInteractions(sessions);
     }
 
@@ -388,7 +387,6 @@ class OrderCreationServiceTest {
         assertEquals(2, manager.commits);
         verify(store)
                 .insertOrder(
-                        eq("tenant"),
                         any(),
                         argThat(fee -> fee.baseAmount().getCent() == 10000
                                 && fee.feeAmount().getCent() == 30
@@ -406,7 +404,7 @@ class OrderCreationServiceTest {
         assertEquals(first, replay);
         assertEquals(first, read);
         verifyNoInteractions(product);
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, never()).insertOrder(any(), any(), anyString());
         verify(snapshots, times(1)).publish(eq("tenant"), eq(first.orderId()), anyLong());
     }
 
@@ -433,7 +431,7 @@ class OrderCreationServiceTest {
         assertNull(order.get());
         doAnswer(call -> admitted(call.getArgument(0))).when(product).authorize(any());
         assertEquals(original.orderId(), service.create(command).orderId());
-        verify(store, times(1)).insertIntent(eq("tenant"), any());
+        verify(store, times(1)).insertIntent(any());
     }
 
     @Test
@@ -499,7 +497,7 @@ class OrderCreationServiceTest {
         assertEquals("EXPIRED", intent.get().state());
         assertEquals(2, manager.commits);
         assertNull(order.get());
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, never()).insertOrder(any(), any(), anyString());
     }
 
     @Test
@@ -542,7 +540,7 @@ class OrderCreationServiceTest {
                 assertThrows(CommonException.class, () -> service.create(command))
                         .getResultCode());
         assertEquals("INIT", intent.get().state());
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, never()).insertOrder(any(), any(), anyString());
     }
 
     @Test
@@ -562,15 +560,15 @@ class OrderCreationServiceTest {
     @Test
     void aCompetingA0InsertIsRereadAfterRollbackWithTheWinningOrderId() {
         doAnswer(call -> {
-                    intent.set(call.getArgument(1));
+                    intent.set(call.getArgument(0));
                     throw new AcquireWriteConflictException("synthetic competing insert");
                 })
                 .when(store)
-                .insertIntent(eq("tenant"), any());
+                .insertIntent(any());
         var result = service.create(command);
         assertEquals(result.orderId(), intent.get().orderId());
         assertEquals(1, manager.rollbacks);
-        verify(store, times(1)).insertIntent(eq("tenant"), any());
+        verify(store, times(1)).insertIntent(any());
     }
 
     @Test
@@ -585,9 +583,9 @@ class OrderCreationServiceTest {
                 session.get().scope().permissions());
         assertEquals(2, manager.commits);
         var calls = inOrder(store, sessions);
-        calls.verify(store).insertOrder(eq("tenant"), any(), any(), anyString());
-        calls.verify(sessions).insert(eq("tenant"), any());
-        calls.verify(store).updateIntent(eq("tenant"), argThat(i -> "COMPLETED".equals(i.state())), eq(0L));
+        calls.verify(store).insertOrder(any(), any(), anyString());
+        calls.verify(sessions).insert(any());
+        calls.verify(store).updateIntent(argThat(i -> "COMPLETED".equals(i.state())), eq(0L));
     }
 
     @Test
@@ -599,8 +597,8 @@ class OrderCreationServiceTest {
         assertEquals(first, service.checkout(checkout));
         assertSame(initial, session.get());
         verifyNoInteractions(product);
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
-        verify(sessions, never()).insert(anyString(), any());
+        verify(store, never()).insertOrder(any(), any(), anyString());
+        verify(sessions, never()).insert(any());
     }
 
     @Test
@@ -644,14 +642,14 @@ class OrderCreationServiceTest {
         assertEquals("INIT", original.state());
         assertNull(order.get());
         assertEquals(1, manager.rollbacks);
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
-        verify(sessions, never()).insert(anyString(), any());
+        verify(store, never()).insertOrder(any(), any(), anyString());
+        verify(sessions, never()).insert(any());
         doAnswer(c -> ((CheckoutSession) c.getArgument(0)).id() + "." + "A".repeat(43))
                 .when(tokens)
                 .issue(any(), anyString(), anyString(), anyString());
         doAnswer(c -> admitted(c.getArgument(0))).when(product).authorize(any());
         assertEquals(original.initialSessionId(), service.checkout(checkout).sessionId());
-        verify(store, times(1)).insertIntent(eq("tenant"), any());
+        verify(store, times(1)).insertIntent(any());
     }
 
     @Test
@@ -681,20 +679,20 @@ class OrderCreationServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.checkout(checkout))
                         .getResultCode());
-        verify(sessions, never()).insert(anyString(), any());
+        verify(sessions, never()).insert(any());
         verifyNoInteractions(product);
     }
 
     @Test
     void sessionInsertFailureRollsBackA1AndNeverMarksTheIntentCompleted() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(sessions).insert(anyString(), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(sessions).insert(any());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.checkout(checkout))
                         .getResultCode());
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);
-        verify(store, never()).updateIntent(anyString(), any(), anyLong());
+        verify(store, never()).updateIntent(any(), anyLong());
         // Mock repositories cannot prove database row rollback; real PostgreSQL acceptance is separate.
     }
 
@@ -762,7 +760,7 @@ class OrderCreationServiceTest {
         assertEquals("EXPIRED", intent.get().state());
         assertEquals(2, manager.commits);
         assertNull(order.get());
-        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verify(store, never()).insertOrder(any(), any(), anyString());
         verifyNoInteractions(sessions);
     }
 

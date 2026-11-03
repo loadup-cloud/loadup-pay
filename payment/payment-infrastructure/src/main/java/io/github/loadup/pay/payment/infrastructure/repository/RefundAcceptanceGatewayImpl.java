@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence;
@@ -60,8 +58,8 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     }
 
     @Override
-    public boolean remember(String tenant, RefundAcceptanceEvidence value, long expectedChildVersion) {
-        transaction(tenant, true);
+    public boolean remember(RefundAcceptanceEvidence value, long expectedChildVersion) {
+        transaction(true);
         if (value == null || expectedChildVersion < 0) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -88,17 +86,17 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
                 || !Objects.equals(child.getCurrency(), value.amount().getCurrencyValue())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        proof(tenant, value.refundId(), value.receiptId());
-        var row = row(tenant, value.refundId(), true);
+        proof(value.refundId(), value.receiptId());
+        var row = row(value.refundId(), true);
         if (row != null) {
             var original = read(row);
-            proof(tenant, original.refundId(), original.receiptId());
+            proof(original.refundId(), original.receiptId());
             if (!sameBinding(original, value)) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return original.acceptedAt().equals(value.acceptedAt());
         }
-        var created = converter.toDO(tenant, value);
+        var created = converter.toDO(value);
         var now = LocalDateTime.now(clock);
         created.setCreatedAt(now);
         created.setUpdatedAt(now);
@@ -117,14 +115,14 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     }
 
     @Override
-    public Optional<RefundAcceptanceEvidence> find(String tenant, String refundId) {
-        transaction(tenant, false);
-        var row = row(tenant, refundId, false);
+    public Optional<RefundAcceptanceEvidence> find(String refundId) {
+        transaction(false);
+        var row = row(refundId, false);
         if (row == null) {
             return Optional.empty();
         }
         var value = read(row);
-        proof(tenant, value.refundId(), value.receiptId());
+        proof(value.refundId(), value.receiptId());
         return Optional.of(value);
     }
 
@@ -144,7 +142,7 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
                 && a.amount().equals(b.amount());
     }
 
-    private void proof(String tenant, String refundId, String receiptId) {
+    private void proof(String refundId, String receiptId) {
         var args = new MapSqlParameterSource().addValue("id", receiptId).addValue("refund", refundId);
         var dispositions = jdbc.query("""
                 SELECT disposition FROM refund_channel_receipt WHERE id = :id
@@ -156,7 +154,7 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
         }
     }
 
-    private RefundAcceptanceDO row(String tenant, String refundId, boolean lock) {
+    private RefundAcceptanceDO row(String refundId, boolean lock) {
         DomainChecks.id(refundId);
         var args = new MapSqlParameterSource().addValue("id", refundId);
         return jdbc
@@ -174,10 +172,7 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
                 .orElse(null);
     }
 
-    private void transaction(String tenant, boolean write) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private void transaction(boolean write) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

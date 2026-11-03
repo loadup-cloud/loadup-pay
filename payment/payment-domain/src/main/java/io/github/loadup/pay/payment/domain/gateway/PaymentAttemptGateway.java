@@ -19,18 +19,18 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import java.util.Optional;
 
 public interface PaymentAttemptGateway {
-    Optional<StoredPaymentAttempt> find(String tenant, String attemptId);
+    Optional<StoredPaymentAttempt> find(String attemptId);
 
-    Optional<StoredPaymentAttempt> findRequest(String tenant, String paymentId, String requestKey);
+    Optional<StoredPaymentAttempt> findRequest(String paymentId, String requestKey);
 
     /**
      * Lookup is constrained by the trusted endpoint tenant and immutable binding revision.
      */
-    Optional<StoredPaymentAttempt> findChannelRequest(String tenant, String bindingRevisionId, String channelRequestNo);
+    Optional<StoredPaymentAttempt> findChannelRequest(String bindingRevisionId, String channelRequestNo);
 
-    Optional<StoredPaymentAttempt> lock(String tenant, String attemptId);
+    Optional<StoredPaymentAttempt> lock(String attemptId);
 
-    void insert(String tenant, StoredPaymentAttempt value);
+    void insert(StoredPaymentAttempt value);
 
-    void update(String tenant, StoredPaymentAttempt value, long expectedVersion);
+    void update(StoredPaymentAttempt value, long expectedVersion);
 }

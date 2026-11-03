@@ -19,17 +19,17 @@ import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import java.util.Optional;
 
 public interface PolicyPublicationGateway {
-    Optional<PolicyPublication> findById(String tenant, String id);
+    Optional<PolicyPublication> findById(String id);
 
-    Optional<PolicyPublication> lockById(String tenant, String id);
+    Optional<PolicyPublication> lockById(String id);
 
-    Optional<PolicyPublication> findByContract(String tenant, String contract, int revision);
+    Optional<PolicyPublication> findByContract(String contract, int revision);
 
-    Optional<PolicyPublication> findByMerchant(String tenant, String merchant);
+    Optional<PolicyPublication> findByMerchant(String merchant);
 
-    Optional<PolicyPublication> findByPolicy(String tenant, String policy);
+    Optional<PolicyPublication> findByPolicy(String policy);
 
-    void insert(String tenant, PolicyPublication value);
+    void insert(PolicyPublication value);
 
-    void update(String tenant, PolicyPublication value, long expectedVersion);
+    void update(PolicyPublication value, long expectedVersion);
 }

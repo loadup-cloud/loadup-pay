@@ -164,40 +164,38 @@ class ReconciliationReviewServiceTest {
 
     @BeforeEach
     void setup() {
-        when(batches.find("tenant", "batch")).thenReturn(Optional.of(closed));
-        when(batches.lock("tenant", "batch")).thenAnswer(call -> {
+        when(batches.find("batch")).thenReturn(Optional.of(closed));
+        when(batches.lock("batch")).thenAnswer(call -> {
             write();
             return Optional.of(closed);
         });
-        when(differences.find("tenant", "batch", "difference")).thenReturn(Optional.of(storedDifference));
-        when(reviews.find("tenant", "difference")).thenAnswer(call -> Optional.ofNullable(head.get()));
-        when(reviews.lock("tenant", "difference")).thenAnswer(call -> {
+        when(differences.find("batch", "difference")).thenReturn(Optional.of(storedDifference));
+        when(reviews.find("difference")).thenAnswer(call -> Optional.ofNullable(head.get()));
+        when(reviews.lock("difference")).thenAnswer(call -> {
             write();
             return Optional.ofNullable(head.get());
         });
-        when(reviews.findRequest(anyString(), anyString(), anyString()))
+        when(reviews.findRequest(anyString(), anyString()))
                 .thenAnswer(call -> events.values().stream()
-                        .filter(value -> value.callerServiceId().equals(call.getArgument(1))
-                                && value.requestKey().equals(call.getArgument(2)))
+                        .filter(value -> value.callerServiceId().equals(call.getArgument(0))
+                                && value.requestKey().equals(call.getArgument(1)))
                         .findFirst());
-        when(reviews.event(anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(events.get(call.getArgument(1))));
-        when(reviews.proposal(anyString(), anyString()))
-                .thenAnswer(call -> Optional.ofNullable(proposals.get(call.getArgument(1))));
+        when(reviews.event(anyString())).thenAnswer(call -> Optional.ofNullable(events.get(call.getArgument(0))));
+        when(reviews.proposal(anyString())).thenAnswer(call -> Optional.ofNullable(proposals.get(call.getArgument(0))));
         doAnswer(call -> {
                     write();
-                    ReconciliationReviewProposal proposed = call.getArgument(3);
-                    ReconciliationReviewEvent event = call.getArgument(4);
+                    ReconciliationReviewProposal proposed = call.getArgument(2);
+                    ReconciliationReviewEvent event = call.getArgument(3);
                     if (proposed != null) {
                         proposals.put(proposed.id(), proposed);
                     }
                     events.put(event.id(), event);
-                    head.set(call.getArgument(2));
+                    head.set(call.getArgument(1));
                     return null;
                 })
                 .when(reviews)
-                .commit(anyString(), any(), any(), any(), any());
-        when(files.inspect("tenant", "maker", "file")).thenAnswer(call -> {
+                .commit(any(), any(), any(), any());
+        when(files.inspect("maker", "file")).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return evidence;
         });
@@ -206,17 +204,16 @@ class ReconciliationReviewServiceTest {
                     return null;
                 })
                 .when(files)
-                .attachReview(anyString(), anyString(), any(), anyString());
-        when(reviews.history(eq("tenant"), eq("difference"), anyInt(), anyInt()))
-                .thenAnswer(call -> {
-                    assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                    int page = call.getArgument(2), size = call.getArgument(3);
-                    var all = events.values().stream()
-                            .sorted(Comparator.comparingLong(ReconciliationReviewEvent::version))
-                            .toList();
-                    long offset = (long) (page - 1) * size;
-                    return PageResult.of(all.stream().skip(offset).limit(size).toList(), all.size(), page, size);
-                });
+                .attachReview(anyString(), any(), anyString());
+        when(reviews.history(eq("difference"), anyInt(), anyInt())).thenAnswer(call -> {
+            assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            int page = call.getArgument(1), size = call.getArgument(2);
+            var all = events.values().stream()
+                    .sorted(Comparator.comparingLong(ReconciliationReviewEvent::version))
+                    .toList();
+            long offset = (long) (page - 1) * size;
+            return PageResult.of(all.stream().skip(offset).limit(size).toList(), all.size(), page, size);
+        });
     }
 
     @AfterEach
@@ -253,8 +250,8 @@ class ReconciliationReviewServiceTest {
         var detail = service.detail(new ReconciliationReviewQuery("batch", "difference"));
         assertEquals(approved, detail.lastEvent());
         assertEquals("DIFFERENCES", closed.batch().state().name());
-        verify(accounts, atLeastOnce()).authorize("tenant", "checker", "account", scope);
-        verify(batches, never()).update(anyString(), any(), anyLong());
+        verify(accounts, atLeastOnce()).authorize("checker", "account", scope);
+        verify(batches, never()).update(any(), anyLong());
         verifyNoInteractions(files);
     }
 
@@ -282,8 +279,8 @@ class ReconciliationReviewServiceTest {
         var history = service.history(new ReconciliationReviewHistoryQuery("batch", "difference", 1, 2));
         assertEquals(3L, history.getPageInfo().totalCount());
         assertEquals(List.of(first, rejected), List.copyOf(history.getData()));
-        verify(files).inspect("tenant", "maker", "file");
-        verify(files).attachReview("tenant", "maker", evidence, second.proposalId());
+        verify(files).inspect("maker", "file");
+        verify(files).attachReview("maker", evidence, second.proposalId());
     }
 
     @Test
@@ -295,14 +292,14 @@ class ReconciliationReviewServiceTest {
                         .getResultCode());
         verifyNoInteractions(batches, differences, reviews, files);
         actor.set(actor("maker"));
-        doThrow(new CommonException(ACTION_FORBIDDEN)).when(accounts).authorize("tenant", "maker", "account", scope);
+        doThrow(new CommonException(ACTION_FORBIDDEN)).when(accounts).authorize("maker", "account", scope);
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.propose(command("request", 0L, "file")))
                         .getResultCode());
         verifyNoInteractions(files);
-        doNothing().when(accounts).authorize("tenant", "maker", "account", scope);
-        when(differences.find("tenant", "batch", "difference"))
+        doNothing().when(accounts).authorize("maker", "account", scope);
+        when(differences.find("batch", "difference"))
                 .thenReturn(Optional.of(
                         new StoredReconciliationDifference("difference", "batch", "different-run", difference)));
         assertEquals(
@@ -352,16 +349,14 @@ class ReconciliationReviewServiceTest {
 
     @Test
     void evidenceAttachmentFailurePreventsHeadOrReceiptRegistration() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
-                .when(files)
-                .attachReview(anyString(), anyString(), any(), anyString());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(files).attachReview(anyString(), any(), anyString());
         assertEquals(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service.propose(command("request", 0L, "file")))
                         .getResultCode());
         assertNull(head.get());
         assertTrue(events.isEmpty());
-        verify(reviews, never()).commit(anyString(), any(), any(), any(), any());
+        verify(reviews, never()).commit(any(), any(), any(), any());
     }
 
     ReconciliationReviewProposeCommand command(String key, long version, String file) {

@@ -189,7 +189,7 @@ public class PaymentExecutionService {
 
     private Optional<Work> snapshot(String tenant, String paymentId, boolean rejectUnsubmitted) {
         return transactions.writeLocal(tenant, () -> {
-            var found = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var found = payments.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
             var locked = locks.lock(tenant, paymentId, found.callerServiceId());
             var accepted = locked.payment();
             var order = accepted.payment();
@@ -198,8 +198,7 @@ public class PaymentExecutionService {
             }
             var stored = order.activeAttemptId() == null
                     ? null
-                    : attempts.lock(tenant, order.activeAttemptId())
-                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                    : attempts.lock(order.activeAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (stored != null) {
                 PaymentExecutionBindings.activeContext(locked, stored);
             }
@@ -224,7 +223,6 @@ public class PaymentExecutionService {
                 var gate = locked.gate();
                 if (gate.gate().state() != GateState.FENCED) {
                     changes.updateGate(
-                            tenant,
                             updates.withGate(
                                     gate,
                                     gate.gate().fence(Math.max(1, gate.gate().fenceEpoch()))),
@@ -235,7 +233,7 @@ public class PaymentExecutionService {
                 if (neverSubmitted) {
                     evidence = ids.generate();
                     if (stored != null) {
-                        attempts.update(tenant, stored.closeBeforeSubmission(evidence, null), stored.rowVersion());
+                        attempts.update(stored.closeBeforeSubmission(evidence, null), stored.rowVersion());
                     }
                 } else if (stored != null && stored.attempt().canSafelyReplace()) {
                     evidence = stored.attempt().noCollectionEvidenceId();
@@ -249,7 +247,7 @@ public class PaymentExecutionService {
                 var updated = updates.withPayment(
                         accepted, nextOrder, evidence == null ? accepted.terminalEvidenceId() : evidence);
                 if (nextOrder.version() != order.version()) {
-                    changes.updatePayment(tenant, updated, order.version());
+                    changes.updatePayment(updated, order.version());
                     if (!terminal(nextOrder.state())) {
                         events.publishSnapshot(tenant, updated, now());
                     }
@@ -265,7 +263,7 @@ public class PaymentExecutionService {
                 // The original complete request digest already binds tenant, caller and frozen payment parameters.
                 var updated = initial.create(
                         tenant, accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
-                stored = attempts.lock(tenant, updated.payment().activeAttemptId())
+                stored = attempts.lock(updated.payment().activeAttemptId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 PaymentExecutionBindings.activeContext(
                         PaymentExecutionBindings.locked(updated, locked.parent(), locked.gate()), stored);

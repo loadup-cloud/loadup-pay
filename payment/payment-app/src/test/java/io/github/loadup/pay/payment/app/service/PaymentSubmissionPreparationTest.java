@@ -135,10 +135,9 @@ class PaymentSubmissionPreparationTest {
 
     @BeforeEach
     void setup() {
-        when(limits.supportsTenant("tenant")).thenReturn(true);
-        when(payments.find("tenant", "payment")).thenAnswer(call -> Optional.of(accepted.get()));
-        when(attempts.find("tenant", "attempt")).thenAnswer(call -> Optional.of(stored.get()));
-        when(attempts.lock("tenant", "attempt")).thenAnswer(call -> Optional.of(stored.get()));
+        when(payments.find("payment")).thenAnswer(call -> Optional.of(accepted.get()));
+        when(attempts.find("attempt")).thenAnswer(call -> Optional.of(stored.get()));
+        when(attempts.lock("attempt")).thenAnswer(call -> Optional.of(stored.get()));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
         when(inputs.openForPreparation(eq("tenant"), any(), eq("attempt"))).thenReturn(new NoInteractionDTO());
         when(codec.checksum(anyString())).thenReturn("b".repeat(64));
@@ -146,38 +145,38 @@ class PaymentSubmissionPreparationTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return RiskDecision.notConnected();
         });
-        when(limits.reserve(eq("tenant"), any())).thenAnswer(call -> {
+        when(limits.reserve(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return reservation(LimitReservationState.RESERVED);
         });
-        when(limits.begin(eq("tenant"), any())).thenAnswer(call -> {
+        when(limits.begin(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return permit();
         });
-        when(limits.verify(eq("tenant"), any())).thenReturn(new LimitExecutionVerificationDTO(true, "VALID"));
+        when(limits.verify(any())).thenReturn(new LimitExecutionVerificationDTO(true, "VALID"));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    stored.set(call.getArgument(1));
+                    stored.set(call.getArgument(0));
                     return null;
                 })
                 .when(attempts)
-                .update(eq("tenant"), any(), anyLong());
+                .update(any(), anyLong());
         doAnswer(call -> {
-                    accepted.set(call.getArgument(1));
+                    accepted.set(call.getArgument(0));
                     return null;
                 })
                 .when(changes)
-                .updatePayment(eq("tenant"), any(), anyLong());
+                .updatePayment(any(), anyLong());
         doAnswer(call -> {
-                    gate.set(call.getArgument(1));
+                    gate.set(call.getArgument(0));
                     return null;
                 })
                 .when(changes)
-                .updateGate(eq("tenant"), any(), anyLong());
+                .updateGate(any(), anyLong());
     }
 
     @AfterEach
@@ -201,13 +200,12 @@ class PaymentSubmissionPreparationTest {
                         && validation.method() == PaymentMethod.H5
                         && validation.subject().equals(PaymentFixtures.SUBJECT)
                         && validation.payableUntil().equals(PaymentFixtures.PAYABLE_UNTIL)));
-        calls.verify(limits).reserve(eq("tenant"), any());
-        calls.verify(limits)
-                .begin(eq("tenant"), argThat(value -> value.requestKey().equals("attempt/attempt")));
-        calls.verify(limits).verify(eq("tenant"), any());
+        calls.verify(limits).reserve(any());
+        calls.verify(limits).begin(argThat(value -> value.requestKey().equals("attempt/attempt")));
+        calls.verify(limits).verify(any());
         calls.verify(locks).lock("tenant", "payment", "acquire");
         calls.verify(inputs).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
-        calls.verify(attempts).update(eq("tenant"), any(), eq(0L));
+        calls.verify(attempts).update(any(), eq(0L));
     }
 
     @Test
@@ -216,18 +214,18 @@ class PaymentSubmissionPreparationTest {
         clearInvocations(risk, limits, inputs);
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
         verifyNoInteractions(risk, inputs);
-        verify(limits, never()).reserve(anyString(), any());
+        verify(limits, never()).reserve(any());
     }
 
     @Test
     void anotherWorkersCommittedY2MakesThisCallerLoseTheTicket() {
-        when(limits.verify(eq("tenant"), any())).thenAnswer(call -> {
+        when(limits.verify(any())).thenAnswer(call -> {
             stored.set(
                     stored.get().beginSubmission(1, "b".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW));
             return new LimitExecutionVerificationDTO(true, "VALID");
         });
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
-        verify(attempts, never()).update(anyString(), any(), anyLong());
+        verify(attempts, never()).update(any(), anyLong());
         verify(inputs, never()).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
     }
 
@@ -247,8 +245,8 @@ class PaymentSubmissionPreparationTest {
         assertEquals(PaymentState.PROCESSING, accepted.get().payment().state());
         assertNull(accepted.get().terminalEvidenceId());
         verify(inputs, never()).bindToAttempt(anyString(), any(), anyString(), any());
-        verify(attempts, never()).update(anyString(), any(), anyLong());
-        verify(changes, never()).updatePayment(anyString(), any(), anyLong());
+        verify(attempts, never()).update(any(), anyLong());
+        verify(changes, never()).updatePayment(any(), anyLong());
         verifyNoInteractions(events);
     }
 
@@ -260,14 +258,14 @@ class PaymentSubmissionPreparationTest {
         assertEquals(PaymentAttemptState.CLOSED, stored.get().attempt().state());
         assertEquals(GateState.FENCED, gate.get().gate().state());
         assertNotNull(accepted.get().terminalEvidenceId());
-        verify(limits, never()).reserve(anyString(), any());
+        verify(limits, never()).reserve(any());
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
         verify(events, times(1)).publish(eq("tenant"), eq(accepted.get()), eq(true), any());
     }
 
     @Test
     void mismatchedPermitCannotCrossY2OrConsumeInput() {
-        when(limits.begin(eq("tenant"), any()))
+        when(limits.begin(any()))
                 .thenReturn(new LimitExecutionPermitDTO("other-operation", "payment", "attempt", 1, "a".repeat(64)));
         assertSame(
                 EXECUTION_PERMIT_INVALID,
@@ -291,8 +289,8 @@ class PaymentSubmissionPreparationTest {
 
         assertEquals(0, stored.get().attempt().executionEpoch());
         verify(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
-        verify(limits, never()).reserve(anyString(), any());
-        verify(limits, never()).begin(anyString(), any());
+        verify(limits, never()).reserve(any());
+        verify(limits, never()).begin(any());
         verify(channels, never()).submit(any());
     }
 
@@ -306,8 +304,8 @@ class PaymentSubmissionPreparationTest {
                         .getResultCode());
         assertEquals(0, stored.get().attempt().executionEpoch());
         verify(channels, never()).validate(any());
-        verify(limits, never()).reserve(anyString(), any());
-        verify(limits, never()).begin(anyString(), any());
+        verify(limits, never()).reserve(any());
+        verify(limits, never()).begin(any());
         verify(channels, never()).submit(any());
     }
 
@@ -322,21 +320,21 @@ class PaymentSubmissionPreparationTest {
 
         assertEquals(0, stored.get().attempt().executionEpoch());
         verify(channels, never()).validate(any());
-        verify(limits, never()).reserve(anyString(), any());
-        verify(limits, never()).begin(anyString(), any());
+        verify(limits, never()).reserve(any());
+        verify(limits, never()).begin(any());
         verify(channels, never()).submit(any());
     }
 
     @Test
     void reservationExpiryProducesOnlyLocalPreSubmissionNoCollectionProof() {
-        when(limits.reserve(eq("tenant"), any())).thenReturn(reservation(LimitReservationState.EXPIRED));
+        when(limits.reserve(any())).thenReturn(reservation(LimitReservationState.EXPIRED));
         assertSame(
                 LIMIT_RESERVATION_EXPIRED,
                 assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
                         .getResultCode());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
         assertEquals(0, stored.get().attempt().executionEpoch());
-        verify(limits, never()).begin(anyString(), any());
+        verify(limits, never()).begin(any());
     }
 
     @Test

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.client;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
@@ -45,20 +44,12 @@ public class AcquireRealtimeHttpClient implements AcquireRealtimeClient {
     }
 
     @Override
-    public boolean supportsTenant(String tenant) {
-        return properties.tenantId().equals(tenant);
-    }
-
-    @Override
-    public ProjectionAckDTO apply(String tenant, EventEnvelope<OrderSnapshotEventDTO> event) {
-        if (!supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    public ProjectionAckDTO apply(EventEnvelope<OrderSnapshotEventDTO> event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            var token = tokens.token(tenant, properties.serviceId(), properties.audience());
+            var token = tokens.token(properties.serviceId(), properties.audience());
             return HttpServiceResponses.requiredData(realtimeHttp.order("Bearer " + token, event));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

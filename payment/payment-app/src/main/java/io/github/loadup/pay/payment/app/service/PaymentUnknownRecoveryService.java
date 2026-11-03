@@ -104,7 +104,7 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var rows = reader.list(actor.tenantId(), query.kind(), window);
+            var rows = reader.list(query.kind(), window);
             requireWindow(rows, query, window);
             boolean more = rows.size() > query.limit();
             var visible = rows.subList(0, Math.min(rows.size(), query.limit()));

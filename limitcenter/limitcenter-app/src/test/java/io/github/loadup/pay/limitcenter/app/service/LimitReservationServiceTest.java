@@ -20,9 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -58,18 +56,18 @@ class LimitReservationServiceTest {
     }
 
     void active(long used, int currentVersion, long threshold) {
-        when(f.reservations.lockOrCreateGate("tenant", "operation", "payment-id"))
+        when(f.reservations.lockOrCreateGate("operation", "payment-id"))
                 .thenReturn(LimitOperationGate.init("operation", "payment-id"));
-        when(f.policies.lockHead("tenant", "policy"))
+        when(f.policies.lockHead("policy"))
                 .thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", currentVersion, currentVersion)));
-        when(f.policies.findRevision("tenant", "policy", 1)).thenReturn(Optional.of(f.policy(1, 100)));
-        when(f.policies.lockRule(eq("tenant"), any()))
+        when(f.policies.findRevision("policy", 1)).thenReturn(Optional.of(f.policy(1, 100)));
+        when(f.policies.lockRule(any()))
                 .thenReturn(Optional.of(new RuntimeLimitRule(
                         "policy",
                         currentVersion,
                         f.policy(currentVersion, threshold).rules().getFirst(),
                         currentVersion)));
-        when(f.reservations.lockBuckets(eq("tenant"), anyList())).thenAnswer(call -> {
+        when(f.reservations.lockBuckets(anyList())).thenAnswer(call -> {
             List<LimitBucketKey> keys = call.getArgument(1);
             var values = new HashMap<LimitBucketKey, LimitBucket>();
             for (var key : keys) {
@@ -101,7 +99,6 @@ class LimitReservationServiceTest {
         f.reservationService.reserve(f.command(40));
         verify(f.reservations)
                 .insertReservation(
-                        eq("tenant"),
                         argThat(stored -> stored.reservation().initiatedAt().equals(f.now.minusDays(1))
                                 && stored.reservation().reserveExpiresAt().equals(f.now.plusSeconds(120))),
                         anyList(),
@@ -113,19 +110,19 @@ class LimitReservationServiceTest {
 
     @Test
     void replayDoesNotAddHoldsOrRefreshExpiry() {
-        when(f.reservations.lockOrCreateGate("tenant", "operation", "payment-id"))
+        when(f.reservations.lockOrCreateGate("operation", "payment-id"))
                 .thenReturn(LimitOperationGate.init("operation", "payment-id").open());
-        when(f.reservations.findByOperation("tenant", "operation")).thenReturn(Optional.of(stored("payment")));
+        when(f.reservations.findByOperation("operation")).thenReturn(Optional.of(stored("payment")));
         assertEquals("reservation", f.reservationService.reserve(f.command(40)).reservationId());
         verifyNoInteractions(f.policies);
-        verify(f.reservations, never()).lockBuckets(anyString(), anyList());
+        verify(f.reservations, never()).lockBuckets(anyList());
     }
 
     @Test
     void changedAmountConflictsEvenWhenCallerKeepsTheSameDigest() {
-        when(f.reservations.lockOrCreateGate("tenant", "operation", "payment-id"))
+        when(f.reservations.lockOrCreateGate("operation", "payment-id"))
                 .thenReturn(LimitOperationGate.init("operation", "payment-id").open());
-        when(f.reservations.findByOperation("tenant", "operation")).thenReturn(Optional.of(stored("payment")));
+        when(f.reservations.findByOperation("operation")).thenReturn(Optional.of(stored("payment")));
         var error = assertThrows(CommonException.class, () -> f.reservationService.reserve(f.command(41)));
         assertSame(LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, error.getResultCode());
     }
@@ -135,13 +132,13 @@ class LimitReservationServiceTest {
         active(60, 2, 80);
         var error = assertThrows(CommonException.class, () -> f.reservationService.reserve(f.command(30)));
         assertSame(LimitCenterResultCodeEnum.EXCEEDED, error.getResultCode());
-        verify(f.reservations, never()).insertReservation(anyString(), any(), anyList(), any(), any());
+        verify(f.reservations, never()).insertReservation(any(), anyList(), any(), any());
         assertEquals(1, f.manager.rollbacks);
     }
 
     @Test
     void fencedTombstoneCannotBeReopenedByALateReservation() {
-        when(f.reservations.lockOrCreateGate("tenant", "operation", "payment-id"))
+        when(f.reservations.lockOrCreateGate("operation", "payment-id"))
                 .thenReturn(LimitOperationGate.init("operation", "payment-id").fence(1, "evidence"));
         var error = assertThrows(CommonException.class, () -> f.reservationService.reserve(f.command(40)));
         assertSame(LimitCenterResultCodeEnum.EXECUTION_FENCED, error.getResultCode());
@@ -150,7 +147,7 @@ class LimitReservationServiceTest {
 
     @Test
     void detailCannotCrossServiceOwnership() {
-        when(f.reservations.findByOperation("tenant", "operation")).thenReturn(Optional.of(stored("another-service")));
+        when(f.reservations.findByOperation("operation")).thenReturn(Optional.of(stored("another-service")));
         var error = assertThrows(
                 CommonException.class, () -> f.reservationService.detail(new LimitOperationQuery("operation")));
         assertSame(LimitCenterResultCodeEnum.ACTION_FORBIDDEN, error.getResultCode());

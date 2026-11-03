@@ -48,31 +48,31 @@ class CashierAccessTest {
 
     @Test
     void originalSessionAndOwnerMustMatchBeforeAReservation() {
-        when(sessions.lock("tenant", "session")).thenReturn(Optional.of(active));
+        when(sessions.lock("session")).thenReturn(Optional.of(active));
         new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             access.authorize(actor, OWNER, order, true);
             assertThrows(CommonException.class, () -> access.authorize(actor, "x".repeat(64), order, true));
             return true;
         });
-        verify(sessions, atLeastOnce()).lock("tenant", "session");
+        verify(sessions, atLeastOnce()).lock("session");
     }
 
     @Test
     void expiredOrCancelledSessionCannotCreateButCommittedIntentsRemainBoundForCompletion() {
         var cancelled = session(CheckoutSessionState.CANCELLED, NOW.plusMinutes(5));
-        when(sessions.lock("tenant", "session")).thenReturn(Optional.of(cancelled));
+        when(sessions.lock("session")).thenReturn(Optional.of(cancelled));
         new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
             access.authorize(actor, OWNER, order, false);
             return true;
         });
-        when(sessions.find("tenant", "session")).thenReturn(Optional.of(cancelled));
+        when(sessions.find("session")).thenReturn(Optional.of(cancelled));
         assertThrows(CommonException.class, () -> access.read(actor, order, "PAYMENT_PROGRESS"));
     }
 
     @Test
     void validCapabilityCannotChangeTheOrderOrTheStoredExpiry() {
-        when(sessions.find("tenant", "session")).thenReturn(Optional.of(active));
+        when(sessions.find("session")).thenReturn(Optional.of(active));
         assertThrows(
                 CommonException.class,
                 () -> access.read(
@@ -89,13 +89,13 @@ class CashierAccessTest {
     @Test
     void revocationBlocksNewReservationsAndReadsButPreservesCommittedIntentCompletion() {
         var revoked = active.revoke(0L, NOW);
-        when(sessions.lock("tenant", "session")).thenReturn(Optional.of(revoked));
+        when(sessions.lock("session")).thenReturn(Optional.of(revoked));
         new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
             access.authorize(actor, OWNER, order, false);
             return true;
         });
-        when(sessions.find("tenant", "session")).thenReturn(Optional.of(revoked));
+        when(sessions.find("session")).thenReturn(Optional.of(revoked));
         for (var permission : revoked.scope().permissions()) {
             assertThrows(CommonException.class, () -> access.read(actor, order, permission));
         }

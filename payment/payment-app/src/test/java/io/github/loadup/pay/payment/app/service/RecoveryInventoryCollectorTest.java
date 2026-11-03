@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -81,9 +80,8 @@ class RecoveryInventoryCollectorTest {
     void completeTrustedScopePublishesOneCombinedSnapshotAndScrapesDoNotQueryTheDatabase() {
         var reader = mock(RecoveryInventoryReader.class);
         var clock = new MutableClock();
-        when(reader.read(anyString())).thenAnswer(call -> {
-            String tenant = call.getArgument(0);
-            assertEquals(tenant, TenantUtil.getTenantId());
+        when(reader.read()).thenAnswer(call -> {
+            String tenant = TenantUtil.getTenantId();
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return tenant.equals("tenant-a")
@@ -110,8 +108,8 @@ class RecoveryInventoryCollectorTest {
             assertEquals(700.0, gauge(registry, ".unknown.nominal.amount", "refund"));
             assertEquals(2.0, gauge(registry, ".configured.tenants", null));
             assertEquals(1.0, gauge(registry, ".initialized", null));
-            verify(reader, times(1)).read("tenant-a");
-            verify(reader, times(1)).read("tenant-b");
+            verify(reader, times(1)).read();
+            verify(reader, times(1)).read();
             collector.execute();
             for (int i = 0; i < 5; i++) {
                 gauge(registry, ".unknown.count", "payment");
@@ -129,7 +127,7 @@ class RecoveryInventoryCollectorTest {
         var fail = new AtomicBoolean();
         var reads = new AtomicInteger();
         var original = new CommonException(DEPENDENCY_UNAVAILABLE);
-        when(reader.read(anyString())).thenAnswer(call -> {
+        when(reader.read()).thenAnswer(call -> {
             if (fail.get() && reads.incrementAndGet() == 2) {
                 throw original;
             }
@@ -168,7 +166,7 @@ class RecoveryInventoryCollectorTest {
     @Test
     void incompleteReaderOutputCannotMasqueradeAsAZeroInventory() {
         var reader = mock(RecoveryInventoryReader.class);
-        when(reader.read("tenant")).thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT)));
+        when(reader.read()).thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT)));
         try {
             var registry = new SimpleMeterRegistry();
             var collector = collector(reader, registry, new MutableClock(), true, "tenant");
@@ -182,7 +180,7 @@ class RecoveryInventoryCollectorTest {
     @Test
     void anObservedEmptyScopePublishesZerosAndClockRegressionDoesNotFreezeSampling() {
         var reader = mock(RecoveryInventoryReader.class);
-        when(reader.read("tenant"))
+        when(reader.read())
                 .thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT), RecoveryInventoryCell.empty(REFUND)));
         var clock = new MutableClock();
         try {
@@ -193,7 +191,7 @@ class RecoveryInventoryCollectorTest {
             assertEquals(0.0, gauge(registry, ".unknown.oldest.age", "refund"));
             clock.advance(Duration.ofSeconds(-60));
             collector.execute();
-            verify(reader, times(2)).read("tenant");
+            verify(reader, times(2)).read();
             assertEquals(0.0, gauge(registry, ".sample.age", null));
         } catch (Exception e) {
         }

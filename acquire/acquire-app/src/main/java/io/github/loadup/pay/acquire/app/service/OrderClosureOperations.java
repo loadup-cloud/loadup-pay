@@ -99,7 +99,7 @@ public class OrderClosureOperations {
         }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             var intent = transactions.writeLocal(actor.tenantId(), () -> {
-                var order = orders.lockOrder(actor.tenantId(), command.id());
+                var order = orders.lockOrder(command.id());
                 return startLocked(actor, order, command);
             });
             return resume(actor, intent);
@@ -128,7 +128,7 @@ public class OrderClosureOperations {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         String digest = digest(actor, command);
-        var prior = store.findIntent(actor.tenantId(), command.id());
+        var prior = store.findIntent(command.id());
         if (prior.isPresent()) {
             var value = prior.get();
             value.requireSameRequest(actor.scopeHash(), command.requestKey(), digest);
@@ -140,7 +140,7 @@ public class OrderClosureOperations {
         }
         var closing = order.order().requestClose();
         var intent = converter.toIntent(command, closing, ids.generate(), actor.scopeHash(), digest, now());
-        store.start(actor.tenantId(), closing, intent, order.order().version());
+        store.start(closing, intent, order.order().version());
         tasks.register(actor.tenantId(), intent);
         snapshots.publish(actor.tenantId(), closing.id(), closing.version());
         return intent;
@@ -156,46 +156,44 @@ public class OrderClosureOperations {
             if (terminal(original.order())) {
                 return orderConverter.toDTO(original, now());
             }
-            var fenced = payment.fenceParent(actor.tenantId(), converter.toFence(intent));
+            var fenced = payment.fenceParent(converter.toFence(intent));
             requireParent(intent, fenced);
-            var batch = store.heldAfter(actor.tenantId(), intent.orderId(), intent.cursorPaymentId(), BATCH_SIZE);
+            var batch = store.heldAfter(intent.orderId(), intent.cursorPaymentId(), BATCH_SIZE);
             if (batch.isEmpty() && !intent.cursorPaymentId().isEmpty()) {
-                batch = store.heldAfter(actor.tenantId(), intent.orderId(), "", BATCH_SIZE);
+                batch = store.heldAfter(intent.orderId(), "", BATCH_SIZE);
             }
             for (var allocation : batch) {
                 outcomes.bound(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), original, allocation);
                 var request = converter.toPaymentClose(intent, allocation);
-                var closed = payment.close(actor.tenantId(), request);
+                var closed = payment.close(request);
                 outcomes.applyClose(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), request, closed);
             }
             String nextCursor =
                     batch.size() == BATCH_SIZE ? batch.getLast().allocation().paymentId() : "";
             advance(actor, intent, nextCursor);
-            var status = payment.parentFenceStatus(actor.tenantId(), converter.toStatusQuery(intent));
+            var status = payment.parentFenceStatus(converter.toStatusQuery(intent));
             requireParent(intent, status);
             // Fencing alone never proves that all local holds or remote collection attempts have converged.
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var order = orders.lockOrder(actor.tenantId(), intent.orderId());
+                var order = orders.lockOrder(intent.orderId());
                 owned(actor, order);
                 bound(
                         order,
-                        store.findIntent(actor.tenantId(), intent.orderId())
-                                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                        store.findIntent(intent.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
                 if (terminal(order.order())) {
                     return orderConverter.toDTO(order, now());
                 }
                 if (!status.allChildrenConverged()
                         || order.order().paymentReservedMinor() != 0
                         || order.order().reservedPaymentCount() != 0
-                        || !store.allAllocationsSettled(actor.tenantId(), intent.orderId())) {
+                        || !store.allAllocationsSettled(intent.orderId())) {
                     return orderConverter.toDTO(order, now());
                 }
                 var closed = order.order().finishClose(converter.toEvidence(intent, status));
-                store.finish(actor.tenantId(), closed, order.order().version(), now());
+                store.finish(closed, order.order().version(), now());
                 snapshots.publish(actor.tenantId(), closed.id(), closed.version());
                 return orderConverter.toDTO(
-                        orders.findOrder(actor.tenantId(), intent.orderId())
-                                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                        orders.findOrder(intent.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
                         now());
             });
         });
@@ -220,22 +218,18 @@ public class OrderClosureOperations {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!payment.supportsTenant(actor.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
     }
 
     private void advance(OrderPaymentScope actor, OrderCloseIntent attempted, String nextCursor) {
         transactions.writeLocal(actor.tenantId(), () -> {
-            var order = orders.lockOrder(actor.tenantId(), attempted.orderId());
+            var order = orders.lockOrder(attempted.orderId());
             owned(actor, order);
-            var latest = store.findIntent(actor.tenantId(), attempted.orderId())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var latest = store.findIntent(attempted.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             bound(order, latest);
             latest.requireSameRequest(attempted.callerScopeHash(), attempted.requestKey(), attempted.requestDigest());
             if (!terminal(order.order()) && latest.rowVersion() == attempted.rowVersion()) {
                 var advanced = latest.advanceCursor(nextCursor);
-                store.advanceCursor(actor.tenantId(), advanced, latest.rowVersion());
+                store.advanceCursor(advanced, latest.rowVersion());
                 tasks.schedule(actor.tenantId(), advanced, now());
             }
             return true;
@@ -243,8 +237,7 @@ public class OrderClosureOperations {
     }
 
     private StoredAcquireOrder current(OrderPaymentScope actor, OrderCloseIntent intent) {
-        var order = orders.findOrder(actor.tenantId(), intent.orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var order = orders.findOrder(intent.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         owned(actor, order);
         bound(order, intent);
         return order;

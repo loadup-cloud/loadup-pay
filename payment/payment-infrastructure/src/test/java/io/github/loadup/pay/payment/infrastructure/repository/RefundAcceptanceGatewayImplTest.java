@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -122,23 +121,22 @@ class RefundAcceptanceGatewayImplTest {
 
     @Test
     void firstAcceptanceHasOneImmutableReceiptAndDifferentTimeNeverOverwritesIt() {
-        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 2L)));
-        var stored = converter.toDO("tenant", first);
+        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 2L)));
+        var stored = converter.toDO(first);
         assertEquals(first, converter.toModel(stored));
         when(receipts.query(
                         contains("FROM refund_acceptance_evidence"),
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
                 .thenReturn(List.of(stored));
-        assertTrue(TenantUtil.callWithTenant(
-                "tenant", () -> gateway.remember("tenant", evidence(at, "later-receipt"), 2L)));
+        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember(evidence(at, "later-receipt"), 2L)));
         assertFalse(TenantUtil.callWithTenant(
-                "tenant", () -> gateway.remember("tenant", evidence(at.plusMinutes(1), "later-receipt"), 2L)));
+                "tenant", () -> gateway.remember(evidence(at.plusMinutes(1), "later-receipt"), 2L)));
         verify(receipts, times(1))
                 .update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class));
         assertEquals(
                 "receipt",
-                TenantUtil.callWithTenant("tenant", () -> gateway.find("tenant", "refund"))
+                TenantUtil.callWithTenant("tenant", () -> gateway.find("refund"))
                         .orElseThrow()
                         .receiptId());
         assertEquals(at, stored.getAcceptedAt());
@@ -150,38 +148,31 @@ class RefundAcceptanceGatewayImplTest {
                 SNAPSHOT_INVALID,
                 assertThrows(
                                 CommonException.class,
-                                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 1L)))
+                                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 1L)))
                         .getResultCode());
         assertThrows(
                 CommonException.class,
                 () -> TenantUtil.callWithTenant(
-                        "tenant", () -> gateway.remember("tenant", evidence(at.minusDays(1), "receipt"), 2L)));
+                        "tenant", () -> gateway.remember(evidence(at.minusDays(1), "receipt"), 2L)));
         when(receipts.query(
                         contains("FROM refund_channel_receipt"),
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<String>>any()))
                 .thenReturn(List.of());
         assertThrows(
-                CommonException.class,
-                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 2L)));
+                CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 2L)));
         verify(receipts, never())
                 .update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class));
     }
 
     @Test
-    void writableTrustedTenantIsRequiredEvenForRepeatedMetadata() {
+    void writableTransactionIsRequiredEvenForRepeatedMetadata() {
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
         assertEquals(
                 INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
-                                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 2L)))
-                        .getResultCode());
-        assertEquals(
-                ACTION_FORBIDDEN,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant("other", () -> gateway.find("tenant", "refund")))
+                                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 2L)))
                         .getResultCode());
         verifyNoInteractions(receipts);
     }

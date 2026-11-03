@@ -82,7 +82,7 @@ class CashierSummaryServiceTest {
 
     @Test
     void summaryContainsNoContractCredentialOrMerchantIdentityAndOffersNoFakeChoices() {
-        when(orders.findOrder("tenant", "order"))
+        when(orders.findOrder("order"))
                 .thenReturn(
                         Optional.of(order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10))));
         var dto = service(NOW.plusMinutes(5)).summary(new IdQuery("order"));
@@ -108,18 +108,18 @@ class CashierSummaryServiceTest {
     @Test
     void paidAndClosedOrdersAreReadableWithoutReopeningOrMutatingThem() {
         for (var state : List.of(AcquireOrderState.PAID, AcquireOrderState.CLOSED)) {
-            when(orders.findOrder("tenant", "order"))
+            when(orders.findOrder("order"))
                     .thenReturn(Optional.of(order(state, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10))));
             var dto = service(NOW.plusMinutes(5)).summary(new IdQuery("order"));
             assertEquals(state.name(), dto.state().name());
             assertEquals(0, dto.availableToPayMinor());
         }
-        verify(orders, never()).lockOrder(anyString(), anyString());
+        verify(orders, never()).lockOrder(anyString());
     }
 
     @Test
     void expiryReachedWhileLoadingTheOrderStillPreventsPresentation() {
-        when(orders.findOrder("tenant", "order"))
+        when(orders.findOrder("order"))
                 .thenReturn(Optional.of(order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10))));
         assertThrows(CommonException.class, () -> service(NOW).summary(new IdQuery("order")));
     }

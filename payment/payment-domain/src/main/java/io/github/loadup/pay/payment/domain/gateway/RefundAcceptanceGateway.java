@@ -22,7 +22,7 @@ public interface RefundAcceptanceGateway {
     /**
      * Parent/request/capacity/child locks already held. False preserves the first timestamp and signals a metadata conflict.
      */
-    boolean remember(String tenant, RefundAcceptanceEvidence value, long expectedChildVersion);
+    boolean remember(RefundAcceptanceEvidence value, long expectedChildVersion);
 
-    Optional<RefundAcceptanceEvidence> find(String tenant, String refundId);
+    Optional<RefundAcceptanceEvidence> find(String refundId);
 }

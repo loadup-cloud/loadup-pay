@@ -79,7 +79,7 @@ public class PaymentInputAccess {
         if (!requiresInput(command)) {
             return;
         }
-        var input = inputs.lock(tenant, command.preparedInputRef()).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var input = inputs.lock(command.preparedInputRef()).orElseThrow(() -> new CommonException(NOT_FOUND));
         requireBinding(service, command, input);
         if (input.expired(now)) {
             throw new CommonException(INPUT_EXPIRED);
@@ -99,8 +99,7 @@ public class PaymentInputAccess {
         if (!requiresInput(command)) {
             return;
         }
-        var input = inputs.lock(tenant, command.preparedInputRef())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var input = inputs.lock(command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         requireBinding(accepted.callerServiceId(), command, input);
         if (input.expired(now)) {
             throw new CommonException(INPUT_EXPIRED);
@@ -110,7 +109,7 @@ public class PaymentInputAccess {
         }
         var next = input.bind(attemptId, now);
         if (next != input) {
-            inputs.bind(tenant, next, input.rowVersion());
+            inputs.bind(next, input.rowVersion());
         }
     }
 
@@ -124,7 +123,7 @@ public class PaymentInputAccess {
         return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
-            var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var accepted = payments.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (accepted.payment().state() != PaymentState.PROCESSING
                     || !attemptId.equals(accepted.payment().activeAttemptId())) {
                 throw new CommonException(INVALID_STATE);
@@ -133,8 +132,8 @@ public class PaymentInputAccess {
             if (!requiresInput(command)) {
                 return new NoInteractionDTO();
             }
-            var input = inputs.find(tenant, command.preparedInputRef())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var input =
+                    inputs.find(command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(accepted.callerServiceId(), command, input);
             if (input.state() != PaymentInputState.BOUND || !attemptId.equals(input.boundAttemptId())) {
                 throw new CommonException(INPUT_ALREADY_BOUND);
@@ -158,8 +157,7 @@ public class PaymentInputAccess {
             throw new CommonException(INVALID_STATE);
         }
         return transactions.withTenantContext(tenant, () -> {
-            var accepted =
-                    payments.find(tenant, original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var accepted = payments.find(original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (accepted.payment().state() != PaymentState.PROCESSING
                     || !attemptId.equals(accepted.payment().activeAttemptId())
                     || !accepted.requestDigest().equals(original.requestDigest())
@@ -170,8 +168,8 @@ public class PaymentInputAccess {
             if (!requiresInput(command)) {
                 return new NoInteractionDTO();
             }
-            var input = inputs.find(tenant, command.preparedInputRef())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var input =
+                    inputs.find(command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(accepted.callerServiceId(), command, input);
             if (input.state() != PaymentInputState.INIT || input.boundAttemptId() != null) {
                 throw new CommonException(INPUT_ALREADY_BOUND);

@@ -19,7 +19,5 @@ import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateComman
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 
 public interface PolicyActivationClient {
-    boolean supportsTenant(String tenant);
-
-    LimitPolicyActivationDTO activate(String tenant, LimitPolicyActivateCommand command);
+    LimitPolicyActivationDTO activate(LimitPolicyActivateCommand command);
 }

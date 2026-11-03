@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.client;
 
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
 
@@ -47,16 +46,13 @@ public class PaymentVerificationHttpClient implements ReconciliationPaymentVerif
     }
 
     @Override
-    public PaymentVerificationDTO verify(String tenant, PaymentVerificationQuery query) {
+    public PaymentVerificationDTO verify(PaymentVerificationQuery query) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!properties.tenantId().equals(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         try {
             var value = HttpServiceResponses.requiredData(paymentVerificationHttp.verify(
-                    "Bearer " + tokens.token(tenant, properties.serviceId(), properties.audience()), query));
+                    "Bearer " + tokens.token(properties.serviceId(), properties.audience()), query));
             return PaymentEvidenceContracts.verification(value);
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

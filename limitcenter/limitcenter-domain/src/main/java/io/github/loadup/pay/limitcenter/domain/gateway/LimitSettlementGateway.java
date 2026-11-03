@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LimitSettlementGateway {
-    Optional<LimitSettlementReceipt> findReceipt(String tenant, String operationId);
+    Optional<LimitSettlementReceipt> findReceipt(String operationId);
 
-    void insertReceipt(String tenant, LimitSettlementReceipt receipt);
+    void insertReceipt(LimitSettlementReceipt receipt);
 
-    void fenceGate(String tenant, LimitOperationGate gate);
+    void fenceGate(LimitOperationGate gate);
 
-    void updateItems(String tenant, List<LimitReservationItem> before, List<LimitReservationItem> after);
+    void updateItems(List<LimitReservationItem> before, List<LimitReservationItem> after);
 }

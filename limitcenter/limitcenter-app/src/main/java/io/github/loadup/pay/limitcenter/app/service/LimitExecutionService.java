@@ -150,8 +150,8 @@ public class LimitExecutionService implements LimitExecutionFacade {
                     command.requestKey(),
                     key,
                     DigestUtils.sha256(permit));
-            reservations.insertExecutionGrant(actor.tenantId(), grant);
-            reservations.updateReservation(actor.tenantId(), next, value.version());
+            reservations.insertExecutionGrant(grant);
+            reservations.updateReservation(next, value.version());
             return converter.toPermitDTO(grant, permit);
         });
     }
@@ -189,8 +189,8 @@ public class LimitExecutionService implements LimitExecutionFacade {
             if (value.state() != LimitReservationState.RESERVED || now.isBefore(value.reserveExpiresAt())) {
                 return converter.toDTO(value);
             }
-            var items = reservations.loadItems(actor.tenantId(), value.id());
-            var policy = policies.findRevision(actor.tenantId(), value.policyId(), value.policyVersion())
+            var items = reservations.loadItems(value.id());
+            var policy = policies.findRevision(value.policyId(), value.policyVersion())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!policy.policyHash().equals(stored.policyHash())
                     || !policy.payeeMerchantId().equals(value.payeeMerchantId())) {
@@ -222,25 +222,20 @@ public class LimitExecutionService implements LimitExecutionFacade {
                 }
             }
             var before = reservations.lockExistingBuckets(
-                    actor.tenantId(),
                     items.stream().map(LimitReservationItem::bucket).toList());
             var after = before.releaseReserved(items);
             var next = stored.transitionTo(value.expire(now));
-            reservations.updateBuckets(actor.tenantId(), before, after);
-            reservations.updateReservation(actor.tenantId(), next, value.version());
+            reservations.updateBuckets(before, after);
+            reservations.updateReservation(next, value.version());
             return converter.toDTO(next.reservation());
         });
     }
 
     private StoredLimitReservation lockOperation(LimitActor actor, String operation) {
         DomainChecks.id(operation);
-        var first = reservations
-                .findByOperation(actor.tenantId(), operation)
-                .orElseThrow(() -> new CommonException(NOT_FOUND));
+        var first = reservations.findByOperation(operation).orElseThrow(() -> new CommonException(NOT_FOUND));
         owner(actor, first);
-        var gate = reservations
-                .lockGate(actor.tenantId(), operation)
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var gate = reservations.lockGate(operation).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!gate.operationId().equals(operation)
                 || !gate.paymentId().equals(first.reservation().paymentId())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -252,16 +247,13 @@ public class LimitExecutionService implements LimitExecutionFacade {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         // The gate serializes every operation mutation; read again after waiting for it.
-        var stored = reservations
-                .findByOperation(actor.tenantId(), operation)
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var stored = reservations.findByOperation(operation).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         owner(actor, stored);
         var value = stored.reservation();
         if (!operation.equals(value.operationId()) || !gate.paymentId().equals(value.paymentId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var head = policies.lockHead(actor.tenantId(), value.policyId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var head = policies.lockHead(value.policyId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!value.policyId().equals(head.policyId())
                 || !value.payeeMerchantId().equals(head.payeeMerchantId())
                 || value.policyVersion() > head.latestVersion()) {
@@ -272,7 +264,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
 
     private LimitExecutionGrant grant(String tenant, LimitReservation value) {
         var grant = reservations
-                .findExecutionGrant(tenant, value.operationId(), value.executionEpoch())
+                .findExecutionGrant(value.operationId(), value.executionEpoch())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!grant.operationId().equals(value.operationId())
                 || !grant.paymentId().equals(value.paymentId())

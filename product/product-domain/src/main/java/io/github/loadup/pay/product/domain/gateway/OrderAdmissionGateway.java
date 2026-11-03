@@ -22,9 +22,9 @@ import java.util.Optional;
  * Application owns transactions; duplicate inserts must roll back before reading the winner.
  */
 public interface OrderAdmissionGateway {
-    Optional<StoredOrderAdmission> findByOrder(String tenantId, String orderId);
+    Optional<StoredOrderAdmission> findByOrder(String orderId);
 
-    Optional<StoredOrderAdmission> findById(String tenantId, String admissionId);
+    Optional<StoredOrderAdmission> findById(String admissionId);
 
-    void insert(String tenantId, StoredOrderAdmission admission);
+    void insert(StoredOrderAdmission admission);
 }

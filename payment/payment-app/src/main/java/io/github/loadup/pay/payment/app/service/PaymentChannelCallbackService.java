@@ -90,8 +90,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
         try {
             accepted = transactions.withTenantContext(endpoint.tenantId(), () -> {
                 var hint = notifications.identify(endpoint.channel(), endpoint.bindingRevisionId(), input);
-                var stored = attempts.findChannelRequest(
-                                endpoint.tenantId(), endpoint.bindingRevisionId(), hint.channelRequestNo())
+                var stored = attempts.findChannelRequest(endpoint.bindingRevisionId(), hint.channelRequestNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
                 var attempt = stored.attempt();
                 if (attempt.binding().channel() != endpoint.channel()
@@ -101,8 +100,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
                         || stored.submissionStartedAt() == null) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                var payment = payments.find(endpoint.tenantId(), attempt.paymentId())
-                        .orElseThrow(() -> new CommonException(NOT_FOUND));
+                var payment = payments.find(attempt.paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 commands.decode(payment);
                 PaymentExecutionBindings.observable(payment, stored);
                 var target = new ChannelPaymentTarget(attempt.identity(), attempt.amount());

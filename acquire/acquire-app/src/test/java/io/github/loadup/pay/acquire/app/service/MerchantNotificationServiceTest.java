@@ -105,17 +105,17 @@ class MerchantNotificationServiceTest {
     @BeforeEach
     void setup() {
         current.set(delivery(policy(5, 5, 3600)));
-        when(deliveries.lock(TENANT, "delivery")).thenAnswer(call -> Optional.of(current.get()));
+        when(deliveries.lock("delivery")).thenAnswer(call -> Optional.of(current.get()));
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals(TENANT, TenantUtil.getTenantId());
-                    assertEquals(current.get(), call.getArgument(1));
-                    current.set(call.getArgument(2));
+                    assertEquals(current.get(), call.getArgument(0));
+                    current.set(call.getArgument(1));
                     operations.add("update:" + current.get().state());
                     return null;
                 })
                 .when(deliveries)
-                .update(eq(TENANT), ArgumentMatchers.any(), ArgumentMatchers.any());
+                .update(ArgumentMatchers.any(), ArgumentMatchers.any());
         when(tasks.find(eq(MerchantNotificationService.TYPE), anyString()))
                 .thenAnswer(call -> Optional.ofNullable(nativeTasks.get(call.getArgument(1))));
         doAnswer(call -> {
@@ -211,7 +211,7 @@ class MerchantNotificationServiceTest {
                 INVALID_STATE,
                 assertThrows(CommonException.class, () -> invoke(expired, service(NOW)))
                         .getResultCode());
-        verify(deliveries, never()).lock(eq(TENANT), eq("delivery"));
+        verify(deliveries, never()).lock(eq("delivery"));
         verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
     }
 

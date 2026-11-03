@@ -108,21 +108,16 @@ public class PaymentOutcomeOperations {
 
     PaymentProgressDTO refresh(OrderPaymentScope actor, PaymentProgressRefreshCommand query) {
         requireNoTransaction();
-        if (!payment.supportsTenant(actor.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.orderId());
             DomainChecks.id(query.paymentId());
-            var order = orders.findOrder(actor.tenantId(), query.orderId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var order = orders.findOrder(query.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             owned(actor, order);
             var allocation = allocations
-                    .findPayment(actor.tenantId(), query.orderId(), query.paymentId())
+                    .findPayment(query.orderId(), query.paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             var command = bound(actor, order, allocation);
-            var receipt = allocations.findReceipt(
-                    actor.tenantId(), allocation.allocation().id());
+            var receipt = allocations.findReceipt(allocation.allocation().id());
             if (receipt.isPresent() && receipt.get().outcome().kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED) {
                 try {
                     receipt.get().requireBoundTo(allocation.allocation());
@@ -133,7 +128,7 @@ public class PaymentOutcomeOperations {
                 var current = converge(actor, command, receipt.get().outcome());
                 return converter.toProgress(null, orderConverter.toDTO(current, now()));
             }
-            var response = payment.outcome(actor.tenantId(), query.paymentId());
+            var response = payment.outcome(query.paymentId());
             var outcome = terminal(command, response);
             var current = converge(actor, command, outcome);
             return converter.toProgress(response.payment(), orderConverter.toDTO(current, now()));
@@ -144,11 +139,10 @@ public class PaymentOutcomeOperations {
             OrderPaymentScope actor, String orderId, String paymentId, PaymentCloseDTO response) {
         requireNoTransaction();
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            var order = orders.findOrder(actor.tenantId(), orderId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var order = orders.findOrder(orderId).orElseThrow(() -> new CommonException(NOT_FOUND));
             owned(actor, order);
-            var allocation = allocations
-                    .findPayment(actor.tenantId(), orderId, paymentId)
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var allocation =
+                    allocations.findPayment(orderId, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
             var command = bound(actor, order, allocation);
             if (response == null || response.payment() != null) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -169,14 +163,13 @@ public class PaymentOutcomeOperations {
                     || !response.fenced()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var order = orders.findOrder(actor.tenantId(), close.orderId())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var order = orders.findOrder(close.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             owned(actor, order);
             if (!close.payeeMerchantId().equals(order.order().payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var allocation = allocations
-                    .findPayment(actor.tenantId(), close.orderId(), close.paymentId())
+                    .findPayment(close.orderId(), close.paymentId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var command = bound(actor, order, allocation);
             VerifiedPaymentOutcome outcome;
@@ -224,16 +217,15 @@ public class PaymentOutcomeOperations {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        var currentOrder = orders.lockOrder(actor.tenantId(), command.orderId());
+        var currentOrder = orders.lockOrder(command.orderId());
         owned(actor, currentOrder);
         var current = allocations
-                .lockPayment(actor.tenantId(), command.orderId(), command.paymentId())
+                .lockPayment(command.orderId(), command.paymentId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!command.equals(bound(actor, currentOrder, current))) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var receipt =
-                allocations.findReceipt(actor.tenantId(), current.allocation().id());
+        var receipt = allocations.findReceipt(current.allocation().id());
         if (receipt.isPresent()) {
             try {
                 receipt.get().requireBoundTo(current.allocation());
@@ -262,19 +254,11 @@ public class PaymentOutcomeOperations {
         }
         var change = currentOrder.order().applyPaymentOutcome(current.allocation(), outcome);
         var accepted = converter.toReceipt(ids.generate(), current.allocation().id(), outcome, now());
-        allocations.apply(
-                actor.tenantId(),
-                change,
-                current,
-                accepted,
-                currentOrder.order().version());
+        allocations.apply(change, current, accepted, currentOrder.order().version());
         if (change.order().state() == AcquireOrderState.PAID) {
             var admission = orderCodec.decodeAdmission(currentOrder.admissionPayload(), currentOrder.payloadHash());
             fees.confirmPaid(
-                    actor.tenantId(),
-                    change.order(),
-                    orderConverter.toFeePolicy(admission.terms().fee()),
-                    accepted.observedAt());
+                    change.order(), orderConverter.toFeePolicy(admission.terms().fee()), accepted.observedAt());
         }
         snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
         notifications.payment(actor.tenantId(), change.order().id(), outcome);

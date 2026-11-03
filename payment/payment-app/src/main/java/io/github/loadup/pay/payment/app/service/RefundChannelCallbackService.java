@@ -80,11 +80,7 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
         try {
             accepted = transactions.withTenantContext(endpoint.tenantId(), () -> {
                 var hint = notifications.identifyRefund(endpoint.channel(), endpoint.bindingRevisionId(), input);
-                var target = targets.find(
-                                endpoint.tenantId(),
-                                endpoint.bindingRevisionId(),
-                                hint.channelRequestNo(),
-                                hint.channelRefundNo())
+                var target = targets.find(endpoint.bindingRevisionId(), hint.channelRequestNo(), hint.channelRefundNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
                 if (target.original().channel() != endpoint.channel()
                         || !target.original().bindingRevisionId().equals(endpoint.bindingRevisionId())

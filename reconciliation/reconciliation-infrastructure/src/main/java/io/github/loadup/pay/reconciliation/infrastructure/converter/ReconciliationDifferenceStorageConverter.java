@@ -94,10 +94,5 @@ public interface ReconciliationDifferenceStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     ReconciliationDifferenceDO toDO(
-            String tenant,
-            String batchId,
-            String runId,
-            ReconciliationDifference value,
-            String channelEntryId,
-            String ledgerEntryId);
+            String batchId, String runId, ReconciliationDifference value, String channelEntryId, String ledgerEntryId);
 }

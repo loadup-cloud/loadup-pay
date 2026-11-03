@@ -58,7 +58,7 @@ class OrderCreationStorageConverterTest {
         var initial = intent("CHECKOUT", "initial-session");
         var completed = initial.finish("COMPLETED", "admission", LocalDateTime.of(2026, 10, 22, 12, 0), "SUCCESS");
         for (var value : List.of(initial, completed)) {
-            var row = converter.toIntentDO("tenant", value);
+            var row = converter.toIntentDO(value);
             assertEquals("CHECKOUT", row.getEntryMode());
             assertEquals("initial-session", row.getInitialSessionId());
             assertEquals(value, converter.toIntent(row));
@@ -68,7 +68,7 @@ class OrderCreationStorageConverterTest {
     @Test
     void ordinaryOrderRemainsDistinctAndHasNoInitialSession() {
         var value = intent("ORDER", null);
-        var row = converter.toIntentDO("tenant", value);
+        var row = converter.toIntentDO(value);
         assertEquals("ORDER", row.getEntryMode());
         assertNull(row.getInitialSessionId());
         assertEquals(value, converter.toIntent(row));

@@ -128,7 +128,7 @@ class CashierServiceTest {
 
     @BeforeEach
     void setup() {
-        when(orders.findOrder("tenant", "order")).thenReturn(Optional.of(stored));
+        when(orders.findOrder("order")).thenReturn(Optional.of(stored));
         when(choices.choices(eq(stored), any())).thenReturn(Set.of(choice));
         when(inputs.prepare(actor, choice)).thenReturn(new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
         when(summaries.summary(new IdQuery("order"))).thenReturn(summary);
@@ -182,22 +182,19 @@ class CashierServiceTest {
 
     @Test
     void anotherSessionOrMerchantPaymentCannotBeQueriedWithThisCapability() {
-        when(allocations.findPayment("tenant", "order", "payment"))
-                .thenReturn(Optional.of(allocation("checkout/other-session")));
+        when(allocations.findPayment("order", "payment")).thenReturn(Optional.of(allocation("checkout/other-session")));
         assertSame(
                 SESSION_UNAUTHORIZED,
                 assertThrows(CommonException.class, () -> service.paymentProgress(new IdQuery("payment")))
                         .getResultCode());
-        when(allocations.findPayment("tenant", "order", "payment"))
-                .thenReturn(Optional.of(allocation("merchant/" + OWNER)));
+        when(allocations.findPayment("order", "payment")).thenReturn(Optional.of(allocation("merchant/" + OWNER)));
         assertThrows(CommonException.class, () -> service.paymentProgress(new IdQuery("payment")));
         verifyNoInteractions(outcomes);
     }
 
     @Test
     void provenNonAcceptanceRemainsAbsentRatherThanInventingAPaymentRecord() {
-        when(allocations.findPayment("tenant", "order", "payment"))
-                .thenReturn(Optional.of(allocation("checkout/session")));
+        when(allocations.findPayment("order", "payment")).thenReturn(Optional.of(allocation("checkout/session")));
         when(outcomes.refresh(any(), any())).thenReturn(new PaymentProgressDTO(null, null));
         var result = service.paymentProgress(new IdQuery("payment"));
         assertEquals("payment", result.paymentId());

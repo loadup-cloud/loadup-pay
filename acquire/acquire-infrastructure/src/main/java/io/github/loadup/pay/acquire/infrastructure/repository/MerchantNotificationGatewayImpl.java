@@ -15,15 +15,12 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
@@ -58,17 +55,15 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     }
 
     @Override
-    public Optional<MerchantNotificationDelivery> find(String tenant, String deliveryId) {
-        tenant(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", deliveryId);
+    public Optional<MerchantNotificationDelivery> find(String deliveryId) {
+        var args = new MapSqlParameterSource().addValue("id", deliveryId);
         var row = read("id = :id", args, false);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
 
     @Override
-    public PageResult<MerchantNotificationDelivery> page(String tenant, MerchantNotificationFilter filter) {
-        tenant(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+    public PageResult<MerchantNotificationDelivery> page(MerchantNotificationFilter filter) {
+        var args = new MapSqlParameterSource()
                 .addValue("payee", filter.payeeMerchantId())
                 .addValue("limit", filter.size())
                 .addValue("offset", (long) (filter.page() - 1) * filter.size());
@@ -104,35 +99,32 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     }
 
     @Override
-    public Optional<MerchantNotificationDelivery> findEvent(String tenant, String eventId, String targetRef) {
-        tenant(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("event", eventId)
-                .addValue("target", targetRef);
+    public Optional<MerchantNotificationDelivery> findEvent(String eventId, String targetRef) {
+        var args = new MapSqlParameterSource().addValue("event", eventId).addValue("target", targetRef);
         var row = read("event_id = :event AND target_ref = :target", args, false);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
 
     @Override
-    public Optional<MerchantNotificationDelivery> lock(String tenant, String deliveryId) {
-        writable(tenant);
+    public Optional<MerchantNotificationDelivery> lock(String deliveryId) {
+        writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", deliveryId);
+        var args = new MapSqlParameterSource().addValue("id", deliveryId);
         var row = read("id = :id", args, true);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
 
     @Override
-    public void insert(String tenant, MerchantNotificationDelivery delivery) {
-        writable(tenant);
+    public void insert(MerchantNotificationDelivery delivery) {
+        writable();
         if (delivery.rowVersion() != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var row = converter.toDO(tenant, delivery);
+        var row = converter.toDO(delivery);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -156,8 +148,8 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     }
 
     @Override
-    public void update(String tenant, MerchantNotificationDelivery before, MerchantNotificationDelivery after) {
-        writable(tenant);
+    public void update(MerchantNotificationDelivery before, MerchantNotificationDelivery after) {
+        writable();
         if (!sameIdentity(before, after)
                 || after.rowVersion() != increment(before.rowVersion())
                 || before.routeFingerprint() != null
@@ -165,7 +157,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var patch = converter.toPatch(after);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", before.id())
                 .addValue("expected", before.rowVersion())
                 .addValue("next", patch.getNextAttemptAt())
@@ -242,14 +234,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
         }
     }
 
-    private void tenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
-    private void writable(String tenant) {
-        tenant(tenant);
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

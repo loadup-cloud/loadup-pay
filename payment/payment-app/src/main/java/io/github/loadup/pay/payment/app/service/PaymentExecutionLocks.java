@@ -46,14 +46,14 @@ public class PaymentExecutionLocks {
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
-        var initial = gates.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var initial = gates.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!initial.callerServiceId().equals(originalService)) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        var parent = gates.lockParent(tenant, initial.payment().orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var gate = gates.lockPayment(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var current = payments.lockPayment(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var parent =
+                gates.lockParent(initial.payment().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var gate = gates.lockPayment(paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var current = payments.lockPayment(paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         codec.decode(current);
         if (!paymentId.equals(initial.payment().id())
                 || !paymentId.equals(current.payment().id())

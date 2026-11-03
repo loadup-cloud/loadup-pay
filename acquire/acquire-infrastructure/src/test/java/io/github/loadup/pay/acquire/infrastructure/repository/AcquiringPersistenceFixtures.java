@@ -84,10 +84,10 @@ final class AcquiringPersistenceFixtures {
                     new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
                     PaymentInteractionKind.NONE);
             payload = codec.encodeDirectPay(direct);
-            digest = codec.directPayDigest(tenant, OWNER, direct);
+            digest = codec.directPayDigest(OWNER, direct);
         } else {
             payload = codec.encodeIntent(command);
-            digest = codec.requestDigest(tenant, OWNER, command);
+            digest = codec.requestDigest(OWNER, command);
         }
         var intent = new OrderCreateIntent(
                 id("intent"),

@@ -87,21 +87,21 @@ class TradeProjectionServiceTest {
                 .thenAnswer(c -> "%064x"
                         .formatted(Integer.toUnsignedLong(
                                 Objects.hash(c.getArgument(0), c.getArgument(1), c.getArgument(2), c.getArgument(3)))));
-        when(receipts.find(eq("tenant"), eq("payment"), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(accepted.get(c.getArgument(2))));
-        when(projections.applyPaymentIfNewer(eq("tenant"), any(), anyString())).thenAnswer(c -> {
+        when(receipts.find(eq("payment"), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(accepted.get(c.getArgument(1))));
+        when(projections.applyPaymentIfNewer(any(), anyString())).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            TradePaymentProjection value = c.getArgument(1);
+            TradePaymentProjection value = c.getArgument(0);
             return new ProjectionAdvance("APPLIED", value.source().number());
         });
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    ProjectionReceipt receipt = c.getArgument(1);
+                    ProjectionReceipt receipt = c.getArgument(0);
                     accepted.put(receipt.deliveryId(), receipt);
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -116,7 +116,7 @@ class TradeProjectionServiceTest {
         assertEquals("APPLIED", ack.disposition());
         assertEquals(2, ack.projectedVersion());
         assertEquals(1, manager.commits);
-        verify(projections, never()).findOrder(anyString(), anyString());
+        verify(projections, never()).findOrder(anyString());
     }
 
     @Test
@@ -124,7 +124,7 @@ class TradeProjectionServiceTest {
         var event = RealtimeFixtures.payment("delivery", 2, PaymentState.SUCCEEDED);
         var ack = service.applyPayment(event);
         assertEquals(ack, service.applyPayment(event));
-        verify(projections, times(1)).applyPaymentIfNewer(anyString(), any(), anyString());
+        verify(projections, times(1)).applyPaymentIfNewer(any(), anyString());
     }
 
     @Test
@@ -141,8 +141,7 @@ class TradeProjectionServiceTest {
 
     @Test
     void olderSourceVersionIsDurablyAcknowledgedWithoutRollingBackTheProjection() {
-        when(projections.applyPaymentIfNewer(eq("tenant"), any(), anyString()))
-                .thenReturn(new ProjectionAdvance("STALE", 5));
+        when(projections.applyPaymentIfNewer(any(), anyString())).thenReturn(new ProjectionAdvance("STALE", 5));
         var ack = service.applyPayment(RealtimeFixtures.payment("delivery", 2, PaymentState.PROCESSING));
         assertTrue(ack.accepted());
         assertEquals(2, ack.sourceVersion());
@@ -152,18 +151,16 @@ class TradeProjectionServiceTest {
 
     @Test
     void sameVersionDifferentFactsCannotProduceAnAck() {
-        doThrow(new CommonException(SOURCE_CONFLICT))
-                .when(projections)
-                .applyPaymentIfNewer(eq("tenant"), any(), anyString());
+        doThrow(new CommonException(SOURCE_CONFLICT)).when(projections).applyPaymentIfNewer(any(), anyString());
         assertThrows(
                 CommonException.class,
                 () -> service.applyPayment(RealtimeFixtures.payment("delivery", 2, PaymentState.SUCCEEDED)));
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
     }
 
     @Test
     void eventReceiptFailureRollsBackTheApplicationTransaction() {
-        doThrow(new CommonException(SNAPSHOT_INVALID)).when(receipts).insert(eq("tenant"), any());
+        doThrow(new CommonException(SNAPSHOT_INVALID)).when(receipts).insert(any());
         assertThrows(
                 CommonException.class,
                 () -> service.applyPayment(RealtimeFixtures.payment("delivery", 2, PaymentState.SUCCEEDED)));

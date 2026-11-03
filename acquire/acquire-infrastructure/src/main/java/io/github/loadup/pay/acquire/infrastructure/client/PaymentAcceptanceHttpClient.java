@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.client;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
@@ -67,74 +66,66 @@ public class PaymentAcceptanceHttpClient
     }
 
     @Override
-    public boolean supportsTenant(String tenant) {
-        return properties.tenantId().equals(tenant);
+    public PaymentInputDTO prepareInput(PaymentInputPrepareCommand command) {
+        return exchange(authorization -> paymentHttp.inputPrepare(authorization, command), true);
     }
 
     @Override
-    public PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
-        return exchange(tenant, authorization -> paymentHttp.inputPrepare(authorization, command), true);
+    public PaymentInputLookupDTO lookupInput(PaymentInputLookupQuery query) {
+        return exchange(authorization -> paymentHttp.inputLookup(authorization, query), true);
     }
 
     @Override
-    public PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query) {
-        return exchange(tenant, authorization -> paymentHttp.inputLookup(authorization, query), true);
+    public PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command) {
+        return exchange(authorization -> paymentHttp.inputExpire(authorization, command), true);
     }
 
     @Override
-    public PaymentInputExpiryDTO expireInput(String tenant, PaymentInputExpireCommand command) {
-        return exchange(tenant, authorization -> paymentHttp.inputExpire(authorization, command), true);
+    public PaymentExecutionDTO accept(PaymentExecuteCommand command) {
+        return exchange(authorization -> paymentHttp.accept(authorization, command), true);
     }
 
     @Override
-    public PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command) {
-        return exchange(tenant, authorization -> paymentHttp.accept(authorization, command), true);
+    public PaymentExecutionDTO detail(String paymentId) {
+        return exchange(authorization -> paymentHttp.detail(authorization, new IdQuery(paymentId)), false);
     }
 
     @Override
-    public PaymentExecutionDTO detail(String tenant, String paymentId) {
-        return exchange(tenant, authorization -> paymentHttp.detail(authorization, new IdQuery(paymentId)), false);
+    public PaymentOutcomeDTO outcome(String paymentId) {
+        return exchange(authorization -> paymentHttp.outcome(authorization, new IdQuery(paymentId)), false);
     }
 
     @Override
-    public PaymentOutcomeDTO outcome(String tenant, String paymentId) {
-        return exchange(tenant, authorization -> paymentHttp.outcome(authorization, new IdQuery(paymentId)), false);
+    public PaymentSettlementFactsDTO facts(String paymentId) {
+        return exchange(authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)), false);
     }
 
     @Override
-    public PaymentSettlementFactsDTO facts(String tenant, String paymentId) {
-        return exchange(tenant, authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)), false);
+    public OrderRefundSummaryEventDTO refundSummary(String orderId) {
+        return exchange(authorization -> paymentHttp.refundSummary(authorization, new IdQuery(orderId)), false);
     }
 
     @Override
-    public OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId) {
-        return exchange(tenant, authorization -> paymentHttp.refundSummary(authorization, new IdQuery(orderId)), false);
+    public ParentFenceDTO fenceParent(ParentPaymentFenceCommand command) {
+        return exchange(authorization -> paymentHttp.fenceParent(authorization, command), false);
     }
 
     @Override
-    public ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command) {
-        return exchange(tenant, authorization -> paymentHttp.fenceParent(authorization, command), false);
+    public PaymentCloseDTO close(PaymentCloseCommand command) {
+        return exchange(authorization -> paymentHttp.close(authorization, command), false);
     }
 
     @Override
-    public PaymentCloseDTO close(String tenant, PaymentCloseCommand command) {
-        return exchange(tenant, authorization -> paymentHttp.close(authorization, command), false);
+    public ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query) {
+        return exchange(authorization -> paymentHttp.parentFenceStatus(authorization, query), false);
     }
 
-    @Override
-    public ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query) {
-        return exchange(tenant, authorization -> paymentHttp.parentFenceStatus(authorization, query), false);
-    }
-
-    private <R> R exchange(String tenant, Function<String, SuccessResponse<R>> call, boolean guarded) {
-        if (!supportsTenant(tenant)) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private <R> R exchange(Function<String, SuccessResponse<R>> call, boolean guarded) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            return HttpServiceResponses.requiredData(call.apply("Bearer " + credential(tenant)));
+            return HttpServiceResponses.requiredData(call.apply("Bearer " + credential()));
         } catch (RuntimeException failure) {
             if (guarded) {
                 var code =
@@ -150,7 +141,7 @@ public class PaymentAcceptanceHttpClient
         }
     }
 
-    private String credential(String tenant) {
-        return tokens.token(tenant, properties.serviceId(), properties.audience());
+    private String credential() {
+        return tokens.token(properties.serviceId(), properties.audience());
     }
 }

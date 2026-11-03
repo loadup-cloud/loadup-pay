@@ -131,7 +131,7 @@ class PaymentCapturePersistenceIT {
     void submittedUnknownPreventsAnEmptySuccessfulExportAndTenantScopeIsEnforced() {
         var fixture = seed(null, false);
         var scope = scope(fixture);
-        var blocked = transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(fixture.tenant(), scope));
+        var blocked = transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(scope));
         assertEquals(PaymentCaptureBlocker.UNRESOLVED_COLLECTION, blocked.blocker());
         assertTrue(blocked.lines().isEmpty());
         assertEquals(fixture.attempt().attempt().id(), blocked.blockerSubjectId());
@@ -140,15 +140,12 @@ class PaymentCapturePersistenceIT {
         assertEquals(
                 PaymentCaptureBlocker.ACCOUNT_SCOPE_UNKNOWN,
                 transactions
-                        .readSnapshot(fixture.tenant(), () -> reader.read(fixture.tenant(), unknown))
+                        .readSnapshot(fixture.tenant(), () -> reader.read(unknown))
                         .blocker());
         assertThrows(
-                CommonException.class,
-                () -> transactions.readSnapshot(fixture.tenant(), () -> reader.read("other", scope)));
-        assertThrows(
-                CommonException.class,
-                () -> transactions.writeLocal(fixture.tenant(), () -> reader.read(fixture.tenant(), scope)));
-        assertThrows(CommonException.class, () -> reader.read(fixture.tenant(), scope));
+                CommonException.class, () -> transactions.readSnapshot(fixture.tenant(), () -> reader.read(scope)));
+        assertThrows(CommonException.class, () -> transactions.writeLocal(fixture.tenant(), () -> reader.read(scope)));
+        assertThrows(CommonException.class, () -> reader.read(scope));
     }
 
     @Test
@@ -167,17 +164,16 @@ class PaymentCapturePersistenceIT {
         assertEquals(1L, page.total());
         assertEquals(read.lines(), page.records());
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var value = captures.find(fixture.tenant(), original.id()).orElseThrow();
+            var value = captures.find(original.id()).orElseThrow();
             assertEquals(1L, value.version());
             assertEquals(10000L, value.paymentAmountMinor());
-            assertThrows(CommonException.class, () -> captures.page(fixture.tenant(), value, 1, 101));
+            assertThrows(CommonException.class, () -> captures.page(value, 1, 101));
             return true;
         });
         assertEquals(
                 0L,
                 transactions.readSnapshot(
-                        "other",
-                        () -> captures.find("other", original.id()).stream().count()));
+                        "other", () -> captures.find(original.id()).stream().count()));
     }
 
     @Test
@@ -188,8 +184,7 @@ class PaymentCapturePersistenceIT {
         captures.failAfterSeal.set(true);
         assertThrows(IllegalStateException.class, () -> seal(fixture.tenant(), original, read));
         transactions.readSnapshot(fixture.tenant(), () -> {
-            assertEquals(
-                    original, captures.find(fixture.tenant(), original.id()).orElseThrow());
+            assertEquals(original, captures.find(original.id()).orElseThrow());
             assertEquals(
                     0L,
                     jdbc.queryForObject(
@@ -198,7 +193,7 @@ class PaymentCapturePersistenceIT {
                             original.id()));
             assertEquals(
                     PaymentState.SUCCEEDED,
-                    payments.find(fixture.tenant(), fixture.command().paymentId())
+                    payments.find(fixture.command().paymentId())
                             .orElseThrow()
                             .payment()
                             .state());
@@ -213,15 +208,13 @@ class PaymentCapturePersistenceIT {
         var fixture = seed(null, true);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             transactions.readSnapshot(fixture.tenant(), 20, () -> {
-                assertEquals(
-                        1, reader.read(fixture.tenant(), scope(fixture)).lines().size());
+                assertEquals(1, reader.read(scope(fixture)).lines().size());
                 try {
                     workers.submit(() -> seed(fixture.tenant(), true)).get(10, TimeUnit.SECONDS);
                 } catch (Exception failure) {
                     throw new AssertionError(failure);
                 }
-                assertEquals(
-                        1, reader.read(fixture.tenant(), scope(fixture)).lines().size());
+                assertEquals(1, reader.read(scope(fixture)).lines().size());
                 return true;
             });
         }
@@ -235,34 +228,26 @@ class PaymentCapturePersistenceIT {
                 : new Fixture(
                         tenant, value.command(), value.payment(), value.attempt(), value.head(), value.revision());
         transactions.writeLocal(fixture.tenant(), () -> {
-            bindings.insertHead(fixture.tenant(), fixture.head());
-            bindings.insertRevision(fixture.tenant(), fixture.revision());
-            payments.insertParent(
-                    fixture.tenant(),
-                    new StoredPaymentGate(
-                            id("parent"),
-                            fixture.command().payeeMerchantId(),
-                            "acquire",
-                            PaymentExecutionGate.init(fixture.command().orderId(), null)
-                                    .open(),
-                            0L));
-            payments.insertPaymentGate(
-                    fixture.tenant(),
-                    new StoredPaymentGate(
-                            id("gate"),
-                            fixture.command().payeeMerchantId(),
-                            "acquire",
-                            PaymentExecutionGate.init(
-                                            fixture.command().orderId(),
-                                            fixture.command().paymentId())
-                                    .open(),
-                            0L));
-            payments.insert(fixture.tenant(), fixture.payment());
-            attempts.insert(fixture.tenant(), fixture.attempt());
-            attempts.update(
-                    fixture.tenant(),
-                    fixture.attempt().beginSubmission(1L, "d".repeat(64), RiskDecision.notConnected(), AT),
-                    0L);
+            bindings.insertHead(fixture.head());
+            bindings.insertRevision(fixture.revision());
+            payments.insertParent(new StoredPaymentGate(
+                    id("parent"),
+                    fixture.command().payeeMerchantId(),
+                    "acquire",
+                    PaymentExecutionGate.init(fixture.command().orderId(), null).open(),
+                    0L));
+            payments.insertPaymentGate(new StoredPaymentGate(
+                    id("gate"),
+                    fixture.command().payeeMerchantId(),
+                    "acquire",
+                    PaymentExecutionGate.init(
+                                    fixture.command().orderId(),
+                                    fixture.command().paymentId())
+                            .open(),
+                    0L));
+            payments.insert(fixture.payment());
+            attempts.insert(fixture.attempt());
+            attempts.update(fixture.attempt().beginSubmission(1L, "d".repeat(64), RiskDecision.notConnected(), AT), 0L);
             return true;
         });
         if (success) {
@@ -296,14 +281,14 @@ class PaymentCapturePersistenceIT {
     private PaymentCapture initial(Fixture fixture) {
         var root = PaymentCapture.init(id("capture"), "reconciliation", id("request"), "d".repeat(64), scope(fixture));
         transactions.writeLocal(fixture.tenant(), () -> {
-            captures.insert(fixture.tenant(), root);
+            captures.insert(root);
             return true;
         });
         return root;
     }
 
     private PaymentCaptureRead read(Fixture fixture) {
-        return transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(fixture.tenant(), scope(fixture)));
+        return transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(scope(fixture)));
     }
 
     private void seal(String tenant, PaymentCapture original, PaymentCaptureRead read) {
@@ -321,14 +306,14 @@ class PaymentCapturePersistenceIT {
                         .map(line -> converter.toDTO(line, scope.systemZone()))
                         .toList());
         transactions.writeLocal(tenant, () -> {
-            captures.complete(tenant, original, original.complete(read, hash), read);
+            captures.complete(original, original.complete(read, hash), read);
             return true;
         });
     }
 
     private PageResult<PaymentLedgerLine> page(String tenant, String id) {
         return transactions.readSnapshot(
-                tenant, () -> captures.page(tenant, captures.find(tenant, id).orElseThrow(), 1, 100));
+                tenant, () -> captures.page(captures.find(id).orElseThrow(), 1, 100));
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -358,8 +343,8 @@ class PaymentCapturePersistenceIT {
         }
 
         @Override
-        public void complete(String tenant, PaymentCapture original, PaymentCapture next, PaymentCaptureRead read) {
-            super.complete(tenant, original, next, read);
+        public void complete(PaymentCapture original, PaymentCapture next, PaymentCaptureRead read) {
+            super.complete(original, next, read);
             if (failAfterSeal.getAndSet(false)) {
                 throw new IllegalStateException("Synthetic failure after actual capture SQL");
             }

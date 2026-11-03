@@ -78,13 +78,12 @@ class LimitExpiryServiceTest {
     }
 
     void stored(StoredLimitReservation stored) {
-        when(f.reservations.findByOperation("tenant", "operation")).thenReturn(Optional.of(stored));
-        when(f.reservations.lockGate("tenant", "operation"))
+        when(f.reservations.findByOperation("operation")).thenReturn(Optional.of(stored));
+        when(f.reservations.lockGate("operation"))
                 .thenReturn(Optional.of(
                         LimitOperationGate.init("operation", "payment-id").open()));
-        when(f.policies.lockHead("tenant", "policy"))
-                .thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
-        when(f.policies.findRevision("tenant", "policy", 1)).thenReturn(Optional.of(f.policy(1, 100)));
+        when(f.policies.lockHead("policy")).thenReturn(Optional.of(new LimitPolicyHead("policy", "merchant", 2, 2)));
+        when(f.policies.findRevision("policy", 1)).thenReturn(Optional.of(f.policy(1, 100)));
     }
 
     LimitReservationItem item() {
@@ -103,23 +102,20 @@ class LimitExpiryServiceTest {
     void expiryReturnsOnlyThisReservationsHoldAndPreservesOtherUsage() {
         stored(reserved(f.now));
         var item = item();
-        when(f.reservations.loadItems("tenant", "reservation")).thenReturn(List.of(item));
-        when(f.reservations.lockExistingBuckets(eq("tenant"), anyList()))
+        when(f.reservations.loadItems("reservation")).thenReturn(List.of(item));
+        when(f.reservations.lockExistingBuckets(anyList()))
                 .thenReturn(new LimitBucketSet(Map.of(item.bucket(), new LimitBucket(item.bucket(), 10, 60, 4))));
         assertEquals(
                 LimitReservationState.EXPIRED,
                 service.expire(new LimitExpireCommand("operation")).state());
         verify(f.reservations)
                 .updateBuckets(
-                        eq("tenant"),
                         any(),
                         argThat(after -> after.buckets().get(item.bucket()).held() == 20
                                 && after.buckets().get(item.bucket()).used() == 10));
         verify(f.reservations)
                 .updateReservation(
-                        eq("tenant"),
-                        argThat(next -> next.reservation().state() == LimitReservationState.EXPIRED),
-                        eq(1L));
+                        argThat(next -> next.reservation().state() == LimitReservationState.EXPIRED), eq(1L));
     }
 
     @Test
@@ -127,8 +123,8 @@ class LimitExpiryServiceTest {
         var original = reserved(f.now);
         stored(original.transitionTo(original.reservation().expire(f.now)));
         service.expire(new LimitExpireCommand("operation"));
-        verify(f.reservations, never()).loadItems(anyString(), anyString());
-        verify(f.reservations, never()).updateBuckets(anyString(), any(), any());
+        verify(f.reservations, never()).loadItems(anyString());
+        verify(f.reservations, never()).updateBuckets(any(), any());
     }
 
     @Test
@@ -138,8 +134,8 @@ class LimitExpiryServiceTest {
         assertEquals(
                 LimitReservationState.EXECUTING,
                 service.expire(new LimitExpireCommand("operation")).state());
-        verify(f.reservations, never()).loadItems(anyString(), anyString());
-        verify(f.reservations, never()).updateBuckets(anyString(), any(), any());
+        verify(f.reservations, never()).loadItems(anyString());
+        verify(f.reservations, never()).updateBuckets(any(), any());
     }
 
     @Test
@@ -148,29 +144,29 @@ class LimitExpiryServiceTest {
         assertEquals(
                 LimitReservationState.RESERVED,
                 service.expire(new LimitExpireCommand("operation")).state());
-        verify(f.reservations, never()).updateReservation(anyString(), any(), anyLong());
+        verify(f.reservations, never()).updateReservation(any(), anyLong());
     }
 
     @Test
     void aCorruptedOriginalItemCannotReleaseAnotherQuantity() {
         stored(reserved(f.now));
         var item = item();
-        when(f.reservations.loadItems("tenant", "reservation"))
+        when(f.reservations.loadItems("reservation"))
                 .thenReturn(List.of(new LimitReservationItem("item", "reservation", item.bucket(), 41, 0, 0)));
         assertThrows(CommonException.class, () -> service.expire(new LimitExpireCommand("operation")));
-        verify(f.reservations, never()).lockExistingBuckets(anyString(), anyList());
+        verify(f.reservations, never()).lockExistingBuckets(anyList());
     }
 
     @Test
     void aLateReservationWriteConflictRollsBackTheWholeExpiryTransaction() {
         stored(reserved(f.now));
         var item = item();
-        when(f.reservations.loadItems("tenant", "reservation")).thenReturn(List.of(item));
-        when(f.reservations.lockExistingBuckets(eq("tenant"), anyList()))
+        when(f.reservations.loadItems("reservation")).thenReturn(List.of(item));
+        when(f.reservations.lockExistingBuckets(anyList()))
                 .thenReturn(new LimitBucketSet(Map.of(item.bucket(), new LimitBucket(item.bucket(), 10, 60, 4))));
         doThrow(new CommonException(LimitCenterResultCodeEnum.CONCURRENT_UPDATE))
                 .when(f.reservations)
-                .updateReservation(anyString(), any(), anyLong());
+                .updateReservation(any(), anyLong());
         assertThrows(CommonException.class, () -> service.expire(new LimitExpireCommand("operation")));
         assertEquals(1, f.manager.rollbacks);
         assertEquals(0, f.manager.commits);

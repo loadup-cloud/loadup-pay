@@ -69,12 +69,12 @@ class ReconciliationOfficialImportsTest {
 
     @Test
     void kindAloneCannotEstablishOfficialOriginOrSkipPinnedProof() {
-        when(sources.find("tenant", "source")).thenReturn(Optional.empty());
+        when(sources.find("source")).thenReturn(Optional.empty());
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> verifier.verify("tenant", imported))
                         .getResultCode());
-        when(sources.find("tenant", "source")).thenReturn(Optional.of(initial));
+        when(sources.find("source")).thenReturn(Optional.of(initial));
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> verifier.verify("tenant", imported))
@@ -90,10 +90,10 @@ class ReconciliationOfficialImportsTest {
                 2000000L,
                 file,
                 proof));
-        when(sources.find("tenant", "source")).thenReturn(Optional.of(ready));
+        when(sources.find("source")).thenReturn(Optional.of(ready));
         verifier.verify("tenant", imported);
-        verify(files).verify("tenant", "ops", file, "source");
-        verify(files).verify("tenant", "ops", proof, "source");
+        verify(files).verify("ops", file, "source");
+        verify(files).verify("ops", proof, "source");
     }
 
     @Test

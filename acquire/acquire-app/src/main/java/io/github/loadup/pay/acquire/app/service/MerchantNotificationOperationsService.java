@@ -111,18 +111,16 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
             DomainChecks.text(command.reason(), 500);
-            var known = receipts.find(actor.tenantId(), scope, command.requestKey());
+            var known = receipts.find(scope, command.requestKey());
             if (known.isPresent()) {
                 return replay(known.get(), actor, scope, digest);
             }
             return transactions.writeLocal(actor.tenantId(), () -> {
-                var existing = receipts.find(actor.tenantId(), scope, command.requestKey());
+                var existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
                     return replay(existing.get(), actor, scope, digest);
                 }
-                var delivery = deliveries
-                        .lock(actor.tenantId(), command.id())
-                        .orElseThrow(() -> new CommonException(NOT_FOUND));
+                var delivery = deliveries.lock(command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 if (delivery.rowVersion() != command.expectedVersion()) {
                     throw new CommonException(VERSION_CONFLICT);
                 }
@@ -130,7 +128,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
                 var decision = resume(actor.tenantId(), delivery, at);
                 var receipt =
                         converter.toReceipt(ids.generate(), command, delivery, actor, decision, scope, digest, at);
-                receipts.insert(actor.tenantId(), receipt);
+                receipts.insert(receipt);
                 return converter.toDTO(receipt);
             });
         });
@@ -142,8 +140,8 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         validate(query);
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.deliveryId());
-            deliveries.find(actor.tenantId(), query.deliveryId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return PageDTO.of(receipts.page(actor.tenantId(), query.deliveryId(), query.page(), query.size())
+            deliveries.find(query.deliveryId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            return PageDTO.of(receipts.page(query.deliveryId(), query.page(), query.size())
                     .map(converter::toDTO));
         });
     }

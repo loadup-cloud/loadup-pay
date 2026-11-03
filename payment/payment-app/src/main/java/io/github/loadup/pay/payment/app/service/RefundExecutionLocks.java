@@ -53,16 +53,15 @@ public class RefundExecutionLocks {
     }
 
     public StoredRefundRequest request(String tenant, String requestId) {
-        var reference = refunds.reference(tenant, requestId).orElseThrow(() -> new CommonException(NOT_FOUND));
-        var parent = payments.lockParent(tenant, reference.orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var reference = refunds.reference(requestId).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var parent = payments.lockParent(reference.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!parent.payeeMerchantId().equals(reference.payeeMerchantId())
                 || !parent.gate().orderId().equals(reference.orderId())
                 || parent.gate().paymentId() != null
                 || parent.gate().state() == GateState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var current = refunds.lock(tenant, requestId);
+        var current = refunds.lock(requestId);
         if (!current.request().id().equals(requestId)
                 || !current.request().id().equals(reference.id())
                 || !current.request().orderId().equals(reference.orderId())
@@ -78,18 +77,18 @@ public class RefundExecutionLocks {
                 .filter(c -> c.refund().id().equals(refundId))
                 .findFirst()
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
-        var capacity = refunds.lockCapacities(tenant, request.request().orderId()).stream()
+        var capacity = refunds.lockCapacities(request.request().orderId()).stream()
                 .filter(c -> c.paymentId().equals(selected.refund().paymentId()))
                 .findFirst()
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var facts = results.lockChild(tenant, refundId);
-        var original = payments.find(tenant, selected.original().paymentId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var facts = results.lockChild(refundId);
+        var original =
+                payments.find(selected.original().paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var claim = collections
-                .attemptClaim(tenant, selected.original().attemptId())
+                .attemptClaim(selected.original().attemptId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var attempt = attempts.find(tenant, selected.original().attemptId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var attempt =
+                attempts.find(selected.original().attemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!facts.child().equals(selected)
                 || !capacity.orderId().equals(request.request().orderId())
                 || !capacity.payeeMerchantId().equals(request.request().payeeMerchantId())

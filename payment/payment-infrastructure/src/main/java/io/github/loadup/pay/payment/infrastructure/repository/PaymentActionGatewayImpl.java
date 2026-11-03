@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
@@ -24,7 +23,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.payment.domain.gateway.PaymentActionGateway;
@@ -65,8 +63,7 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
     }
 
     @Override
-    public Optional<StoredPaymentAction> find(String tenant, String attemptId) {
-        scope(tenant);
+    public Optional<StoredPaymentAction> find(String attemptId) {
         var row = getById(attemptId);
         if (row == null) {
             return Optional.empty();
@@ -96,8 +93,8 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
     }
 
     @Override
-    public void insert(String tenant, StoredPaymentAction value) {
-        writable(tenant);
+    public void insert(StoredPaymentAction value) {
+        writable();
         if (value == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -120,7 +117,7 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
                     && !value.sourceDigest().equals(payloadHash)) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
-            row = converter.toDO(tenant, value, kind, payload, payloadHash, expiresAt);
+            row = converter.toDO(value, kind, payload, payloadHash, expiresAt);
         } catch (CommonException failure) {
             throw failure;
         } catch (RuntimeException invalid) {
@@ -142,20 +139,13 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
         }
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        }
-        scope(tenant);
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

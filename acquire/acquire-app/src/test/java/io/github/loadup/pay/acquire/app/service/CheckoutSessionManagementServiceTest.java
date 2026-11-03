@@ -104,32 +104,32 @@ class CheckoutSessionManagementServiceTest {
     @BeforeEach
     void setup() {
         var order = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
-        when(orders.findOrder("tenant", "order")).thenReturn(Optional.of(order));
-        when(orders.lockOrder("tenant", "order")).thenReturn(order);
-        when(sessions.find("tenant", "session")).thenAnswer(call -> Optional.of(current.get()));
-        when(sessions.lock("tenant", "session")).thenAnswer(call -> Optional.of(current.get()));
-        when(receipts.find(eq("tenant"), eq(OWNER), anyString())).thenAnswer(call -> {
+        when(orders.findOrder("order")).thenReturn(Optional.of(order));
+        when(orders.lockOrder("order")).thenReturn(order);
+        when(sessions.find("session")).thenAnswer(call -> Optional.of(current.get()));
+        when(sessions.lock("session")).thenAnswer(call -> Optional.of(current.get()));
+        when(receipts.find(eq(OWNER), anyString())).thenAnswer(call -> {
             var saved = recorded.get();
-            return saved != null && saved.requestKey().equals(call.getArgument(2))
+            return saved != null && saved.requestKey().equals(call.getArgument(1))
                     ? Optional.of(saved)
                     : Optional.empty();
         });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertEquals("tenant", TenantUtil.getTenantId());
-                    assertSame(current.get(), call.getArgument(1));
-                    current.set(call.getArgument(2));
+                    assertSame(current.get(), call.getArgument(0));
+                    current.set(call.getArgument(1));
                     return null;
                 })
                 .when(sessions)
-                .revoke(eq("tenant"), any(), any());
+                .revoke(any(), any());
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    recorded.set(call.getArgument(1));
+                    recorded.set(call.getArgument(0));
                     return null;
                 })
                 .when(receipts)
-                .insert(eq("tenant"), any());
+                .insert(any());
     }
 
     @AfterEach
@@ -149,10 +149,10 @@ class CheckoutSessionManagementServiceTest {
         assertEquals(before.session(), current.get().session());
         assertEquals(before.tokenHash(), current.get().tokenHash());
         var sequence = inOrder(orders, sessions, receipts);
-        sequence.verify(orders).lockOrder("tenant", "order");
-        sequence.verify(sessions).lock("tenant", "session");
-        sequence.verify(sessions).revoke("tenant", before, current.get());
-        sequence.verify(receipts).insert("tenant", recorded.get());
+        sequence.verify(orders).lockOrder("order");
+        sequence.verify(sessions).lock("session");
+        sequence.verify(sessions).revoke(before, current.get());
+        sequence.verify(receipts).insert(recorded.get());
     }
 
     @Test
@@ -162,7 +162,7 @@ class CheckoutSessionManagementServiceTest {
         clearInvocations(orders, sessions, receipts);
         assertEquals(first, service.revoke(command));
         verifyNoInteractions(orders, sessions);
-        verify(receipts, never()).insert(anyString(), any());
+        verify(receipts, never()).insert(any());
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.revoke(command("revoke", 0L, "changed")))
@@ -175,12 +175,11 @@ class CheckoutSessionManagementServiceTest {
         var first = service.revoke(command);
         var saved = recorded.get();
         clearInvocations(orders, sessions, receipts);
-        when(receipts.find("tenant", OWNER, "revoke"))
-                .thenReturn(Optional.empty(), Optional.empty(), Optional.of(saved));
+        when(receipts.find(OWNER, "revoke")).thenReturn(Optional.empty(), Optional.empty(), Optional.of(saved));
         assertEquals(first, service.revoke(command));
-        verify(sessions).lock("tenant", "session");
-        verify(sessions, never()).revoke(anyString(), any(), any());
-        verify(receipts, never()).insert(anyString(), any());
+        verify(sessions).lock("session");
+        verify(sessions, never()).revoke(any(), any());
+        verify(receipts, never()).insert(any());
     }
 
     @Test
@@ -196,14 +195,14 @@ class CheckoutSessionManagementServiceTest {
         assertEquals(1L, result.beforeVersion());
         assertEquals(1L, result.sessionVersion());
         assertEquals(NOW, current.get().revokedAt());
-        verify(sessions, never()).revoke(anyString(), any(), any());
+        verify(sessions, never()).revoke(any(), any());
     }
 
     @Test
     void completedSessionsOnPaidOrdersCanStillBePermanentlyRevoked() {
         current.set(session(CheckoutSessionState.COMPLETED, NOW.plusMinutes(5)));
         var paid = order(AcquireOrderState.PAID, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
-        when(orders.lockOrder("tenant", "order")).thenReturn(paid);
+        when(orders.lockOrder("order")).thenReturn(paid);
         assertTrue(service.revoke(command("revoke", 0L, "reason")).newlyRevoked());
         assertEquals(CheckoutSessionState.COMPLETED, current.get().session().state());
         assertEquals(AcquireOrderState.PAID, paid.order().state());
@@ -218,7 +217,7 @@ class CheckoutSessionManagementServiceTest {
         assertFalse(status.toString().contains(current.get().tokenHash()));
         assertFalse(status.toString().contains(current.get().tokenNonce()));
         assertFalse(status.toString().contains("private-reason"));
-        when(receipts.page("tenant", "session", 1, 20)).thenReturn(PageResult.of(List.of(recorded.get()), 1L, 1, 20));
+        when(receipts.page("session", 1, 20)).thenReturn(PageResult.of(List.of(recorded.get()), 1L, 1, 20));
         var query = new CheckoutSessionRevocationPageQuery("session", null, null);
         assertNotNull(service.revocations(query));
         actor.set(new AcquireActor(
@@ -254,7 +253,7 @@ class CheckoutSessionManagementServiceTest {
                 original.sessionVersion(),
                 original.revokedAt(),
                 original.acceptedAt());
-        when(receipts.page("tenant", "session", 1, 20)).thenReturn(PageResult.of(List.of(wrongOwner), 1L, 1, 20));
+        when(receipts.page("session", 1, 20)).thenReturn(PageResult.of(List.of(wrongOwner), 1L, 1, 20));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(
@@ -290,7 +289,7 @@ class CheckoutSessionManagementServiceTest {
     @Test
     void receiptFailureEscapesTheWriteTransactionInsteadOfReportingSuccess() {
         var failure = new CommonException(SNAPSHOT_INVALID);
-        doThrow(failure).when(receipts).insert(eq("tenant"), any());
+        doThrow(failure).when(receipts).insert(any());
         assertSame(failure, assertThrows(CommonException.class, () -> service.revoke(command("revoke", 0L, "reason"))));
         assertNull(recorded.get());
     }

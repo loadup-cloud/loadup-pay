@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.repository;
 
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
@@ -24,8 +23,8 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitPolicyGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy;
@@ -87,8 +86,8 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     }
 
     @Override
-    public Optional<LimitPolicyHead> lockHead(String tenant, String policy) {
-        transaction(tenant);
+    public Optional<LimitPolicyHead> lockHead(String policy) {
+        transaction();
         var args = new MapSqlParameterSource("policy", policy);
         return jdbc
                 .query(
@@ -102,28 +101,27 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     }
 
     @Override
-    public LimitPolicyHead lockOrCreateHead(String tenant, String policy, String payee) {
-        transaction(tenant);
-        var row = converter.toHeadDO(tenant, new LimitPolicyHead(policy, payee, 0, 0));
+    public LimitPolicyHead lockOrCreateHead(String policy, String payee) {
+        transaction();
+        var row = converter.toHeadDO(new LimitPolicyHead(policy, payee, 0, 0));
         fill(row);
         jdbc.update("""
                 INSERT INTO limit_policy_head (id, created_at, updated_at, deleted, policy_id, payee_merchant_id, latest_version, row_version)
                 VALUES (:id, :createdAt, :updatedAt, FALSE, :policyId, :payeeMerchantId, :latestVersion, :rowVersion)
                 ON CONFLICT (policy_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        return lockHead(tenant, policy).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        return lockHead(policy).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
     }
 
     @Override
-    public Optional<ActivatedLimitPolicy> findRevision(String tenant, String policy, int revision) {
-        scope(tenant);
+    public Optional<ActivatedLimitPolicy> findRevision(String policy, int revision) {
         var query = QueryWrapper.create().eq("policy_id", policy).eq("policy_version", revision);
-        return Optional.ofNullable(getOne(query)).map(row -> codec.decode(tenant, row));
+        return Optional.ofNullable(getOne(query)).map(row -> codec.decode(TenantContext.tenantId(), row));
     }
 
     @Override
-    public Optional<RuntimeLimitRule> lockRule(String tenant, LimitRule rule) {
-        transaction(tenant);
+    public Optional<RuntimeLimitRule> lockRule(LimitRule rule) {
+        transaction();
         var rows = jdbc.query(
                 "SELECT " + RULE + " FROM limit_rule_runtime WHERE rule_scope_id = :scope "
                         + "AND merchant_id = :merchant AND metric = :metric AND currency = :currency AND window_type = :window "
@@ -141,9 +139,9 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     }
 
     @Override
-    public void insertRule(String tenant, RuntimeLimitRule rule) {
-        transaction(tenant);
-        var row = converter.toRuntimeDO(tenant, rule);
+    public void insertRule(RuntimeLimitRule rule) {
+        transaction();
+        var row = converter.toRuntimeDO(rule);
         fill(row);
         int count = jdbc.update("""
                 INSERT INTO limit_rule_runtime (id, created_at, updated_at, deleted, owner_policy_id, policy_version,
@@ -163,9 +161,9 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     }
 
     @Override
-    public void updateRule(String tenant, RuntimeLimitRule rule, long expectedVersion) {
-        transaction(tenant);
-        var row = converter.toRuntimeDO(tenant, rule);
+    public void updateRule(RuntimeLimitRule rule, long expectedVersion) {
+        transaction();
+        var row = converter.toRuntimeDO(rule);
         var args = ruleKey(rule.rule())
                 .addValue("owner", row.getOwnerPolicyId())
                 .addValue("policyVersion", row.getPolicyVersion())
@@ -190,9 +188,9 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     }
 
     @Override
-    public void insertRevision(String tenant, ActivatedLimitPolicy policy) {
-        transaction(tenant);
-        var row = converter.toRevisionDO(tenant, policy, codec.encode(policy));
+    public void insertRevision(ActivatedLimitPolicy policy) {
+        transaction();
+        var row = converter.toRevisionDO(policy, codec.encode(policy));
         fill(row);
         int count = jdbc.update("""
                 INSERT INTO limit_policy_revision (id, created_at, updated_at, deleted, policy_id,
@@ -210,8 +208,8 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     }
 
     @Override
-    public void updateHead(String tenant, LimitPolicyHead head, long expectedVersion) {
-        transaction(tenant);
+    public void updateHead(LimitPolicyHead head, long expectedVersion) {
+        transaction();
         var args = new MapSqlParameterSource("policy", head.policyId())
                 .addValue("payee", head.payeeMerchantId())
                 .addValue("latest", head.latestVersion())
@@ -235,14 +233,7 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
         row.setUpdatedAt(now);
     }
 
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-    }
-
-    private void transaction(String tenant) {
-        scope(tenant);
+    private void transaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null

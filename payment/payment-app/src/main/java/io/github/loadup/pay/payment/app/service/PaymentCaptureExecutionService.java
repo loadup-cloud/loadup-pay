@@ -101,8 +101,7 @@ public class PaymentCaptureExecutionService {
         }
         String tenant = TenantUtil.getTenantId();
         var original = transactions.readSnapshot(
-                tenant,
-                () -> captures.find(tenant, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                tenant, () -> captures.find(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         if (!reconciliationService.equals(original.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
@@ -112,7 +111,7 @@ public class PaymentCaptureExecutionService {
         if (!original.scope().systemZone().equals(clock.getZone().getId())) {
             throw new CommonException(INVALID_STATE);
         }
-        var read = transactions.readSnapshot(tenant, timeoutSeconds, () -> reader.read(tenant, original.scope()));
+        var read = transactions.readSnapshot(tenant, timeoutSeconds, () -> reader.read(original.scope()));
         String hash = read.blocker() == null
                 ? PaymentCaptureContentHash.compute(
                         original.id(),
@@ -129,14 +128,14 @@ public class PaymentCaptureExecutionService {
                                 .toList())
                 : null;
         transactions.writeLocal(tenant, () -> {
-            var current = captures.lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = captures.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() != PaymentCaptureState.INIT) {
                 return false;
             }
             if (!current.equals(original)) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            captures.complete(tenant, original, original.complete(read, hash), read);
+            captures.complete(original, original.complete(read, hash), read);
             return true;
         });
     }

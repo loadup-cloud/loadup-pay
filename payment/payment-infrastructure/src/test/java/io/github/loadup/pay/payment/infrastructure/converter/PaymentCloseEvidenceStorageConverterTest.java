@@ -49,7 +49,7 @@ class PaymentCloseEvidenceStorageConverterTest {
                 "b".repeat(64),
                 9007199254740993L,
                 LocalDateTime.of(2026, 10, 28, 18, 0, 0, 123456000));
-        var row = converter.toDO("tenant", value);
+        var row = converter.toDO(value);
         assertEquals("attempt", row.getId());
         assertEquals("ALIPAY", row.getChannel());
         assertEquals(9007199254740993L, row.getAmountMinor());

@@ -22,15 +22,15 @@ import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
 import java.util.Optional;
 
 public interface PaymentCaptureGateway {
-    Optional<PaymentCapture> findRequest(String tenant, String caller, String requestKey);
+    Optional<PaymentCapture> findRequest(String caller, String requestKey);
 
-    Optional<PaymentCapture> find(String tenant, String id);
+    Optional<PaymentCapture> find(String id);
 
-    Optional<PaymentCapture> lock(String tenant, String id);
+    Optional<PaymentCapture> lock(String id);
 
-    void insert(String tenant, PaymentCapture value);
+    void insert(PaymentCapture value);
 
-    void complete(String tenant, PaymentCapture original, PaymentCapture complete, PaymentCaptureRead read);
+    void complete(PaymentCapture original, PaymentCapture complete, PaymentCaptureRead read);
 
-    PageResult<PaymentLedgerLine> page(String tenant, PaymentCapture capture, int page, int size);
+    PageResult<PaymentLedgerLine> page(PaymentCapture capture, int page, int size);
 }

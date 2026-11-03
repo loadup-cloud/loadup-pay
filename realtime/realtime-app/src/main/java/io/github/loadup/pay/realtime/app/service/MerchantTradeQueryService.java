@@ -71,9 +71,9 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var order = queries.findOrder(actor.tenantId(), actor.merchantId(), query.orderId())
+            var order = queries.findOrder(actor.merchantId(), query.orderId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-            var summary = queries.findRefundSummary(actor.tenantId(), actor.merchantId(), query.orderId())
+            var summary = queries.findRefundSummary(actor.merchantId(), query.orderId())
                     .orElse(null);
             return new TradeDetailDTO(
                     orderDTO(order, summary),
@@ -87,20 +87,17 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var page = queries.orders(
-                    actor.tenantId(),
-                    new TradePageFilter(
-                            actor.merchantId(),
-                            null,
-                            query.merchantOrderNo(),
-                            null,
-                            name(query.state()),
-                            local(query.createdFrom()),
-                            local(query.createdTo()),
-                            query.page(),
-                            query.size()));
+            var page = queries.orders(new TradePageFilter(
+                    actor.merchantId(),
+                    null,
+                    query.merchantOrderNo(),
+                    null,
+                    name(query.state()),
+                    local(query.createdFrom()),
+                    local(query.createdTo()),
+                    query.page(),
+                    query.size()));
             var summaries = queries.refundSummaries(
-                    actor.tenantId(),
                     actor.merchantId(),
                     page.records().stream().map(TradeOrderProjection::orderId).collect(Collectors.toUnmodifiableSet()));
             return PageDTO.of(
@@ -118,18 +115,16 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var page = queries.payments(
-                    actor.tenantId(),
-                    new TradePageFilter(
-                            actor.merchantId(),
-                            query.orderId(),
-                            null,
-                            null,
-                            name(query.state()),
-                            local(query.createdFrom()),
-                            local(query.createdTo()),
-                            query.page(),
-                            query.size()));
+            var page = queries.payments(new TradePageFilter(
+                    actor.merchantId(),
+                    query.orderId(),
+                    null,
+                    null,
+                    name(query.state()),
+                    local(query.createdFrom()),
+                    local(query.createdTo()),
+                    query.page(),
+                    query.size()));
             return PageDTO.of(
                     page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
         });
@@ -140,18 +135,16 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var page = queries.refunds(
-                    actor.tenantId(),
-                    new TradePageFilter(
-                            actor.merchantId(),
-                            query.orderId(),
-                            null,
-                            query.refundRequestId(),
-                            name(query.state()),
-                            local(query.createdFrom()),
-                            local(query.createdTo()),
-                            query.page(),
-                            query.size()));
+            var page = queries.refunds(new TradePageFilter(
+                    actor.merchantId(),
+                    query.orderId(),
+                    null,
+                    query.refundRequestId(),
+                    name(query.state()),
+                    local(query.createdFrom()),
+                    local(query.createdTo()),
+                    query.page(),
+                    query.size()));
             return PageDTO.of(
                     page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
         });

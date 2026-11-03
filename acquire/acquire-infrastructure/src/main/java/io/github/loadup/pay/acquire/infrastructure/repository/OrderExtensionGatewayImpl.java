@@ -15,14 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
@@ -55,11 +52,8 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     }
 
     @Override
-    public Optional<OrderExtensionReceipt> findReceipt(String tenant, String orderId, String requestKey) {
-        scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("order", orderId)
-                .addValue("key", requestKey);
+    public Optional<OrderExtensionReceipt> findReceipt(String orderId, String requestKey) {
+        var args = new MapSqlParameterSource().addValue("order", orderId).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
                        original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
@@ -78,10 +72,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     }
 
     @Override
-    public long deadlineVersion(String tenant, AcquireOrder order) {
-        scope(tenant);
+    public long deadlineVersion(AcquireOrder order) {
         requireTransaction();
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", order.id());
+        var args = new MapSqlParameterSource().addValue("id", order.id());
         var row = jdbc.query("""
                 SELECT id, deadline_version, row_version, order_due_at FROM acquire_order
                 WHERE id = :id AND deleted = FALSE
@@ -100,8 +93,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     }
 
     @Override
-    public void extend(String tenant, AcquireOrder updated, OrderExtensionReceipt receipt) {
-        scope(tenant);
+    public void extend(AcquireOrder updated, OrderExtensionReceipt receipt) {
         requireTransaction();
         if (!updated.id().equals(receipt.orderId())
                 || !updated.orderDueAt().equals(receipt.requestedDueAt())
@@ -110,7 +102,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var patch = converter.toDeadlinePatch(updated, receipt.deadlineVersion());
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+        var args = new MapSqlParameterSource()
                 .addValue("id", updated.id())
                 .addValue("expectedVersion", receipt.expectedOrderVersion())
                 .addValue("previousDeadlineVersion", receipt.deadlineVersion() - 1)
@@ -127,7 +119,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        var row = converter.toDO(tenant, receipt);
+        var row = converter.toDO(receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -143,12 +135,6 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
-        }
-    }
-
-    private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 

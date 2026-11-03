@@ -82,7 +82,7 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationReviewDO toDO(String tenant, ReconciliationReview value);
+    ReconciliationReviewDO toDO(ReconciliationReview value);
 
     @Mapping(target = "id", source = "value.id")
     @Mapping(target = "differenceId", source = "value.reference.differenceId")
@@ -101,7 +101,7 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationReviewProposalDO toDO(String tenant, ReconciliationReviewProposal value);
+    ReconciliationReviewProposalDO toDO(ReconciliationReviewProposal value);
 
     @Mapping(target = "id", source = "value.id")
     @Mapping(target = "differenceId", source = "value.reference.differenceId")
@@ -121,7 +121,7 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    ReconciliationReviewEventDO toDO(String tenant, ReconciliationReviewEvent value);
+    ReconciliationReviewEventDO toDO(ReconciliationReviewEvent value);
 
     @Named("evidenceSize")
     default Long evidenceSize(ReconciliationFileSnapshot value) {

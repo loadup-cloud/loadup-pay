@@ -107,7 +107,7 @@ public class LimitReservationService implements LimitReservationFacade {
         if (initiated.getNano() % 1000 != 0 || initiated.getYear() < 1970 || initiated.getYear() >= 9999) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var gate = reservations.lockOrCreateGate(tenant, command.operationId(), command.paymentId());
+        var gate = reservations.lockOrCreateGate(command.operationId(), command.paymentId());
         if (!gate.operationId().equals(command.operationId())
                 || !gate.paymentId().equals(command.paymentId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
@@ -115,7 +115,7 @@ public class LimitReservationService implements LimitReservationFacade {
         if (gate.state() == GateState.FENCED) {
             throw new CommonException(EXECUTION_FENCED);
         }
-        var prior = reservations.findByOperation(tenant, command.operationId());
+        var prior = reservations.findByOperation(command.operationId());
         if (prior.isPresent()) {
             var stored = prior.get();
             requireOwner(actor, stored);
@@ -142,9 +142,8 @@ public class LimitReservationService implements LimitReservationFacade {
         if (initiated.isAfter(now)) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var head =
-                policies.lockHead(tenant, command.policyId()).orElseThrow(() -> new CommonException(POLICY_NOT_ACTIVE));
-        var policy = policies.findRevision(tenant, command.policyId(), command.policyVersion())
+        var head = policies.lockHead(command.policyId()).orElseThrow(() -> new CommonException(POLICY_NOT_ACTIVE));
+        var policy = policies.findRevision(command.policyId(), command.policyVersion())
                 .orElseThrow(() -> new CommonException(POLICY_NOT_ACTIVE));
         if (head.latestVersion() < command.policyVersion()
                 || !head.payeeMerchantId().equals(command.payeeMerchantId())
@@ -154,7 +153,7 @@ public class LimitReservationService implements LimitReservationFacade {
         }
         List<LimitBucketChange> changes = new ArrayList<>();
         for (var rule : policy.rules()) {
-            var runtime = policies.lockRule(tenant, rule).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var runtime = policies.lockRule(rule).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             RuntimeLimitRule.requireSameShape(rule, runtime.rule());
             if (!runtime.ownerPolicyId().equals(policy.policyId()) || runtime.policyVersion() != head.latestVersion()) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -173,7 +172,7 @@ public class LimitReservationService implements LimitReservationFacade {
                     runtime.rule().enforcementEnabled()));
         }
         var before = reservations.lockBuckets(
-                tenant, changes.stream().map(LimitBucketChange::key).toList());
+                changes.stream().map(LimitBucketChange::key).toList());
         var after = before.reserve(changes);
         var reservation = LimitReservation.init(
                         ids.generate(),
@@ -192,13 +191,12 @@ public class LimitReservationService implements LimitReservationFacade {
                         ids.generate(), reservation.id(), change.key(), change.requested(), 0, 0))
                 .toList();
         reservations.insertReservation(
-                tenant,
                 new StoredLimitReservation(
                         reservation, command.policyHash(), command.requestDigest(), actor.serviceId()),
                 items,
                 before,
                 after);
-        reservations.saveGate(tenant, gate.open());
+        reservations.saveGate(gate.open());
         return converter.toDTO(reservation);
     }
 
@@ -207,9 +205,8 @@ public class LimitReservationService implements LimitReservationFacade {
         var actor = transactions.authorize(query, "pay:limit:read");
         return transactions.withTenantContext(actor, () -> {
             DomainChecks.id(query.operationId());
-            var stored = reservations
-                    .findByOperation(actor.tenantId(), query.operationId())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var stored =
+                    reservations.findByOperation(query.operationId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             requireOwner(actor, stored);
             return converter.toDTO(stored.reservation());
         });

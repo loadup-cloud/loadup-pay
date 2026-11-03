@@ -59,12 +59,12 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentChannelReceiptDO toReceiptDO(String tenant, PaymentChannelReceipt value);
+    PaymentChannelReceiptDO toReceiptDO(PaymentChannelReceipt value);
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentResultAnomalyDO toAnomalyDO(String tenant, PaymentResultAnomaly value);
+    PaymentResultAnomalyDO toAnomalyDO(PaymentResultAnomaly value);
 
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "identity", source = "identity")
@@ -102,5 +102,5 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentRefundCapacityDO toCapacityDO(String tenant, String id, PaymentRefundCapacity value);
+    PaymentRefundCapacityDO toCapacityDO(String id, PaymentRefundCapacity value);
 }

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
 import io.github.loadup.commons.error.CommonException;
@@ -50,21 +49,16 @@ public class PaymentLimitOutcomeDelivery {
 
     public void deliver(OutboxEvent event) {
         var snapshot = support.load(event, PaymentEvents.LIMIT); // All local locks are released on return.
-        if (!limits.supportsTenant(snapshot.tenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var payment = snapshot.payment();
         var envelope = snapshot.envelope();
         if (payment.payment().state() == PaymentState.SUCCEEDED) {
-            var ack = limits.confirm(
-                    snapshot.tenantId(),
-                    converter.toConfirm(payment, envelope.businessEventId(), snapshot.succeededAt()));
+            var ack = limits.confirm(converter.toConfirm(payment, envelope.businessEventId(), snapshot.succeededAt()));
             reservation(snapshot, ack);
             if (ack.state() != LimitReservationState.CONFIRMED) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
         } else {
-            var ack = limits.release(snapshot.tenantId(), converter.toRelease(payment, envelope.businessEventId()));
+            var ack = limits.release(converter.toRelease(payment, envelope.businessEventId()));
             if (ack == null
                     || !ack.fenced()
                     || !payment.payment().id().equals(ack.paymentId())

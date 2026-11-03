@@ -111,7 +111,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
                     command.approvalEventId(),
                     command.expectedReviewVersion(),
                     true);
-            var old = requests.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
+            var old = requests.findRequest(actor.serviceId(), command.requestKey());
             if (old.isPresent()) {
                 var value = checked(actor, old.get());
                 if (!value.requestDigest().equals(digest)) {
@@ -124,7 +124,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
                     ReconciliationVerificationMessages.TYPE, 1, id, ReconciliationVerificationMessages.encode(id)));
             var request =
                     converter.toRequest(approved, id, actor.serviceId(), command.requestKey(), digest, deliveryId);
-            requests.insert(actor.tenantId(), request);
+            requests.insert(request);
             return present(actor.tenantId(), request);
         });
     }
@@ -137,10 +137,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
                 actor.tenantId(),
                 () -> present(
                         actor.tenantId(),
-                        checked(
-                                actor,
-                                requests.find(actor.tenantId(), query.id())
-                                        .orElseThrow(() -> new CommonException(NOT_FOUND)))));
+                        checked(actor, requests.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
@@ -150,9 +147,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         var original = transactions.readSnapshot(
                 actor.tenantId(),
                 () -> checked(
-                        actor,
-                        requests.find(actor.tenantId(), command.requestId())
-                                .orElseThrow(() -> new CommonException(NOT_FOUND))));
+                        actor, requests.find(command.requestId()).orElseThrow(() -> new CommonException(NOT_FOUND))));
         return transactions.writeLocal(actor.tenantId(), () -> {
             // Stable batch -> review -> verification order. Retry never replaces the frozen query or recorded
             // observation.
@@ -164,9 +159,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
                     original.approvalEventId(),
                     original.reviewVersion(),
                     true);
-            var value = checked(
-                    actor,
-                    requests.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var value = checked(actor, requests.lock(original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!value.deliveryId().equals(command.expectedDeliveryId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }

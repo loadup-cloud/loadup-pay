@@ -53,10 +53,10 @@ class PaymentExecutionLocksTest {
 
     @BeforeEach
     void setup() {
-        when(gates.find("tenant", "payment")).thenReturn(Optional.of(accepted));
-        when(gates.lockParent("tenant", "order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
-        when(gates.lockPayment("tenant", "payment")).thenReturn(Optional.of(AttemptFixtures.gate(false)));
-        when(payments.lockPayment("tenant", "payment")).thenReturn(Optional.of(accepted));
+        when(gates.find("payment")).thenReturn(Optional.of(accepted));
+        when(gates.lockParent("order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
+        when(gates.lockPayment("payment")).thenReturn(Optional.of(AttemptFixtures.gate(false)));
+        when(payments.lockPayment("payment")).thenReturn(Optional.of(accepted));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
     }
 
@@ -70,10 +70,10 @@ class PaymentExecutionLocksTest {
             assertSame(locked.binding(), context.gates());
             assertEquals(0L, context.attempt().stored().attempt().executionEpoch());
             var ordered = inOrder(gates, payments, codec);
-            ordered.verify(gates).find("tenant", "payment");
-            ordered.verify(gates).lockParent("tenant", "order");
-            ordered.verify(gates).lockPayment("tenant", "payment");
-            ordered.verify(payments).lockPayment("tenant", "payment");
+            ordered.verify(gates).find("payment");
+            ordered.verify(gates).lockParent("order");
+            ordered.verify(gates).lockPayment("payment");
+            ordered.verify(payments).lockPayment("payment");
             ordered.verify(codec).decode(accepted);
             return true;
         });
@@ -101,8 +101,8 @@ class PaymentExecutionLocksTest {
                 CommonException.class,
                 () -> transactions.writeLocal("tenant", () -> locks.lock("tenant", "payment", "other-service")));
         assertEquals(ACTION_FORBIDDEN, rejected.getResultCode());
-        verify(gates, never()).lockParent(anyString(), anyString());
-        verify(gates, never()).lockPayment(anyString(), anyString());
+        verify(gates, never()).lockParent(anyString());
+        verify(gates, never()).lockPayment(anyString());
         verifyNoInteractions(payments, codec);
     }
 
@@ -111,7 +111,7 @@ class PaymentExecutionLocksTest {
         var original = AttemptFixtures.gate(false);
         var wrongMerchant = new StoredPaymentGate(
                 original.id(), "other-merchant", original.callerServiceId(), original.gate(), original.rowVersion());
-        when(gates.lockPayment("tenant", "payment")).thenReturn(Optional.of(wrongMerchant));
+        when(gates.lockPayment("payment")).thenReturn(Optional.of(wrongMerchant));
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(
@@ -140,8 +140,8 @@ class PaymentExecutionLocksTest {
                 accepted.intentPayload(),
                 accepted.payloadHash(),
                 accepted.terminalEvidenceId());
-        when(payments.lockPayment("tenant", "payment")).thenReturn(Optional.of(unrelated));
-        when(gates.lockPayment("tenant", "payment"))
+        when(payments.lockPayment("payment")).thenReturn(Optional.of(unrelated));
+        when(gates.lockPayment("payment"))
                 .thenReturn(Optional.of(new StoredPaymentGate(
                         original.id(),
                         original.payeeMerchantId(),

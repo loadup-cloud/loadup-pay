@@ -25,20 +25,19 @@ import java.util.Optional;
  * Current batch is authorized and locked before writes. Head/proposal/event commit on the same DataSource.
  */
 public interface ReconciliationReviewGateway {
-    Optional<ReconciliationReview> find(String tenant, String differenceId);
+    Optional<ReconciliationReview> find(String differenceId);
 
-    Optional<ReconciliationReview> lock(String tenant, String differenceId);
+    Optional<ReconciliationReview> lock(String differenceId);
 
-    Optional<ReconciliationReviewEvent> findRequest(String tenant, String caller, String requestKey);
+    Optional<ReconciliationReviewEvent> findRequest(String caller, String requestKey);
 
-    Optional<ReconciliationReviewEvent> event(String tenant, String eventId);
+    Optional<ReconciliationReviewEvent> event(String eventId);
 
-    Optional<ReconciliationReviewProposal> proposal(String tenant, String proposalId);
+    Optional<ReconciliationReviewProposal> proposal(String proposalId);
 
-    PageResult<ReconciliationReviewEvent> history(String tenant, String differenceId, int page, int size);
+    PageResult<ReconciliationReviewEvent> history(String differenceId, int page, int size);
 
     void commit(
-            String tenant,
             ReconciliationReview previous,
             ReconciliationReview next,
             ReconciliationReviewProposal proposal,

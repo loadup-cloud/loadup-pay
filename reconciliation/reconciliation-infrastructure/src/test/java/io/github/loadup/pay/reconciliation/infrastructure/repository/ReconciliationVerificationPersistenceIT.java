@@ -26,7 +26,6 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.dfs.DfsService;
 import io.github.loadup.components.outbox.JdbcOutboxRepository;
 import io.github.loadup.components.outbox.OutboxDispatcher;
@@ -99,7 +98,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
@@ -309,7 +308,7 @@ class ReconciliationVerificationPersistenceIT {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         var sequence = new AtomicInteger();
-        payment.action.set((tenant, query) -> {
+        payment.action.set(query -> {
             if (sequence.incrementAndGet() == 1) {
                 entered.countDown();
                 await(release);
@@ -358,7 +357,7 @@ class ReconciliationVerificationPersistenceIT {
     void missingOwnerCoverageRemainsANullFinancialSnapshotAndOtherTenantCannotReadTheRequest() {
         var fixture = fixture();
         var initial = submit(fixture);
-        payment.action.set((tenant, query) -> {
+        payment.action.set(query -> {
             var at = OffsetDateTime.ofInstant(Instant.parse("2026-10-28T06:00:00Z"), ZoneId.systemDefault());
             return new PaymentVerificationDTO(
                     query,
@@ -420,9 +419,7 @@ class ReconciliationVerificationPersistenceIT {
     private void assertOriginal(Fixture fixture) {
         var original = transactions.readSnapshot(
                 fixture.tenant(),
-                () -> batches.find(fixture.tenant(), fixture.batchId())
-                        .orElseThrow()
-                        .batch());
+                () -> batches.find(fixture.batchId()).orElseThrow().batch());
         assertEquals("DIFFERENCES", original.state().name());
         assertEquals(fixture.resultHash(), original.result().resultHash());
         assertEquals(1L, original.result().differenceCount());
@@ -449,20 +446,20 @@ class ReconciliationVerificationPersistenceIT {
         var result = new ReconciliationMatcher().compare(channel, ledger);
         transactions.writeLocal(tenant, () -> {
             var initial = ReconciliationBatch.init(batchId, scope);
-            batches.insert(tenant, stored(initial));
-            batches.lock(tenant, batchId).orElseThrow();
-            files.attach(tenant, "batch-owner", cFile, cFile.fileId());
-            files.attach(tenant, "batch-owner", lFile, lFile.fileId());
-            inputs.insertSealed(tenant, cFile.fileId(), channel);
-            inputs.insertSealed(tenant, lFile.fileId(), ledger);
+            batches.insert(stored(initial));
+            batches.lock(batchId).orElseThrow();
+            files.attach("batch-owner", cFile, cFile.fileId());
+            files.attach("batch-owner", lFile, lFile.fileId());
+            inputs.insertSealed(cFile.fileId(), channel);
+            inputs.insertSealed(lFile.fileId(), ledger);
             var first = initial.attach(channel.manifest());
-            batches.update(tenant, stored(first), initial.version());
+            batches.update(stored(first), initial.version());
             var ready = first.attach(ledger.manifest());
-            batches.update(tenant, stored(ready), first.version());
+            batches.update(stored(ready), first.version());
             var running = ready.begin(run);
-            batches.update(tenant, stored(running), ready.version());
-            results.insert(tenant, batchId, run, result);
-            batches.update(tenant, stored(running.complete(run, result)), running.version());
+            batches.update(stored(running), ready.version());
+            results.insert(batchId, run, result);
+            batches.update(stored(running.complete(run, result)), running.version());
             return true;
         });
         String differenceId = jdbc.queryForObject(
@@ -501,7 +498,6 @@ class ReconciliationVerificationPersistenceIT {
     private ReconciliationFileSnapshot upload(String tenant, String name) {
         byte[] bytes = name.getBytes(StandardCharsets.UTF_8);
         return files.upload(
-                tenant,
                 "batch-owner",
                 name + ".bin",
                 "application/octet-stream",
@@ -580,7 +576,7 @@ class ReconciliationVerificationPersistenceIT {
 
     static final class Payment implements ReconciliationPaymentVerification {
         final AtomicInteger calls = new AtomicInteger();
-        final AtomicReference<BiFunction<String, PaymentVerificationQuery, PaymentVerificationDTO>> action =
+        final AtomicReference<Function<PaymentVerificationQuery, PaymentVerificationDTO>> action =
                 new AtomicReference<>();
 
         static PaymentVerificationDTO observed(PaymentVerificationQuery query, String digest) {
@@ -607,16 +603,15 @@ class ReconciliationVerificationPersistenceIT {
 
         void reset() {
             calls.set(0);
-            action.set((tenant, query) -> observed(query, "c".repeat(64)));
+            action.set(query -> observed(query, "c".repeat(64)));
         }
 
         @Override
-        public PaymentVerificationDTO verify(String tenant, PaymentVerificationQuery query) {
+        public PaymentVerificationDTO verify(PaymentVerificationQuery query) {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals(tenant, TenantUtil.getTenantId());
             assertEquals("ledger-request", query.merchantPaymentNo());
             calls.incrementAndGet();
-            return action.get().apply(tenant, query);
+            return action.get().apply(query);
         }
     }
 
@@ -629,16 +624,16 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         @Override
-        public void insert(String tenant, ReconciliationVerificationRequest value) {
-            super.insert(tenant, value);
+        public void insert(ReconciliationVerificationRequest value) {
+            super.insert(value);
             if (failure.compareAndSet("insert", null)) {
                 throw new IllegalStateException("Injected after actual request INSERT");
             }
         }
 
         @Override
-        public void update(String tenant, ReconciliationVerificationRequest value, long expectedVersion) {
-            super.update(tenant, value, expectedVersion);
+        public void update(ReconciliationVerificationRequest value, long expectedVersion) {
+            super.update(value, expectedVersion);
             if (failure.compareAndSet("update", null)) {
                 throw new IllegalStateException("Injected after actual receipt UPDATE");
             }
@@ -713,12 +708,12 @@ class ReconciliationVerificationPersistenceIT {
         ReconciliationAccountDirectory accounts() {
             return new ReconciliationAccountDirectory() {
                 @Override
-                public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
+                public ReconciliationScope resolve(String caller, String code, LocalDate date) {
                     return new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, "wechat-trade-all-20260116");
                 }
 
                 @Override
-                public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
+                public void authorize(String caller, String code, ReconciliationScope scope) {
                     if (!Set.of("maker", "checker", "ops").contains(caller) || !"account".equals(code)) {
                         throw new CommonException(ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
                     }
@@ -726,13 +721,12 @@ class ReconciliationVerificationPersistenceIT {
 
                 @Override
                 public ReconciliationStatementAccount statementAccount(
-                        String tenant, String caller, String code, ReconciliationScope scope) {
+                        String caller, String code, ReconciliationScope scope) {
                     throw new AssertionError("Not a source operation");
                 }
 
                 @Override
-                public String statementBindingRevision(
-                        String tenant, String caller, String code, ReconciliationScope scope) {
+                public String statementBindingRevision(String caller, String code, ReconciliationScope scope) {
                     throw new AssertionError("Not a source operation");
                 }
             };

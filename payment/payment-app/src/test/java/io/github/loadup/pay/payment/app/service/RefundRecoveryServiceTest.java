@@ -28,7 +28,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -91,22 +90,22 @@ class RefundRecoveryServiceTest {
             assertEquals("tenant", TenantUtil.getTenantId());
             return request.get();
         });
-        when(cursors.lock("tenant", "request")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
+        when(cursors.lock("request")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    cursor.set(c.getArgument(0));
+                    return null;
+                })
+                .when(cursors)
+                .insert(any());
+        doAnswer(c -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertEquals(cursor.get(), c.getArgument(0));
                     cursor.set(c.getArgument(1));
                     return null;
                 })
                 .when(cursors)
-                .insert(eq("tenant"), any());
-        doAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(cursor.get(), c.getArgument(1));
-                    cursor.set(c.getArgument(2));
-                    return null;
-                })
-                .when(cursors)
-                .update(eq("tenant"), any(), any());
+                .update(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     return null;
@@ -199,7 +198,7 @@ class RefundRecoveryServiceTest {
         handle();
         assertTrue(cursor.get().completed());
         assertEquals(0, cursor.get().generation());
-        verify(cursors, times(1)).update(eq("tenant"), any(), any());
+        verify(cursors, times(1)).update(any(), any());
         verifyNoInteractions(execution);
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
@@ -226,7 +225,7 @@ class RefundRecoveryServiceTest {
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::handle).getResultCode());
         assertEquals(before, cursor.get());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
 
@@ -249,7 +248,7 @@ class RefundRecoveryServiceTest {
                 .progress("tenant", "request");
         assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
         verify(tasks, never()).register(anyString(), anyString(), any());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
     }
 
     @Test
@@ -321,7 +320,7 @@ class RefundRecoveryServiceTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());
         verify(tasks, never()).register(anyString(), anyString(), any());
-        verify(cursors, never()).update(anyString(), any(), any());
+        verify(cursors, never()).update(any(), any());
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);
     }

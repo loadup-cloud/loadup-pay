@@ -26,15 +26,15 @@ import java.util.Optional;
  * Persistence or integration port; implementations own transactions and trusted tenant isolation.
  */
 public interface TradeProjectionGateway {
-    Optional<TradeOrderProjection> findOrder(String tenantId, String orderId);
+    Optional<TradeOrderProjection> findOrder(String orderId);
 
-    Optional<TradeRefundSummary> findRefundSummary(String tenantId, String orderId);
+    Optional<TradeRefundSummary> findRefundSummary(String orderId);
 
-    ProjectionAdvance applyOrderIfNewer(String tenantId, TradeOrderProjection snapshot, String factsHash);
+    ProjectionAdvance applyOrderIfNewer(TradeOrderProjection snapshot, String factsHash);
 
-    ProjectionAdvance applyPaymentIfNewer(String tenantId, TradePaymentProjection snapshot, String factsHash);
+    ProjectionAdvance applyPaymentIfNewer(TradePaymentProjection snapshot, String factsHash);
 
-    ProjectionAdvance applyRefundIfNewer(String tenantId, TradeRefundProjection snapshot, String factsHash);
+    ProjectionAdvance applyRefundIfNewer(TradeRefundProjection snapshot, String factsHash);
 
-    ProjectionAdvance applyRefundSummaryIfNewer(String tenantId, TradeRefundSummary snapshot, String factsHash);
+    ProjectionAdvance applyRefundSummaryIfNewer(TradeRefundSummary snapshot, String factsHash);
 }

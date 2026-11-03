@@ -244,12 +244,12 @@ class PaymentResultServiceTest {
 
     @BeforeEach
     void setup() {
-        when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(accepted.get()));
+        when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             active();
             return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
-        when(attempts.lock("tenant", "attempt")).thenAnswer(c -> {
+        when(attempts.lock("attempt")).thenAnswer(c -> {
             active();
             return Optional.of(attempt.get());
         });
@@ -260,44 +260,44 @@ class PaymentResultServiceTest {
                     .formatted(Integer.toUnsignedLong(Objects.hash(
                             o.identity(), o.kind(), o.amount(), o.channelTransactionNo(), o.succeededAt())));
         });
-        when(results.receipt(eq("tenant"), eq("attempt"), any(), anyString()))
-                .thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(2) + "/" + c.getArgument(3))));
+        when(results.receipt(eq("attempt"), any(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(1) + "/" + c.getArgument(2))));
         when(results.transaction(any(), anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(claim.get())
                         .filter(v -> v.channelTransactionNo().equals(c.getArgument(2))));
-        when(results.attemptClaim("tenant", "attempt"))
+        when(results.attemptClaim("attempt"))
                 .thenAnswer(c -> Optional.ofNullable(claim.get())
                         .filter(v -> v.tenantId().equals("tenant")
                                 && v.identity().attemptId().equals("attempt")));
-        when(results.capacity("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(capacity.get()));
+        when(results.capacity("payment")).thenAnswer(c -> Optional.ofNullable(capacity.get()));
         doAnswer(c -> {
                     active();
-                    attempt.set(c.getArgument(1));
+                    attempt.set(c.getArgument(0));
                     return null;
                 })
                 .when(attempts)
-                .update(eq("tenant"), any(), anyLong());
+                .update(any(), anyLong());
         doAnswer(c -> {
                     active();
-                    accepted.set(c.getArgument(1));
+                    accepted.set(c.getArgument(0));
                     return null;
                 })
                 .when(changes)
-                .updatePayment(eq("tenant"), any(), anyLong());
+                .updatePayment(any(), anyLong());
         doAnswer(c -> {
                     active();
-                    accepted.set(c.getArgument(1));
+                    accepted.set(c.getArgument(0));
                     return null;
                 })
                 .when(results)
-                .completeSuccess(eq("tenant"), any(), anyLong(), any());
+                .completeSuccess(any(), anyLong(), any());
         doAnswer(c -> {
                     active();
-                    gate.set(c.getArgument(1));
+                    gate.set(c.getArgument(0));
                     return null;
                 })
                 .when(changes)
-                .updateGate(eq("tenant"), any(), anyLong());
+                .updateGate(any(), anyLong());
         doAnswer(c -> {
                     active();
                     claim.set(c.getArgument(0));
@@ -307,26 +307,26 @@ class PaymentResultServiceTest {
                 .insertClaim(any());
         doAnswer(c -> {
                     active();
-                    capacity.set(c.getArgument(2));
+                    capacity.set(c.getArgument(1));
                     return null;
                 })
                 .when(results)
-                .insertCapacity(eq("tenant"), anyString(), any());
+                .insertCapacity(anyString(), any());
         doAnswer(c -> {
                     active();
-                    PaymentChannelReceipt r = c.getArgument(1);
+                    PaymentChannelReceipt r = c.getArgument(0);
                     receipts.put(r.source() + "/" + r.receiptKey(), r);
                     return null;
                 })
                 .when(results)
-                .insertReceipt(eq("tenant"), any());
+                .insertReceipt(any());
         doAnswer(c -> {
                     active();
-                    anomalies.add(c.getArgument(1));
+                    anomalies.add(c.getArgument(0));
                     return null;
                 })
                 .when(results)
-                .recordAnomaly(eq("tenant"), any());
+                .recordAnomaly(any());
         doAnswer(c -> {
                     active();
                     return null;
@@ -419,10 +419,8 @@ class PaymentResultServiceTest {
         assertEquals(PaymentState.PROCESSING, accepted.get().payment().state());
         var calls = inOrder(results, actions);
         calls.verify(results)
-                .insertReceipt(
-                        eq("tenant"),
-                        ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
-                                && receipt.identity().equals(original.identity())));
+                .insertReceipt(ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
+                        && receipt.identity().equals(original.identity())));
         calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
         calls.verify(actions).present("tenant", locked);
         verifyNoInteractions(events);
@@ -462,10 +460,8 @@ class PaymentResultServiceTest {
         assertSame(presented, result.payment());
         var calls = inOrder(results, actions);
         calls.verify(results)
-                .insertReceipt(
-                        eq("tenant"),
-                        ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
-                                && receipt.identity().equals(original.identity())));
+                .insertReceipt(ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
+                        && receipt.identity().equals(original.identity())));
         calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
         calls.verify(actions).present("tenant", locked);
     }
@@ -513,7 +509,7 @@ class PaymentResultServiceTest {
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         // The in-memory receipt map does not roll back; the transaction counters only verify lifecycle propagation.
-        verify(results).insertReceipt(eq("tenant"), any());
+        verify(results).insertReceipt(any());
     }
 
     @Test
@@ -545,7 +541,7 @@ class PaymentResultServiceTest {
         assertEquals(result, service.record("tenant", rewrapped));
         verifyNoInteractions(events);
         verify(results, never()).insertClaim(any());
-        verify(changes, never()).updatePayment(anyString(), any(), anyLong());
+        verify(changes, never()).updatePayment(any(), anyLong());
     }
 
     @Test
@@ -653,8 +649,8 @@ class PaymentResultServiceTest {
         assertEquals(1, receipts.size());
         assertEquals(1, anomalies.size());
         assertNull(capacity.get());
-        verify(attempts, never()).update(anyString(), any(), anyLong());
-        verify(changes, never()).updatePayment(anyString(), any(), anyLong());
+        verify(attempts, never()).update(any(), anyLong());
+        verify(changes, never()).updatePayment(any(), anyLong());
         verify(results, never()).insertClaim(any());
         verifyNoInteractions(events);
     }

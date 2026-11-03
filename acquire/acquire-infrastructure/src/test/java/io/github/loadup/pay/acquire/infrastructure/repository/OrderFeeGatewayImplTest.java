@@ -134,11 +134,11 @@ class OrderFeeGatewayImplTest {
     }
 
     void basis(long version, long amount) {
-        write(() -> gateway.applyRefundBasis("tenant", order, policy, version, amount, "event-" + version, now));
+        write(() -> gateway.applyRefundBasis(order, policy, version, amount, "event-" + version, now));
     }
 
     void confirm() {
-        write(() -> gateway.confirmPaid("tenant", order, policy, now));
+        write(() -> gateway.confirmPaid(order, policy, now));
     }
 
     @Test
