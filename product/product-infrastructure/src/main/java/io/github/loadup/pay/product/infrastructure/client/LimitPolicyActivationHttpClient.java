@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Product Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.product.infrastructure.client;
 
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
@@ -6,12 +25,12 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.IN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
+import io.github.loadup.components.serviceauth.ServiceAccessTokens;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.product.app.port.PolicyActivationClient;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
-import io.github.loadup.pay.security.ServiceAccessTokens;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 

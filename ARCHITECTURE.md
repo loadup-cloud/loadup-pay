@@ -68,7 +68,7 @@ Pay 已删除内部 proto、Wire mapper、Dubbo 生成/自动装配、运行 bin
 
 内部入口统一 POST /api/internal/v1/，Resource Server 校验 JWT 签名、issuer、audience、有效期与 token_use。
 租户和主体来自验证后的 claims，producer、请求体和普通 Header 不是可信身份。商户委托保留原主体和受众，不能替换成更高权限 SERVICE token。
-SERVICE 凭证通过 pay-service-auth 的标准 OAuth2 客户端获取，按 tenant/service/audience 隔离缓存与续取，再显式传入 Authorization；资源端经 JWKS 本地验签及授权。
+SERVICE 凭证通过 loadup-components-service-auth 的标准 OAuth2 客户端获取，按 tenant/service/audience 隔离缓存与续取，再显式传入 Authorization；资源端经 JWKS 本地验签及授权。
 不采用原内部 Triple 的 exp-only 解析方式。网络调用位于本地事务外，未知受理结果、幂等身份和 Outbox 工作流保持原语义。
 
 普通成功/业务失败使用 HTTP 200 的 SuccessResponse/FailureResponse，capture 明细为平面 PageResponse。

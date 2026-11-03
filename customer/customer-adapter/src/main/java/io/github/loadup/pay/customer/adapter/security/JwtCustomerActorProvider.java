@@ -24,12 +24,11 @@ import io.github.loadup.pay.customer.app.security.CustomerActor;
 import io.github.loadup.pay.customer.app.security.CustomerActorProvider;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
+import java.util.Objects;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
-
-import java.util.Objects;
 
 @Component
 public class JwtCustomerActorProvider implements CustomerActorProvider {

@@ -549,3 +549,7 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 ## 代码质量审查
 
 - 修改 Java 代码时，代理检查改动涉及的代码风格、潜在缺陷、安全问题、重复及复杂逻辑，参考 Checkstyle、SpotBugs（含 Find Security Bugs）和 PMD 的检查范围。适用时参考 `config/quality/` 中保留的规则和排除配置，并在交付时说明未能验证的风险。
+
+## 快速开发阶段
+
+- 项目处于快速开发阶段；修改时直接迁移调用方和配置，移除旧代码，不保留历史兼容层或兼容性分支，除非用户明确要求。

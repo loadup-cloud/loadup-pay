@@ -139,6 +139,43 @@ loadup:
     locations:
       - classpath:db/migration
   security:
+    service-auth:
+      token-uri: ${SERVICE_AUTH_TOKEN_URI:http://authserver:8080/oauth2/token}
+      allow-insecure-http: ${SERVICE_AUTH_ALLOW_INSECURE_HTTP:false}
+      client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
+      registrations:
+        acquire:
+          client-id: ${PAYMENT_ACQUIRE_OAUTH_CLIENT_ID:payment.default.acquire}
+          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+          service-id: payment
+          audience: acquire
+          scopes:
+            - pay:acquire:payment:outcome
+            - pay:acquire:fee:refund
+            - pay:acquire:refund:notification
+        limitcenter:
+          client-id: ${PAYMENT_LIMITCENTER_OAUTH_CLIENT_ID:payment.default.limitcenter}
+          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+          service-id: payment
+          audience: limitcenter
+          scopes:
+            - pay:limit:reserve
+            - pay:limit:read
+            - pay:limit:execute
+            - pay:limit:verify
+            - pay:limit:expire
+            - pay:limit:confirm
+            - pay:limit:release
+            - pay:limit:refund:restore
+        realtime:
+          client-id: ${PAYMENT_REALTIME_OAUTH_CLIENT_ID:payment.default.realtime}
+          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+          service-id: payment
+          audience: realtime
+          scopes:
+            - pay:realtime:projection:payment
+            - pay:realtime:projection:refund
+            - pay:realtime:projection:refund-summary
     resource-server:
       enabled: true
       permit-all:
@@ -161,42 +198,3 @@ resilience4j:
       pay-channel-recovery-unionpay:
         max-concurrent-calls: ${PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT:16}
         max-wait-duration: 0ms
-
-pay:
-  service-auth:
-    token-uri: ${SERVICE_AUTH_TOKEN_URI:http://authserver:8080/oauth2/token}
-    allow-insecure-http: ${SERVICE_AUTH_ALLOW_INSECURE_HTTP:false}
-    client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
-    registrations:
-      acquire:
-        client-id: ${PAYMENT_ACQUIRE_OAUTH_CLIENT_ID:payment.default.acquire}
-        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-        service-id: payment
-        audience: acquire
-        scopes:
-          - pay:acquire:payment:outcome
-          - pay:acquire:fee:refund
-          - pay:acquire:refund:notification
-      limitcenter:
-        client-id: ${PAYMENT_LIMITCENTER_OAUTH_CLIENT_ID:payment.default.limitcenter}
-        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-        service-id: payment
-        audience: limitcenter
-        scopes:
-          - pay:limit:reserve
-          - pay:limit:read
-          - pay:limit:execute
-          - pay:limit:verify
-          - pay:limit:expire
-          - pay:limit:confirm
-          - pay:limit:release
-          - pay:limit:refund:restore
-      realtime:
-        client-id: ${PAYMENT_REALTIME_OAUTH_CLIENT_ID:payment.default.realtime}
-        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-        service-id: payment
-        audience: realtime
-        scopes:
-          - pay:realtime:projection:payment
-          - pay:realtime:projection:refund
-          - pay:realtime:projection:refund-summary

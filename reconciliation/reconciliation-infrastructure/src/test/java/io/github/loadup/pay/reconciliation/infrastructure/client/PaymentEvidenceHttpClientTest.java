@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.reconciliation.infrastructure.client;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -14,6 +33,7 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.PageInfo;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.serviceauth.ServiceAccessTokens;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.http.PaymentCaptureHttpService;
@@ -24,7 +44,6 @@ import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
-import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;

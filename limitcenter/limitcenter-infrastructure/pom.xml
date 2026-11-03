@@ -13,7 +13,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-service-auth</artifactId>
+            <artifactId>loadup-components-service-auth</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
