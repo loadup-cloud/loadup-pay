@@ -105,4 +105,4 @@ customer NOT_FOUND 保留原业务拒绝，其余未知码/认证/传输异常�
 
 `LIMITCENTER_BASE_URL` 默认 `http://limitcenter:8080`；使用按次读取的挂载 SERVICE token 发起 activate，
 保留冻结意图与原版本/hash 的 Outbox 重投和 ACK 校验。product 不再需要 Nacos profile 或 Dubbo binder。
-部分共享 Wire 消息仍供 payment 迁移前使用，见 client 架构；未运行本批构建或测试。
+共享 proto、Wire mapper 和协议生成已全部清除，跨服务复用 Java DTO；未运行本批构建或测试。

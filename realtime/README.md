@@ -2,7 +2,7 @@
 
 > 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
-应用间传输使用 Dubbo Triple；HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
+应用间传输使用标准 HTTP，默认 8080。四个内部入口位于 /api/internal/v1/realtime/projections/；见[HTTP 契约](realtime-client/ARCHITECTURE.md)。
 
 本服务拥有独立数据库和版本化读模型，消费受信 acquire/payment 的完整快照，不查询交易源、不参与付款提交、订单占用或额度决策。
 订单、付款、退款及退款汇总生产端均已有源码；payment 新补 INIT 0、PROCESSING、UNKNOWN、CLOSING 的已提交版本快照，终态保持原独立投递。
@@ -10,7 +10,7 @@
 
 | 能力         | 当前源码                                                                                                               |
 |--------------|------------------------------------------------------------------------------------------------------------------------|
-| 四类完整快照 | /api/realtime/projections/order、payment、refund、refund-summary，分别用独立 producer/aggregate/sourceVersion          |
+| 四类完整快照 | /api/internal/v1/realtime/projections/order、payment、refund、refund-summary，分别用独立 producer/aggregate/sourceVersion          |
 | 版本处理     | 高版本 CAS；相同版本/内容幂等；低版本 STALE ACK；同版本不同内容或身份/终态回退拒绝覆盖                                 |
 | 可靠回执     | 快照变更与 trade_projection_receipt 同事务，重放原 delivery 返回首次 ACK；不依赖来源在线                               |
 | 商户查询     | /api/realtime/trades/detail、orders、payments、refunds，只接受可信 JWT 中的实际 merchant_id 和 pay:realtime:trade:read |
@@ -49,3 +49,5 @@ profile 已装配或联通。
 
 
 实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
+
+内部调用已删除 proto/Wire/Dubbo 生成与 Nacos profile。消费方使用 REALTIME_BASE_URL；源身份与 ACK 语义不变，运行验收见 [迁移清单](../HTTP_MIGRATION.md)。

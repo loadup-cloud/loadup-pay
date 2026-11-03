@@ -16,18 +16,19 @@ OTLP metrics exporter 在所有环境默认关闭，指标通过 Prometheus 拉�
 支付成功率、订单金额等业务指标需要另行埋点，HTTP 5xx 比例不代表支付失败率。
 
 按项目现有方式重新构建七个应用镜像并更新部署。`pay.yml` 的 Pod 模板已声明抓取注解，指标端口沿用 8080。
-镜像仍使用本地 bootstrap 标签及 `imagePullPolicy: Never`，构建后需确保目标节点镜像已更新并重建 Pod。
+发布使用明确镜像标签与配置版本，按 [配置与发布](CONFIGURATION.md) 准备不可变配置和可变令牌 Secret。
+不要直接 apply pay.yml；它是渲染模板。以下命令供发布者显式执行，本轮未运行：
 
 ```bash
-kubectl apply -f loadup-pay/deploy/pay.yml
-kubectl -n loadup-pay rollout restart deployment/payment deployment/acquire deployment/customer deployment/limitcenter deployment/product deployment/realtime deployment/reconciliation
+IMAGE_TAG=metrics-001 CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./loadup-pay/scripts/deploy.sh all
 kubectl -n loadup-pay port-forward service/payment 18080:8080
 # 在另一个终端执行，应返回 Prometheus 文本格式，包含 application="payment"
 curl -fsS http://localhost:18080/actuator/prometheus
 ```
 
 指标端点无需业务 JWT，仅应通过集群内网访问；不要通过公网 Ingress 暴露 `/actuator/prometheus`。
-如集群已启用 NetworkPolicy，允许 Prometheus 到 loadup-pay Pod 的 TCP 8080 流量。
+七应用已提供入站 NetworkPolicy；Prometheus server 使用本 values 中 loadup.io/metrics-scraper=true 标签，从 observability 访问 TCP 8080。
+已有监控实例须同步标签与 namespace，真实 CNI 隔离待验收，见 [网络策略](NETWORK_POLICY.md)。
 
 ## 2. Prometheus 抓取
 

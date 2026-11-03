@@ -1,0 +1,80 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: loadup-pay-https-redirect
+  namespace: loadup-pay
+spec:
+  parentRefs:
+    - name: loadup-pay
+      sectionName: http
+  hostnames: [{{ .Values.hostname | quote }}]
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect: { scheme: https, statusCode: 308 }
+{{- $routes := list
+    (dict "name" "customer" "service" "customer" "paths" (list "/api/customer") "limit" "64Ki" "timeout" "15s")
+    (dict "name" "product" "service" "product" "paths" (list "/api/product") "limit" "1Mi" "timeout" "15s")
+    (dict "name" "acquire" "service" "acquire" "paths" (list "/api/acquire" "/api/cashier") "limit" "1Mi" "timeout" "15s")
+    (dict "name" "payment" "service" "payment" "paths" (list "/api/payment/refunds" "/api/payment/channel-bindings" "/api/payment/routing-profiles" "/api/payment/operations/recovery") "limit" "1Mi" "timeout" "15s")
+    (dict "name" "callbacks" "service" "payment" "paths" (list "/api/payment/channel-callbacks") "limit" "64Ki" "timeout" "15s")
+    (dict "name" "realtime" "service" "realtime" "paths" (list "/api/realtime/trades") "limit" "1Mi" "timeout" "15s")
+    (dict "name" "reconciliation" "service" "reconciliation" "paths" (list "/api/reconciliation") "limit" "32Mi" "timeout" "75s")
+    (dict "name" "checkout" "service" "acquire" "paths" (list "/checkout" "/checkout.js" "/checkout.css" "/checkout-core.mjs" "/checkout-bridge.mjs") "limit" "1Ki" "timeout" "10s" "static" true)
+}}
+{{- range $route := $routes }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: loadup-pay-{{ $route.name }}
+  namespace: loadup-pay
+spec:
+  parentRefs:
+    - name: loadup-pay
+      sectionName: https
+  hostnames: [{{ $.Values.hostname | quote }}]
+  rules:
+    - matches:
+        {{- range $path := $route.paths }}
+        - path: { type: {{ if $route.static }}Exact{{ else }}PathPrefix{{ end }}, value: {{ $path | quote }} }
+          method: {{ if $route.static }}GET{{ else }}POST{{ end }}
+        {{- end }}
+      backendRefs:
+        - name: {{ $route.service }}
+          port: 8080
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove:
+              - x-envoy-retry-on
+              - x-envoy-retry-grpc-on
+              - x-envoy-max-retries
+              - x-envoy-hedge-on-per-try-timeout
+              - x-envoy-upstream-rq-timeout-ms
+              - x-envoy-upstream-rq-per-try-timeout-ms
+              - x-envoy-upstream-rq-per-try-idle-timeout-ms
+              - x-envoy-expected-rq-timeout-ms
+      timeouts:
+        request: {{ $route.timeout }}
+        backendRequest: {{ $route.timeout }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: loadup-pay-{{ $route.name }}
+  namespace: loadup-pay
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: loadup-pay-{{ $route.name }}
+  requestBuffer:
+    limit: {{ $route.limit }}
+  rateLimit:
+    local:
+      rules:
+        - limit:
+            requests: {{ $.Values.requestsPerSecond }}
+            unit: Second
+{{- end }}

@@ -2,7 +2,7 @@
 
 > 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
-product 准入与 payment 调用已改为 HTTP；acquire 事件提供端和 realtime 消费暂保留 Triple。HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
+内部提供端和 product/payment/realtime 消费端均使用标准 HTTP，默认 8080。契约见[总体架构](../ARCHITECTURE.md)。
 
 已实现普通创单/原调用主体查询、原单会话签发/能力认证/收银台只读摘要，并补齐商户付款发起、金额占用及权威结果刷新落账的 COLA
 源码。复用框架 Money、JSON、BaseDO、ID、数据库/事务、生成 Mapper、Spring MapStruct、HTTP 和 JWT 资源服务器。业务默认币种为
@@ -55,8 +55,8 @@ java \
 |-------------------------------------------------------------------------|-----------------------------------------------------------------|
 | ACQUIRE_JDBC_URL / ACQUIRE_JDBC_USERNAME / ACQUIRE_JDBC_PASSWORD        | 独立 PostgreSQL 业务库及外部 Secret 凭证                             |
 | ACQUIRE_JWT_ISSUER_URI / ACQUIRE_JWT_AUDIENCE / ACQUIRE_JWT_JWK_SET_URI | 本服务已验证资源服务器                                          |
-| PRODUCT_JWT_AUDIENCE                                 | product 委托 audience；目标由 Dubbo 配置管理                           |
-| PAYMENT_JWT_AUDIENCE                                 | payment 服务凭证 audience；目标由 Dubbo 配置管理                       |
+| PRODUCT_JWT_AUDIENCE                                 | product 委托 audience；目标由 PRODUCT_BASE_URL 配置                           |
+| PAYMENT_JWT_AUDIENCE                                 | payment 服务凭证 audience；目标由 PAYMENT_BASE_URL 配置                       |
 | ACQUIRE_PAYMENT_TENANT_ID                                               | 当前出站服务凭证所属租户；其他租户在占用前拒绝                  |
 | ACQUIRE_SERVICE_ID                                                      | 出站 SERVICE 身份，默认 acquire，须匹配 payment 的受信配置      |
 | ACQUIRE_PAYMENT_TOKEN_FILE                                              | 外部 Secret 挂载的服务 JWT 文件；每次请求重新读取以支持轮换     |
@@ -71,7 +71,8 @@ deploy/pay.yml 未包含业务 DB/JWT 配置，业务上线需覆盖层显式注
 
 本次只核对文档与当前配置/源码，未运行构建或测试。当前 PostgreSQL 基线的迁移、并发、回滚及真实服务调用需单独验收，历史数据库测试记录不代表当前版本已通过。
 
-## HTTP 迁移进度
+## 应用间 HTTP
 
-acquire → product 准入调用已迁移为标准 HTTP Service Client，按目标服务配置基础地址，逐次传递原凭证；
-原事务、幂等和错误语义保留。其他未迁移链路继续使用 Triple，源码与运行验收状态见 [迁移清单](../HTTP_MIGRATION.md)。
+内部事件路径 /api/internal/v1/acquire/events/ 接收 payment 的付款结果、费用退款汇总与商户退款通知。
+PRODUCT_BASE_URL、PAYMENT_BASE_URL、REALTIME_BASE_URL 默认使用普通 Service 的 HTTP 8080，本地 profile 使用 localhost 8085/8081/8086。
+每次传递目标受众的原凭证，原事务、幂等、来源/ACK 和错误语义保留。已清除 proto/Wire/Dubbo/Nacos 默认装配，运行验收见 [迁移清单](../HTTP_MIGRATION.md)。

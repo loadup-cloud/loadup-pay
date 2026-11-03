@@ -4,13 +4,12 @@
 
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
-当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc`
-子包）：批次创建/封存输入引用、原运行与持久任务、
-双侧完整输入核对、多原因差错、数据库适配和 HTTP/Dubbo Triple 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
+当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（标准 HTTP 声明接口位于 client.http）：批次创建/封存输入引用、原运行与持久任务、
+双侧完整输入核对、多原因差错、数据库适配和 HTTP 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
 微信 ALL 交易账单解析源码按 2026-01-16 官方格式实现，独立校验账户、账期、规范化行和完整汇总；已接受信 SERVICE 的
-File/Transfer 手工来源导入；微信官方下载与 payment 只读 RPC 已有源码，本服务官方来源请求/任务/File/Transfer 接线源码已补。
+File/Transfer 手工来源导入；微信官方下载与 payment 只读 HTTP 已有源码，本服务官方来源请求/任务/File/Transfer 接线源码已补。
 
-应用间调用已迁移为 Dubbo Triple；所有新增源码未启动服务、执行真实 RPC 或部署，不代表当前业务环境已可用。官方来源真实环境验收、支付宝解析、
+应用间调用已迁移为标准 HTTP；所有新增源码未启动服务、执行真实 HTTP 业务调用或部署，不代表当前业务环境已可用。官方来源真实环境验收、支付宝解析、
 差错独立复核/审批源码已补，显式可信源端只读查询/留档源码已补，受控金融处置仍待继续；payment 微信权威采集快照与完整导入已有源码，不直接改交易资金状态。
 
 
@@ -31,8 +30,8 @@ File/Transfer 手工来源导入；微信官方下载与 payment 只读 RPC 已�
   原批次只允许原 caller 及当前账户授权读取/操作；商户凭证不能直接取得对账运营权限。
 - HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,task,retry,differences}`；start 使用
   `ReconciliationBatchStartCommand`。
-  跨进程契约是 reconciliation-client 的 `ReconciliationRpc`，适配器用 `@DubboService` 实现生成的 `ImplBase`，复用 binder
-  的身份与错误映射。
+  内部契约是 reconciliation-client 的 ReconciliationHttpService，路径 /api/internal/v1/reconciliation/batches/，
+  MVC 适配器复用原 Facade、完整 JWT 校验和业务错误信封。
   differences 使用通用 PageDTO/PageResponse，默认 1/20，最大 100；终态差错查询不回源交易服务。
   detail 在 run 已建立时显示任务 ID 与原生状态；retry 要求 batchId、runId、expectedTaskId，只重试原 FAILED 任务，保留两份封存输入。
 
@@ -98,7 +97,7 @@ IMPORT_MAX_REQUEST_SIZE。
 ## payment 权威采集快照（P1 源码）
 
 当前仅 WECHAT / `wechat-trade-all-20260116`。使用 [采集契约](../ARCHITECTURE.md)，
-调用 payment 的 Dubbo Triple；不读 realtime，不跨数据库，不接受上传 LEDGER CSV。
+调用 payment 的标准 HTTP；不读 realtime，不跨数据库，不接受上传 LEDGER CSV。
 
 - `POST /api/reconciliation/ledger/prepare`：batchId/requestKey；按原批次 scope 请求异步源端快照，重复 requestKey 查询原结果。
 - `POST /api/reconciliation/ledger/import`：batchId/captureId；只接受 SEALED，完整分页/空 EOF/总计/hash/冻结范围核对后，
@@ -108,8 +107,9 @@ IMPORT_MAX_REQUEST_SIZE。
 - 出站服务凭证为 `RECONCILIATION_SERVICE_ID`（默认 reconciliation），配置 `RECONCILIATION_PAYMENT_TENANT_ID`、
   `RECONCILIATION_PAYMENT_AUDIENCE`（默认 payment）和 `RECONCILIATION_PAYMENT_TOKEN_FILE`。当前凭证配置对应一个租户，其他租户显式拒绝。
   接收方需授予 `pay:payment:reconciliation:capture:create/read/retry`；逐次读取挂载凭证，未签发真实令牌。
-- 默认 `tri://payment-headless:50051`，每 RPC 3 秒，账单下载引用单独 60 秒，完整抓取预算 60 秒、分页100。
-  `RECONCILIATION_LEDGER_FETCH_SECONDS` 可配置；引用地址与超时固定在 `@DubboReference`，不把环境地址写进 Java。
+- PAYMENT_BASE_URL 默认 http://payment:8080；本地 profile 为 localhost:8081。普通读取 3s，账单下载独立组 60s，
+  连接/池等待各 1s，32 MiB 请求/响应上限。完整抓取预算由 RECONCILIATION_LEDGER_FETCH_SECONDS 控制；分页 100。
+  目标地址由部署配置，不写在业务代码。
 - INIT/BLOCKED 不能导入；BLOCKED 是覆盖阻断样本，无可导出金额/行。查证原资金后使用新 requestKey 请求新 RR，原快照永不覆盖。
 
 账务源生成和对账挂入是显式两步，当前不自动轮询/自动导入或启动核对。导入数据库失败可重放原 capture，
@@ -120,7 +120,7 @@ IMPORT_MAX_REQUEST_SIZE。
 `POST /api/reconciliation/statements/{submit,detail,retry}` 提供受信服务运营入口，独立权限
 `pay:reconciliation:statement:submit/read/retry`。
 submit 仅传 batchId/requestKey，账户目录显式配置 `statement-binding-revision-id`；未配置仍允许手工导入，但不能官方下载。
-原请求与 DelayedTask 先同库落 INIT，再由原生 handler 事务外调用 payment 的原绑定只读 RPC、保存原件/凭证。
+原请求与 DelayedTask 先同库落 INIT，再由原生 handler 事务外调用 payment 的原绑定只读 HTTP、保存原件/凭证。
 两个长期 File 引用、Transfer、OFFICIAL_DOWNLOAD import 与来源 READY 原子登记；原严格解析随后封存批次 CHANNEL。
 READY 的 sourceId 就是 importId；下载 taskId 与 Transfer taskId 独立，重试分别沿用原 expectedTaskId，不重领 RUNNING。
 
@@ -162,4 +162,4 @@ API/持久化/投递/Facade/索引迁移和测试源码已补，均未运行。�
 付款快照、账单来源下载和只读查证已改为标准 HTTP Service Clients，共用 PAYMENT_BASE_URL（默认 http://payment:8080）。
 普通组读取 3s；payment-statements 组保留 60s、32 MiB 响应上限及独立 8/4 连接限额，兼顾 Base64 膨胀与普通查证可用连接。
 原 SERVICE token 每次重读，事务外联网、错误白名单与原来源校验保留；分页错序、非封存统计、字节/哈希异常不能当作权威输入。
-本服务自己的六个 Triple 提供操作仍待迁移；源码进度与未运行的验收见 [迁移清单](../HTTP_MIGRATION.md)。
+本服务六个内部提供操作亦已迁移 HTTP，旧协议生成/装配已删除；源码进度与未运行的验收见 [迁移清单](../HTTP_MIGRATION.md)。

@@ -1,18 +1,13 @@
-# RPC contracts
+# Reconciliation HTTP contracts
 
-本 client 由 reconciliation 服务维护，包含 Java Facade、Command/Query/DTO、结果码，以及 Protobuf IDL
-（`.proto`、生成存根和 Wire↔DTO mapper）。IDL 代码位于 `rpc` 子包，与业务契约隔离；domain/app 不直接引用
-rpc 类型。
+client.http.ReconciliationHttpService 定义 POST /api/internal/v1/reconciliation/batches/{create,attach,start,retry,task,detail}。
+复用原四个 Command，task/detail 使用 commons IdQuery。响应是 SuccessResponse<ReconciliationBatchDTO/BatchTaskDTO> 或 FailureResponse。
+ReconciliationInternalController 委托既有 ReconciliationFacade，不改变账户目录、SERVICE/租户授权、任务、封存输入或事务。
+原运营 HTTP 入口及 differences 分页保留；当前仓库无该声明式接口的消费者，受控集成仍需独立迁移验收。
 
-- 内部业务契约：`ReconciliationFacade.create/attach/start/retry/detail/task/differences`；
-  `ReconciliationImportFacade`、`ReconciliationLedgerFacade`、`ReconciliationReviewFacade`、
-  `ReconciliationStatementFacade`、`ReconciliationVerificationFacade` 只用于 HTTP 入口。
-- 跨进程 IDL：`reconciliation-client/src/main/proto/reconciliation.proto`，service
-  `ReconciliationRpc.Create/Attach/Start/Retry/Task/Detail`。`differences` 是只读运营查询，随 HTTP 暴露，
-  不进入 proto。
+ReconciliationContracts 与 Input/Batch/Task 构造器保留原 Wire 验证的必填、计数溢出、合法日期和状态/输入/run/任务关联。
+INIT 不伪造运行/结果，MATCHED 必须零差错。JSON 严格整数、枚举和显式 version presence；金额不经 double。
+client 不再包含 proto、Wire mapper、生成任务或 Dubbo 装配。
 
-提供方在 `reconciliation-adapter` 实现生成的 `ImplBase` 并标注
-`@DubboService(interfaceClass = ReconciliationRpc.class)`；消费方在 `*-infrastructure` 用
-`@DubboReference(url = "tri://reconciliation-headless:50051")` 引用生成的 `ReconciliationRpc`。
-Wire↔DTO 转换由 `reconciliation-client` 的 `ReconciliationRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../ARCHITECTURE.md)。
+提供方完整 JWT 验证，身份来自签名 claims，普通 Header/账户自报 hash 不是授权依据。
+错误、发布与未执行验收见 [迁移清单](../../HTTP_MIGRATION.md)。

@@ -1,0 +1,10 @@
+# Required deployment inputs; the chart never creates certificate/private-key data.
+hostname: ""
+tlsSecret:
+  name: ""
+  # Empty means the Gateway namespace. A different namespace creates a narrow ReferenceGrant there.
+  namespace: ""
+proxy:
+  replicas: 2
+# Per route and per Envoy replica, not a global quota or a proven downstream capacity.
+requestsPerSecond: 100

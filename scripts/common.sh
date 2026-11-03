@@ -37,3 +37,25 @@ prepare_image_tag() {
   [[ "$IMAGE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || { echo 'Invalid IMAGE_TAG.' >&2; exit 1; }
   export IMAGE_TAG IMAGE_PREFIX DOCKER_CONTEXT KUBE_CONTEXT
 }
+
+require_config_versions() {
+  local version
+  for version in "${CONFIG_VERSION:-}" "${SECRET_VERSION:-}"; do
+    [[ "$version" =~ ^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$ ]] || {
+      echo 'CONFIG_VERSION and SECRET_VERSION are required DNS labels of at most 32 characters.' >&2
+      exit 1
+    }
+  done
+  export CONFIG_VERSION SECRET_VERSION
+}
+
+require_supported_kubectl() {
+  kubectl --context "$KUBE_CONTEXT" --request-timeout=10s version -o json | python3 -c '
+import json, re, sys
+versions = json.load(sys.stdin)
+client, server = versions["clientVersion"], versions["serverVersion"]
+minor = lambda version: int(re.match(r"[0-9]+", version["minor"]).group())
+if client["major"] != server["major"] or abs(minor(client) - minor(server)) > 1:
+    raise SystemExit("kubectl must be within one minor version of the target API server; update the client before deployment")
+'
+}

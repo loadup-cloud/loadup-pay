@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "hostname",
+    "tlsSecret",
+    "proxy",
+    "requestsPerSecond"
+  ],
+  "properties": {
+    "hostname": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253,
+      "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$"
+    },
+    "tlsSecret": {
+      "type": "object",
+      "required": [
+        "name",
+        "namespace"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$"
+        },
+        "namespace": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "required": [
+        "replicas"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    "requestsPerSecond": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    }
+  }
+}

@@ -9,9 +9,10 @@
 | `./payment/build.sh`                | 仅构建payment及其必需依赖，生成payment镜像      |
 | `./payment/deploy.sh`               | 构建并部署payment，不修改其他六个应用           |
 | `./scripts/verify.sh [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice |
+| `./scripts/render.sh [all或应用名]` | 仅渲染镜像/配置版本引用清单供审查，不 apply |
 
 可选应用名：`acquire`、`payment`、`customer`、`product`、`limitcenter`、`realtime`、`reconciliation`
-。所有入口均可从其他工作目录调用。client/domain/rpc作为应用依赖参与构建，不单独生成部署镜像。
+。所有入口均可从其他工作目录调用。client/domain 作为应用依赖参与构建，不单独生成部署镜像。
 
 ## 前提与默认行为
 
@@ -32,98 +33,55 @@
 
 ```bash
 # 一次完成所有构建与发布
-IMAGE_TAG=release-001 ./scripts/deploy.sh all
+IMAGE_TAG=release-001 CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./scripts/deploy.sh all
 
 # 分开构建、部署，第二步复用同一批本地镜像
 IMAGE_TAG=release-002 ./scripts/build.sh all
-SKIP_BUILD=1 IMAGE_TAG=release-002 ./scripts/deploy.sh all
+SKIP_BUILD=1 IMAGE_TAG=release-002 CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./scripts/deploy.sh all
 
 # 单应用发布
-./acquire/deploy.sh
+CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./acquire/deploy.sh
 
 # 显式要求编译并执行所选应用及依赖的测试
 ./payment/build.sh -Dmaven.test.skip=false
 ```
 
+部署显式要求 CONFIG_VERSION 与 SECRET_VERSION（不可变快照版本），RELEASE_DIR 可覆盖引用清单归档位置。
 支持环境变量`IMAGE_TAG`、`IMAGE_PREFIX`（默认`loadup-pay`）、`DOCKER_CONTEXT`与`KUBE_CONTEXT`。两端必须使用能访问同一批本地镜像的环境；
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经kubectl本地dry-run输出的JSON：全量选择18个资源（namespace、七组 Deployment/HTTP Service、三个剩余 Triple Headless Service），
-customer/product/limitcenter/payment 单应用选择3个资源，其余单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为
-50051；渲染器要求已迁移的四个 HTTP 提供端不再暴露 Headless，只对剩余三个 Triple 提供方校验必需 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+经 kubectl 本地 dry-run 输出的 JSON：全量选择 22 个资源（Namespace、七组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
+渲染器要求七应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
+单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 
 部署脚本等待每个选定Deployment
-rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator基础健康入口。脚本不创建业务订单或调用测试RPC，也不部署Headlamp；Headlamp仍由独立
+rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator基础健康入口。脚本不创建业务订单或发起真实业务请求，也不部署Headlamp；Headlamp仍由独立
 `headlamp.sh`管理。
 
 已部署版本、实际检查结果与未执行项目见[实施说明](../ARCHITECTURE.md)。
 
-## 业务配置
+## 配置与 HTTP 发布边界
 
-各服务默认构建业务镜像；部署前在 `loadup-pay` namespace 准备 `<服务名>-config` ConfigMap 和 `<服务名>-secret` Secret，提供相应服务 README 所列配置。Secret 同时只读挂载到 `/var/run/loadup/secrets`；服务令牌文件路径应指向该目录中的 Secret key。配置和密钥由部署环境提供，仓库不生成凭据。
+七应用均使用标准 HTTP Service Clients，内部路径 /api/internal/v1/，目标按提供方 BASE_URL 配置，默认 http://<app>:8080。
+非 Kubernetes 环境使用同一制品，覆盖服务基础地址即可；无需 nacos profile 或 DUBBO_REGISTRY_ADDRESS。
+当前开发阶段没有协议双栈或自动回退，七应用须使用匹配镜像、地址、JWT 与配置；旧协议回退也须恢复整套匹配配置和 Service。
 
-acquire 业务服务 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、
-`/checkout.js`、`/checkout.css` 和 `/api/cashier/order/summary`。仅提供会话签发及只读摘要，不代表付款链路已部署。
+部署前准备版本化 <app>-config-<CONFIG_VERSION> ConfigMap 与 <app>-secret-<SECRET_VERSION> Secret，二者必须 immutable。
+独立可变 <app>-service-tokens Secret 只读目录挂载 /var/run/loadup/secrets，SERVICE token 每次调用重新打开，不用 subPath。
+共享默认绑定前缀为 loadup.http.client，模块显式配置优先，旧 loadup.rpc.client 不再读取。
+渲染器将配置版本写入 Pod template 并绑定具体资源名，配置换版触发滚动。环境变量/Bean 默认重启生效，令牌文件投射轮换独立处理。
+发布前只预检资源存在性及 immutable 元数据，归档可回退的镜像/引用组合；配置值与业务权限仍需应用和环境验证。
+完整创建、轮换、回退、排空与未执行验证见 [版本化配置与发布](../deploy/CONFIGURATION.md)。
 
-payment 业务 JAR/镜像使用 `./payment/build.sh`，运行时需提供 PAYMENT_JDBC_*、PAYMENT_JWT_* 及其他业务配置，详见 [payment 说明](../payment/README.md)。
+源清单不再包含 Triple 端口、Headless Service 或旧 RPC NetworkPolicy，改为七个每应用 HTTP 入站策略。apply 不会删除旧集群资源，发布方需确认旧调用退出后明确清理。
+HTTP NetworkPolicy 和 Envoy Gateway 配置已补，运行仍待验收。网络策略随核心清单，网关 chart 独立由平台发布者安装，二者不自动安装控制器。verify.sh 仅检查 Deployment/HTTP ready EndpointSlice，
+不证明完整 JWT、业务幂等、PostgreSQL 事务、多副本连接分布、滚动排空或回退通过。
 
-acquire 业务服务 付款发起/结果刷新还需
-PAYMENT_JWT_AUDIENCE、ACQUIRE_PAYMENT_TENANT_ID、ACQUIRE_SERVICE_ID（默认 acquire）和
-ACQUIRE_PAYMENT_TOKEN_FILE。服务 JWT 由外部 Secret 文件挂载并轮换，需包含受信 SERVICE/sub/service_id/tenant_id/aud 与 pay:
-payment:accept/read 权限；不把商户 JWT 用于 payment 内部接口。服务配置由 ConfigMap 和 Secret 提供。最新
-outcome/refresh 源码按用户要求暂不检查或构建。
-
-acquire 显式关单继续使用同一挂载服务 JWT，新增需要 pay:payment:close、pay:payment:fence 和 pay:payment:fence:read 权限；固定
-payment gRPC 客户端已增加 close/fence-parent/parent-fence-status 操作。新增 order_close_intent
-迁移，服务实际8表。当前仍需准备业务配置，本批没有打包、部署或执行迁移。
-
-acquire 业务服务 新增订单延期入口，商户凭证需 pay:acquire:extend 权限；无新增出站服务配置。新增
-V20261022070000__order_extension_receipt.sql，实际9表。未在本批打包部署或执行迁移，自动到期任务尚未启用。
-
-LimitCenter 额度终态业务新增 payment 事实 gRPC 客户端，配置
-PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID 与
-LIMITCENTER_PAYMENT_TOKEN_FILE；令牌挂载文件需 pay:payment:limit-facts。payment 使用 PAYMENT_LIMITCENTER_SERVICE_ID
-限定读取者（默认 limitcenter）。新 V20261022080000 尚未执行，镜像/业务部署仍未运行。
-
-payment 业务服务 的短期输入准备新增必需环境 PAYMENT_INPUT_FINGERPRINT_KEY（至少32随机UTF-8字节）、PAYMENT_KMS_ENDPOINT（HTTPS
-origin）和运行 Secret PAYMENT_KMS_TOKEN。默认 Transit key 名 payment-input，须在 OpenBao 预先创建并授予
-encrypt/decrypt；框架管理权限关闭。输入 TTL 默认为120秒；默认 fingerprint map key=v1，轮换同时覆盖 active id 与保留旧 key 的
-map。acquire SERVICE JWT 新增 pay:payment:input:prepare 权限。新 payment_input 迁移和相关业务镜像部署尚未执行。
-
-渠道绑定管理新增 PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID（默认 pay-ops）。该指定 SERVICE 的 JWT 按需授予 pay:payment:binding:
-publish/suspend/revoke/read；不授予商户或 acquire 运维权限。新三表迁移 V20261022100000
-尚未执行，渠道真实进件/Secret/产品开通校验尚待实现，ACTIVE 配置不能作为渠道运行验收证据。
-
-支付额度出站新增 PAYMENT_LIMITCENTER_TENANT_ID、PAYMENT_SERVICE_ID（默认
-payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE、LIMITCENTER_BASE_URL；挂载令牌需 pay:limit:
-reserve/execute/verify，不能用商户 JWT。内部首笔尝试接口另要求 acquire SERVICE 的 pay:payment:attempt:start。新增
-V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像部署未运行。
-
-## 应用间 Dubbo Triple 发布
-
-customer/product/limitcenter 提供端已改为 HTTP；其余四应用 `application.yml` 保留 HTTP 8080、Triple 50051。七应用均 `shutdown: graceful`，Pod 终止窗口 45 秒。默认通过配置使用 `tri://<peer>-headless:50051` 直连，字段类型是生成的 Protobuf IDL 接口；
-`dubbo.registry.address: N/A`，
-`consumer.check: false`、`timeout: 3000`、`retries: 0`。Java 代码中不写环境地址，也没有应用间 HTTP 地址或降级路径。
-
-各应用默认装配业务 adapter；部署需准备各自数据库、JWT、挂载 SERVICE token 和生产 TLS 配置。
-
-`pay.yml` 保留 HTTP ClusterIP Service；product → customer 的资格调用使用 `http://customer:8080`，acquire → product 与 product/payment → limitcenter 也改为普通 Service HTTP；其余未迁移链路继续使用 Triple Headless Service。`verify.sh`
-目前仅检查
-Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 Triple
-调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
-
-双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 或 gRPC 兼容通道；旧镜像与新
-Dubbo Triple 镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
-
-协议与调用关系见[RPC 规范](../ARCHITECTURE.md)；binder 设计与配置见
-[Dubbo binder](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md)。
-
-渠道插件由 payment 业务服务 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的
--am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款
-Provider 源码已补；可选 payment-alipay profile 配置付款码/JSAPI、支付查单/关闭与退款 HTTP 操作，真实资金链路未验收。
+原生成类可能残留于增量输出，按约定 clean 构建。测试源码与未执行验收见 [迁移清单](../HTTP_MIGRATION.md)。
+不把本说明视为部署或发送真实金融请求的授权。
 
 ## 托管收银台浏览器核心测试源码
 
@@ -140,7 +98,7 @@ node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
 
 `./reconciliation/build.sh` 构建独立对账服务。
 配置独立 RECONCILIATION_JDBC_*、RECONCILIATION_JWT_* 和受控账户目录，详见 [对账服务](../reconciliation/README.md)。
-七应用清单、镜像允许路径、选择器及 Headless 命名已同步为源码；本轮未构建镜像或运行渲染、部署、就绪脚本。
+七应用清单、镜像允许路径和 HTTP 选择器已同步为源码；本轮未构建镜像或运行渲染、部署、就绪脚本。
 当前批次/查询/核对源码不包含已完成的实际账单下载与权威数据导入；不能将 Pod 就绪当成对账业务验收。
 
 Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码；除 JDBC/JWT/账户目录，还需私有 RECONCILIATION_S3_BUCKET，
@@ -148,30 +106,7 @@ Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码�
 显式配置实际主/子商户。
 部署所需 Secret 内容及存储策略需由部署环境提供，本轮未发布或访问存储。当前未接官方账单自动下载/验签来源或 payment 权威导出。
 
-### 非 Kubernetes 环境：Nacos 服务发现
+网关和平台安装见 [Gateway API / Envoy Gateway](../deploy/gateway/README.md)，选择器与 CNI 验收见 [HTTP 网络策略](../deploy/NETWORK_POLICY.md)。
+部署前使用 check-kubernetes.sh 检查客户端/服务端版本差距；deploy.sh 也执行此检查，不自动安装或升级 kubectl。
 
-所有应用使用同一制品。启动时设置 `SPRING_PROFILES_ACTIVE=nacos` 和
-`DUBBO_REGISTRY_ADDRESS=nacos://<host>:8848`；此 profile 不加载 Headless 直连地址。
-部署方必须确保所有实例注册的 IP 和 Triple 端口对调用方可达，并配置 Nacos 的认证和网络访问。
-默认（未启用 nacos profile）继续使用 Kubernetes Headless 地址；不可同时启用会注入直连 URL 的其他配置。
-配置中心 Nacos binder 与 Dubbo 服务注册发现是独立功能。切换需要重启或滚动发布，切换前后应验证
-注册信息、真实 RPC、多副本分布和回滚；旧直连镜像在非 Kubernetes 环境无法依靠 Nacos 自动发现。
-
-## HTTP 迁移首批发布边界
-
-customer 已移除 Triple 提供方、协议生成及 Nacos profile，product 的 customer 消费端已迁移为 HTTP。
-同时发布这两个应用，覆盖 CUSTOMER_BASE_URL 与匹配的 JWT 受众/签发方配置；失败时恢复两端匹配镜像与配置，不能只回退单端。
-已有集群中的 customer-headless Service 不会因重新 apply 而自动删除；切换完成并确认无旧消费者后，由发布方明确清理该遗留资源。
-本次仅修改本地清单，未执行发布或删除集群资源。
-
-Controller/JWT、客户端及业务错误回归源码见 [迁移清单](../HTTP_MIGRATION.md)，构建与真实调用仍待运行。
-剩余 Triple 说明和可选 Nacos profile 只适用于尚存 Triple 消费或提供路径的应用；product/customer 已无该 profile。Envoy Gateway、配置版本化及虚拟线程仍按后续 roadmap 阶段实施。
-
-第二批增加 product/limitcenter 提供端及 acquire/product/payment 消费端迁移。部署源清单已删除三个 HTTP 提供方的 Triple 端口和 Headless Service；
-已有集群资源需在旧调用清退后显式清理。本批需统一匹配 acquire、product、customer、limitcenter、payment 镜像与配置，回退同理。
-product 的共享 Wire 消息仍供尚未迁移的 payment 协议使用；limitcenter 仍以出站 Triple 查证 payment，不能将当前状态误记为 Pay 全部迁出 Dubbo。
-
-第三批 payment 的 19 个提供操作及全部消费端已切换 HTTP；limitcenter 已无入站或出站 Triple，删除其可选 Nacos profile。
-payment 暂留 acquire/realtime 的出站调用。pay.yml 不再含 payment-headless/Triple 容器端口；新清单不会自动删除集群中的旧 Service。
-第三批发布或回退需统一匹配 acquire/payment/limitcenter/reconciliation 镜像和配置，保留 PAYMENT_BASE_URL、JWT audience 和服务凭证的一致性。
-旧生成类与已删除的 RPC 提供端可能残留在增量输出中，按构建规范 clean 后再验证。未在本次执行构建或部署。
+发布后的线程 A/B、池等待和业务验收见 [最终验收](../deploy/ACCEPTANCE.md)，使用记录模板保存原始证据，不把脚本 PASS 当作金融链路通过。

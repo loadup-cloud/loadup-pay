@@ -1,5 +1,13 @@
 # Supply the closed account catalog from external configuration; no account is authorized by default.
 spring:
+  threads:
+    virtual:
+      enabled: false
+  task:
+    execution:
+      propagate-context: true
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
   servlet:
     multipart:
       max-file-size: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}B
@@ -43,6 +51,10 @@ management:
         http.server.requests: true
 
 loadup:
+  webmvc:
+    request-body:
+      path-prefix: /api/internal/
+      max-size: 32MB
   http:
     clients:
       payment:

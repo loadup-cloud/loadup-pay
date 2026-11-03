@@ -1,4 +1,12 @@
 spring:
+  threads:
+    virtual:
+      enabled: false
+  task:
+    execution:
+      propagate-context: true
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
   datasource:
     url: ${CUSTOMER_JDBC_URL}
     username: ${CUSTOMER_JDBC_USERNAME}
@@ -40,6 +48,10 @@ management:
         http.server.requests: true
 
 loadup:
+  webmvc:
+    request-body:
+      path-prefix: /api/internal/
+      max-size: 64KB
   database:
     multi-tenant:
       enabled: true

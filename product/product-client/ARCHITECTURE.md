@@ -7,7 +7,6 @@ product-adapter 的 OrderAdmissionController 调用现有 OrderAdmissionFacade�
 acquire-infrastructure 注册标准 HTTP 代理，逐请求传递含 product audience 的商户委托，基地址来自 PRODUCT_BASE_URL。
 完整签名/issuer/audience/有效期/token_use 校验由 product Resource Server 执行，不使用 Triple 的 exp-only 内部解析。
 
-过渡期 product.proto 仅保留 payment.proto 所需的共享 Wire 消息，ProductRpc service 已删除；ProductRpcMapper、消息生成及其自动装配
-随 payment 的条款迁移一起移除。product 运行装配已移除 Dubbo binder 与 Nacos profile，不能在共享消息仍存在时宣称 client 的 Protobuf 清理完成。
+原共享 proto、Wire mapper、消息生成与自动装配已删除；应用不再依赖 Dubbo binder 或 nacos profile。跨服务复用原 Java DTO。
 
 迁移状态、序列化与发布验收见 [HTTP 迁移清单](../../HTTP_MIGRATION.md)。

@@ -17,7 +17,6 @@ PaymentCaptureContracts 保留旧 Wire 验证的状态/字段存在性、金额/
 PaymentEvidenceContracts 与 DTO 构造器保留 statement 字节哈希和 verification 状态/证据约束。
 敏感 interaction 使用现有显式 subtype 白名单，DiagnosticHidden 只控制诊断输出，不抹除实际内部请求内容。
 
-payment.proto 已无 service，仍暂存 acquire/realtime 使用的共享事件消息及 PaymentRpcMapper，包含 product.proto 依赖。
-其余三份特殊对账 IDL 和 mapper 已删除；共享消息与生成装配随 acquire/realtime 迁移一起清理，不能提前删除导致剩余调用缺类型。
+原全部 proto、共享事件 Wire mapper、生成与自动装配已删除；acquire/realtime 复用原 Java 事件 DTO 与 EventEnvelope。
 
 真实运行与发布状态见 [迁移清单](../../HTTP_MIGRATION.md)，当前源码迁移不代表构建、测试、数据库或部署已验收。

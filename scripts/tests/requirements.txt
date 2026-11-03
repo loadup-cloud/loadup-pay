@@ -1,0 +1,2 @@
+# Only the semantic Helm/YAML contract tests need this; deployment scripts use the Python standard library.
+PyYAML==6.0.3

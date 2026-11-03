@@ -532,16 +532,15 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 
 ## 应用间调用与系统时区
 
-- 按 [Roadmap](ROADMAP.md) 和 [迁移清单](HTTP_MIGRATION.md) 逐批改为 Spring HTTP Service Clients + RestClient。
-  customer、product、limitcenter、payment 提供端及对应消费者已切换 HTTP；其余链路按迁移清单继续维护。
-  product/payment 的共享 Wire 消息暂留给 acquire/realtime 的协议生成链，随对应批次清理；limitcenter 已无 Triple。新内部接口使用 HTTP，不新增长期双栈或自动协议回退。
-- 契约由提供方 `*-client` 持有，复用 Command/Query/DTO 与错误码；HTTP 接口放 `client.http`，Controller 在 adapter，
-  消费端在 infrastructure，app/domain 保持业务语义。每批同步两端、测试、依赖、部署与文档，确认无调用后删除对应 IDL/mapper/配置。
-- 内部 HTTP 使用 `/api/internal/v1/`，接入现有 Resource Server 完整 JWT 校验；身份和租户来自验证后的 token。
-  每次显式传播符合目标 audience 的令牌，服务令牌按次读取；业务码只按本地白名单处理，未知响应按依赖失败处理。
+- 按 [Roadmap](ROADMAP.md) 和 [迁移清单](HTTP_MIGRATION.md) 维护 Spring HTTP Service Clients + RestClient。
+  七应用 44/44 个旧内部操作已迁移源码；配置版本化/排空源码已接入，HTTP 网络策略/Envoy Gateway 配置已补，虚拟线程候选配置及回归源码已补，真实环境验收仍待完成。
+  Pay 已清除内部 Protobuf/Wire/Dubbo 生成与运行依赖；框架可选 binder 独立保留。
 - 使用现有 HTTP 组件的命名客户端共享资源，按提供方配置基础地址、超时、池容量与 TLS。K8s 默认普通 Service DNS，
   支持环境地址覆盖；写调用无自动重试/重定向，保留幂等键、事务外联网与未知结果恢复。Nacos 按需启用。
 - Gateway API 默认使用 Envoy Gateway，配置版本随 ConfigMap/Secret 与镜像滚动发布；虚拟线程经压测后启用。
   阶段完成以运行验收为准，未执行构建、测试或真实调用时明确记录。
-- 剩余 Triple 协议、信任边界与端口规则见 [总体架构](ARCHITECTURE.md)；不将其 exp-only 内部解析方式用于 HTTP。
+- 修改线程模型、任务传播或默认启用策略时读取 [最终验收](deploy/ACCEPTANCE.md)；压测及正确性证据缺失时保留默认平台线程。
+- 修改公网路由、Envoy 策略或 Pod 选择器时读取 [网关说明](deploy/gateway/README.md) 和 [HTTP 网络策略](deploy/NETWORK_POLICY.md)；保留内部 API/Actuator 不公开及无自动重试约束。
+- 修改部署渲染或凭证挂载时读取 [配置与发布](deploy/CONFIGURATION.md)，保留不可变环境快照与可变 token 目录的区分。
+- 修改调用或发布配置时读取 [总体架构](ARCHITECTURE.md) 和迁移清单；HTTP 使用完整 JWT 校验，原 RPC 共享配置前缀改为 loadup.http.client。
 - 业务时间采用系统默认 zone 或业务 Clock 的 zone；JWT epoch、Instant 保持绝对时间。不强制 JVM/JDBC/K8s 固定时区。

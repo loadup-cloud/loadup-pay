@@ -1,3 +1,4 @@
+# Rendering template: bind explicit image/configuration versions with scripts/render.sh; do not apply directly.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -11,6 +12,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: payment }
   template:
@@ -21,7 +28,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: payment }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: payment
           image: loadup-pay/payment:bootstrap
@@ -42,6 +50,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -59,7 +71,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: payment-secret
+            secretName: payment-service-tokens
 ---
 # Payment ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -80,6 +92,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: acquire }
   template:
@@ -90,7 +108,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: acquire }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: acquire
           image: loadup-pay/acquire:bootstrap
@@ -111,6 +130,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -128,7 +151,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: acquire-secret
+            secretName: acquire-service-tokens
 ---
 # Acquire ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -149,6 +172,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: customer }
   template:
@@ -159,7 +188,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: customer }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: customer
           image: loadup-pay/customer:bootstrap
@@ -180,6 +210,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -197,7 +231,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: customer-secret
+            secretName: customer-service-tokens
 ---
 # Customer ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -218,6 +252,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: limitcenter }
   template:
@@ -228,7 +268,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: limitcenter }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: limitcenter
           image: loadup-pay/limitcenter:bootstrap
@@ -249,6 +290,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -266,7 +311,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: limitcenter-secret
+            secretName: limitcenter-service-tokens
 ---
 # LimitCenter ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -287,6 +332,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: product }
   template:
@@ -297,7 +348,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: product }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: product
           image: loadup-pay/product:bootstrap
@@ -318,6 +370,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -335,7 +391,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: product-secret
+            secretName: product-service-tokens
 ---
 # Product ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -356,6 +412,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: realtime }
   template:
@@ -366,7 +428,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: realtime }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: realtime
           image: loadup-pay/realtime:bootstrap
@@ -387,6 +450,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -404,7 +471,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: realtime-secret
+            secretName: realtime-service-tokens
 ---
 # Realtime ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -425,6 +492,12 @@ metadata:
   namespace: loadup-pay
 spec:
   replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
     matchLabels: { app: reconciliation }
   template:
@@ -435,7 +508,8 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: reconciliation }
     spec:
-      terminationGracePeriodSeconds: 45
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
       containers:
         - name: reconciliation
           image: loadup-pay/reconciliation:bootstrap
@@ -456,6 +530,10 @@ spec:
             - name: service-secrets
               mountPath: /var/run/loadup/secrets
               readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -473,7 +551,7 @@ spec:
       volumes:
         - name: service-secrets
           secret:
-            secretName: reconciliation-secret
+            secretName: reconciliation-service-tokens
 ---
 # Reconciliation ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -485,3 +563,201 @@ spec:
   selector: { app: reconciliation }
   ports:
     - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: customer-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: customer }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [ product ] }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
+              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: product-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: product }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [ acquire ] }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
+              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: limitcenter-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: limitcenter }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [ product, payment ] }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payment-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: payment }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [ acquire, limitcenter, reconciliation ] }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
+              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: acquire-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: acquire }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [ payment ] }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
+              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: realtime-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: realtime }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [ acquire, payment ] }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
+              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: reconciliation-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: reconciliation }
+  policyTypes: [ Ingress ]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 8080 }
+      from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: envoy
+              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
+              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }

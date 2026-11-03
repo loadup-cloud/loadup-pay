@@ -20,8 +20,7 @@ payment-bootstrap 默认引入；启用 payment-wechat 运行配置后条件注�
 ## 依赖与配置
 
 payment-infrastructure 只调用统一 Facade。插件自动装配
-WechatSubmitAdapter、WechatPaymentAdapter、WechatRefundAdapter、WechatJsapiSigner 及自己的协议实现。跨服务通信使用 Dubbo
-Triple，本插件与
+WechatSubmitAdapter、WechatPaymentAdapter、WechatRefundAdapter、WechatJsapiSigner 及自己的协议实现。跨服务通信使用 HTTP，本插件与
 payment 同进程运行。
 
 可选运行配置为 [application-payment-wechat.yml](../../payment/payment-bootstrap/src/main/resources/application-payment-wechat.yml)

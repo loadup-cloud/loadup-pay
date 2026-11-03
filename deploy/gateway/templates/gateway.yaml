@@ -1,0 +1,102 @@
+{{- if ne .Release.Namespace "loadup-pay" }}
+{{- fail "The Pay gateway and application policies require namespace loadup-pay" }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: loadup-pay-envoy
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: loadup-pay-proxy
+    namespace: loadup-pay
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: loadup-pay
+  namespace: loadup-pay
+spec:
+  gatewayClassName: loadup-pay-envoy
+  listeners:
+    - name: http
+      hostname: {{ .Values.hostname | quote }}
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces: { from: Same }
+    - name: https
+      hostname: {{ .Values.hostname | quote }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: {{ .Values.tlsSecret.name | quote }}
+            {{- if .Values.tlsSecret.namespace }}
+            namespace: {{ .Values.tlsSecret.namespace | quote }}
+            {{- end }}
+      allowedRoutes:
+        namespaces: { from: Same }
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: loadup-pay-proxy
+  namespace: loadup-pay
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: {{ .Values.proxy.replicas }}
+  telemetry:
+    accessLog:
+      settings:
+        - format:
+            type: Text
+            text: '[%START_TIME%] route=%ROUTE_NAME% status=%RESPONSE_CODE% flags=%RESPONSE_FLAGS% received=%BYTES_RECEIVED% sent=%BYTES_SENT% duration_ms=%DURATION%'
+          sinks:
+            - type: File
+              file: { path: /dev/stdout }
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: loadup-pay-client
+  namespace: loadup-pay
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: loadup-pay
+  path:
+    escapedSlashesAction: RejectRequest
+  connection:
+    bufferLimit: 32Mi
+  timeout:
+    http:
+      requestHeadersReceivedTimeout: 10s
+      requestReceivedTimeout: 75s
+      streamIdleTimeout: 75s
+{{- if and .Values.tlsSecret.namespace (ne .Values.tlsSecret.namespace .Release.Namespace) }}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: loadup-pay-tls
+  namespace: {{ .Values.tlsSecret.namespace | quote }}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: loadup-pay
+  to:
+    - group: ""
+      kind: Secret
+      name: {{ .Values.tlsSecret.name | quote }}
+{{- end }}

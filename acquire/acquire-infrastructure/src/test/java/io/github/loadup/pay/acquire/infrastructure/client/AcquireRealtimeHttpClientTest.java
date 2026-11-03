@@ -156,5 +156,7 @@ class AcquireRealtimeHttpClientTest {
                 .when(realtimeHttp)
                 .order(anyString(), any());
         assertThrows(CommonException.class, () -> client.apply("tenant", event));
+        doAnswer(invocation -> null).when(realtimeHttp).order(anyString(), any());
+        assertThrows(CommonException.class, () -> client.apply("tenant", event));
     }
 }

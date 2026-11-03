@@ -21,6 +21,7 @@ package io.github.loadup.pay.payment.adapter.web;
 
 import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.components.webmvc.ProtocolResponse;
 import io.github.loadup.pay.payment.client.facade.PaymentChannelCallbackFacade;
 import io.github.loadup.pay.payment.client.facade.RefundChannelCallbackFacade;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@ProtocolResponse
 @RequestMapping("/api/payment/channel-callbacks")
 @Tag(name = "Payment channel callbacks")
 public class PaymentChannelCallbackController {

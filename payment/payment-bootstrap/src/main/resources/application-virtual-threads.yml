@@ -1,0 +1,7 @@
+# Opt in only after the documented correctness and capacity gates; native Boot settings.
+spring:
+  threads:
+    virtual:
+      enabled: true
+  main:
+    keep-alive: true

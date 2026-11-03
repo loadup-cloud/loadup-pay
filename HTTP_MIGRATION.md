@@ -1,7 +1,7 @@
 # 内部 HTTP 迁移清单
 
-2026-11-02 首批。以 [Roadmap](ROADMAP.md) 为总计划。以下逐项覆盖迁移前的 44 个 RPC 操作；
-customer、limitcenter 的原 IDL 已删除，product 已删除 service 定义、暂留 payment 所需消息与 mapper。已迁移行保留作对照。其余路径为迁移建议，需在对应批次结合 Facade 冻结 JSON 契约，不能作为已提供的接口使用。
+更新：2026-11-03。以 [Roadmap](ROADMAP.md) 为总计划。44/44 个旧操作均已迁移 HTTP 源码，运行验收待完成。
+所有七应用已无 Triple 运行入口、协议生成和必需 Nacos；Framework 可选 binder 不受影响。
 
 ## 当前调用与身份
 
@@ -11,17 +11,17 @@ customer、limitcenter 的原 IDL 已删除，product 已删除 service 定义�
 | acquire → product | OrderAdmissionHttpClient | 当前商户委托 JWT，要求 product 受众 |
 | product → limitcenter | LimitPolicyActivationHttpClient | 按次读取服务凭证；持久发布意图/Outbox 保留原版本、hash、幂等 |
 | acquire → payment | PaymentAcceptanceHttpClient | 逐次读取 acquire 服务凭证；受理未知不能认定付款失败 |
-| acquire → realtime | AcquireRealtimeRpcClient | 服务凭证；事件 ID/来源版本、receipt 和 ACK |
+| acquire → realtime | AcquireRealtimeHttpClient | 服务凭证；事件 ID/来源版本、receipt 和 ACK |
 | payment → limitcenter | PaymentLimitHttpClient | 服务凭证；reserve/execution/settlement/refund 原幂等与证据 |
-| payment → acquire | PaymentAcquireRpcClient | 服务凭证；可靠通知及业务 ACK |
-| payment → realtime | PaymentRealtimeRpcClient | 服务凭证；事件 ID/来源版本、receipt 和 ACK |
+| payment → acquire | PaymentAcquireHttpClient | 服务凭证；可靠通知及业务 ACK |
+| payment → realtime | PaymentRealtimeHttpClient | 服务凭证；事件 ID/来源版本、receipt 和 ACK |
 | limitcenter → payment | PaymentEvidenceHttpClient | 服务凭证；只读可信执行/退款证据 |
 | reconciliation → payment | PaymentCaptureHttpClient / PaymentStatementHttpClient / PaymentVerificationHttpClient | 服务凭证；capture 冻结快照、statement 来源完整性、verification 只读证据 |
-| 外部受控集成 → reconciliation | ReconciliationRpc | 仓库内无消费者；需同步受控集成，不以无内部引用为由删除业务契约 |
+| 外部受控集成 → reconciliation | ReconciliationHttpService | 仓库内无消费者；需同步受控集成，不以无内部引用为由删除业务契约 |
 
-剩余 Triple 的默认调用超时为 3s，自动重试为 0；Statement Download 消费端显式 60s。HTTP 每组地址和超时见调用方 application.yml。
-首批 customer 配置连接/池等待各 1s、读取 3s，读取超时不是整个调用的总 deadline。
-商户委托不换成高权限 SERVICE token；原有服务令牌文件逐次读取机制在后续批次保留。
+普通 HTTP 调用读取超时为 3s，Statement Download 独立组为 60s；均无自动重试。每组地址和超时见调用方 application.yml。
+连接/池等待各 1s；读取超时不是整个调用的总 deadline。
+商户委托不换成高权限 SERVICE token；服务令牌文件逐次读取，不缓存 token。
 
 ## 统一协议约束
 
@@ -33,7 +33,7 @@ customer、limitcenter 的原 IDL 已删除，product 已删除 service 定义�
   只按本地明确的码白名单恢复业务语义，例如 customer NOT_FOUND → 无资格；认证失败不能降级为无资格。
 - `BigDecimal` 保持十进制精度，不经 double；分单位 long 金额保留范围检查。时间、枚举、可空字段复用现有 Jackson 契约，
   epoch/Instant 是绝对时间，其余业务时间沿用系统 zone。每批补 DTO 序列化验收，Wire optional 不机械变成 JSON 默认值。
-- 金融写操作沿用原 requestKey/业务请求号、版本、hash 和未知结果恢复；HTTP 客户端与入口网关均无自动重试或协议回退。
+- 金融写操作沿用原 requestKey/业务请求号、版本、hash 和未知结果恢复；HTTP 客户端无自动重试或协议回退；待实施的入口网关亦要求禁用自动重试。
   网络调用保持在本地事务之外；Outbox 业务重投仍由原工作流控制。
 
 ## 逐操作对照
@@ -41,9 +41,9 @@ customer、limitcenter 的原 IDL 已删除，product 已删除 service 定义�
 | 提供方 / 旧操作 | 当前请求 → 响应类型 | HTTP POST 路径 | 状态 |
 | --- | --- | --- | --- |
 | customer / `CustomerRpc.Authorize` | `MerchantActionAuthorizeCommand` → `MerchantEligibilityDTO` | `/api/internal/v1/customer/eligibility/authorize` | HTTP 源码已迁移；运行待验收 |
-| acquire / `AcquireRpc.PaymentOutcome` | `WirePayEventEnvelopeOfPaymentOutcomeEventDTO` → `WirePaymentOutcomeAckDTO` | `/api/internal/v1/acquire/events/payment-outcome` | 待迁移；路径草案 |
-| acquire / `AcquireRpc.FeeRefund` | `WirePayEventEnvelopeOfOrderRefundSummaryEventDTO` → `WireFeeRefundAckDTO` | `/api/internal/v1/acquire/events/fee-refund` | 待迁移；路径草案 |
-| acquire / `AcquireRpc.RefundNotification` | `WirePayEventEnvelopeOfRefundMerchantEventDTO` → `WireRefundNotificationAckDTO` | `/api/internal/v1/acquire/events/refund-notification` | 待迁移；路径草案 |
+| acquire / `AcquireRpc.PaymentOutcome` | `EventEnvelope<PaymentOutcomeEventDTO>` → `PaymentOutcomeAckDTO` | `/api/internal/v1/acquire/events/payment-outcome` | HTTP 源码已迁移；运行待验收 |
+| acquire / `AcquireRpc.FeeRefund` | `EventEnvelope<OrderRefundSummaryEventDTO>` → `FeeRefundAckDTO` | `/api/internal/v1/acquire/events/fee-refund` | HTTP 源码已迁移；运行待验收 |
+| acquire / `AcquireRpc.RefundNotification` | `EventEnvelope<RefundMerchantEventDTO>` → `RefundNotificationAckDTO` | `/api/internal/v1/acquire/events/refund-notification` | HTTP 源码已迁移；运行待验收 |
 | limitcenter / `LimitCenterRpc.Activate` | `LimitPolicyActivateCommand` → `LimitPolicyActivationDTO` | `/api/internal/v1/limitcenter/operations/activate` | HTTP 源码已迁移；运行待验收 |
 | limitcenter / `LimitCenterRpc.Reserve` | `LimitReserveCommand` → `LimitReservationDTO` | `/api/internal/v1/limitcenter/operations/reserve` | HTTP 源码已迁移；运行待验收 |
 | limitcenter / `LimitCenterRpc.Detail` | `LimitOperationQuery` → `LimitReservationDTO` | `/api/internal/v1/limitcenter/operations/detail` | HTTP 源码已迁移；运行待验收 |
@@ -74,79 +74,57 @@ customer、limitcenter 的原 IDL 已删除，product 已删除 service 定义�
 | payment / `PaymentVerificationRpc.Verify` | `PaymentVerificationQuery` → `PaymentVerificationDTO` | `/api/internal/v1/payment/verifications/verify` | HTTP 源码已迁移；运行待验收 |
 | product / `ProductRpc.Authorize` | `OrderAdmissionAuthorizeCommand` → `OrderAdmissionDTO` | `/api/internal/v1/product/admissions/authorize` | HTTP 源码已迁移；运行待验收 |
 | product / `ProductRpc.Detail` | `IdQuery` → `OrderAdmissionDTO` | `/api/internal/v1/product/admissions/detail` | HTTP 源码已迁移；运行待验收 |
-| realtime / `RealtimeRpc.Order` | `WirePayEventEnvelopeOfOrderSnapshotEventDTO` → `WireProjectionAckDTO` | `/api/internal/v1/realtime/projections/order` | 待迁移；路径草案 |
-| realtime / `RealtimeRpc.Payment` | `WirePayEventEnvelopeOfPaymentSnapshotEventDTO` → `WireProjectionAckDTO` | `/api/internal/v1/realtime/projections/payment` | 待迁移；路径草案 |
-| realtime / `RealtimeRpc.Refund` | `WirePayEventEnvelopeOfRefundSnapshotEventDTO` → `WireProjectionAckDTO` | `/api/internal/v1/realtime/projections/refund` | 待迁移；路径草案 |
-| realtime / `RealtimeRpc.RefundSummary` | `WirePayEventEnvelopeOfOrderRefundSummaryEventDTO` → `WireProjectionAckDTO` | `/api/internal/v1/realtime/projections/refund-summary` | 待迁移；路径草案 |
-| reconciliation / `ReconciliationRpc.Create` | `WireReconciliationBatchCreateCommand` → `WireReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/create` | 待迁移；路径草案 |
-| reconciliation / `ReconciliationRpc.Attach` | `WireReconciliationInputAttachCommand` → `WireReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/attach` | 待迁移；路径草案 |
-| reconciliation / `ReconciliationRpc.Start` | `WireReconciliationBatchStartCommand` → `WireReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/start` | 待迁移；路径草案 |
-| reconciliation / `ReconciliationRpc.Retry` | `WireReconciliationBatchRetryCommand` → `WireReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/retry` | 待迁移；路径草案 |
-| reconciliation / `ReconciliationRpc.Task` | `WireReconciliationBatchQuery` → `WireReconciliationBatchTaskDTO` | `/api/internal/v1/reconciliation/batches/task` | 待迁移；路径草案 |
-| reconciliation / `ReconciliationRpc.Detail` | `WireReconciliationBatchQuery` → `WireReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/detail` | 待迁移；路径草案 |
+| realtime / `RealtimeRpc.Order` | `EventEnvelope<OrderSnapshotEventDTO>` → `ProjectionAckDTO` | `/api/internal/v1/realtime/projections/order` | HTTP 源码已迁移；运行待验收 |
+| realtime / `RealtimeRpc.Payment` | `EventEnvelope<PaymentSnapshotEventDTO>` → `ProjectionAckDTO` | `/api/internal/v1/realtime/projections/payment` | HTTP 源码已迁移；运行待验收 |
+| realtime / `RealtimeRpc.Refund` | `EventEnvelope<RefundSnapshotEventDTO>` → `ProjectionAckDTO` | `/api/internal/v1/realtime/projections/refund` | HTTP 源码已迁移；运行待验收 |
+| realtime / `RealtimeRpc.RefundSummary` | `EventEnvelope<OrderRefundSummaryEventDTO>` → `ProjectionAckDTO` | `/api/internal/v1/realtime/projections/refund-summary` | HTTP 源码已迁移；运行待验收 |
+| reconciliation / `ReconciliationRpc.Create` | `ReconciliationBatchCreateCommand` → `ReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/create` | HTTP 源码已迁移；运行待验收 |
+| reconciliation / `ReconciliationRpc.Attach` | `ReconciliationInputAttachCommand` → `ReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/attach` | HTTP 源码已迁移；运行待验收 |
+| reconciliation / `ReconciliationRpc.Start` | `ReconciliationBatchStartCommand` → `ReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/start` | HTTP 源码已迁移；运行待验收 |
+| reconciliation / `ReconciliationRpc.Retry` | `ReconciliationBatchRetryCommand` → `ReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/retry` | HTTP 源码已迁移；运行待验收 |
+| reconciliation / `ReconciliationRpc.Task` | `IdQuery` → `ReconciliationBatchTaskDTO` | `/api/internal/v1/reconciliation/batches/task` | HTTP 源码已迁移；运行待验收 |
+| reconciliation / `ReconciliationRpc.Detail` | `IdQuery` → `ReconciliationBatchDTO` | `/api/internal/v1/reconciliation/batches/detail` | HTTP 源码已迁移；运行待验收 |
 
-实际清单共 44 项。Wire 类型只用于记录尚未迁移的现状；后续从对应 mapper/Facade 提取实际 Java DTO，
-不能直接把 Wire 类型作为 HTTP 请求响应。分页、对账大报文/下载、Bytes、跨服务复用 DTO 的具体契约仍待各批冻结。
+实际清单共 44 项，均已迁移源码。表中的响应是业务数据类型，普通响应包在 SuccessResponse 中；capture lines 使用标准平面 PageResponse。
+旧操作名称仅供迁移对照，不代表仍提供 RPC 入口。接口签名以各 client.http 标准接口为准。
 
-## 首批验收与发布
+## 传输、JSON 与配置边界
 
-- 源码：customer 只暴露 HTTP；product → customer 全量改用 CustomerHttpService；移除 customer IDL、mapper、Dubbo 装配、Nacos profile、50051 和 Headless Service。
-- 安全：新入口受现有 `/api/**` JWT 校验保护；customer 业务层继续建立租户上下文与授权事实。新增签名、受众、token_use、过期及伪造租户头回归源码。
-- 客户端：复用已有 HttpTemplate 的命名连接池、SSL Bundle、DNS 策略、大小上限、Boot Observation 和刷新生命周期；标准 HttpServiceProxyFactory + RestClientAdapter，不新建连接池。
-- 错误/资源：新增泛型 JSON、令牌逐次传入、无重试/重定向、双向大小限制、私网策略、超时、刷新后原代理及关闭行为回归源码。
-- 待执行：编译、上述测试、真实签发方 JWT、PostgreSQL 租户隔离、多副本/滚动发布及压力验收。本批未运行构建或测试，不代表业务等价已经验收。
-- 发布：当前开发阶段同步切换 customer 与 product 镜像/配置；无双栈。回退需一起恢复这两个服务的匹配镜像和配置，
-  包括旧 customer Triple Service/端口与 product 引用；不能单独回退其中一端。其余六个应用的剩余链路仍使用 Triple。
+- 所有代理通过既有 HttpTemplate 创建，共享命名 Apache 连接池、TLS Bundle、DNS 策略、Boot Observation 与刷新生命周期。
+  非 2xx 不读取远端业务文案；HTTP 200 先验证成功码/状态/非空 data。事务外联网、目标凭证和本地错误白名单保留。
+- customer 请求/响应各 64 KiB，product/limitcenter 各 1 MiB，其余调用组各 32 MiB。
+  reconciliation 的 payment-statements 独立读取 60s、最大连接 8/每路由 4，仍使用 PAYMENT_BASE_URL。
+  这些是客户端限制。七应用另已配置 WebMVC 内部请求上限：customer 64 KiB、product/limitcenter 1 MiB、其余 32 MiB。
+  入站 Advice 完整有界读取后才转换 JSON，未知/虚假长度与尾随输入均计入，超限 HTTP 413；源码已补，运行待验证。
+- capture 的 INIT/SEALED/BLOCKED presence、显式零值、计数/金额、scope、哈希、时间与分页/连续 ordinal 由
+  PaymentCaptureContracts/PaymentEvidenceContracts 和 DTO 构造校验承担。statement 16 MiB 原字节、32 KiB 证据通过 JSON Base64 传输并核对 SHA，不能把原字节限制直接当作整个 JSON 上限。
+- EventEnvelope 的 schemaVersion/aggregateVersion 缺失或 null 拒绝，显式来源版本 0 合法；嵌套 DTO 继续执行 Bean Validation。
+  producer 不是认证身份，收到完整 JWT 后仍检查服务主体、租户、来源与 ACK。realtime 的 STALE/DUPLICATE 和原 receipt 不改变。
+- ReconciliationInput/Batch/Task 构造器保留原 mapper 的 presence、计数溢出、状态/输入/run/任务关联约束。
+  JsonUtil 禁止浮点截断为 int/long 与数字枚举 ordinal；BigDecimal 不经 double。标准代理显式使用同一个 Jackson 3 JsonMapper。
+- 共享部署默认配置改为 loadup.http.client.{tenant-id,service-id,audience,token-file}，模块显式配置优先。
+  audience/token-file 默认按目标应用取值，service-id 默认取调用方 spring.application.name；helper 只绑定配置，不读取或验证 token。
+  不保留 loadup.rpc.client 别名。已有 ACQUIRE/PAYMENT 等模块环境变量继续生效。
+- 默认 Service 地址为 http://<app>:8080。本地 profile 按 payment/acquire/customer/limitcenter/product/realtime/reconciliation
+  的 8081/8082/8083/8084/8085/8086/8087 配置出站地址；BASE_URL 环境变量仍可覆盖。
 
-静态检查备注：已进行 IDEA 批量检查；新增 Maven 依赖尚未同步到部分模块的 IDE 模型，仍报告 spring-web、HTTP 组件及测试库未解析，
-另有接口 Bean 注入歧义提示。声明依赖已同步到 POM，生产实现按源码仅有对应 ActorProvider/Facade；这些提示仍需重载项目后复核。
-此记录不代表 IDEA 全通过或编译通过。
+## 依赖与部署
 
-## 第二批：Product 与 LimitCenter 提供端
+七应用已删除 Dubbo binder、内部 proto/存根生成、Wire mapper、RPC 自动装配和 nacos profile；框架可选 RPC/ConfigCenter binder 保留。
+deploy/pay.yml 为 Namespace + 七组 NetworkPolicy/Deployment/普通 HTTP ClusterIP Service，共 22 个资源；单应用渲染为 4 个资源。
+渲染器拒绝旧 Headless Service 和额外协议端口。已删除旧的仅约束 50051 的策略，新增每应用 HTTP 入站策略；真实 CNI 隔离未验收，见 [网络策略](deploy/NETWORK_POLICY.md)。
 
-- 迁移 Product Authorize/Detail 与 LimitCenter 的九个操作；acquire 的准入客户端、product 的额度激活客户端及 payment 的额度生命周期客户端同步切换。
-  截至本批，44 个旧操作中 12 个已迁移源码，32 个仍待迁移；运行验收均未完成。
-- product 运行装配不再包含 Dubbo binder/Nacos profile、Triple 协议或 Headless Service。其 client 暂留 payment Wire 条款需要的
-  Protobuf 消息、mapper 和生成任务；product.proto 已无 service，不能据此称协议依赖全部清除。
-- limitcenter 已移除自己的 IDL、Wire mapper、自动装配与 Triple 提供端；因其仍调用 payment 查证，暂保留出站 Dubbo binder、payment 引用和可选 Nacos profile。
-- 新消费组配置 PRODUCT_BASE_URL / LIMITCENTER_BASE_URL，默认普通 ClusterIP HTTP 8080；连接、池等待各 1s、读取 3s，
-  请求/响应上限各 1 MiB。原 customer 64 KiB 配置不变，均无自动重试或协议回退。
-- 标准接口共享现有事务外联网边界和当次令牌；HttpServiceResponses 同时检查成功码、状态及非空数据，失败只提供格式受限的码供本地白名单映射。
-  远端文案、任意异常消息及认证失败不能伪造成已接受/已结算或持久业务拒绝。
-- product 的冻结激活意图、Outbox、ACK identity/version/hash 校验不变，文件凭证每次重开；payment 的四项额度错误映射、围栏、退款恢复及凭证轮换保留。
-- 已同步回归源码：商户委托、SERVICE token 轮换、事务禁止、错误白名单与伪造消息拒绝；新增十进制费率、超大整数、可空围栏、时间与 permit 的 JSON 契约回归。
-- 发布/回退要同时匹配 acquire、product、limitcenter、payment 及首批 customer 的镜像与配置。源清单不再含 product/limitcenter-headless；
-  已存在的集群资源仍需在无旧调用后由发布方明确清理，apply 不会自动删除。未执行任何集群变更。
-- 本批仍未构建或运行测试；IDE Maven 模型尚未同步新依赖，需重载后再复核静态提示，真实鉴权/租户/数据库/滚动行为仍待验收。
+当前开发阶段同步匹配七服务镜像、基础地址、JWT 与配置，不保留双栈或自动协议回退。
+回退旧协议时需恢复整套匹配镜像/配置/Service。apply 不会删除集群遗留 Headless Service 或旧 NetworkPolicy，发布方应在确认无旧消费者后明确清理。
+源码清理后必须 clean 构建，避免旧生成类残留。未执行集群变更或删除资源。
 
-## 第三批：Payment 提供端与全部消费端
+## 验收状态
 
-- Payment 的 13 个主操作、4 个 capture 操作、statement download 和 verification 共 19 项已迁移源码，累计 31/44 项。
-  余下 13 项是 acquire 三个事件入口、realtime 四个投影、reconciliation 六个操作；仍需后续迁移和全部运行验收。
-- acquire 的受理/查证/关闭/围栏、limitcenter 的付款与退款事实、reconciliation 的 capture/statement/verification 消费端同步改用 HTTP。
-  客户端不自动重试，原文件令牌读取、tenant/service/subject/audience/expiry 预检、事务外联网和错误白名单保留；提供端完整 JWT 验证。
-- 输入 absent、付款 UNKNOWN、预占围栏、原付款/退款身份与来源证据不改变。网络/认证/不合法响应不能变成已受理、已关闭或无收款证明。
-  startAttempt 等原先没有仓库内消费者的操作仍通过 HTTP 完整保留，不能因无当前调用而删除业务能力。
-- capture lines 使用标准平面 PageResponse `{result,data:[...],pageInfo}`；PaymentCapturePageResponse 是消费端读取成功页与 FailureResponse 的视图，
-  没有削弱共享 PageResponse 的非空约束。消费端先校验 result，再检查页号/大小、连续 ordinal 和行状态。
-- 原 mapper 中的 capture INIT/SEALED/BLOCKED 字段存在性、显式零计数、时间范围/微秒、封存计数/金额、scope 和哈希格式检查移至
-  PaymentCaptureContracts；statement/verification 还复用 DTO 的构造校验及 PaymentEvidenceContracts，保留字节完整性与观察状态约束。
-  capture version 与行 ordinal/amountMinor/sourceVersion 的 JSON creator 显式要求字段且拒绝 null，避免缺字段伪造零值。
-- payment 普通调用组读取 3s、请求/响应上限 32 MiB；reconciliation 的 payment-statements 组保留独立 60s 读取和 32 MiB 响应上限，
-  连接上限 8、每路由 4。两组共用 PAYMENT_BASE_URL，均由已有 HttpTemplate 管理。长下载独立限流，避免占满普通调用资源。
-  16 MiB 原文及 32 KiB 证据通过 JSON Base64 传输，不把 16 MiB 当作整个 JSON 的大小限制。
-- payment 已无 Triple 提供端及 Headless Service，暂留 acquire/realtime 的出站 binder。limitcenter 已无任何出站/入站 Triple，删除 Nacos profile 和 binder。
-  特殊对账 Wire mapper/proto 已删除；payment.proto 及 PaymentRpcMapper 的共享事件消息仍供 acquire/realtime 使用，随下一批收敛。
-- 新增/迁移回归源码涵盖受理与查证令牌轮换、输入不存在/过期错误、平面分页失败映射、缺字段/错序号拒绝、敏感输入 subtype、
-  Base64 字节/SHA 校验、Money 精度和时间；架构门禁允许 client.http 中的标准声明注解，继续阻止实现类型和 app/domain 直接引用 HTTP 客户端。
-- 待完成的基础边界：为内部 MVC JSON 请求设计并验证入站大小限制，不能把客户端出站上限或 Tomcat 表单限制当作入站 JSON 限制。
-- 源清单删除 payment-headless 和容器 Triple 端口；同批匹配 acquire/payment/limitcenter/reconciliation 及既有 customer/product 镜像与配置，回退亦需匹配。
-  现有集群遗留 Service 的清理仍需发布方明确执行。本批未执行构建、测试、部署或金融请求；IDE 仍存在 Maven 新依赖未同步的解析提示。
+已补客户端、JWT 入口、泛型 JSON、令牌轮换、错误白名单、事务边界、字节完整性、缺字段、无重试/重定向、超时和生命周期回归源码；
+渲染器和架构门禁的源码同步检查已更新。IDE 检查仍报告未同步 Maven 新依赖的 spring-web/HTTP 组件解析及接口 Bean 提示；不代表整体检查通过。
 
-第三批静态复核补充：共享 JSON 禁止浮点数隐式转为 int/long，声明式代理显式绑定同一 JsonMapper。
-新增严格整数与客户端 mapper 一致性回归源码；这是对原 IDL 整数类型约束的保留，不能仅靠字段声明为 long 推断 JSON 不会截断。
-IDE 检查发现并修正了 Spring 7 JSON converter 需要 JsonMapper 的构造类型问题；整体检查仍受未同步 Maven 模型限制，未执行编译或测试。
+2026-11-03 用户反馈本地编译无问题，测试验证暂缓；本轮助手未运行构建或测试，未将该反馈扩展为测试通过。
+真实签发方 JWT、PostgreSQL 隔离/事务、未知结果恢复、多副本分布、滚动排空和压力验收仍待完成。
+44/44 是源码覆盖，不是运行验收。版本化配置/排空源码已补，见 [配置与发布](deploy/CONFIGURATION.md)；HTTP 网络策略/Envoy Gateway 已补源码和安装说明，真实流量及虚拟线程压测继续按 Roadmap 验收。
 
-本地 profile 同步：已移除 customer/product/limitcenter/payment 的本地 Triple 端口；迁移后的消费组按现有 HTTP 端口
-8081(payment)、8083(customer)、8084(limitcenter)、8085(product) 默认指向 localhost，仍允许同名 BASE_URL 环境覆盖。
-剩余三组 Triple 提供端尚未迁移，不能将本地地址已补齐视作整个混合协议链路已经运行。
+线程候选与全部运行证据按 [最终验收](deploy/ACCEPTANCE.md) 收口；44/44 源码、配置渲染和线程测试源码均不是业务通过记录。

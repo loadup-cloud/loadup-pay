@@ -1,6 +1,6 @@
 # LoadUp Pay
 
-面向商户和子商户的外部渠道收单平台。当前 reactor 包含七个业务服务和渠道插件聚合，采用 Java 25、Spring Boot 4.1.1、LoadUp Framework 0.0.2-SNAPSHOT、Dubbo 3.3.6；Pay 自身版本为 0.0.1-SNAPSHOT。
+面向商户和子商户的外部渠道收单平台。当前 reactor 包含七个业务服务和渠道插件聚合，采用 Java 25、Spring Boot 4.1.1、LoadUp Framework 0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
 ## 模块导航
 
@@ -23,7 +23,7 @@
 
 1. 准备 Java 25、Maven Daemon，以及 LoadUp Framework 对应版本的制品。
 2. 为七个业务服务准备独立 PostgreSQL 数据库或隔离 schema。配置对应 `<SERVICE>_JDBC_URL`、`<SERVICE>_JDBC_USERNAME`、`<SERVICE>_JDBC_PASSWORD`；不要直接复用旧 MySQL 库。
-3. 按各 bootstrap 的 `application.yml` 配置 JWT issuer/audience/JWK、受信租户、服务令牌挂载及所用渠道/KMS/存储参数。内部 Triple 默认 50051，HTTP 默认 8080；本地同时运行需区分端口及服务目标地址。
+3. 按各 bootstrap 的 `application.yml` 配置 JWT issuer/audience/JWK、受信租户、服务令牌挂载及所用渠道/KMS/存储参数。内部与业务入口均为 HTTP，默认 8080；本地 profile 按七服务配置独立端口及出站基础地址。
 4. 选择所需模块的 build/start 脚本。编译必须使用 `clean`，避免旧生成代码或已删除迁移留在构建产物中。数据库初始化、启动和真实渠道验收由开发者执行。
 
 当前迁移由每个服务的 infrastructure 初始文件及实际依赖组件的迁移共同组成。初次初始化使用可丢弃开发库，不自动对既有库 clean/repair 或搬迁数据。
@@ -54,9 +54,9 @@ docker --context orbstack exec -i postgres psql -U admin -d loadup -v ON_ERROR_S
 
 ## 实现与验证边界
 
-仓库已有应用编排、HTTP/Triple 适配、持久化、渠道调用、可靠事件与恢复任务源码。源码存在和历史测试记录不代表当前 PostgreSQL 基线已完成业务环境验收。
+仓库已有应用编排、HTTP 适配、持久化、渠道调用、可靠事件与恢复任务源码。源码存在和历史测试记录不代表当前 PostgreSQL 基线已完成业务环境验收。
 
-各模块 README 记录接入方式与能力限制；协议以 client 的 `.proto`/DTO、配置以 bootstrap 资源、数据结构以当前迁移文件为准。本次文档整理没有执行构建、测试、数据库迁移、部署或真实金融调用。
+各模块 README 记录接入方式与能力限制；协议以 client.http 标准接口/DTO、配置以 bootstrap 资源、数据结构以当前迁移文件为准。本次文档整理没有执行构建、测试、数据库迁移、部署或真实金融调用。
 
 
 ## 手动质量与维护工具
@@ -76,9 +76,9 @@ SpotBugs 需要编译产物，例如 `mvnd -pl channel/channel-api -am clean com
 JaCoCo 不会自动注入测试代理；需要覆盖率时显式执行，例如 `mvnd -pl channel/channel-api -am clean jacoco:prepare-agent test jacoco:report`。
 Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同步的规则文件。
 
-## RPC 调用默认配置
+## HTTP 调用默认配置
 
-服务地址由 Dubbo 和 K8s DNS 管理。调用身份统一使用框架默认值，无需为每个目标服务重复配置：
+按提供方配置 BASE_URL，K8s 使用普通 Service DNS，本地 profile 使用 localhost。调用身份统一使用框架默认值，无需为每个目标服务重复配置：
 
 | 参数 | 默认值 |
 |---|---|
@@ -91,11 +91,17 @@ Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同�
 
 ```yaml
 loadup:
-  rpc:
+  http:
     client:
       tenant-id: tenant_a
       audience: internal
       token-file: /var/run/loadup/secrets/service.jwt
 ```
 
-单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.rpc.client` > 框架约定。各服务的 HTTP audience 默认也遵循公共 audience，可用原有 `<SERVICE>_JWT_AUDIENCE` 单独覆盖。服务令牌仍需由发行方提供，并与实际租户、调用方、audience 匹配；默认配置不生成或跳过令牌校验。
+单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.http.client` > 框架约定。入站 HTTP audience 仍由各服务 `<SERVICE>_JWT_AUDIENCE` 配置，出站目标 audience 可通过模块配置分别覆盖。服务令牌仍需由发行方提供，并与实际租户、调用方、audience 匹配；默认配置不生成或跳过令牌校验。
+
+K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，服务文件凭证独立投射。资源准备、预览、排空和回退见 [配置与发布](deploy/CONFIGURATION.md)。
+
+平台入口配置见 [Gateway API / Envoy Gateway](deploy/gateway/README.md)，HTTP 入站选择器见 [网络策略](deploy/NETWORK_POLICY.md)。
+
+线程模型使用显式 virtual-threads 候选 profile，默认平台线程；正确性、A/B 容量及七服务收口见 [最终验收](deploy/ACCEPTANCE.md)。

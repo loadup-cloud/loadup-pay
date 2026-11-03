@@ -1,4 +1,6 @@
 server:
+  podLabels:
+    loadup.io/metrics-scraper: "true"
   retention: "7d"
   strategy:
     type: Recreate
