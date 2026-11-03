@@ -31,6 +31,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import io.github.loadup.commons.json.JsonUtil;
 import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
@@ -44,7 +45,7 @@ class AuthServerConfiguration {
             @Value("${pay.authserver.catalog}") String catalogJson) {
         ServiceClientCatalog catalog;
         try {
-            catalog = JsonMapper.builder().build().readValue(catalogJson, ServiceClientCatalog.class);
+            catalog = JsonUtil.customize(JsonMapper.builder()).build().readValue(catalogJson, ServiceClientCatalog.class);
         } catch (RuntimeException failure) {
             throw new IllegalArgumentException("Cannot load service authorization catalog (details suppressed)");
         }

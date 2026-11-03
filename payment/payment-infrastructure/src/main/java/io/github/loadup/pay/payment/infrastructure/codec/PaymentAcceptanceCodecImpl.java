@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
 
+import io.github.loadup.commons.json.JsonUtil;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
@@ -29,9 +31,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.MapperFeature;
-import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
@@ -41,16 +40,7 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
     private final PaymentIntentSnapshotConverter snapshots;
 
     public PaymentAcceptanceCodecImpl(Validator validator, PaymentIntentSnapshotConverter snapshots) {
-        this.mapper = JsonMapper.builder()
-                .disable(MapperFeature.USE_ANNOTATIONS)
-                .propertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
-                .enable(
-                        DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
-                                DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES,
-                        DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES,
-                                DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
-                .build();
+        this.mapper = JsonUtil.strictProtocol(JsonMapper.builder()).build();
         this.validator = validator;
         this.snapshots = snapshots;
     }
