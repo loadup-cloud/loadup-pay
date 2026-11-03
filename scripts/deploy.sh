@@ -74,7 +74,22 @@ for name, items in (("authserver", first), ("business", remaining)):
 PY_STAGE
   kubectl --context "$KUBE_CONTEXT" apply -f "$release_temp/authserver.json"
   "$PAY_ROOT/scripts/verify.sh" authserver
-  kubectl --context "$KUBE_CONTEXT" apply -f "$release_temp/business.json"
+  # Roll consumers one at a time to bound startup CPU and database connections.
+  for app in "${SELECTED_APPS[@]}"; do
+    [[ "$app" == authserver ]] && continue
+    python3 - "$release_temp/business.json" "$app" > "$release_temp/application.json" <<'PY_APP'
+import json
+from pathlib import Path
+import sys
+items = json.loads(Path(sys.argv[1]).read_text())["items"]
+selected = [item for item in items if item["metadata"]["name"] in {sys.argv[2], sys.argv[2] + "-http-ingress"}]
+if len(selected) != 3:
+    raise SystemExit("Application rollout requires a NetworkPolicy, Deployment and Service")
+json.dump({"apiVersion": "v1", "kind": "List", "items": selected}, sys.stdout)
+PY_APP
+    kubectl --context "$KUBE_CONTEXT" apply -f "$release_temp/application.json"
+    "$PAY_ROOT/scripts/verify.sh" "$app"
+  done
 else
   kubectl --context "$KUBE_CONTEXT" apply -f "$release_file"
 fi
