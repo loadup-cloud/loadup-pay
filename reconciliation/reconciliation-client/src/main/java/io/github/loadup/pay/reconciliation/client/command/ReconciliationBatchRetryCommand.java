@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Reconciliation Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.reconciliation.client.command;
 
@@ -25,14 +21,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ReconciliationBatchRetryCommand(
-        @Schema(description = "Batch whose original sealed inputs will be compared") @NotBlank @Size(max = 64)
-        String batchId,
+        @Schema(description = "Batch whose original sealed inputs will be compared") @NotBlank @Size(max = 64) String batchId,
 
-        @Schema(description = "Expected original run id") @NotBlank @Size(max = 64)
-        String runId,
+        @Schema(description = "Expected original run id") @NotBlank @Size(max = 64) String runId,
 
-        @Schema(description = "Expected native task id") @NotBlank @Size(max = 64)
-        String expectedTaskId) {
+        @Schema(description = "Expected native task id") @NotBlank @Size(max = 64) String expectedTaskId) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

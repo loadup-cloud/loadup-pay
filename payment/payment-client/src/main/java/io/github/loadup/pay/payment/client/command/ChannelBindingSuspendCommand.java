@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Payment Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.payment.client.command;
 
@@ -26,17 +22,13 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record ChannelBindingSuspendCommand(
-        @Schema(description = "Collecting merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Collecting merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
-        @Schema(description = "Merchant-local binding code") @NotBlank @Size(max = 64)
-        String bindingCode,
+        @Schema(description = "Merchant-local binding code") @NotBlank @Size(max = 64) String bindingCode,
 
-        @Schema(description = "Suspend idempotency key") @NotBlank @Size(max = 128)
-        String requestKey,
+        @Schema(description = "Suspend idempotency key") @NotBlank @Size(max = 128) String requestKey,
 
-        @Schema(description = "Expected current head version") @Positive
-        long expectedVersion) {
+        @Schema(description = "Expected current head version") @Positive long expectedVersion) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

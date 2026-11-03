@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay AuthServer Bootstrap
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.authserver;
 
@@ -36,6 +32,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.transaction.support.TransactionTemplate;
+
 final class ServiceClientRegistry {
     static final String PREFIX = "pay.service.";
     static final String TENANT = PREFIX + "tenant";

@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay LimitCenter Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.limitcenter.client.command;
 
@@ -27,31 +23,23 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record LimitRefundRestoreCommand(
-        @Schema(description = "Operation id") @NotBlank @Size(max = 64)
-        String operationId,
+        @Schema(description = "Operation id") @NotBlank @Size(max = 64) String operationId,
 
-        @Schema(description = "Payment id") @NotBlank @Size(max = 64)
-        String paymentId,
+        @Schema(description = "Payment id") @NotBlank @Size(max = 64) String paymentId,
 
-        @Schema(description = "Refund id") @NotBlank @Size(max = 64)
-        String refundId,
+        @Schema(description = "Refund id") @NotBlank @Size(max = 64) String refundId,
 
         @Schema(description = "Refund version") @Positive long refundVersion,
 
-        @Schema(description = "Business event id") @NotBlank @Size(max = 64)
-        String businessEventId,
+        @Schema(description = "Business event id") @NotBlank @Size(max = 64) String businessEventId,
 
-        @Schema(description = "Refund amount minor") @Positive
-        long refundAmountMinor,
+        @Schema(description = "Refund amount minor") @Positive long refundAmountMinor,
 
-        @Schema(description = "Cumulative payment refunded minor") @Positive
-        long cumulativePaymentRefundedMinor,
+        @Schema(description = "Cumulative payment refunded minor") @Positive long cumulativePaymentRefundedMinor,
 
-        @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
-        @Schema(description = "Refund evidence id") @NotBlank @Size(max = 64)
-        String refundEvidenceId) {
+        @Schema(description = "Refund evidence id") @NotBlank @Size(max = 64) String refundEvidenceId) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

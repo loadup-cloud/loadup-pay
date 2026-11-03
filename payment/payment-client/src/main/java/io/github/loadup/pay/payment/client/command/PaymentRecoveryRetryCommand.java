@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Payment Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.payment.client.command;
 
@@ -32,36 +28,26 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record PaymentRecoveryRetryCommand(
-        @Schema(description = "Allow-listed payment recovery task kind") @NotNull
-        PaymentRecoveryKind kind,
+        @Schema(description = "Allow-listed payment recovery task kind") @NotNull PaymentRecoveryKind kind,
 
         @Schema(description = "Original payment id for COLLECTION, or original refund request id for REFUND_REQUEST")
-        @NotBlank
-        @Size(max = 64)
-        String subjectId,
+        @NotBlank @Size(max = 64) String subjectId,
 
-        @Schema(description = "Observed original recovery generation") @NotNull @PositiveOrZero
-        Long generation,
+        @Schema(description = "Observed original recovery generation") @NotNull @PositiveOrZero Long generation,
 
         @Schema(description = "Observed native task id; replacement task ids are not accepted")
-        @NotBlank
-        @Size(max = 64)
-        String expectedTaskId,
+        @NotBlank @Size(max = 64) String expectedTaskId,
 
-        @Schema(description = "Observed native failed-task attempts") @NotNull @Positive
-        Integer expectedAttempts,
+        @Schema(description = "Observed native failed-task attempts") @NotNull @Positive Integer expectedAttempts,
 
         @Schema(
                 description = "Observed native nextExecuteAt with offset, microsecond precision",
                 type = "string",
                 format = "date-time")
-        @NotNull
-        OffsetDateTime expectedNextExecuteAt,
+        @NotNull OffsetDateTime expectedNextExecuteAt,
 
         @Schema(description = "Stable operation key; retries preserve all original parameters")
-        @NotBlank
-        @Size(max = 128)
-        String requestKey,
+        @NotBlank @Size(max = 128) String requestKey,
 
         @Schema(description = "Audited operational reason") @NotBlank @Size(max = 500) @DiagnosticHidden
         String reason) {

@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Realtime Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.realtime.client.query;
 
@@ -30,8 +26,7 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record TradePaymentPageQuery(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
         @Schema(description = "State") PaymentState state,

@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Acquire Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.acquire.client.dto;
 
@@ -37,11 +33,9 @@ public record DirectPayRecoveryDTO(
         @Schema(description = "Validated original creation result code; absent before a decision")
         String resultCode,
 
-        @Schema(description = "Original materialized order; absent unless creation completed") @Valid
-        AcquireOrderDTO order,
+        @Schema(description = "Original materialized order; absent unless creation completed") @Valid AcquireOrderDTO order,
 
-        @Schema(description = "Original first payment recovery; absent unless creation completed") @Valid
-        PaymentRecoveryDTO payment) {
+        @Schema(description = "Original first payment recovery; absent unless creation completed") @Valid PaymentRecoveryDTO payment) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

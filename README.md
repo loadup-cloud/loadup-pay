@@ -61,15 +61,14 @@ docker --context orbstack exec -i postgres psql -U admin -d loadup -v ON_ERROR_S
 
 ## 手动质量与维护工具
 
-根 POM 对齐 Framework 的 Spotless、License、SpotBugs（含 FindSecBugs）、Enforcer、PMD、Checkstyle、JaCoCo 和 Versions 配置及版本。
+根 POM 对齐 Framework 的 Spotless、Enforcer、JaCoCo 和 Versions 配置及版本。
 这些插件没有生命周期执行绑定，正常 `compile`、`test`、`verify`、`install` 不会自动触发这些工具。以下命令在 Pay 根目录手动执行；可以添加 `-pl <模块路径>` 缩小范围。
 
 | 用途 | 命令 |
 |---|---|
 | 检查 / 修复格式 | `mvnd spotless:check` / `mvnd spotless:apply` |
-| 检查 / 更新 Java 许可证头 | `mvnd license:check-file-header` / `mvnd license:update-file-header` |
+| 检查 / 更新 Java 许可证头 | `./spotless.sh check` / `./spotless.sh apply` |
 | 检查依赖禁用规则 | `mvnd enforcer:enforce` |
-| PMD / Checkstyle 检查 | `mvnd pmd:check` / `mvnd checkstyle:check` |
 | 检查可更新依赖 / 插件 | `mvnd versions:display-dependency-updates` / `mvnd versions:display-plugin-updates` |
 
 SpotBugs 需要编译产物，例如 `mvnd -pl channel/channel-api -am clean compile spotbugs:check`。

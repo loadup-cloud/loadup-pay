@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Payment Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.payment.client.query;
 
@@ -35,8 +31,7 @@ import java.time.OffsetDateTime;
 public record PaymentUnknownRecoveryQuery(
         @NotNull PaymentRecoveryKind kind,
 
-        @Schema(description = "Minimum operational attention band, inclusive") @NotNull
-        PaymentRecoveryAttentionLevel minimumLevel,
+        @Schema(description = "Minimum operational attention band, inclusive") @NotNull PaymentRecoveryAttentionLevel minimumLevel,
 
         @Schema(description = "Previous page cursor time; supplied together with afterRecordId")
         OffsetDateTime afterFirstUnknownAt,

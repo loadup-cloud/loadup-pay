@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Product Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.product.client.command;
 
@@ -27,20 +23,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record LimitPolicyPublishCommand(
-        @Schema(description = "Payee owning the signed acquiring contract") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee owning the signed acquiring contract") @NotBlank @Size(max = 64) String payeeMerchantId,
 
-        @Schema(description = "Signed contract product scope") @NotBlank @Size(max = 128)
-        String productScopeKey,
+        @Schema(description = "Signed contract product scope") @NotBlank @Size(max = 128) String productScopeKey,
 
-        @Schema(description = "Expected immutable contract identifier") @NotBlank @Size(max = 64)
-        String expectedContractId,
+        @Schema(description = "Expected immutable contract identifier") @NotBlank @Size(max = 64) String expectedContractId,
 
-        @Schema(description = "Initial signed revision; currently only 1 is supported") @Min(1) @Max(1)
-        int expectedRevision,
+        @Schema(description = "Initial signed revision; currently only 1 is supported") @Min(1) @Max(1) int expectedRevision,
 
-        @Schema(description = "Expected framework snapshot hash") @NotBlank @Size(max = 128)
-        String expectedSnapshotHash) {
+        @Schema(description = "Expected framework snapshot hash") @NotBlank @Size(max = 128) String expectedSnapshotHash) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

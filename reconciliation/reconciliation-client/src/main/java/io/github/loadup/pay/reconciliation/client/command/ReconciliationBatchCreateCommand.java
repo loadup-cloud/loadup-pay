@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Reconciliation Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.reconciliation.client.command;
 
@@ -32,17 +28,12 @@ import java.time.LocalDate;
  */
 public record ReconciliationBatchCreateCommand(
         @Schema(description = "Caller idempotency key", example = "reconcile-20261026-store-01")
-        @NotBlank
-        @Size(max = 128)
-        String requestKey,
+        @NotBlank @Size(max = 128) String requestKey,
 
         @Schema(description = "Trusted collecting-account catalog code", example = "merchant-wechat-direct")
-        @NotBlank
-        @Size(max = 64)
-        String channelAccountCode,
+        @NotBlank @Size(max = 64) String channelAccountCode,
 
-        @Schema(description = "Channel statement date", example = "2026-10-26", format = "date") @NotNull
-        LocalDate billDate) {
+        @Schema(description = "Channel statement date", example = "2026-10-26", format = "date") @NotNull LocalDate billDate) {
     public ReconciliationBatchCreateCommand {
         ReconciliationContracts.require(billDate != null && billDate.getYear() >= 1970 && billDate.getYear() <= 9998);
     }

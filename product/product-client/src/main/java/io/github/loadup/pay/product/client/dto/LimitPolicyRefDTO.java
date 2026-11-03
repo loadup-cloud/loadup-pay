@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Product Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.product.client.dto;
 
@@ -31,18 +27,15 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record LimitPolicyRefDTO(
-        @Schema(description = "Policy id") @Size(max = 64) @NotBlank
-        String policyId,
+        @Schema(description = "Policy id") @Size(max = 64) @NotBlank String policyId,
 
         @Schema(description = "Policy version") @Positive int policyVersion,
 
-        @Schema(description = "Canonical lower-case SHA-256 policy hash") @Pattern(regexp = "[0-9a-f]{64}") @NotBlank
-        String policyHash,
+        @Schema(description = "Canonical lower-case SHA-256 policy hash") @Pattern(regexp = "[0-9a-f]{64}") @NotBlank String policyHash,
 
         @Schema(description = "Parent aggregation enabled") boolean parentAggregationEnabled,
 
-        @Schema(description = "Versioned parent policy reference") @Size(max = 128)
-        String parentPolicyRef,
+        @Schema(description = "Versioned parent policy reference") @Size(max = 128) String parentPolicyRef,
 
         @Schema(description = "Amount restore") @NotNull RefundAmountRestorePolicy amountRestore,
         @Schema(description = "Count restore") @NotNull RefundCountRestorePolicy countRestore) {

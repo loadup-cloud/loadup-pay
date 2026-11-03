@@ -1,9 +1,6 @@
 /*
- * #%L
- * LoadUp Pay Acquire Client
- * %%
- * Copyright (C) 2025 - 2026 LoadUp Cloud
- * %%
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
 package io.github.loadup.pay.acquire.client.command;
 
@@ -25,16 +21,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record AcquireOrderCloseCommand(
-        @Schema(description = "Original order id") @NotBlank @Size(max = 64)
-        String id,
+        @Schema(description = "Original order id") @NotBlank @Size(max = 64) String id,
 
         @Schema(description = "Original close request key; reuse it while closure is pending")
-        @NotBlank
-        @Size(max = 128)
-        String requestKey,
+        @NotBlank @Size(max = 128) String requestKey,
 
-        @Schema(description = "Reason code") @NotBlank @Size(max = 64)
-        String reasonCode) {
+        @Schema(description = "Reason code") @NotBlank @Size(max = 64) String reasonCode) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);
