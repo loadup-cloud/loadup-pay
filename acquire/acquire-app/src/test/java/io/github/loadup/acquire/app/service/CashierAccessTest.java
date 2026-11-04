@@ -1,0 +1,103 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.acquire.app.service;
+
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.session;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.github.loadup.acquire.app.security.CashierActor;
+import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.commons.error.CommonException;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
+class CashierAccessTest {
+    final CheckoutSessionGateway sessions = mock(CheckoutSessionGateway.class);
+    final CashierAccess access = new CashierAccess(sessions, clock(NOW));
+    final StoredAcquireOrder order = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
+    final StoredCheckoutSession active = session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5));
+    final CashierActor actor =
+            new CashierActor("tenant", "session", "order", active.session().expiresAt());
+
+    @Test
+    void originalSessionAndOwnerMustMatchBeforeAReservation() {
+        when(sessions.lock("session")).thenReturn(Optional.of(active));
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
+            access.authorize(actor, OWNER, order, true);
+            assertThrows(CommonException.class, () -> access.authorize(actor, "x".repeat(64), order, true));
+            return true;
+        });
+        verify(sessions, atLeastOnce()).lock("session");
+    }
+
+    @Test
+    void expiredOrCancelledSessionCannotCreateButCommittedIntentsRemainBoundForCompletion() {
+        var cancelled = session(CheckoutSessionState.CANCELLED, NOW.plusMinutes(5));
+        when(sessions.lock("session")).thenReturn(Optional.of(cancelled));
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
+            assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
+            access.authorize(actor, OWNER, order, false);
+            return true;
+        });
+        when(sessions.find("session")).thenReturn(Optional.of(cancelled));
+        assertThrows(CommonException.class, () -> access.read(actor, order, "PAYMENT_PROGRESS"));
+    }
+
+    @Test
+    void validCapabilityCannotChangeTheOrderOrTheStoredExpiry() {
+        when(sessions.find("session")).thenReturn(Optional.of(active));
+        assertThrows(
+                CommonException.class,
+                () -> access.read(
+                        new CashierActor("tenant", "session", "other", actor.expiresAt()), order, "ORDER_SUMMARY"));
+        assertThrows(
+                CommonException.class,
+                () -> access.read(
+                        new CashierActor(
+                                "tenant", "session", "order", actor.expiresAt().plusSeconds(1)),
+                        order,
+                        "ORDER_SUMMARY"));
+    }
+
+    @Test
+    void revocationBlocksNewReservationsAndReadsButPreservesCommittedIntentCompletion() {
+        var revoked = active.revoke(0L, NOW);
+        when(sessions.lock("session")).thenReturn(Optional.of(revoked));
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
+            assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
+            access.authorize(actor, OWNER, order, false);
+            return true;
+        });
+        when(sessions.find("session")).thenReturn(Optional.of(revoked));
+        for (var permission : revoked.scope().permissions()) {
+            assertThrows(CommonException.class, () -> access.read(actor, order, permission));
+        }
+    }
+}

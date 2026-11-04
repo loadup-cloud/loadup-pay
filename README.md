@@ -1,13 +1,16 @@
 # LoadUp Pay
 
-面向商户和子商户的外部渠道收单平台。当前 reactor 包含七个业务服务和渠道插件聚合，采用 Java 25、Spring Boot 4.1.1、LoadUp Framework 0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
+面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用和渠道插件聚合，采用 Java 25、Spring Boot 4.1.2、LoadUp Framework 0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
 ## 模块导航
 
 | 模块 | 职责 |
 |---|---|
-| [customer](customer/README.md) | 商户资格、关系与授权 |
-| [product](product/README.md) | 产品合约、下单准入、规则发布 |
+| [merchantcenter](merchantcenter/README.md) | 商户主档、资格、关系与授权核心 |
+| [merchantmng](merchantmng/README.md) | 商户后管与签约入口 |
+| [productcenter](productcenter/README.md) | 产品、合约、下单准入、规则发布核心 |
+| [productmng](productmng/README.md) | 产品与合约后管 |
+| [authserver](authserver/README.md) | 应用凭证和令牌签发 |
 | [acquire](acquire/README.md) | 订单、Checkout/DirectPay、多笔付款占用与通知 |
 | [payment](payment/README.md) | 付款、退款、渠道绑定、回调及未知结果恢复 |
 | [limitcenter](limitcenter/README.md) | 限额预占、执行门禁、确认与释放 |
@@ -22,8 +25,8 @@
 ## 本地准备
 
 1. 准备 Java 25、Maven Daemon，以及 LoadUp Framework 对应版本的制品。
-2. 为七个业务服务准备独立 PostgreSQL 数据库或隔离 schema。配置对应 `<SERVICE>_JDBC_URL`、`<SERVICE>_JDBC_USERNAME`、`<SERVICE>_JDBC_PASSWORD`；不要直接复用旧 MySQL 库。
-3. 按各 bootstrap 的 `application.yml` 配置 JWT issuer/audience/JWK、受信租户、服务令牌挂载及所用渠道/KMS/存储参数。内部与业务入口均为 HTTP，默认 8080；本地 profile 按七服务配置独立端口及出站基础地址。
+2. 两个 mng 后管不使用数据库；为其余核心应用准备独立 PostgreSQL 数据库或隔离 schema。配置对应 `<SERVICE>_JDBC_URL`、`<SERVICE>_JDBC_USERNAME`、`<SERVICE>_JDBC_PASSWORD`；不要直接复用旧 MySQL 库。
+3. 按各 bootstrap 的 `application.yml` 配置 JWT issuer/audience/JWK、受信租户、服务令牌挂载及所用渠道/KMS/存储参数。内部与业务入口均为 HTTP，默认 8080；本地 profile 按核心服务配置独立端口及出站基础地址。
 4. 选择所需模块的 build/start 脚本。编译必须使用 `clean`，避免旧生成代码或已删除迁移留在构建产物中。数据库初始化、启动和真实渠道验收由开发者执行。
 
 当前迁移由每个服务的 infrastructure 初始文件及实际依赖组件的迁移共同组成。初次初始化使用可丢弃开发库，不自动对既有库 clean/repair 或搬迁数据。
@@ -38,9 +41,9 @@
 |---|---|---|---|---|
 | payment | loadup_payment | public | 8081 | 50051 |
 | acquire | loadup_acquire | public | 8082 | 50052 |
-| customer | loadup_customer | public | 8083 | 50053 |
+| merchantcenter | loadup_customer | public | 8083 | 50053 |
 | limitcenter | loadup_limitcenter | public | 8084 | 50054 |
-| product | loadup_product | public | 8085 | 50055 |
+| productcenter | loadup_product | public | 8085 | 50055 |
 | realtime | loadup_realtime | public | 8086 | 50056 |
 | reconciliation | loadup_reconciliation | public | 8087 | 50057 |
 

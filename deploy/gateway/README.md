@@ -1,3 +1,5 @@
+> 2026-11-04：管理路由已改为 `/api/merchantmng` → merchantmng、`/api/productmng` → productmng。merchantcenter/productcenter 不公开；以下历史部署记录不代表新结构已部署。
+
 # Gateway API + Envoy Gateway
 
 默认平台入口使用 Gateway API，控制器固定为 Envoy Gateway v1.9.3，对应 Gateway API v1.6.1。

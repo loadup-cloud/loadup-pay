@@ -12,7 +12,7 @@ loadup:
     clients:
       realtime:
         base-url: ${REALTIME_BASE_URL:http://localhost:8086}
-      product:
-        base-url: ${PRODUCT_BASE_URL:http://localhost:8085}
+      productcenter:
+        base-url: ${PRODUCTCENTER_BASE_URL:http://localhost:8085}
       payment:
         base-url: ${PAYMENT_BASE_URL:http://localhost:8081}

@@ -1,3 +1,5 @@
+> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng。以 [总体架构](../ARCHITECTURE.md) 的四应用边界为准。两个后管无数据库，center 仅内部访问。
+
 # 环境配置与版本化发布
 
 配置源按 deploy/config/dev、test、prod 直接维护。文件格式和必需值见 [环境目录](config/README.md)，应用授权及 KeyStore 见 [AuthServer](../authserver/README.md)。
@@ -24,7 +26,7 @@ APP_ENV=dev ./scripts/configmap.sh update payment
 
 up.sh 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建会先安装所需 framework 组件；全量发布先等待 AuthServer 就绪，再逐个发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
 
-直接 deploy.sh/render.sh 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 25 个资源：Namespace、八组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
+直接 deploy.sh/render.sh 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 31 个资源：Namespace、十组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
 
 ConfigMap、环境 Secret、KeyStore 和 Spring Bean 默认滚动重启生效，不承诺热刷新。客户端 Secret 轮换需协调 AuthServer 与调用方，新旧凭证并行使用窗口当前未实现；首次迁移也必须使用支持 OAuth 取令牌的新镜像。不要用新配置启动旧 release-001。
 
@@ -46,7 +48,7 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh delet
 
 ## 健康、排空和验证
 
-八 Deployment 沿用 HTTP readiness/liveness、360 秒启动预算、600 秒进度期限和 660 秒等待上限；maxUnavailable=0、maxSurge=1，preStop 等待 10 秒，终止宽限 100 秒。业务应用与 AuthServer 均设置 Spring 每阶段停机等待 75 秒。应用不挂载 ServiceAccount token，不访问 Kubernetes 发现 API。
+十 Deployment 沿用 HTTP readiness/liveness、360 秒启动预算、600 秒进度期限和 660 秒等待上限；maxUnavailable=0、maxSurge=1，preStop 等待 10 秒，终止宽限 100 秒。业务应用与 AuthServer 均设置 Spring 每阶段停机等待 75 秒。应用不挂载 ServiceAccount token，不访问 Kubernetes 发现 API。
 
 NetworkPolicy 在工作负载前应用；AuthServer 只允许声明的内部应用和监控命名空间访问，没有公开网关入口。Gateway API + Envoy Gateway 仍单独发布，参见 [网关说明](gateway/README.md)。
 

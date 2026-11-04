@@ -14,7 +14,7 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 NAMESPACE = "loadup-pay"
 KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
-SERVICE_CALLERS = {"product", "limitcenter", "payment", "acquire", "reconciliation"}
+SERVICE_CALLERS = {"productcenter", "limitcenter", "payment", "acquire", "reconciliation"}
 
 
 
@@ -126,6 +126,9 @@ def local_resources(app, directory):
         if public_key or not jwk_set:
             fail(f"AuthServer migration requires JWKS verification, without legacy public-key files: {app}.")
     required_secret = [f"{prefix}_JDBC_PASSWORD"]
+    if app in {"merchantmng", "productmng"}:
+        required_config = []
+        required_secret = []
     if app == "reconciliation":
         required_config.append("RECONCILIATION_S3_BUCKET")
         if bool(secret.get("RECONCILIATION_S3_ACCESS_KEY")) != bool(secret.get("RECONCILIATION_S3_SECRET_KEY")):

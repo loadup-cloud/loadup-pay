@@ -1,0 +1,162 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.payment.infrastructure.repository;
+
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.payment.app.port.PaymentWriteConflictException;
+import io.github.loadup.payment.domain.gateway.PaymentInputGateway;
+import io.github.loadup.payment.domain.model.PaymentInput;
+import io.github.loadup.payment.domain.model.PaymentInputState;
+import io.github.loadup.payment.infrastructure.converter.PaymentInputStorageConverter;
+import io.github.loadup.payment.infrastructure.dataobject.PaymentInputDO;
+import io.github.loadup.payment.infrastructure.mapper.PaymentInputMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+@Repository
+public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, PaymentInputDO>
+        implements PaymentInputGateway {
+    private static final String COLUMNS = "id, created_at, updated_at, payment_id, order_id, allocation_id, "
+            + "payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id, fingerprint_key_id, "
+            + "input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at, state, bound_attempt_id, row_version";
+    private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentInputStorageConverter converter;
+    private final Clock clock;
+
+    public PaymentInputGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentInputMapper mapper,
+            PaymentInputStorageConverter converter,
+            Clock clock) {
+        this.jdbc = jdbc;
+        this.mapper = mapper;
+        this.converter = converter;
+        this.clock = clock;
+    }
+
+    @Override
+    public Optional<PaymentInput> findByPayment(String paymentId) {
+        return read(getOne(QueryWrapper.create().eq("payment_id", paymentId)));
+    }
+
+    @Override
+    public Optional<PaymentInput> find(String inputRef) {
+        return input(inputRef, false);
+    }
+
+    @Override
+    public Optional<PaymentInput> lock(String inputRef) {
+        requireTransaction();
+        return input(inputRef, true);
+    }
+
+    private Optional<PaymentInput> input(String inputRef, boolean lock) {
+        if (!lock) {
+            return read(getById(inputRef));
+        }
+        var args = new MapSqlParameterSource().addValue("id", inputRef);
+        return read(jdbc
+                .query(
+                        "SELECT " + COLUMNS + " FROM payment_input WHERE id = :id AND deleted = FALSE" + " FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(PaymentInputDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null));
+    }
+
+    private Optional<PaymentInput> read(PaymentInputDO row) {
+        try {
+            return Optional.ofNullable(row).map(converter::toInput);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+    }
+
+    @Override
+    public void insert(PaymentInput value) {
+        requireTransaction();
+        if (value.state() != PaymentInputState.INIT || value.rowVersion() != 0) {
+            throw new CommonException(INVALID_STATE);
+        }
+        var row = converter.toDO(value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_input (id, created_at, updated_at, deleted, payment_id, order_id,
+                    allocation_id, payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,
+                    fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,
+                    state, bound_attempt_id, row_version)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :orderId, :allocationId,
+                    :payeeMerchantId, :amountMinor, :currency, :inputKey, :channel, :method, :callerServiceId,
+                    :fingerprintKeyId, :inputDigest, :encryptionKey, :encryptionVersion, :ciphertext, :preparedAt, :expiresAt,
+                    :state, :boundAttemptId, :rowVersion)
+                ON CONFLICT (payment_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) {
+            throw new PaymentWriteConflictException("Payment input business key already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
+    }
+
+    @Override
+    public void bind(PaymentInput value, long expectedVersion) {
+        requireTransaction();
+        if (expectedVersion != 0 || value.rowVersion() != 1 || value.state() != PaymentInputState.BOUND) {
+            throw new CommonException(INVALID_STATE);
+        }
+        var args = new MapSqlParameterSource()
+                .addValue("id", value.id())
+                .addValue("payment", value.paymentId())
+                .addValue("attempt", value.boundAttemptId())
+                .addValue("expected", expectedVersion)
+                .addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE payment_input SET state = 'BOUND', bound_attempt_id = :attempt, row_version = 1, updated_at = :updated
+                WHERE id = :id AND payment_id = :payment AND state = 'INIT'
+                    AND row_version = :expected AND deleted = FALSE
+                """, args);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
+    }
+
+    private void requireTransaction() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
+            throw new CommonException(INVALID_STATE);
+        }
+    }
+}

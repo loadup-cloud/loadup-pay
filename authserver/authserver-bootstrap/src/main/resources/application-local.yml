@@ -101,14 +101,14 @@ pay:
             "enabled": true
           },
           {
-            "clientId": "product.default.limitcenter",
+            "clientId": "productcenter.default.limitcenter",
             "tenantId": "__default__",
-            "serviceId": "product",
+            "serviceId": "productcenter",
             "audience": "limitcenter",
             "permissions": [
               "pay:limit:activate"
             ],
-            "secretEnv": "PRODUCT_OAUTH2_CLIENT_SECRET",
+            "secretEnv": "PRODUCTCENTER_OAUTH2_CLIENT_SECRET",
             "enabled": true
           },
           {

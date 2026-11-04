@@ -46,18 +46,22 @@ class GatewayChartTest(unittest.TestCase):
                             result.update(backend["name"] for backend in rule["backendRefs"])
             return result
 
-        for path, owner in {"/api/customer/authorize": "customer", "/api/product/limit-publications/detail": "product",
+        for path, owner in {"/api/merchantmng/merchants/detail": "merchantmng",
+                            "/api/productmng/limit-publications/detail": "productmng",
                             "/api/acquire/orders/create": "acquire", "/api/cashier/order/summary": "acquire",
                             "/api/payment/channel-callbacks/endpoint/refund": "payment",
                             "/api/realtime/trades/detail": "realtime", "/api/reconciliation/batches/detail": "reconciliation"}.items():
             self.assertEqual(backends(path), {owner})
         self.assertEqual(backends("/checkout.js", "GET"), {"acquire"})
-        for path in ("/", "/actuator/health", "/api/internal", "/api/limitcenter/reserve", "/api/customer-other", "/checkout.js/extra"):
+        for path in ("/", "/actuator/health", "/api/internal", "/api/internal/v1/merchantcenter/management/merchants/detail",
+                     "/api/merchantcenter", "/api/merchantcenter/management/merchants/detail",
+                     "/api/productcenter", "/api/productcenter/management/catalog/page",
+                     "/api/limitcenter/reserve", "/api/merchantcenter-other", "/checkout.js/extra"):
             self.assertFalse(backends(path))
             self.assertFalse(backends(path, "GET"))
-        contracts = self.chart.parents[1].glob("*/*-client/src/main/java/io/github/loadup/pay/*/client/http/*HttpService.java")
+        contracts = self.chart.parents[1].glob("*/*-client/src/main/java/io/github/loadup/*/client/http/*HttpService.java")
         paths = [path for contract in contracts for path in re.findall(r'"(/api/internal/[^"\n]+)"', contract.read_text())]
-        self.assertEqual(len(paths), 44)
+        self.assertEqual(len(paths), 47)
         for path in paths:
             self.assertFalse(backends(path), path)
 

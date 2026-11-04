@@ -60,9 +60,9 @@ def main():
     server.setdefault("KMS_KEYSTORE_PASSWORD", password or secrets.token_urlsafe(32))
     if not server.get("KMS_KEYSTORE_PASSWORD"):
         server["KMS_KEYSTORE_PASSWORD"] = secrets.token_urlsafe(32)
-    source = load(directory / "customer/secret.env")
+    source = load(directory / "merchantcenter/secret.env")
     if not server.get("AUTHSERVER_JDBC_PASSWORD"):
-        server["AUTHSERVER_JDBC_PASSWORD"] = source.get("CUSTOMER_JDBC_PASSWORD", "")
+        server["AUTHSERVER_JDBC_PASSWORD"] = source.get("MERCHANTCENTER_JDBC_PASSWORD", "")
     if not server["AUTHSERVER_JDBC_PASSWORD"]:
         raise ValueError("Fill authserver/secret.env AUTHSERVER_JDBC_PASSWORD; local PostgreSQL credentials were not found.")
     pending = []

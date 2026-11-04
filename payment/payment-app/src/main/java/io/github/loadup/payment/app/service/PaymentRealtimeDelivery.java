@@ -1,0 +1,84 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.payment.app.service;
+
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.payment.app.port.PaymentRealtimeClient;
+import io.github.loadup.payment.app.port.PaymentSnapshotEnvelopeCodec;
+import java.util.Set;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+/**
+ * Complete source snapshots are delivered independently; no source lookup or downstream read participates in Y3.
+ */
+@Component
+public class PaymentRealtimeDelivery {
+    private final OutboxTemplate outbox;
+    private final PaymentSnapshotEnvelopeCodec codec;
+    private final PaymentRealtimeClient client;
+
+    public PaymentRealtimeDelivery(
+            OutboxTemplate outbox, PaymentSnapshotEnvelopeCodec codec, PaymentRealtimeClient client) {
+        this.outbox = outbox;
+        this.codec = codec;
+        this.client = client;
+    }
+
+    public void deliver(OutboxEvent event) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (event == null
+                || event.message() == null
+                || event.message().version() != 1
+                || !PaymentEvents.REALTIME.equals(event.message().type())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        String tenant = TenantUtil.getTenantId();
+        var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!row.id().equals(event.id())
+                || !row.type().equals(PaymentEvents.REALTIME)
+                || !row.businessId().equals(event.message().businessId())
+                || !"PROCESSING".equals(row.status())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var envelope = codec.decode(event.message().payload());
+        if (!envelope.aggregateId().equals(row.businessId())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var ack = client.apply(envelope);
+        if (ack == null
+                || !ack.accepted()
+                || !envelope.deliveryId().equals(ack.deliveryId())
+                || !envelope.businessEventId().equals(ack.businessEventId())
+                || !envelope.producer().equals(ack.producer())
+                || !envelope.aggregateId().equals(ack.aggregateId())
+                || ack.sourceVersion() != envelope.aggregateVersion()
+                || ack.projectedVersion() < ack.sourceVersion()
+                || ack.disposition() == null
+                || !Set.of("APPLIED", "DUPLICATE", "STALE").contains(ack.disposition())) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
+    }
+}

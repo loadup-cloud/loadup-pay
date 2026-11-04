@@ -34,12 +34,12 @@ class ManageConfigTest(unittest.TestCase):
         self.assertNotIn("private-value", str(error.exception))
 
     def test_environment_common_values_are_merged_with_explicit_application_overrides(self):
-        app = self.path / "customer"
+        app = self.path / "merchantcenter"
         app.mkdir()
         (self.path / "common.env").write_text("JWT_ISSUER_URI=https://issuer.test\nJWT_JWK_SET_URI=https://issuer.test/jwks\nMETRICS_ENABLED=false\n")
-        (app / "config.env").write_text("CUSTOMER_JDBC_URL=jdbc:postgresql://db/customer\nCUSTOMER_JDBC_USERNAME=customer\nMETRICS_ENABLED=true\n")
-        (app / "secret.env").write_text("CUSTOMER_JDBC_PASSWORD=keep-existing\n")
-        values = config.local_resources("customer", app)
+        (app / "config.env").write_text("MERCHANTCENTER_JDBC_URL=jdbc:postgresql://db/merchantcenter\nMERCHANTCENTER_JDBC_USERNAME=merchantcenter\nMETRICS_ENABLED=true\n")
+        (app / "secret.env").write_text("MERCHANTCENTER_JDBC_PASSWORD=keep-existing\n")
+        values = config.local_resources("merchantcenter", app)
         self.assertEqual(values[0]["JWT_ISSUER_URI"], "https://issuer.test")
         self.assertEqual(values[0]["METRICS_ENABLED"], "true")
 
@@ -48,7 +48,7 @@ class ManageConfigTest(unittest.TestCase):
             os.environ.pop("CONFIG_VERSION", None)
             os.environ.pop("SECRET_VERSION", None)
             with patch.object(config, "local_resources", return_value=values):
-                return config.resolve_versions(["customer"], self.path)
+                return config.resolve_versions(["merchantcenter"], self.path)
         initial = versions(({"KEY": "value"}, {"PASSWORD": "old"}, {"authserver.p12": "key1"}))
         changed_key = versions(({"KEY": "value"}, {"PASSWORD": "old"}, {"authserver.p12": "key2"}))
         changed_secret = versions(({"KEY": "updated-catalog"}, {"PASSWORD": "old"}, {"authserver.p12": "key1"}))
@@ -58,36 +58,36 @@ class ManageConfigTest(unittest.TestCase):
         self.assertEqual(initial[1], changed_secret[1])
 
     def test_conflict_in_later_resource_prevents_all_mutations(self):
-        existing = config.resource("Secret", "customer-secret-sec-old", {"KEY": "different"}, True)
+        existing = config.resource("Secret", "merchantcenter-secret-sec-old", {"KEY": "different"}, True)
         with patch.object(config, "local_resources", return_value=({"KEY": "new"}, {})), \
                 patch.object(config, "get", side_effect=[None, existing]), \
                 patch.object(config, "kube", return_value={"kind": "Namespace"}) as kube, \
-                patch("sys.argv", ["manage-config.py", "create", "config", "customer"]):
+                patch("sys.argv", ["manage-config.py", "create", "config", "merchantcenter"]):
             with self.assertRaisesRegex(ValueError, "Changed existing"):
                 config.main()
         self.assertTrue(all(call.args[0] == "get" for call in kube.call_args_list))
 
     def test_historical_replicaset_reference_blocks_delete(self):
         history = {"items": [{"spec": {"replicas": 0, "template": {"spec": {"containers": [{
-            "envFrom": [{"configMapRef": {"name": "customer-config-cfg-old"}}]}]}}}}]}
+            "envFrom": [{"configMapRef": {"name": "merchantcenter-config-cfg-old"}}]}]}}}}]}
         with patch.object(config, "get", return_value=None), patch.object(config, "kube", return_value=history) as kube:
             with self.assertRaisesRegex(ValueError, "Deletion refused"):
-                config.delete_resources(["customer"], "config")
+                config.delete_resources(["merchantcenter"], "config")
         self.assertEqual(kube.call_count, 1)
 
     def test_release_archive_reference_blocks_delete(self):
         archive = self.path / "releases"
         archive.mkdir()
-        (archive / "old.json").write_text(json.dumps({"envFrom": [{"secretRef": {"name": "customer-secret-sec-old"}}]}))
+        (archive / "old.json").write_text(json.dumps({"envFrom": [{"secretRef": {"name": "merchantcenter-secret-sec-old"}}]}))
         with patch.object(config, "get", return_value=None), patch.object(config, "kube", return_value={"items": []}):
             with self.assertRaisesRegex(ValueError, "Deletion refused"):
-                config.delete_resources(["customer"], "secret")
+                config.delete_resources(["merchantcenter"], "secret")
 
     def test_unused_delete_uses_uid_and_resource_version_preconditions(self):
         existing = {"metadata": {"uid": "original-uid", "resourceVersion": "42"}}
         with patch.object(config, "get", return_value=existing), \
                 patch.object(config, "kube", side_effect=[{"items": []}, {}]) as kube:
-            config.delete_resources(["customer"], "config")
+            config.delete_resources(["merchantcenter"], "config")
         delete = kube.call_args
         self.assertEqual(delete.args[0], "delete")
         self.assertEqual(delete.kwargs["body"]["preconditions"], {"uid": "original-uid", "resourceVersion": "42"})

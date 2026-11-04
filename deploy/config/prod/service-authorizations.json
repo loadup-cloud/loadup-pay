@@ -90,14 +90,14 @@
       "enabled": true
     },
     {
-      "clientId": "product.default.limitcenter",
+      "clientId": "productcenter.default.limitcenter",
       "tenantId": "__default__",
-      "serviceId": "product",
+      "serviceId": "productcenter",
       "audience": "limitcenter",
       "permissions": [
         "pay:limit:activate"
       ],
-      "secretEnv": "PRODUCT_OAUTH2_CLIENT_SECRET",
+      "secretEnv": "PRODUCTCENTER_OAUTH2_CLIENT_SECRET",
       "enabled": true
     },
     {
@@ -113,6 +113,17 @@
         "pay:payment:reconciliation:verify"
       ],
       "secretEnv": "RECONCILIATION_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "productcenter.default.merchantcenter",
+      "tenantId": "__default__",
+      "serviceId": "productcenter",
+      "audience": "merchantcenter",
+      "permissions": [
+        "pay:merchant:profile:read"
+      ],
+      "secretEnv": "PRODUCTCENTER_OAUTH2_CLIENT_SECRET",
       "enabled": true
     }
   ]

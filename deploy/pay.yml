@@ -152,7 +152,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: customer
+  name: merchantcenter
   namespace: loadup-pay
 spec:
   replicas: 1
@@ -163,28 +163,28 @@ spec:
     type: RollingUpdate
     rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
-    matchLabels: { app: customer }
+    matchLabels: { app: merchantcenter }
   template:
     metadata:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: /actuator/prometheus
         prometheus.io/port: "8080"
-      labels: { app: customer }
+      labels: { app: merchantcenter }
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 100
       containers:
-        - name: customer
-          image: loadup-pay/customer:bootstrap
+        - name: merchantcenter
+          image: loadup-pay/merchantcenter:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
           envFrom:
             - configMapRef:
-                name: customer-config
+                name: merchantcenter-config
             - secretRef:
-                name: customer-secret
+                name: merchantcenter-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -213,10 +213,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: customer
+  name: merchantcenter
   namespace: loadup-pay
 spec:
-  selector: { app: customer }
+  selector: { app: merchantcenter }
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
@@ -296,7 +296,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: product
+  name: productcenter
   namespace: loadup-pay
 spec:
   replicas: 1
@@ -307,28 +307,28 @@ spec:
     type: RollingUpdate
     rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
-    matchLabels: { app: product }
+    matchLabels: { app: productcenter }
   template:
     metadata:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: /actuator/prometheus
         prometheus.io/port: "8080"
-      labels: { app: product }
+      labels: { app: productcenter }
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 100
       containers:
-        - name: product
-          image: loadup-pay/product:bootstrap
+        - name: productcenter
+          image: loadup-pay/productcenter:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
           envFrom:
             - configMapRef:
-                name: product-config
+                name: productcenter-config
             - secretRef:
-                name: product-secret
+                name: productcenter-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -357,10 +357,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: product
+  name: productcenter
   namespace: loadup-pay
 spec:
-  selector: { app: product }
+  selector: { app: productcenter }
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
@@ -508,204 +508,6 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: customer-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: customer }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - { key: app, operator: In, values: [ product ] }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: envoy
-              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
-              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: product-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: product }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - { key: app, operator: In, values: [ acquire ] }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: envoy
-              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
-              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: limitcenter-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: limitcenter }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - { key: app, operator: In, values: [ product, payment ] }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: payment-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: payment }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - { key: app, operator: In, values: [ acquire, limitcenter, reconciliation ] }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: envoy
-              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
-              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: acquire-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: acquire }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - { key: app, operator: In, values: [ payment ] }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: envoy
-              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
-              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: realtime-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: realtime }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - { key: app, operator: In, values: [ acquire, payment ] }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: envoy
-              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
-              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: reconciliation-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: reconciliation }
-  policyTypes: [ Ingress ]
-  ingress:
-    - ports:
-        - { protocol: TCP, port: 8080 }
-      from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: envoy-gateway-system }
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/name: envoy
-              gateway.envoyproxy.io/owning-gateway-namespace: loadup-pay
-              gateway.envoyproxy.io/owning-gateway-name: loadup-pay
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
----
 # AuthServer - internal OAuth2 client credentials / public JWKS
 apiVersion: apps/v1
 kind: Deployment
@@ -776,27 +578,800 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+# Customer Service - JWT-authenticated HTTP
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: authserver-http-ingress
+  name: merchantmng
   namespace: loadup-pay
 spec:
-  podSelector:
-    matchLabels: { app: authserver }
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-          podSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values: [customer, product, limitcenter, payment, acquire, realtime, reconciliation]
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
-      ports:
-        - { protocol: TCP, port: 8080 }
+  replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: merchantmng }
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+      labels: { app: merchantmng }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
+      containers:
+        - name: merchantmng
+          image: loadup-pay/merchantmng:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef:
+                name: merchantmng-config
+            - secretRef:
+                name: merchantmng-secret
+          env:
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 180
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+---
+# Customer ClusterIP - HTTP only for client routing
+apiVersion: v1
+kind: Service
+metadata:
+  name: merchantmng
+  namespace: loadup-pay
+spec:
+  selector: { app: merchantmng }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+# Customer Service - JWT-authenticated HTTP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: productmng
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: productmng }
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+      labels: { app: productmng }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
+      containers:
+        - name: productmng
+          image: loadup-pay/productmng:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef:
+                name: productmng-config
+            - secretRef:
+                name: productmng-secret
+          env:
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 180
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+---
+# Customer ClusterIP - HTTP only for client routing
+apiVersion: v1
+kind: Service
+metadata:
+  name: productmng
+  namespace: loadup-pay
+spec:
+  selector: { app: productmng }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "authserver-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "authserver"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "merchantcenter",
+                    "productcenter",
+                    "limitcenter",
+                    "payment",
+                    "acquire",
+                    "realtime",
+                    "reconciliation"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "merchantcenter-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "merchantcenter"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "productcenter",
+                    "merchantmng",
+                    "authserver"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "merchantmng-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "merchantmng"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "envoy-gateway-system"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "envoy",
+                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
+                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "productcenter-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "productcenter"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "acquire",
+                    "merchantmng",
+                    "productmng"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "productmng-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "productmng"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "envoy-gateway-system"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "envoy",
+                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
+                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "limitcenter-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "limitcenter"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "productcenter",
+                    "payment"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "payment-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "payment"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "acquire",
+                    "limitcenter",
+                    "reconciliation"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "envoy-gateway-system"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "envoy",
+                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
+                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "acquire-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "acquire"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "payment"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "envoy-gateway-system"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "envoy",
+                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
+                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "realtime-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "realtime"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "acquire",
+                    "payment"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "envoy-gateway-system"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "envoy",
+                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
+                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "reconciliation-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "reconciliation"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "envoy-gateway-system"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/name": "envoy",
+                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
+                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}

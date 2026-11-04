@@ -1,0 +1,50 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.acquire.app.converter;
+
+import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.acquire.domain.model.PaymentEventReceipt;
+import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
+import java.time.LocalDateTime;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+@Mapper(config = LoadUpMapStructConfig.class)
+public interface PaymentEventConverter {
+    PaymentOutcomeDTO toObserved(PaymentSettlementFactsDTO facts);
+
+    @Mapping(target = "accepted", constant = "true")
+    PaymentOutcomeAckDTO toAck(PaymentEventReceipt receipt);
+
+    @Mapping(target = "deliveryId", source = "event.deliveryId")
+    @Mapping(target = "businessEventId", source = "event.businessEventId")
+    @Mapping(target = "paymentId", source = "event.data.paymentId")
+    @Mapping(target = "orderId", source = "event.data.orderId")
+    @Mapping(target = "allocationId", source = "event.data.allocationId")
+    @Mapping(target = "paymentVersion", source = "event.data.paymentVersion")
+    @Mapping(target = "evidenceId", source = "event.data.evidenceId")
+    PaymentEventReceipt toReceipt(
+            String id,
+            EventEnvelope<PaymentOutcomeEventDTO> event,
+            String requestDigest,
+            String callerServiceId,
+            long orderVersion,
+            LocalDateTime acceptedAt);
+}

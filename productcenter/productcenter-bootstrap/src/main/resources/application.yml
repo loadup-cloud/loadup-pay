@@ -1,0 +1,126 @@
+spring:
+  threads:
+    virtual:
+      enabled: false
+  task:
+    execution:
+      propagate-context: true
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
+  datasource:
+    url: ${PRODUCTCENTER_JDBC_URL}
+    username: ${PRODUCTCENTER_JDBC_USERNAME}
+    password: ${PRODUCTCENTER_JDBC_PASSWORD}
+  application:
+    name: productcenter
+server:
+  port: 8080
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      group:
+        readiness:
+          include:
+            - readinessState
+            - db
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: ${METRICS_ENABLED:false}
+  metrics:
+    enable:
+      all: ${METRICS_ENABLED:false}
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+loadup:
+  webmvc:
+    request-body:
+      path-prefix: /api/internal/
+      max-size: 1MB
+  http:
+    client:
+    clients:
+      limitcenter:
+        base-url: ${LIMITCENTER_BASE_URL:http://limitcenter:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 1048576
+        max-response-bytes: 1048576
+      merchantcenter:
+        base-url: ${MERCHANTCENTER_BASE_URL:http://merchantcenter:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 65536
+        max-response-bytes: 65536
+  modules:
+    productcenter:
+      materialize-seconds: ${PRODUCTCENTER_MATERIALIZE_SECONDS:300}
+      merchantcenter-audience: ${MERCHANTCENTER_JWT_AUDIENCE:merchantcenter}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        subdomain-enabled: false
+  outbox:
+    enabled: true
+    worker-enabled: true
+    poll-interval: 1s
+    lease: 2m
+    retry-delay: 5s
+    max-attempts: 8
+    batch-size: 20
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    service-auth:
+      token-uri: ${SERVICE_AUTH_TOKEN_URI:http://authserver:8080/oauth2/token}
+      allow-insecure-http: ${SERVICE_AUTH_ALLOW_INSECURE_HTTP:false}
+      client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
+      registrations:
+        merchantcenter:
+          client-id: ${PRODUCTCENTER_MERCHANTCENTER_OAUTH_CLIENT_ID:productcenter.default.merchantcenter}
+          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+          service-id: productcenter
+          audience: ${MERCHANTCENTER_JWT_AUDIENCE:merchantcenter}
+          scopes:
+            - pay:merchant:profile:read
+        limitcenter:
+          client-id: ${PRODUCTCENTER_LIMITCENTER_OAUTH_CLIENT_ID:productcenter.default.limitcenter}
+          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+          service-id: productcenter
+          audience: limitcenter
+          scopes:
+            - pay:limit:activate
+    resource-server:
+      enabled: true
+      issuer-uri: ${PRODUCTCENTER_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
+      audience: ${PRODUCTCENTER_JWT_AUDIENCE:productcenter}
+      jwk-set-uri: ${PRODUCTCENTER_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
+      public-key-location: ${PRODUCTCENTER_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}

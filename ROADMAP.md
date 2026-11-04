@@ -136,3 +136,12 @@ HTTP 池原生状态与 lease 获取计时采集、刷新及关闭生命周期�
 - [Spring HTTP Service Clients](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html)
 - [OpenFeign 的演进建议](https://docs.spring.io/spring-cloud-openfeign/reference/index.html)
 - [Spring Boot 虚拟线程](https://docs.spring.io/spring-boot/reference/features/spring-application.html#features.spring-application.virtual-threads)
+
+
+## 商户／产品中心与后管拆分（2026-11-04）
+
+- 源码：merchant 与 productcore 合并到 merchantcenter/productcenter；merchantmng/productmng 独立无数据库部署，内部命令仍由中心执行。
+- 源码：商户签约入口属于 merchantmng，合约权威属于 productcenter；签约商户事实经内部 HTTP 查询。
+- 源码：网关、十应用发布清单和环境配置目录已调整；不接审批引擎。
+- 待验收：开发者 clean 构建、测试、真实操作者 JWT、多受众、PostgreSQL 迁移、HTTP/网络策略、停单并发及新旧部署退役。
+- 后续业务切片：持久入驻开通编排、商户应用及商户 JWT 授权。当前拆分不代表这两项已经交付。

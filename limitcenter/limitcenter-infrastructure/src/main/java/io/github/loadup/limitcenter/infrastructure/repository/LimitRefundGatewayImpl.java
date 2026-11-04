@@ -1,0 +1,102 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.limitcenter.infrastructure.repository;
+
+import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
+
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.limitcenter.domain.gateway.LimitRefundGateway;
+import io.github.loadup.limitcenter.domain.gateway.LimitWriteRaceException;
+import io.github.loadup.limitcenter.domain.model.LimitRefundReceipt;
+import io.github.loadup.limitcenter.infrastructure.converter.LimitRefundStorageConverter;
+import io.github.loadup.limitcenter.infrastructure.dataobject.LimitRefundReceiptDO;
+import io.github.loadup.limitcenter.infrastructure.mapper.LimitRefundReceiptMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+@Repository
+public class LimitRefundGatewayImpl extends ServiceImpl<LimitRefundReceiptMapper, LimitRefundReceiptDO>
+        implements LimitRefundGateway {
+    private final NamedParameterJdbcTemplate jdbc;
+    private final LimitRefundStorageConverter converter;
+    private final Clock clock;
+
+    public LimitRefundGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            LimitRefundReceiptMapper mapper,
+            LimitRefundStorageConverter converter,
+            Clock clock) {
+        this.jdbc = jdbc;
+        this.mapper = mapper;
+        this.converter = converter;
+        this.clock = clock;
+    }
+
+    @Override
+    public Optional<LimitRefundReceipt> find(String refundId) {
+        try {
+            return Optional.ofNullable(getOne(QueryWrapper.create().eq("refund_id", refundId)))
+                    .map(converter::toDomain);
+        } catch (RuntimeException corrupt) {
+            if (corrupt instanceof DataAccessException) {
+                throw corrupt;
+            }
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+    }
+
+    @Override
+    public void insert(LimitRefundReceipt value) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
+            throw new CommonException(INVALID_STATE);
+        }
+        var row = converter.toDO(value);
+        LocalDateTime now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int inserted = jdbc.update("""
+                INSERT INTO limit_refund_receipt (id, created_at, updated_at, deleted, caller_service_id,
+                    operation_id, payment_id, refund_id, refund_version, business_event_id, refund_evidence_id,
+                    request_digest, cumulative_payment_refunded_minor, verified_payment_refunded_minor,
+                    verified_payment_refund_version, result, restored_amount_minor, restored_payment_count, accepted_at)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :callerServiceId, :operationId, :paymentId,
+                    :refundId, :refundVersion, :businessEventId, :refundEvidenceId, :requestDigest,
+                    :cumulativePaymentRefundedMinor, :verifiedPaymentRefundedMinor, :verifiedPaymentRefundVersion,
+                    :result, :restoredAmountMinor, :restoredPaymentCount, :acceptedAt)
+                ON CONFLICT (refund_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (inserted == 0) {
+            throw new LimitWriteRaceException("Refund receipt business key already exists");
+        }
+        if (inserted != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
+    }
+}

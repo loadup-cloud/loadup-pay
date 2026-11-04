@@ -1,0 +1,186 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.productcenter.infrastructure.repository;
+
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
+import io.github.loadup.productcenter.domain.gateway.PolicyPublicationGateway;
+import io.github.loadup.productcenter.domain.model.PolicyPublication;
+import io.github.loadup.productcenter.infrastructure.converter.PolicyPublicationStorageConverter;
+import io.github.loadup.productcenter.infrastructure.dataobject.ContractLimitPublicationDO;
+import io.github.loadup.productcenter.infrastructure.exception.PublicationKeyConflictException;
+import io.github.loadup.productcenter.infrastructure.mapper.ContractLimitPublicationMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+import org.postgresql.util.PSQLException;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class PolicyPublicationGatewayImpl
+        extends ServiceImpl<ContractLimitPublicationMapper, ContractLimitPublicationDO>
+        implements PolicyPublicationGateway {
+    public static final String COLUMNS = "id, created_at, updated_at, contract_id, contract_revision, "
+            + "policy_id, policy_version, policy_hash, state, activated_at, row_version, payee_merchant_id, "
+            + "product_scope_key, snapshot_hash, activation_payload, outbox_event_id, requested_at, publication_schema_version";
+    private final NamedParameterJdbcTemplate jdbc;
+    private final PolicyPublicationStorageConverter converter;
+    private final Clock clock;
+    private final BeanPropertyRowMapper<ContractLimitPublicationDO> rowMapper =
+            BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class);
+
+    public PolicyPublicationGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            ContractLimitPublicationMapper mapper,
+            PolicyPublicationStorageConverter converter,
+            Clock clock) {
+        this.jdbc = jdbc;
+        this.mapper = mapper;
+        this.converter = converter;
+        this.clock = clock;
+    }
+
+    private static boolean businessCollision(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof PSQLException sql
+                    && "23505".equals(sql.getSQLState())
+                    && sql.getServerErrorMessage() != null
+                    && sql.getServerErrorMessage().getConstraint() != null) {
+                return Set.of(
+                                "uk_contract_policy_publication",
+                                "uk_policy_publication_version",
+                                "uk_initial_policy_merchant")
+                        .contains(sql.getServerErrorMessage().getConstraint());
+            }
+        }
+        return false;
+    }
+
+    private Optional<PolicyPublication> locked(String id) {
+        var args = new MapSqlParameterSource("id", id);
+        try {
+            return jdbc
+                    .query(
+                            "SELECT " + COLUMNS + " FROM contract_limit_publication "
+                                    + "WHERE deleted = FALSE AND id = :id FOR UPDATE",
+                            args,
+                            rowMapper)
+                    .stream()
+                    .findFirst()
+                    .map(converter::toModel);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
+        }
+    }
+
+    @Override
+    public Optional<PolicyPublication> findById(String id) {
+        return read(() -> Optional.ofNullable(getById(id)));
+    }
+
+    @Override
+    public Optional<PolicyPublication> lockById(String id) {
+        return locked(id);
+    }
+
+    @Override
+    public Optional<PolicyPublication> findByContract(String contract, int revision) {
+        return read(() -> Optional.ofNullable(
+                getOne(QueryWrapper.create().eq("contract_id", contract).eq("contract_revision", revision))));
+    }
+
+    @Override
+    public Optional<PolicyPublication> findByMerchant(String merchant) {
+        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("payee_merchant_id", merchant))));
+    }
+
+    @Override
+    public Optional<PolicyPublication> findByPolicy(String policy) {
+        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("policy_id", policy))));
+    }
+
+    private Optional<PolicyPublication> read(Supplier<Optional<ContractLimitPublicationDO>> lookup) {
+        try {
+            return lookup.get().map(this::map);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
+        }
+    }
+
+    private PolicyPublication map(ContractLimitPublicationDO row) {
+        return converter.toModel(row);
+    }
+
+    @Override
+    public void insert(PolicyPublication value) {
+        ContractLimitPublicationDO row = converter.toDO(value);
+        LocalDateTime now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        try {
+            int changed = jdbc.update("""
+                    INSERT INTO contract_limit_publication (id, created_at, updated_at, deleted, contract_id,
+                        contract_revision, policy_id, policy_version, policy_hash, state, activated_at, row_version,
+                        payee_merchant_id, product_scope_key, snapshot_hash, activation_payload, outbox_event_id,
+                        requested_at, publication_schema_version)
+                    VALUES (:id, :createdAt, :updatedAt, FALSE, :contractId, :contractRevision, :policyId,
+                        :policyVersion, :policyHash, :state, :activatedAt, :rowVersion, :payeeMerchantId, :productScopeKey,
+                        :snapshotHash, :activationPayload, :outboxEventId, :requestedAt, :publicationSchemaVersion)
+                    """, new BeanPropertySqlParameterSource(row));
+            if (changed != 1) {
+                throw new IllegalStateException("Unexpected publication insert count");
+            }
+        } catch (DuplicateKeyException failure) {
+            if (businessCollision(failure)) {
+                throw new PublicationKeyConflictException(failure);
+            }
+            throw failure;
+        }
+    }
+
+    @Override
+    public void update(PolicyPublication value, long expectedVersion) {
+        ContractLimitPublicationDO row = converter.toDO(value);
+        row.setUpdatedAt(LocalDateTime.now(clock));
+        var source = new BeanPropertySqlParameterSource(row);
+        var args = new MapSqlParameterSource();
+        for (String name : source.getReadablePropertyNames()) {
+            args.addValue(name, source.getValue(name));
+        }
+        args.addValue("expected", expectedVersion);
+        int changed = jdbc.update("""
+                UPDATE contract_limit_publication SET contract_id = :contractId, contract_revision = :contractRevision,
+                    policy_id = :policyId, policy_version = :policyVersion, policy_hash = :policyHash, state = :state,
+                    activated_at = :activatedAt, row_version = :rowVersion, payee_merchant_id = :payeeMerchantId,
+                    product_scope_key = :productScopeKey, snapshot_hash = :snapshotHash, activation_payload = :activationPayload,
+                    outbox_event_id = :outboxEventId, requested_at = :requestedAt,
+                    publication_schema_version = :publicationSchemaVersion, updated_at = :updatedAt
+                WHERE id = :id AND row_version = :expected AND deleted = FALSE
+                """, args);
+        if (changed != 1) {
+            throw new CommonException(ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT);
+        }
+    }
+}

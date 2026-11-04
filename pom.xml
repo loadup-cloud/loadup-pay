@@ -33,9 +33,11 @@
 
     <modules>
         <module>authserver</module>
-        <module>customer</module>
+        <module>merchantcenter</module>
+        <module>merchantmng</module>
         <module>limitcenter</module>
-        <module>product</module>
+        <module>productcenter</module>
+        <module>productmng</module>
         <module>channel</module>
         <module>payment</module>
         <module>acquire</module>
@@ -129,12 +131,12 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-client</artifactId>
+                <artifactId>productcenter-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-client</artifactId>
+                <artifactId>merchantcenter-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -146,27 +148,27 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-domain</artifactId>
+                <artifactId>merchantcenter-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-app</artifactId>
+                <artifactId>merchantcenter-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-infrastructure</artifactId>
+                <artifactId>merchantcenter-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-adapter</artifactId>
+                <artifactId>merchantcenter-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-bootstrap</artifactId>
+                <artifactId>merchantcenter-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -181,7 +183,7 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-domain</artifactId>
+                <artifactId>productcenter-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -201,22 +203,22 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-app</artifactId>
+                <artifactId>productcenter-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-infrastructure</artifactId>
+                <artifactId>productcenter-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-adapter</artifactId>
+                <artifactId>productcenter-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-bootstrap</artifactId>
+                <artifactId>productcenter-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

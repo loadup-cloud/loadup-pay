@@ -1,5 +1,23 @@
 # LoadUp Pay 架构
 
+## 商户与产品核心／管理应用
+
+| 应用 | 角色 | 数据所有权 |
+| --- | --- | --- |
+| merchantcenter | 商户核心查询、状态、关系和动作授权；仅内部 HTTP | 商户数据库 |
+| merchantmng | 商户后管及商户签约入口 | 无数据库，通过中心业务接口操作 |
+| productcenter | 产品目录、合约、冻结条款、交易准入及额度准备；仅内部 HTTP | 产品合约数据库 |
+| productmng | 产品、销售方案和合约运营后管 | 无数据库，通过中心业务接口操作 |
+
+merchantcenter 合并原 merchant 模块；productcenter 合并原 productcore。框架 BOM/验证应用不再提供这些 Pay 业务模块。共享参数枚举位于对应 client.enums，domain 可依赖 client，client 不依赖 domain。
+
+merchantmng 的签约动作调用 productcenter，商户事实由 productcenter 通过独立 SERVICE 凭证查询 merchantcenter。签约在本地事务外获取商户事实，合约写入与状态锁留在 productcenter 内，业务交易从不依赖 mng。没有跨域数据库直连、跨库事务或审批引擎。
+
+网关只开放两个 mng 的管理前缀，两个 center 无网关 backend。集群策略区分 acquire → productcenter、productcenter → merchantcenter、mng → center；管理和交易请求均验证 JWT。操作员令牌需要受控签发和相应多 audience，本次不新增认证协议或模拟令牌。
+
+构建和发布清单现在包含十个应用，all 为 Namespace 加十组 Policy/Deployment/Service，共31个资源。原 customer/product 集群资源不会自动删除；需在新版本验收后单独退役，避免误删正在使用的工作负载。
+
+
 本文描述当前源码边界；接入入口见 [README](README.md)。数据库基线为 PostgreSQL，运行验收需由开发者另行执行。
 
 ## 服务与事实归属

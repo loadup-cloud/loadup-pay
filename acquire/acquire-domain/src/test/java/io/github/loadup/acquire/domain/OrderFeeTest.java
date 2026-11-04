@@ -1,0 +1,59 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.acquire.domain;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import io.github.loadup.acquire.domain.model.FeeRefundPolicy;
+import io.github.loadup.acquire.domain.model.OrderFee;
+import io.github.loadup.acquire.domain.model.OrderFeePolicy;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.money.Money;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import org.junit.jupiter.api.Test;
+
+class OrderFeeTest {
+    @Test
+    void sameVersionCannotChangeTheBasisAndAnOlderSourceCannotClaimMoreThanTheLatestTotal() {
+        var policy = new OrderFeePolicy(
+                new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE);
+        var fee = OrderFee.init("fee", "order", Money.ofMinor(10000, "CNY"), policy)
+                .recordRefundBasis(2, 5000);
+        assertEquals(fee, fee.recordRefundBasis(2, 5000));
+        assertEquals(fee, fee.recordRefundBasis(1, 3000));
+        assertThrows(DomainViolation.class, () -> fee.recordRefundBasis(2, 4000));
+        assertThrows(DomainViolation.class, () -> fee.recordRefundBasis(1, 6000));
+        assertThrows(DomainViolation.class, () -> fee.recordRefundBasis(3, 4000));
+    }
+
+    @Test
+    void earlyRefundBasisIsRetainedUntilTheFeeIsConfirmed() {
+        var policy = new OrderFeePolicy(
+                new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE);
+        var fee = OrderFee.init("fee", "order", Money.ofMinor(10000, "CNY"), policy)
+                .recordRefundBasis(1, 3000);
+        assertEquals(30, fee.feeAmount().getCent());
+        assertEquals(0, fee.adjustmentDueMinor());
+        fee = fee.confirm();
+        assertEquals(9, fee.adjustmentDueMinor());
+        fee = fee.acknowledgeAdjustment().recordRefundBasis(2, 10000);
+        assertEquals(21, fee.adjustmentDueMinor());
+        assertEquals(0, fee.acknowledgeAdjustment().adjustmentDueMinor());
+        assertEquals(30, fee.feeAmount().getCent());
+    }
+}

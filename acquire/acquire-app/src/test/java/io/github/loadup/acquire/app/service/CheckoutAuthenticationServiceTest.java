@@ -1,0 +1,110 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.acquire.app.service;
+
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.ORIGIN;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.TOKEN;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.acquire.app.service.CheckoutFixtures.session;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import io.github.loadup.acquire.app.port.CheckoutTokens;
+import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.commons.error.CommonException;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class CheckoutAuthenticationServiceTest {
+    final CheckoutSessionGateway sessions = mock(CheckoutSessionGateway.class);
+    final CheckoutTokens tokens = mock(CheckoutTokens.class);
+    final CheckoutAuthenticationService service = new CheckoutAuthenticationService(
+            sessions, tokens, new OrderCreationTransactions(new UnitTransactions()), clock(NOW));
+
+    @BeforeEach
+    void setup() {
+        when(sessions.find("session"))
+                .thenReturn(Optional.of(session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5))));
+        when(tokens.matches(eq(TOKEN), any())).thenReturn(true);
+    }
+
+    @Test
+    void checksTheCapabilityBeforeReturningAnOrderOnlyActor() {
+        var actor = service.authenticate("tenant", TOKEN, ORIGIN);
+        assertEquals("order", actor.orderId());
+        assertEquals("session", actor.sessionId());
+        assertEquals("tenant", actor.tenantId());
+    }
+
+    @Test
+    void tenantLocatorAloneCannotSwitchTheAuthenticatedOrderScope() {
+        when(sessions.find("session")).thenReturn(Optional.empty());
+        assertThrows(CommonException.class, () -> service.authenticate("other", TOKEN, ORIGIN));
+        when(tokens.matches(eq(TOKEN), any())).thenReturn(false);
+        assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+    }
+
+    @Test
+    void rejectsExactExpiryAndCancelledExpiredOrUnactivatedSessions() {
+        for (var state :
+                List.of(CheckoutSessionState.INIT, CheckoutSessionState.CANCELLED, CheckoutSessionState.EXPIRED)) {
+            when(sessions.find("session")).thenReturn(Optional.of(session(state, NOW.plusMinutes(5))));
+            assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+        }
+        var boundary = NOW.withNano(0);
+        var expired = session(CheckoutSessionState.ACTIVE, boundary);
+        when(sessions.find("session")).thenReturn(Optional.of(expired));
+        var atCutoff = new CheckoutAuthenticationService(
+                sessions, tokens, new OrderCreationTransactions(new UnitTransactions()), clock(boundary));
+        assertThrows(CommonException.class, () -> atCutoff.authenticate("tenant", TOKEN, ORIGIN));
+    }
+
+    @Test
+    void aCryptographicallyMatchingRevokedCapabilityCannotAuthenticateEvenAfterCompletion() {
+        for (var state : List.of(CheckoutSessionState.ACTIVE, CheckoutSessionState.COMPLETED)) {
+            var revoked = session(state, NOW.plusMinutes(5)).revoke(0L, NOW);
+            when(sessions.find("session")).thenReturn(Optional.of(revoked));
+            assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+        }
+    }
+
+    @Test
+    void completedSessionsRemainReadOnlyUntilTheirOriginalExpiry() {
+        when(sessions.find("session"))
+                .thenReturn(Optional.of(session(CheckoutSessionState.COMPLETED, NOW.plusMinutes(5))));
+        assertEquals("order", service.authenticate("tenant", TOKEN, ORIGIN).orderId());
+    }
+
+    @Test
+    void aBrowserOriginMustMatchAndMalformedCredentialsDoNotTriggerALookup() {
+        assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, "https://evil.example"));
+        clearInvocations(sessions);
+        assertThrows(CommonException.class, () -> service.authenticate("tenant", "arbitrary", null));
+        assertThrows(CommonException.class, () -> service.authenticate(" tenant", TOKEN, null));
+        verifyNoInteractions(sessions);
+    }
+}

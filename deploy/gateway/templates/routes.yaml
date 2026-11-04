@@ -13,8 +13,8 @@ spec:
         - type: RequestRedirect
           requestRedirect: { scheme: https, statusCode: 308 }
 {{- $routes := list
-    (dict "name" "customer" "service" "customer" "paths" (list "/api/customer") "limit" "64Ki" "timeout" "15s")
-    (dict "name" "product" "service" "product" "paths" (list "/api/product") "limit" "1Mi" "timeout" "15s")
+    (dict "name" "merchantmng" "service" "merchantmng" "paths" (list "/api/merchantmng") "limit" "1Mi" "timeout" "15s")
+    (dict "name" "productmng" "service" "productmng" "paths" (list "/api/productmng") "limit" "1Mi" "timeout" "15s")
     (dict "name" "acquire" "service" "acquire" "paths" (list "/api/acquire" "/api/cashier") "limit" "1Mi" "timeout" "15s")
     (dict "name" "payment" "service" "payment" "paths" (list "/api/payment/refunds" "/api/payment/channel-bindings" "/api/payment/routing-profiles" "/api/payment/operations/recovery") "limit" "1Mi" "timeout" "15s")
     (dict "name" "callbacks" "service" "payment" "paths" (list "/api/payment/channel-callbacks") "limit" "64Ki" "timeout" "15s")

@@ -1,3 +1,5 @@
+> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng。以 [总体架构](ARCHITECTURE.md) 的四应用边界为准。两个后管无数据库，center 仅内部访问。
+
 # 内部 HTTP 迁移清单
 
 更新：2026-11-03。以 [Roadmap](ROADMAP.md) 为总计划。44/44 个旧操作均已迁移 HTTP 源码，运行验收待完成。

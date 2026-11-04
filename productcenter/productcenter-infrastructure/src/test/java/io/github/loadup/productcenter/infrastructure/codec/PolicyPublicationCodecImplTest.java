@@ -1,0 +1,133 @@
+/*
+ * Copyright (C) 2025-2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.productcenter.infrastructure.codec;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
+import io.github.loadup.limitcenter.client.dto.LimitRuleDTO;
+import io.github.loadup.limitcenter.client.support.LimitPolicyHash;
+import io.github.loadup.limitcenter.domain.model.LimitMetric;
+import io.github.loadup.limitcenter.domain.model.LimitWindowType;
+import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
+import io.github.loadup.productcenter.domain.model.PolicyPublication;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
+
+class PolicyPublicationCodecImplTest {
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final PolicyPublicationCodecImpl codec =
+            new PolicyPublicationCodecImpl(JsonMapper.builder().build(), validation.getValidator());
+
+    @AfterEach
+    void close() {
+        validation.close();
+    }
+
+    LimitPolicyActivateCommand command() {
+        var rules = new ArrayList<LimitRuleDTO>();
+        for (var window : LimitWindowType.values()) {
+            for (var metric : LimitMetric.values()) {
+                rules.add(new LimitRuleDTO(
+                        "stable", "merchant", metric, "CNY", window, 1, 9007199254740993L, true, true));
+            }
+        }
+        var unsigned = new LimitPolicyActivateCommand(
+                "policy",
+                1,
+                "0".repeat(64),
+                "merchant",
+                RefundAmountRestorePolicy.ORIGINAL_BUCKETS,
+                RefundCountRestorePolicy.NO_RESTORE,
+                rules);
+        return new LimitPolicyActivateCommand(
+                "policy",
+                1,
+                LimitPolicyHash.compute("tenant", unsigned),
+                "merchant",
+                unsigned.refundAmountRestore(),
+                unsigned.refundCountRestore(),
+                rules);
+    }
+
+    PolicyPublication stored(String payload) {
+        return new PolicyPublication(
+                "publication",
+                "contract",
+                1,
+                "snapshot",
+                "merchant",
+                "scope",
+                "policy",
+                1,
+                command().policyHash(),
+                payload,
+                "PUBLISHING",
+                "event",
+                LocalDateTime.of(2026, 10, 21, 10, 0),
+                null,
+                1,
+                1);
+    }
+
+    @Test
+    void theFrozenCommandRetainsIntegersAboveDoublePrecision() {
+        var value = codec.decode(stored(codec.encode(command())));
+        assertEquals(9007199254740993L, value.rules().getFirst().threshold());
+        assertEquals(command().policyHash(), value.policyHash());
+    }
+
+    @Test
+    void mutatedPayloadOrTenantCannotBeUsedAsTheFrozenActivationIntent() {
+        var payload = codec.encode(command());
+        assertThrows(CommonException.class, () -> codec.decode(stored(payload)));
+        assertThrows(
+                CommonException.class,
+                () -> codec.decode(stored(payload.replace("9007199254740993", "9007199254740992"))));
+    }
+
+    @Test
+    void anIncompleteCounterShapeIsNotAVersionOnePublication() {
+        var original = command();
+        var rules = original.rules().subList(0, 7);
+        var incomplete = new LimitPolicyActivateCommand(
+                "policy",
+                1,
+                original.policyHash(),
+                "merchant",
+                original.refundAmountRestore(),
+                original.refundCountRestore(),
+                rules);
+        assertThrows(CommonException.class, () -> codec.encode(incomplete));
+    }
+
+    private String encode(String tenant, LimitPolicyActivateCommand command) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.encode(command));
+    }
+
+    private LimitPolicyActivateCommand decode(String tenant, PolicyPublication value) {
+        return TenantUtil.callWithTenant(tenant, () -> codec.decode(value));
+    }
+}

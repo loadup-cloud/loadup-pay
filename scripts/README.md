@@ -1,3 +1,5 @@
+> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng。以 [总体架构](../ARCHITECTURE.md) 的四应用边界为准。两个后管无数据库，center 仅内部访问。
+
 # 构建与部署脚本
 
 用于八个应用（七个业务应用和 AuthServer）的本地JAR、Docker镜像和OrbStack Kubernetes部署。每个应用目录提供`build.sh`与`deploy.sh`，入口委托本目录的公共实现。
@@ -39,7 +41,7 @@ up.sh 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘�
 
 版本变化通过滚动重启生效，不承诺 ConfigMap 自动刷新 Bean。test/prod 默认要求 HTTPS token endpoint。凭证与签名密钥轮换、回退限制见 [发布约定](../deploy/CONFIGURATION.md)。
 
-可选应用：authserver、customer、product、limitcenter、payment、acquire、realtime、reconciliation。up.sh 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；AuthServer 本身已纳入应用清单。dev 的 all/authserver 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
+可选应用：authserver、merchantcenter、productcenter、limitcenter、payment、acquire、realtime、reconciliation。up.sh 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；AuthServer 本身已纳入应用清单。dev 的 all/authserver 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
 
 ## 前提与默认行为
 
@@ -81,7 +83,7 @@ CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./acquire/deploy.sh
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经 kubectl 本地 dry-run 输出的 JSON：全量选择 25 个资源（Namespace、八组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
+经 kubectl 本地 dry-run 输出的 JSON：全量选择 31 个资源（Namespace、十组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
 渲染器要求八应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
 全量发布先应用 AuthServer 并等待就绪，再逐个发布七个业务应用；保留完整发布归档，AuthServer 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 

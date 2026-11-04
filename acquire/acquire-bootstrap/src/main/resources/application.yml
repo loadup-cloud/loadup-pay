@@ -69,8 +69,8 @@ loadup:
         read-timeout: 3s
         max-request-bytes: 33554432
         max-response-bytes: 33554432
-      product:
-        base-url: ${PRODUCT_BASE_URL:http://product:8080}
+      productcenter:
+        base-url: ${PRODUCTCENTER_BASE_URL:http://productcenter:8080}
         allow-private-addresses: true
         connect-timeout: 1s
         acquire-timeout: 1s
@@ -98,7 +98,7 @@ loadup:
       payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}
       recovery-operations-service-id: ${ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}
       notification-operations-service-id: ${ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID:pay-ops}
-      product-audience: ${PRODUCT_JWT_AUDIENCE:product}
+      productcenter-audience: ${PRODUCTCENTER_JWT_AUDIENCE:productcenter}
       checkout:
         page-url: ${ACQUIRE_CHECKOUT_PAGE_URL:https://example.com/checkout }
         key-ref: acquire-checkout

@@ -16,16 +16,17 @@ scope, prefix, tag = args.scope, args.prefix, args.tag
 for version in (args.config_version, args.secret_version):
     if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?", version):
         raise SystemExit("Configuration versions must be DNS labels of at most 32 characters")
-apps = {"authserver", "customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"}
+apps = {"authserver", "merchantcenter", "merchantmng", "productcenter", "productmng", "limitcenter", "payment", "acquire", "realtime", "reconciliation"}
 if scope != "all" and scope not in apps:
     raise SystemExit("Unknown application")
 if not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}", tag):
     raise SystemExit("Invalid image tag")
 selected = apps if scope == "all" else {scope}
-callers = {"customer": ["product"], "product": ["acquire"], "limitcenter": ["product", "payment"],
+callers = {"merchantcenter": ["productcenter", "merchantmng", "authserver"], "productcenter": ["acquire", "merchantmng", "productmng"],
+           "merchantmng": [], "productmng": [], "limitcenter": ["productcenter", "payment"],
            "payment": ["acquire", "limitcenter", "reconciliation"], "acquire": ["payment"],
            "realtime": ["acquire", "payment"], "reconciliation": [],
-           "authserver": ["customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"]}
+           "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation"]}
 
 
 def http_ingress_spec(app):
@@ -33,7 +34,7 @@ def http_ingress_spec(app):
     if callers[app]:
         peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "loadup-pay"}},
                       "podSelector": {"matchExpressions": [{"key": "app", "operator": "In", "values": callers[app]}]}})
-    if app not in {"limitcenter", "authserver"}:
+    if app not in {"limitcenter", "authserver", "merchantcenter", "productcenter"}:
         peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "envoy-gateway-system"}},
                       "podSelector": {"matchLabels": {"app.kubernetes.io/name": "envoy",
                           "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",

@@ -1,3 +1,5 @@
+> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng。以 [总体架构](../../ARCHITECTURE.md) 的四应用边界为准。两个后管无数据库，center 仅内部访问。
+
 # 按环境维护配置
 
 直接维护 dev、test、prod；APP_ENV 默认 dev。不使用模板生成或 init。
