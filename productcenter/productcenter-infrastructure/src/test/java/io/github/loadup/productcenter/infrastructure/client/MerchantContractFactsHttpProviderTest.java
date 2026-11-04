@@ -1,0 +1,80 @@
+/*
+ * Copyright (C) 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.productcenter.infrastructure.client;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.serviceauth.ServiceAccessTokens;
+import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
+import io.github.loadup.merchantcenter.client.http.MerchantProfileHttpService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+class MerchantContractFactsHttpProviderTest {
+    private final MerchantProfileHttpService remote = mock(MerchantProfileHttpService.class);
+    private final ServiceAccessTokens tokens = mock(ServiceAccessTokens.class);
+    private final MerchantContractFactsHttpProvider provider =
+            new MerchantContractFactsHttpProvider(remote, tokens, "merchantcenter");
+
+    @AfterEach
+    void clear() {
+        TransactionSynchronizationManager.setActualTransactionActive(false);
+    }
+
+    @Test
+    void usesDedicatedServiceCredentialAndOnlyReturnsVerifiedFacts() {
+        when(tokens.token("productcenter", "merchantcenter")).thenReturn("service-token");
+        when(remote.profile("Bearer service-token", new IdQuery("merchant")))
+                .thenReturn(SuccessResponse.of(
+                        new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, "", true)));
+        var facts = provider.load("merchant");
+        assertThat(facts.active()).isTrue();
+        assertThat(facts.facts())
+                .containsOnlyKeys("merchant.code", "merchant.type", "merchant.industry", "merchant.country");
+        verify(remote).profile("Bearer service-token", new IdQuery("merchant"));
+    }
+
+    @Test
+    void rejectsMismatchedMerchantAndNeverPromotesInactiveMerchant() {
+        when(tokens.token("productcenter", "merchantcenter")).thenReturn("service-token");
+        when(remote.profile(anyString(), any()))
+                .thenReturn(SuccessResponse.of(
+                        new MerchantProfileDTO("other", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true)));
+        assertThatThrownBy(() -> provider.load("merchant")).isInstanceOf(CommonException.class);
+        when(remote.profile(anyString(), any()))
+                .thenReturn(SuccessResponse.of(
+                        new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, false)));
+        assertThat(provider.load("merchant").active()).isFalse();
+    }
+
+    @Test
+    void neverCallsRemoteInsideTheContractTransaction() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertThatThrownBy(() -> provider.load("merchant")).isInstanceOf(CommonException.class);
+        verifyNoInteractions(remote, tokens);
+    }
+}
