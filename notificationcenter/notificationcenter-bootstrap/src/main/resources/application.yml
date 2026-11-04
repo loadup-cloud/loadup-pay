@@ -1,0 +1,68 @@
+spring:
+  threads:
+    virtual:
+      enabled: false
+  task:
+    execution:
+      propagate-context: true
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
+  datasource:
+    url: ${NOTIFICATIONCENTER_JDBC_URL}
+    username: ${NOTIFICATIONCENTER_JDBC_USERNAME}
+    password: ${NOTIFICATIONCENTER_JDBC_PASSWORD}
+  application:
+    name: notificationcenter
+server:
+  port: 8080
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: [ readinessState, db ]
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  metrics:
+    enable:
+      all: ${METRICS_ENABLED:false}
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+loadup:
+  webmvc:
+    request-body:
+      path-prefix: /api/internal/
+      max-size: 32MB
+  database:
+    multi-tenant:
+      enabled: false
+      required: false
+      default-tenant-id: ${NOTIFICATIONCENTER_TENANT_ID:__default__}
+      request:
+        header-name: ""
+        parameter-name: ""
+        subdomain-enabled: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${NOTIFICATIONCENTER_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
+      audience: ${NOTIFICATIONCENTER_JWT_AUDIENCE:notificationcenter}
+      jwk-set-uri: ${NOTIFICATIONCENTER_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
+      public-key-location: ${NOTIFICATIONCENTER_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}

@@ -51,7 +51,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-resilience4j-binder-core</artifactId>
+            <artifactId>loadup-components-resilience4j</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>

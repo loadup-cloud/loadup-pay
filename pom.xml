@@ -42,9 +42,19 @@
         <module>acquire</module>
         <module>realtime</module>
         <module>reconciliation</module>
+        <module>notificationcenter</module>
     </modules>
     <properties>
         <java.version>25</java.version>
+        <project.encoding>UTF-8</project.encoding>
+        <project.build.encoding>${project.encoding}</project.build.encoding>
+        <project.build.sourceEncoding>${project.encoding}</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>${project.encoding}</project.reporting.outputEncoding>
+        <maven.compiler.encoding>${project.encoding}</maven.compiler.encoding>
+        <maven.resources.encoding>${project.encoding}</maven.resources.encoding>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
         <loadup.framework.version>0.0.2-SNAPSHOT</loadup.framework.version>
 
         <!-- Manual quality and maintenance tools, aligned with LoadUp Framework. -->

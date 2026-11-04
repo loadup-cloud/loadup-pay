@@ -54,7 +54,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-modules-transfer-app</artifactId>
+            <artifactId>loadup-modules-transfer-core</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

@@ -1,6 +1,6 @@
 # LoadUp Pay
 
-面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用；支付宝/微信渠道协议由 LoadUp Framework 的
+面向商户和子商户的外部渠道收单平台。当前 reactor 包含十一个应用；支付宝/微信渠道协议由 LoadUp Framework 的
 `loadup-components-payment-channel` 组件族提供。项目采用 Java 25、Spring Boot 4.1.2、LoadUp Framework
 0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
@@ -12,6 +12,7 @@
 | [merchantmng](merchantmng/README.md) | 商户后管与签约入口 |
 | [productcenter](productcenter/README.md) | 产品、合约、下单准入、规则发布核心 |
 | [productmng](productmng/README.md) | 产品与合约后管 |
+| [notificationcenter](notificationcenter/README.md) | 通用通知中心；当前组装站内信，可靠渠道投递按设计分阶段实施 |
 | [authserver](authserver/README.md) | 应用凭证和令牌签发 |
 | [acquire](acquire/README.md) | 订单、Checkout/DirectPay、多笔付款占用与通知 |
 | [payment](payment/README.md) | 付款、退款、渠道绑定、回调及未知结果恢复 |
@@ -22,6 +23,8 @@
 渠道 SPI、路由引擎和支付宝/微信协议 binder 位于
 [Framework payment-channel](../loadup-framework/loadup-components/integration/loadup-components-payment-channel/README.md)；
 payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，bootstrap 以 runtime 依赖装配 core 和厂商 binder。
+
+通知体系设计及实施状态见 [Notification Center](notificationcenter/ARCHITECTURE.md)。
 
 架构、RPC 与数据库约束见 [ARCHITECTURE](ARCHITECTURE.md)，脚本用法见 [scripts](scripts/README.md)，监控部署见 [deploy](deploy/README.md)。
 
