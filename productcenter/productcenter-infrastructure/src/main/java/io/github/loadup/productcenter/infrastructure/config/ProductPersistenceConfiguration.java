@@ -26,7 +26,7 @@ public class ProductPersistenceConfiguration {
     public PolicyPublicationTransportProperties policyPublicationTransportProperties(Environment environment) {
         return HttpClientDefaults.bind(
                 environment,
-                "loadup.modules.product.publication",
+                "loadup.modules.productcenter.publication",
                 "limitcenter",
                 PolicyPublicationTransportProperties.class);
     }

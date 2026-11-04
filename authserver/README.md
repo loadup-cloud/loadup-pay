@@ -45,12 +45,11 @@ JWT 中保留逻辑租户身份，业务表无需恢复 tenant_id。AuthServer �
 ## 本地准备及发布
 
 ```bash
-# 只写本地忽略文件；保留已有密钥和非空值，不构建、不访问 Kubernetes。
-./scripts/authserver.sh prepare-dev
+# dev 的 up.py authserver/all 会自动准备缺失的 RSA KeyStore 和应用凭证；已有值保留，不构建、不访问 Kubernetes。
 # 先由管理员执行 scripts/init-local-databases.sql，准备 loadup_authserver 数据库。
 # 更新的 framework AuthServer SAS / kms-local / HTTP 组件须先由本地构建者安装。
-APP_ENV=dev IMAGE_TAG=auth-001 ./scripts/up.sh authserver
-APP_ENV=dev IMAGE_TAG=auth-002 ./scripts/up.sh all
+APP_ENV=dev IMAGE_TAG=auth-001 python3 scripts/up.py authserver
+APP_ENV=dev IMAGE_TAG=auth-002 python3 scripts/up.py all
 ```
 
 第一步从现有开发数据库配置读取本地密码，并生成缺失的应用凭证及 PKCS12；不覆盖已有业务密钥。其他环境手动准备独立凭证和持久化 KeyStore。不要把 `secret.env`、`.p12`、令牌放入版本控制。

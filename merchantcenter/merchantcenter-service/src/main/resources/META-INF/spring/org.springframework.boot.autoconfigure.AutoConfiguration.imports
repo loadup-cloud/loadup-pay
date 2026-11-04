@@ -1,1 +1,1 @@
-io.github.loadup.merchantcenter.app.autoconfigure.MerchantAutoConfiguration
+io.github.loadup.merchantcenter.app.config.MerchantcenterApplicationConfiguration

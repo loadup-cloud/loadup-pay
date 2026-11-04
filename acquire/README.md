@@ -45,7 +45,7 @@ tenant_id、principal_type（MERCHANT_APP/MERCHANT/OPERATOR）及 sub；商户�
 mvnd clean verify -pl acquire/acquire-bootstrap -am
 
 # 既有脚本构建 JAR 和镜像，默认跳过测试。
-./acquire/build.sh
+python3 scripts/build.py acquire
 
 java \
   -jar acquire/acquire-bootstrap/target/acquire-bootstrap-0.0.1-SNAPSHOT.jar

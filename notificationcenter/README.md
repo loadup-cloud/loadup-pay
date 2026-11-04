@@ -17,7 +17,7 @@ Pay 通用通知中心，复用 Framework Notification module。系统设计与�
 - 设置 `NOTIFICATIONCENTER_TENANT_ID`（默认 `__default__`）；当前仅服务该租户，其他 tenant_id 的令牌被拒绝。
 - 数据库组件尚无动态 schema 路由；当前使用一个默认 schema，不支持同实例承接多个租户。
 - 启动时要求 Resource Server 开启、数据库使用单租户模式，避免将未实现的动态路由当作隔离能力。
-- 默认 HTTP 8080，readiness 包含数据库；当前未加入部署脚本、网关、AuthServer 授权清单或数据库初始化脚本。
+- 默认 HTTP 8080，readiness 包含数据库；已作为内部服务加入发布脚本和数据库初始化，尚未加入网关或 AuthServer 授权清单。
 
 ## Gotone 渠道投递
 

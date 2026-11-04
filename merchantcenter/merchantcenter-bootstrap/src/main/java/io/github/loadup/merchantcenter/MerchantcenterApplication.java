@@ -13,9 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.loadup.merchantcenter.app.config;
+package io.github.loadup.merchantcenter;
 
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@Configuration(proxyBeanMethods = false)
-public class CustomerApplicationConfiguration {}
+@SpringBootApplication
+public class MerchantcenterApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MerchantcenterApplication.class, args);
+    }
+}

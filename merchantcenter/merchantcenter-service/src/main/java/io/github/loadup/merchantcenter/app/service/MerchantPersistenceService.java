@@ -21,9 +21,11 @@ import io.github.loadup.merchantcenter.domain.gateway.MerchantGateway;
 import io.github.loadup.merchantcenter.domain.model.Merchant;
 import io.github.loadup.merchantcenter.domain.model.MerchantStatus;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Service
 public class MerchantPersistenceService implements MerchantPersistenceFacade {
     private final MerchantGateway gateway;
 

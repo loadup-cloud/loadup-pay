@@ -15,18 +15,18 @@
 ## 发布
 
 ```bash
-./scripts/authserver.sh prepare-dev
+# dev 的 up.py authserver/all 会自动准备缺失的 KeyStore 和应用凭证。
 # 先创建 loadup_authserver 数据库，参见 scripts/init-local-databases.sql。
-APP_ENV=dev ./scripts/configmap.sh check all
-APP_ENV=dev IMAGE_TAG=auth-001 ./scripts/up.sh authserver
-APP_ENV=dev IMAGE_TAG=auth-002 ./scripts/up.sh all
+APP_ENV=dev python3 scripts/configmap.py check all
+APP_ENV=dev IMAGE_TAG=auth-001 python3 scripts/up.py authserver
+APP_ENV=dev IMAGE_TAG=auth-002 python3 scripts/up.py all
 # 仅创建新配置快照：
-APP_ENV=dev ./scripts/configmap.sh update payment
+APP_ENV=dev python3 scripts/configmap.py update payment
 ```
 
-up.sh 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建会先安装所需 framework 组件；全量发布先等待 AuthServer 就绪，再逐个发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
+up.py 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建会先安装所需 framework 组件；全量发布先等待 AuthServer 就绪，再逐个发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
 
-直接 deploy.sh/render.sh 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 31 个资源：Namespace、十组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
+直接 deploy.py/render.py 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 34 个资源：Namespace、十一组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
 
 ConfigMap、环境 Secret、KeyStore 和 Spring Bean 默认滚动重启生效，不承诺热刷新。客户端 Secret 轮换需协调 AuthServer 与调用方，新旧凭证并行使用窗口当前未实现；首次迁移也必须使用支持 OAuth 取令牌的新镜像。不要用新配置启动旧 release-001。
 
@@ -35,9 +35,9 @@ ConfigMap、环境 Secret、KeyStore 和 Spring Bean 默认滚动重启生效，
 ## 回退与删除
 
 ```bash
-SKIP_BUILD=1 IMAGE_TAG=previous CONFIG_VERSION=cfg-previous SECRET_VERSION=sec-previous ./scripts/deploy.sh all
-CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh status payment
-CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh delete payment config
+SKIP_BUILD=1 IMAGE_TAG=previous CONFIG_VERSION=cfg-previous SECRET_VERSION=sec-previous python3 scripts/deploy.py all
+CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py status payment
+CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py delete payment config
 ```
 
 使用归档中的实际引用组合；回退不会撤销数据库迁移或已经发生的金融操作。AuthServer 的授权配置在启动时同步数据库，回退旧配置可能恢复旧授权，必须先审查。密钥回退必须保留仍在有效期内令牌对应的公钥。
@@ -54,4 +54,4 @@ NetworkPolicy 在工作负载前应用；AuthServer 只允许声明的内部应�
 
 Java 授权链路、客户端缓存续取和脚本配置/渲染回归测试源码已更新，未执行。后续需验证真实 PostgreSQL、KMS、跨进程 JWKS、权限失败、凭证/密钥轮换、多副本、排空、发布回退和金融业务请求。Pod 就绪不代表这些验收通过。
 
-开发环境数据库池上限为 5、最小空闲为 1，为同一 PostgreSQL 上的八应用滚动更新预留连接；其他环境应按数据库容量单独规划。最近一次真实发布记录见 [本地环境](LOCAL_DEVELOPMENT.md)。
+开发环境数据库池上限为 5、最小空闲为 1，为同一 PostgreSQL 上的九应用滚动更新预留连接；其他环境应按数据库容量单独规划。最近一次真实发布记录见 [本地环境](LOCAL_DEVELOPMENT.md)。

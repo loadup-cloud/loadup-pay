@@ -9,8 +9,8 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_payment')
 SELECT 'CREATE DATABASE loadup_acquire OWNER admin'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_acquire')
 \gexec
-SELECT 'CREATE DATABASE loadup_customer OWNER admin'
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_customer')
+SELECT 'CREATE DATABASE loadup_merchantcenter OWNER admin'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_merchantcenter')
 \gexec
 SELECT 'CREATE DATABASE loadup_limitcenter OWNER admin'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_limitcenter')
@@ -23,6 +23,10 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_realtime')
 \gexec
 SELECT 'CREATE DATABASE loadup_reconciliation OWNER admin'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_reconciliation')
+\gexec
+
+SELECT 'CREATE DATABASE loadup_notificationcenter OWNER admin'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_notificationcenter')
 \gexec
 
 SELECT 'CREATE DATABASE loadup_authserver OWNER admin'

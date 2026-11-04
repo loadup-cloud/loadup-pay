@@ -16,7 +16,7 @@
 - 配置：共用 `JWT_ISSUER_URI`、`JWT_JWK_SET_URI`；资源 audience 为 `merchantmng`。
 - 下游地址：`MERCHANTCENTER_BASE_URL` / `PRODUCTCENTER_BASE_URL`，按实际使用配置；默认 K8s Service DNS。
 - 配置目录：`deploy/config/<env>/merchantmng`；不要求 JDBC 凭证或 SERVICE_AUTH_CLIENT_SECRET。
-- `./scripts/build.sh merchantmng` 和 `./scripts/up.sh merchantmng` 由开发者按需执行。
+- `python3 scripts/build.py merchantmng` 和 `python3 scripts/up.py merchantmng` 由开发者按需执行。
 
 审核流程未接入。发布、签约、暂停、恢复、终止仍由 center 的业务动作校验状态与版本。签约后额度准备独立进行，不把签约成功当作交易就绪。
 

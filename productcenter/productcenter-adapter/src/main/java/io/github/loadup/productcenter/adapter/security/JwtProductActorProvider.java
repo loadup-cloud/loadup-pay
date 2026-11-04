@@ -28,13 +28,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtProductActorProvider implements ProductActorProvider {
-    private final String customerAudience;
+    private final String merchantcenterAudience;
 
-    public JwtProductActorProvider(@Value("${loadup.modules.product.customer-audience}") String customerAudience) {
-        if (customerAudience.isBlank()) {
-            throw new IllegalArgumentException("Customer JWT audience is required");
+    public JwtProductActorProvider(
+            @Value("${loadup.modules.productcenter.merchantcenter-audience}") String merchantcenterAudience) {
+        if (merchantcenterAudience.isBlank()) {
+            throw new IllegalArgumentException("Merchantcenter JWT audience is required");
         }
-        this.customerAudience = customerAudience;
+        this.merchantcenterAudience = merchantcenterAudience;
     }
 
     private static CommonException forbidden() {
@@ -66,7 +67,7 @@ public class JwtProductActorProvider implements ProductActorProvider {
             if ("MERCHANT".equals(type) && !jwt.getSubject().equals(merchant)) {
                 throw forbidden();
             }
-            String delegated = jwt.getAudience() != null && jwt.getAudience().contains(customerAudience)
+            String delegated = jwt.getAudience() != null && jwt.getAudience().contains(merchantcenterAudience)
                     ? jwt.getTokenValue()
                     : null;
             return new ProductActor(

@@ -19,6 +19,7 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
@@ -47,6 +48,9 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
     @Override
     public LimitPolicyActivationDTO activate(LimitPolicyActivateCommand command) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!TenantUtil.hasTenantId()) {
             throw new CommonException(INVALID_STATE);
         }
         try {

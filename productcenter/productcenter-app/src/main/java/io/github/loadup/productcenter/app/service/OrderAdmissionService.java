@@ -108,7 +108,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
             Validator validator,
             IdGenerator ids,
             Clock clock,
-            @Value("${loadup.modules.product.materialize-seconds:300}") long materializeSeconds,
+            @Value("${loadup.modules.productcenter.materialize-seconds:300}") long materializeSeconds,
             PlatformTransactionManager transactionManager) {
         if (materializeSeconds < 1 || materializeSeconds > 86400) {
             throw new IllegalArgumentException("Product materialization window must be between 1 and 86400 seconds");

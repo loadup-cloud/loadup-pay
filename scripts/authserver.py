@@ -1,22 +1,20 @@
-#!/usr/bin/env python3
-"""Prepare development credentials locally without printing secrets or modifying Kubernetes."""
-import importlib.util
+"""Prepare development-only AuthServer credentials without printing secrets or modifying Kubernetes."""
+
+from __future__ import annotations
+
 import os
 from pathlib import Path
 import secrets
 import subprocess
-import sys
 
-spec = importlib.util.spec_from_file_location("config", Path(__file__).with_name("manage-config.py"))
-config = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(config)
+import manage_config
 
 
-def load(path):
-    return config.env_file(path) if path.is_file() else {}
+def load(path: Path) -> dict[str, str]:
+    return manage_config.env_file(path) if path.is_file() else {}
 
 
-def save(path, values):
+def save(path: Path, values: dict[str, str]) -> None:
     existing = load(path)
     changed = {key: value for key, value in values.items() if key not in existing or not existing[key]}
     if not changed:
@@ -36,20 +34,25 @@ def save(path, values):
     temporary.replace(path)
 
 
-def keytool(*args, password):
+def keytool(*args: str, password: str) -> None:
     tool = str(Path(os.environ["JAVA_HOME"]) / "bin/keytool") if os.environ.get("JAVA_HOME") else "keytool"
     env = os.environ.copy()
     env["LOADUP_LOCAL_STORE_PASSWORD"] = password
-    result = subprocess.run([tool, *args, "-storepass:env", "LOADUP_LOCAL_STORE_PASSWORD"],
-                            env=env, capture_output=True, timeout=30)
+    result = subprocess.run(
+        [tool, *args, "-storepass:env", "LOADUP_LOCAL_STORE_PASSWORD"],
+        env=env,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
     if result.returncode:
         raise ValueError("KeyStore operation failed; check the file, alias and password (details suppressed).")
 
 
-def main():
+def prepare_dev() -> None:
     if os.environ.get("APP_ENV", "dev") != "dev":
         raise ValueError("This helper is restricted to APP_ENV=dev.")
-    directory = Path(os.environ.get("CONFIG_DIR", config.ROOT / "deploy/config/dev")).resolve()
+    directory = Path(os.environ.get("CONFIG_DIR", manage_config.ROOT / "deploy/config/dev")).resolve()
     auth = directory / "authserver"
     auth.mkdir(mode=0o700, parents=True, exist_ok=True)
     server = load(auth / "secret.env")
@@ -64,9 +67,11 @@ def main():
     if not server.get("AUTHSERVER_JDBC_PASSWORD"):
         server["AUTHSERVER_JDBC_PASSWORD"] = source.get("MERCHANTCENTER_JDBC_PASSWORD", "")
     if not server["AUTHSERVER_JDBC_PASSWORD"]:
-        raise ValueError("Fill authserver/secret.env AUTHSERVER_JDBC_PASSWORD; local PostgreSQL credentials were not found.")
+        raise ValueError(
+            "Fill authserver/secret.env AUTHSERVER_JDBC_PASSWORD; local PostgreSQL credentials were not found."
+        )
     pending = []
-    for app in sorted(config.SERVICE_CALLERS):
+    for app in sorted(manage_config.SERVICE_CALLERS):
         path = directory / app / "secret.env"
         client = load(path)
         variable = app.upper() + "_OAUTH2_CLIENT_SECRET"
@@ -84,19 +89,27 @@ def main():
     if store.exists():
         keytool("-list", "-keystore", str(store), "-alias", alias, password=server["KMS_KEYSTORE_PASSWORD"])
     else:
-        keytool("-genkeypair", "-alias", alias, "-keyalg", "RSA", "-keysize", "3072",
-                "-sigalg", "SHA256withRSA", "-storetype", "PKCS12", "-keystore", str(store),
-                "-dname", "CN=LoadUp Local AuthServer", "-validity", "3650", "-noprompt",
-                password=server["KMS_KEYSTORE_PASSWORD"])
+        keytool(
+            "-genkeypair",
+            "-alias",
+            alias,
+            "-keyalg",
+            "RSA",
+            "-keysize",
+            "3072",
+            "-sigalg",
+            "SHA256withRSA",
+            "-storetype",
+            "PKCS12",
+            "-keystore",
+            str(store),
+            "-dname",
+            "CN=LoadUp Local AuthServer",
+            "-validity",
+            "3650",
+            "-noprompt",
+            password=server["KMS_KEYSTORE_PASSWORD"],
+        )
         os.chmod(store, 0o600)
     print("Prepared local AuthServer KeyStore and matching per-application credentials; values hidden.")
     print("No database or Kubernetes changes. Create loadup_authserver before deploying.")
-
-
-if __name__ == "__main__":
-    os.umask(0o077)
-    try:
-        main()
-    except (ValueError, OSError, subprocess.TimeoutExpired) as failure:
-        print(f"AuthServer preparation failed: {failure}", file=sys.stderr)
-        sys.exit(1)

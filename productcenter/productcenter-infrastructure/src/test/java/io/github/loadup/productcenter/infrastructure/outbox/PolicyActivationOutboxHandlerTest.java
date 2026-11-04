@@ -36,7 +36,7 @@ class PolicyActivationOutboxHandlerTest {
     final PolicyActivationOutboxHandler handler =
             new PolicyActivationOutboxHandler(service, JsonMapper.builder().build());
 
-    OutboxEvent event(String tenant, String businessId, int version) {
+    OutboxEvent event(String businessId, int version) {
         return new OutboxEvent(
                 "event",
                 new OutboxMessage(
@@ -50,15 +50,14 @@ class PolicyActivationOutboxHandlerTest {
 
     @Test
     void aMatchingFrameworkTenantAndEnvelopeDispatchTheStoredIntent() {
-        TenantUtil.runWithTenant("tenant", () -> handler.handle(event("tenant", "publication", 1)));
+        TenantUtil.runWithTenant("tenant", () -> handler.handle(event("publication", 1)));
         verify(service).deliver("tenant", "event", "publication");
     }
 
     @Test
-    void tenantOrBusinessBindingMismatchNeverInvokesTheDeliveryService() {
+    void businessBindingMismatchNeverInvokesTheDeliveryService() {
         TenantUtil.runWithTenant("tenant", () -> {
-            assertThrows(CommonException.class, () -> handler.handle(event("other", "publication", 1)));
-            assertThrows(CommonException.class, () -> handler.handle(event("tenant", "different", 1)));
+            assertThrows(CommonException.class, () -> handler.handle(event("different", 1)));
         });
         verifyNoInteractions(service);
     }
@@ -66,8 +65,7 @@ class PolicyActivationOutboxHandlerTest {
     @Test
     void anUnknownPayloadVersionIsNotSilentlyAcknowledged() {
         TenantUtil.runWithTenant(
-                "tenant",
-                () -> assertThrows(CommonException.class, () -> handler.handle(event("tenant", "publication", 2))));
+                "tenant", () -> assertThrows(CommonException.class, () -> handler.handle(event("publication", 2))));
         verifyNoInteractions(service);
     }
 }

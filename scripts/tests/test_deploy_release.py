@@ -58,7 +58,7 @@ else:
         file.chmod(0o700)
 
     def deploy(self):
-        return subprocess.run(["bash", str(Path(__file__).resolve().parents[1] / "deploy.sh"), "payment"],
+        return subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / "deploy.py"), "payment"],
                               env=self.environment, text=True, capture_output=True)
 
     def test_success_records_exact_image_and_config_references_without_secret_values(self):

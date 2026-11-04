@@ -29,7 +29,7 @@
 规则是叠加的，其他已有 allow-all 策略可能扩大允许范围；旧集群策略不会被 apply 自动删除。
 见 [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
 
-全量发布包含 Namespace、十组 NetworkPolicy/Deployment/Service，共 25 资源，单应用为 4 资源。
+全量发布包含 Namespace、十一组 NetworkPolicy/Deployment/Service，共 34 资源，单应用为 4 资源。
 渲染器在输出前检查选定应用的完整策略，将策略排序在 Deployment 前，拒绝缺失、重复或扩大 peer 的配置。
 不存在对 Kubernetes 全部资源的事务性 apply；任一发布失败都需检查实际已应用对象，再使用匹配的归档清单恢复。
 

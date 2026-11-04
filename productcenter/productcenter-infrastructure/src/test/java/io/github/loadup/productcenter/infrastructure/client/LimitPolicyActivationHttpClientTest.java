@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
 import io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
@@ -48,8 +49,8 @@ class LimitPolicyActivationHttpClientTest {
         when(tokens.token("product", "limitcenter")).thenReturn("first", "second");
         var ack = new LimitPolicyActivationDTO("policy", 1, "a".repeat(64), OffsetDateTime.now());
         when(remote.activate(anyString(), isNull())).thenReturn(SuccessResponse.of(ack));
-        assertEquals(ack, client.activate(null));
-        assertEquals(ack, client.activate(null));
+        assertEquals(ack, TenantUtil.callWithTenant("tenant", () -> client.activate(null)));
+        assertEquals(ack, TenantUtil.callWithTenant("tenant", () -> client.activate(null)));
         verify(remote).activate("Bearer first", null);
         verify(remote).activate("Bearer second", null);
     }
@@ -63,7 +64,8 @@ class LimitPolicyActivationHttpClientTest {
     @Test
     void authorizationFailureDoesNotReachTheBusinessProviderOrLeakCredentials() {
         when(tokens.token(anyString(), anyString())).thenThrow(new IllegalStateException("synthetic-secret"));
-        var failure = assertThrows(CommonException.class, () -> client.activate(null));
+        var failure = assertThrows(
+                CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> client.activate(null)));
         assertNull(failure.getCause());
         assertFalse(failure.toString().contains("synthetic-secret"));
         verifyNoInteractions(remote);
@@ -75,6 +77,6 @@ class LimitPolicyActivationHttpClientTest {
         when(remote.activate(anyString(), isNull()))
                 .thenReturn(
                         new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.POLICY_CONFLICT), null));
-        assertThrows(CommonException.class, () -> client.activate(null));
+        assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> client.activate(null)));
     }
 }

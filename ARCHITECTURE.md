@@ -15,7 +15,7 @@ merchantmng 的签约动作调用 productcenter，商户事实由 productcenter 
 
 网关只开放两个 mng 的管理前缀，两个 center 无网关 backend。集群策略区分 acquire → productcenter、productcenter → merchantcenter、mng → center；管理和交易请求均验证 JWT。操作员令牌需要受控签发和相应多 audience，本次不新增认证协议或模拟令牌。
 
-构建和发布清单现在包含十个应用，all 为 Namespace 加十组 Policy/Deployment/Service，共31个资源。原 customer/product 集群资源不会自动删除；需在新版本验收后单独退役，避免误删正在使用的工作负载。
+构建和发布清单现在包含十一个应用，all 为 Namespace 加十一组 Policy/Deployment/Service，共34个资源。原 customer/product 集群资源不会自动删除；需在新版本验收后单独退役，避免误删正在使用的工作负载。
 
 
 本文描述当前源码边界；接入入口见 [README](README.md)。数据库基线为 PostgreSQL，运行验收需由开发者另行执行。
@@ -106,10 +106,10 @@ HttpServiceResponses 同时核对 code/status/data；仅本地白名单恢复业
 共享配置默认由 HttpClientDefaults 绑定 loadup.http.client；模块显式配置优先。调用方 service-id 与目标 audience 分别取值，
 helper 不负责认证，也不缓存 token。旧 loadup.rpc.client 配置不再读取。
 
-源清单包含七个业务应用和独立 AuthServer 的 HTTP Deployment/Service。版本化 ConfigMap/环境 Secret 与 AuthServer KeyStore 文件 Secret 已接入发布渲染；
+源清单包含十个业务应用和独立 AuthServer 的 HTTP Deployment/Service。版本化 ConfigMap/环境 Secret 与 AuthServer KeyStore 文件 Secret 已接入发布渲染；
 显式版本写入 Pod template，预检只读取 immutable 元数据，归档镜像/引用组合。滚动与排空源码已补，运行待验收；
 HTTP NetworkPolicy 与 Envoy Gateway 配置已补，CNI/控制器/流量验收与虚拟线程仍需后续完成。详见 [配置与发布](deploy/CONFIGURATION.md)。
-不承诺 ConfigMap 更新自动刷新 Bean。七服务同步匹配镜像与配置；回退旧协议也需匹配整组镜像/配置/Service，不能混用新旧协议。
+不承诺 ConfigMap 更新自动刷新 Bean。各应用同步匹配镜像与配置；回退旧协议也需匹配整组镜像/配置/Service，不能混用新旧协议。
 现有集群遗留资源不会被 apply 自动删除。本次未部署、未发送金融请求。
 
 ### 验收边界
@@ -168,19 +168,19 @@ capture 明细仍为平面 PageResponse；消费端在读取视图中先校验 r
 PaymentCaptureContracts / PaymentEvidenceContracts 与 DTO 构造器保留旧 Wire 的状态、scope、微秒时间、金额及字节哈希检查。
 
 共享事件已全部使用源服务 Java DTO + EventEnvelope，原 payment/product 消息生成链已删除。
-七应用已显式配置 WebMVC 内部请求字节上限，完整有界读取后再转换 JSON，超限返回 HTTP 413；未知长度与尾随输入不能绕过。
+各应用已显式配置 WebMVC 内部请求字节上限，完整有界读取后再转换 JSON，超限返回 HTTP 413；未知长度与尾随输入不能绕过。
 当前客户端限制与入站限制分别配置；Advice 不覆盖无 @RequestBody 的 Servlet 直读入口，网关/容器的并发和读取时间仍需独立约束。回归源码未运行。
 
 ## 平台入口与网络边界
 
 Gateway API + Envoy Gateway v1.9.3 是默认入口参考，见 [网关配置](deploy/gateway/README.md)。
 公开路由不包含内部接口或 Actuator；完整 JWT/租户/业务授权仍在服务内执行。协议不重试，Envoy 控制头移除，渠道原文与签名头不重写。
-七应用入站按调用图、指定 Gateway 代理与监控 Pod 限定，策略与渲染顺序见 [网络策略](deploy/NETWORK_POLICY.md)。
+各应用入站按调用图、指定 Gateway 代理与监控 Pod 限定，策略与渲染顺序见 [网络策略](deploy/NETWORK_POLICY.md)。
 本地示例已渲染但未部署，网络策略对象、标签和 HTTP 健康不证明 CNI 隔离、xDS 以及金融链路已验收。
 
 ## 线程执行与验收
 
-七应用基础配置显式关闭虚拟线程，virtual-threads profile 仅作为压测候选，开启原生 Boot 虚拟线程和 keep-alive。
+各应用基础配置显式关闭虚拟线程，virtual-threads profile 仅作为压测候选，开启原生 Boot 虚拟线程和 keep-alive。
 两种模型均使用原生任务上下文传播与现有 LoadUpContextTaskDecorator；不替换全部执行器，不把数据库事务带到其他线程。
 同步 HTTP 池、超时、渠道恢复 Bulkhead 与金融围栏保留。Local fixed-delay 扫描不因开关而自动并行。
 实际模型/上下文/调度回归源码与容量门槛见 [最终验收](deploy/ACCEPTANCE.md)，未运行；没有新增生产诊断接口。

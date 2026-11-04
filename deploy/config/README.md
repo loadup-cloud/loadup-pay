@@ -24,14 +24,13 @@ product、limitcenter、payment、acquire、reconciliation 配置 SERVICE_AUTH_C
 
 LIMITCENTER_PERMIT_SECRET、PAYMENT_INPUT_FINGERPRINT_KEY 继续保留原值，至少 32 个 UTF-8 字节。reconciliation 仍需要私有 S3 bucket、可选成对 S3 凭证和经过授权的账户目录。这些业务配置不因 AuthServer 接入而重置。
 
-本地执行 `./scripts/authserver.sh prepare-dev` 可以生成缺失的 OAuth 应用凭证和 PKCS12，不覆盖已有值，不创建数据库或集群资源。其他环境手动准备独立材料。详见 [AuthServer](../../authserver/README.md)。
+dev 的 `up.py authserver` / `up.py all` 会自动生成缺失的 OAuth 应用凭证和 PKCS12，不覆盖已有值，不创建数据库或集群资源。其他环境手动准备独立材料。详见 [AuthServer](../../authserver/README.md)。
 
 ```bash
-./scripts/authserver.sh prepare-dev
 # 先准备独立 loadup_authserver 数据库，并完成 framework 的本地构建安装。
-APP_ENV=dev ./scripts/configmap.sh check all
-APP_ENV=dev IMAGE_TAG=auth-001 ./scripts/up.sh authserver
-APP_ENV=dev IMAGE_TAG=auth-002 ./scripts/up.sh all
+APP_ENV=dev python3 scripts/configmap.py check all
+APP_ENV=dev IMAGE_TAG=auth-001 python3 scripts/up.py authserver
+APP_ENV=dev IMAGE_TAG=auth-002 python3 scripts/up.py all
 ```
 
 配置工具按内容计算 immutable 快照版本；配置换版通过滚动重启生效，ConfigMap 不自动刷新 Bean。test/prod 集群操作还需显式指定 KUBE_CONTEXT；namespace 固定 loadup-pay，当前镜像流程仍面向 OrbStack 本地镜像，不自动推送远程镜像。

@@ -50,7 +50,7 @@ product 已补初始规则的可靠发布/回执落库源码，见[product说明
 mvnd clean verify -pl limitcenter/limitcenter-bootstrap -am
 
 # 沿用既有脚本打包 JAR 与本地镜像，脚本默认跳过测试。
-./limitcenter/build.sh
+python3 scripts/build.py limitcenter
 
 java \
   -jar limitcenter/limitcenter-bootstrap/target/limitcenter-bootstrap-0.0.1-SNAPSHOT.jar

@@ -20,14 +20,14 @@ OTLP metrics exporter 在所有环境默认关闭，指标通过 Prometheus 拉�
 不要直接 apply pay.yml；它是渲染模板。以下命令供发布者显式执行，本轮未运行：
 
 ```bash
-IMAGE_TAG=metrics-001 CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./loadup-pay/scripts/deploy.sh all
+IMAGE_TAG=metrics-001 CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 python3 loadup-pay/scripts/deploy.py all
 kubectl -n loadup-pay port-forward service/payment 18080:8080
 # 在另一个终端执行，应返回 Prometheus 文本格式，包含 application="payment"
 curl -fsS http://localhost:18080/actuator/prometheus
 ```
 
 指标端点无需业务 JWT，仅应通过集群内网访问；不要通过公网 Ingress 暴露 `/actuator/prometheus`。
-七应用已提供入站 NetworkPolicy；Prometheus server 使用本 values 中 loadup.io/metrics-scraper=true 标签，从 observability 访问 TCP 8080。
+各应用已提供入站 NetworkPolicy；Prometheus server 使用本 values 中 loadup.io/metrics-scraper=true 标签，从 observability 访问 TCP 8080。
 已有监控实例须同步标签与 namespace，真实 CNI 隔离待验收，见 [网络策略](NETWORK_POLICY.md)。
 
 ## 2. Prometheus 抓取

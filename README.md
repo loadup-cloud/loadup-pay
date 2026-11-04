@@ -41,7 +41,7 @@ payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，boo
 
 ## 本地数据库配置
 
-七个 bootstrap 均提供 `application-local.yml`。启动时启用 `local` profile，例如在 IDEA 的 Active profiles 中填写 `local`，或传入 `--spring.profiles.active=local`。
+八个 bootstrap 提供 `application-local.yml`（authserver、payment、acquire、merchantcenter、productcenter、limitcenter、realtime、reconciliation）；notificationcenter 通过环境变量配置。启动时启用 `local` profile，例如在 IDEA 的 Active profiles 中填写 `local`，或传入 `--spring.profiles.active=local`。
 
 本地 PostgreSQL 使用 `admin` / `123456`，每个服务使用独立数据库，schema 统一使用默认的 `public`：
 
@@ -49,11 +49,13 @@ payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，boo
 |---|---|---|---|---|
 | payment | loadup_payment | public | 8081 | 50051 |
 | acquire | loadup_acquire | public | 8082 | 50052 |
-| merchantcenter | loadup_customer | public | 8083 | 50053 |
+| merchantcenter | loadup_merchantcenter | public | 8083 | 50053 |
 | limitcenter | loadup_limitcenter | public | 8084 | 50054 |
 | productcenter | loadup_product | public | 8085 | 50055 |
 | realtime | loadup_realtime | public | 8086 | 50056 |
 | reconciliation | loadup_reconciliation | public | 8087 | 50057 |
+| authserver | loadup_authserver | public | 8089 | - |
+| notificationcenter | loadup_notificationcenter | public | 8080 | - |
 
 初始化使用 `scripts/init-local-databases.sql`，以 `admin` 通过 psql 执行，不包裹事务。脚本可重复执行，仅创建缺失的数据库（PostgreSQL 自动提供 `public` schema）。当前本地 OrbStack PostgreSQL 可执行：
 

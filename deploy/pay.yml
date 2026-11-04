@@ -1,4 +1,4 @@
-# Rendering template: bind explicit image/configuration versions with scripts/render.sh; do not apply directly.
+# Rendering template: bind explicit image/configuration versions with scripts/render.py; do not apply directly.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -1375,3 +1375,95 @@ spec:
     ]
   }
 }
+---
+# Notification Center - internal JWT-authenticated HTTP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notificationcenter
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: notificationcenter }
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+      labels: { app: notificationcenter }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
+      containers:
+        - name: notificationcenter
+          image: loadup-pay/notificationcenter:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef:
+                name: notificationcenter-config
+            - secretRef:
+                name: notificationcenter-secret
+          env:
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 180
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+---
+# Notification Center ClusterIP - internal HTTP only
+apiVersion: v1
+kind: Service
+metadata:
+  name: notificationcenter
+  namespace: loadup-pay
+spec:
+  selector: { app: notificationcenter }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: notificationcenter-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: notificationcenter }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+      ports:
+        - { protocol: TCP, port: 8080 }

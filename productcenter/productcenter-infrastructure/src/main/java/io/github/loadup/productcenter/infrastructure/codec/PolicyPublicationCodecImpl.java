@@ -39,7 +39,8 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
 
     private void check(LimitPolicyActivateCommand value) {
         String tenant = TenantUtil.getTenantId();
-        if (value == null
+        if (tenant == null
+                || value == null
                 || !validator.validate(value).isEmpty()
                 || value.policyVersion() != 1
                 || value.rules().size() != 8

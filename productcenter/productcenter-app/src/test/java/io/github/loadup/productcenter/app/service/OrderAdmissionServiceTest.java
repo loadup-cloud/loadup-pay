@@ -71,6 +71,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -318,7 +319,7 @@ class OrderAdmissionServiceTest {
             assertEquals(1, transactions.rollbacks);
             return Optional.of(denied("WINNER"));
         });
-        doThrow(new Exception("")).when(admissions).insert(any());
+        doThrow(new DuplicateKeyException("duplicate")).when(admissions).insert(any());
         assertEquals("WINNER", service.authorize(command(100)).reasonCode());
     }
 

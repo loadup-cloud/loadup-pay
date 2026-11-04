@@ -26,7 +26,7 @@ rules:
     verbs: [ get, list, watch ]
   - apiGroups: [ apps ]
     resources: [ deployments, deployments/scale ]
-    resourceNames: [ acquire, payment, customer, product, limitcenter, realtime ]
+    resourceNames: [ authserver, merchantcenter, merchantmng, productcenter, productmng, limitcenter, payment, acquire, realtime, reconciliation, notificationcenter ]
     verbs: [ get, patch, update ]
   - apiGroups: [ discovery.k8s.io ]
     resources: [ endpointslices ]

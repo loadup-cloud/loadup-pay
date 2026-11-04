@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 
-SPEC = importlib.util.spec_from_file_location("manage_config", Path(__file__).resolve().parents[1] / "manage-config.py")
+SPEC = importlib.util.spec_from_file_location("manage_config", Path(__file__).resolve().parents[1] / "manage_config.py")
 config = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(config)
 
@@ -62,7 +62,7 @@ class ManageConfigTest(unittest.TestCase):
         with patch.object(config, "local_resources", return_value=({"KEY": "new"}, {})), \
                 patch.object(config, "get", side_effect=[None, existing]), \
                 patch.object(config, "kube", return_value={"kind": "Namespace"}) as kube, \
-                patch("sys.argv", ["manage-config.py", "create", "config", "merchantcenter"]):
+                patch("sys.argv", ["manage_config.py", "create", "config", "merchantcenter"]):
             with self.assertRaisesRegex(ValueError, "Changed existing"):
                 config.main()
         self.assertTrue(all(call.args[0] == "get" for call in kube.call_args_list))

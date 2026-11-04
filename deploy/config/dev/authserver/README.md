@@ -18,4 +18,4 @@ RECONCILIATION_OAUTH2_CLIENT_SECRET=
 各调用方自己的 `secret.env` 只配置本应用 `SERVICE_AUTH_CLIENT_SECRET`，与 AuthServer 对应值一致。
 密钥文件为本目录的 `authserver.p12`，包含 `AUTHSERVER_SIGNING_KEY` 指定的 RSA alias。
 配置工具会将其写入单独的版本化文件 Secret，仅挂载给 AuthServer。
-本地可运行 `scripts/authserver.sh prepare-dev` 安全生成缺失项；已有文件和值不会覆盖。
+dev 的 `up.py authserver` 会自动生成缺失项；已有文件和值不会覆盖。

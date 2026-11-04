@@ -17,7 +17,7 @@ File/Transfer 手工来源导入；微信官方下载与 payment 只读 HTTP 已
 
 ## 业务装配
 
-- 构建入口 `./reconciliation/build.sh`；运行前准备数据库、认证和存储配置。
+- 构建入口 `python3 scripts/build.py reconciliation`；运行前准备数据库、认证和存储配置。
 - 独立 `RECONCILIATION_JDBC_URL/USERNAME/PASSWORD`、`RECONCILIATION_JWT_ISSUER_URI/AUDIENCE/JWK_SET_URI`。
 - 导入与比较上限 `RECONCILIATION_MAX_RECORDS` 默认 10000；解析原字节上限 `RECONCILIATION_STATEMENT_MAX_BYTES` 默认 16
   MiB。

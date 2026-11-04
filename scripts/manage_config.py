@@ -60,7 +60,7 @@ def file_data(app, directory):
         return None
     key_store = directory / "authserver.p12"
     if key_store.is_symlink() or not key_store.is_file() or not key_store.stat().st_size:
-        fail("AuthServer requires its local authserver.p12 KeyStore; run authserver.sh prepare-dev for dev.")
+        fail("AuthServer requires its local authserver.p12 KeyStore; run up.py authserver for dev.")
     if key_store.stat().st_size > 1024 * 1024:
         fail("AuthServer KeyStore exceeds the Kubernetes Secret size limit.")
     return {"authserver.p12": base64.b64encode(key_store.read_bytes()).decode("ascii")}
@@ -234,8 +234,11 @@ def delete_resources(apps, selection):
         print(f"Deleted {kind}/{name}")
 
 
-def main():
-    action, selection, *apps = sys.argv[1:]
+def main(argv=None):
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) < 3:
+        fail("Expected an action, resource selection and at least one application.")
+    action, selection, *apps = args
     directory = Path(os.environ["CONFIG_DIR"]).resolve()
     if action == "versions":
         print(*resolve_versions(apps, directory))
@@ -281,13 +284,11 @@ def main():
         print(f"{operation.title()}d {obj['kind']}/{obj['metadata']['name']}")
 
 
-if __name__ == "__main__":
+def execute(action, selection, apps):
     os.umask(0o077)
     try:
-        main()
+        main([action, selection, *apps])
     except UnicodeError:
-        print("Configuration operation failed: environment/token files must be valid UTF-8.", file=sys.stderr)
-        sys.exit(1)
+        fail("Configuration operation failed: environment/token files must be valid UTF-8.")
     except (ValueError, OSError, KeyError) as error:
-        print(f"Configuration operation failed: {error}", file=sys.stderr)
-        sys.exit(1)
+        fail(f"Configuration operation failed: {error}")

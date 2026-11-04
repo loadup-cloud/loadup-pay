@@ -8,7 +8,7 @@ import unittest
 
 
 class RenderDeployTest(unittest.TestCase):
-    apps = ("authserver", "merchantcenter", "merchantmng", "productcenter", "productmng", "limitcenter", "payment", "acquire", "realtime", "reconciliation")
+    apps = ("authserver", "merchantcenter", "merchantmng", "productcenter", "productmng", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "notificationcenter")
 
     def resources(self):
         values = [{"kind": "Namespace", "metadata": {"name": "loadup-pay"}}]
@@ -28,13 +28,16 @@ class RenderDeployTest(unittest.TestCase):
                    "limitcenter": ["productcenter", "payment"],
                    "payment": ["acquire", "limitcenter", "reconciliation"], "acquire": ["payment"],
                    "realtime": ["acquire", "payment"], "reconciliation": [],
-                   "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation"]}
+                   "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation"],
+                   "notificationcenter": []}
         for app in self.apps:
             peers = []
-            if callers[app]:
+            if app == "notificationcenter":
+                peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "loadup-pay"}}})
+            elif callers[app]:
                 peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "loadup-pay"}},
                               "podSelector": {"matchExpressions": [{"key": "app", "operator": "In", "values": callers[app]}]}})
-            if app not in {"merchantcenter", "productcenter", "limitcenter", "authserver"}:
+            if app not in {"merchantcenter", "productcenter", "limitcenter", "authserver", "notificationcenter"}:
                 peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "envoy-gateway-system"}},
                               "podSelector": {"matchLabels": {"app.kubernetes.io/name": "envoy",
                                   "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
@@ -47,7 +50,7 @@ class RenderDeployTest(unittest.TestCase):
         return values
 
     def render(self, values, scope="all", config_version="cfg-001", secret_version="sec-001"):
-        return subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / "render-deploy.py"),
+        return subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / "render_deploy.py"),
                                scope, "registry.example/pay", "test-v1", config_version, secret_version],
                               input=json.dumps({"kind": "List", "items": values}), text=True, capture_output=True)
 
@@ -56,7 +59,7 @@ class RenderDeployTest(unittest.TestCase):
         original = copy.deepcopy(source)
         all_apps = self.render(source)
         self.assertEqual(all_apps.returncode, 0, all_apps.stderr)
-        self.assertEqual(len(json.loads(all_apps.stdout)["items"]), 31)
+        self.assertEqual(len(json.loads(all_apps.stdout)["items"]), 34)
         single = self.render(source, "payment")
         self.assertEqual(single.returncode, 0, single.stderr)
         items = json.loads(single.stdout)["items"]

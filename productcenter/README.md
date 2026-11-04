@@ -16,6 +16,6 @@
 
 ## 构建与发布
 
-由开发者执行 `./scripts/build.sh productcenter`；完成配置后使用 `./scripts/up.sh productcenter`。配置目录为 `deploy/config/<env>/productcenter`，既有物理数据库名称与迁移版本保持不变。
+由开发者执行 `python3 scripts/build.py productcenter`；完成配置后使用 `python3 scripts/up.py productcenter`。配置目录为 `deploy/config/<env>/productcenter`，既有物理数据库名称与迁移版本保持不变。
 
 本次仅修改源码、装配和部署清单；未运行 Maven 构建、测试或集群发布。

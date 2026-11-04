@@ -49,7 +49,7 @@
 
 ```bash
 SKIP_BUILD=1 IMAGE_TAG=release-001 CONFIG_VERSION=cfg-20261103-r2 SECRET_VERSION=sec-20261103 \
-  ./scripts/deploy.sh all
+  python3 scripts/deploy.py all
 ```
 
 首次构建已执行窄范围的七个 bootstrap 及其依赖 clean package，没有执行测试；同一镜像标签不重建覆盖。

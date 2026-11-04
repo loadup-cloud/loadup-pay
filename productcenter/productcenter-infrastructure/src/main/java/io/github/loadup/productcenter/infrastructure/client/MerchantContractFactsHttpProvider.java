@@ -39,7 +39,7 @@ public class MerchantContractFactsHttpProvider implements MerchantFactsProvider 
     public MerchantContractFactsHttpProvider(
             MerchantProfileHttpService merchants,
             ServiceAccessTokens tokens,
-            @Value("${loadup.modules.product.customer-audience}") String audience) {
+            @Value("${loadup.modules.productcenter.merchantcenter-audience}") String audience) {
         this.merchants = merchants;
         this.tokens = tokens;
         this.audience = audience;

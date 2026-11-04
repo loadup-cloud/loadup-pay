@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/loadup_customer
+    url: jdbc:postgresql://localhost:5432/loadup_merchantcenter
     username: admin
     password: "123456"
 

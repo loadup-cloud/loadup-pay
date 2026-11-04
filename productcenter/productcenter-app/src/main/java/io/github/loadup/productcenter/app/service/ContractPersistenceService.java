@@ -20,9 +20,11 @@ import io.github.loadup.productcenter.client.dto.ContractPersistenceRevision;
 import io.github.loadup.productcenter.client.facade.ContractPersistenceFacade;
 import io.github.loadup.productcenter.domain.gateway.MerchantContractGateway;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+@Service
 public class ContractPersistenceService implements ContractPersistenceFacade {
     private final MerchantContractGateway gateway;
 

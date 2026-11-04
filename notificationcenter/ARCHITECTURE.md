@@ -190,8 +190,8 @@ acquire 的商户 notifyUrl 回调保留独立协议和领域状态。当前 Mer
 下一批：扩展外部目标模型与 Gotone 结果分类、供应商幂等和 UNKNOWN 恢复；补齐业务关联及查询；
 随后选择合约生效等场景接入来源 Outbox。当前不接受 SMS/Email/Push 请求，拒绝码为 NOTIFICATION_UNSUPPORTED_CHANNEL。
 
-应用组装不是统一可靠通知链路已完成的标志。当前 bootstrap 已提供内部 IN_APP 提交，但不装配供应商 binder，
-不加入发布脚本或生产网关，直至可靠链路及身份权限验收具备条件。
+应用组装不是统一可靠通知链路已完成的标志。当前 bootstrap 已提供内部 IN_APP 提交，但不装配供应商 binder；
+已作为内部服务加入发布脚本和数据库初始化，但不加入生产网关或 AuthServer 授权清单，直至可靠链路及身份权限验收具备条件。
 
 ## 12. Gotone 持久化归属
 

@@ -19,8 +19,8 @@ Pay chart release 为 loadup-pay/loadup-pay-gateway。再次部署前先核对�
 已有集群共享 CRD 时先核对版本、channel、所有者和其他消费者，不自动接管它们。
 
 ```bash
-# 在 loadup-pay 根目录；check-kubernetes.sh 只读查询版本。
-./scripts/check-kubernetes.sh
+# 在 loadup-pay 根目录；check_kubernetes.py 只读查询版本。
+python3 scripts/check_kubernetes.py
 source deploy/gateway/versions.env
 mkdir -p deploy/gateway/rendered
 

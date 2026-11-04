@@ -94,18 +94,18 @@ class PolicyPublicationCodecImplTest {
 
     @Test
     void theFrozenCommandRetainsIntegersAboveDoublePrecision() {
-        var value = codec.decode(stored(codec.encode(command())));
+        var value = decode("tenant", stored(encode("tenant", command())));
         assertEquals(9007199254740993L, value.rules().getFirst().threshold());
         assertEquals(command().policyHash(), value.policyHash());
     }
 
     @Test
     void mutatedPayloadOrTenantCannotBeUsedAsTheFrozenActivationIntent() {
-        var payload = codec.encode(command());
-        assertThrows(CommonException.class, () -> codec.decode(stored(payload)));
+        var payload = encode("tenant", command());
+        assertThrows(CommonException.class, () -> decode("other", stored(payload)));
         assertThrows(
                 CommonException.class,
-                () -> codec.decode(stored(payload.replace("9007199254740993", "9007199254740992"))));
+                () -> decode("tenant", stored(payload.replace("9007199254740993", "9007199254740992"))));
     }
 
     @Test
@@ -120,7 +120,7 @@ class PolicyPublicationCodecImplTest {
                 original.refundAmountRestore(),
                 original.refundCountRestore(),
                 rules);
-        assertThrows(CommonException.class, () -> codec.encode(incomplete));
+        assertThrows(CommonException.class, () -> encode("tenant", incomplete));
     }
 
     private String encode(String tenant, LimitPolicyActivateCommand command) {
