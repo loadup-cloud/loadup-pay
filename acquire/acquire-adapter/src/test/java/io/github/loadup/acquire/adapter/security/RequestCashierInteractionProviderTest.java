@@ -29,7 +29,7 @@ import io.github.loadup.acquire.app.security.CashierActor;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.payment.channel.api.model.ChannelH5Input;
+import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
 import io.github.loadup.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
 import jakarta.servlet.http.HttpServletRequest;

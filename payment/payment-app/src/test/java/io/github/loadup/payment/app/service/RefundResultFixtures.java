@@ -17,9 +17,9 @@ package io.github.loadup.payment.app.service;
 
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.payment.channel.api.model.ChannelRefundOutcome;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundOrder;
 import io.github.loadup.payment.domain.model.RefundRequest;

@@ -21,11 +21,11 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.payment.app.converter.PaymentCloseEvidenceConverter;
 import io.github.loadup.payment.app.model.PaymentResultApplication;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentTarget;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;

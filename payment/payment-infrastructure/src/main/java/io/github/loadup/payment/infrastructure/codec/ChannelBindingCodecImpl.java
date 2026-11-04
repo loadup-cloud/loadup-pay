@@ -20,9 +20,9 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
-import io.github.loadup.payment.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.payment.client.command.ChannelBindingRevokeCommand;
 import io.github.loadup.payment.client.command.ChannelBindingSuspendCommand;

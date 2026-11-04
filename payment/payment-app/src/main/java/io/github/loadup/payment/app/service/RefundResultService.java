@@ -26,13 +26,13 @@ import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.IGN
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.payment.app.model.LockedRefund;
 import io.github.loadup.payment.app.model.RefundResultApplication;
 import io.github.loadup.payment.app.port.RefundResultCodec;
-import io.github.loadup.payment.channel.api.model.ChannelRefundOutcome;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.domain.gateway.RefundAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;

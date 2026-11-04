@@ -32,11 +32,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.payment.app.model.LockedRefund;
 import io.github.loadup.payment.app.security.PaymentActor;
-import io.github.loadup.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.payment.domain.model.PaymentOrder;

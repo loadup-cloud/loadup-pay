@@ -17,9 +17,7 @@ package io.github.loadup.acquire.adapter.security;
 
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
 
-import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.FailureResponse;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -52,10 +50,7 @@ public class CashierHttpSecurityConfiguration {
 
     @Bean
     @Order(90)
-    SecurityFilterChain cashierSecurityFilterChain(HttpSecurity http, ObjectProvider<JsonMapper> mappers)
-            throws Exception {
-        JsonMapper mapper = mappers.getIfAvailable(
-                () -> JsonUtil.customize(JsonMapper.builder()).build());
+    SecurityFilterChain cashierSecurityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
         // Opaque capabilities are checked by the request-backed CashierActorProvider on every Facade invocation.
         // They must not enter the merchant JWT decoder. All other cashier endpoints remain denied.
         http.securityMatcher("/api/cashier/**")

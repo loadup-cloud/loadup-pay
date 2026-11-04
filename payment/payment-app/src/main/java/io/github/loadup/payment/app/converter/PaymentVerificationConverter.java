@@ -16,9 +16,9 @@
 package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.app.model.PaymentVerificationTarget;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.payment.domain.model.PaymentVerificationDisposition;

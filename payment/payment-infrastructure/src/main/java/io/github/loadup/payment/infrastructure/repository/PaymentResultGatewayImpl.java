@@ -21,8 +21,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.payment.domain.model.PaymentChannelReceipt;

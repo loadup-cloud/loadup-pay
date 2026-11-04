@@ -19,7 +19,7 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.payment.domain.gateway.RefundCallbackTargetGateway;
 import io.github.loadup.payment.infrastructure.converter.RefundCallbackStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentRefundCapacityDO;

@@ -16,14 +16,14 @@
 package io.github.loadup.payment.domain.gateway;
 
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationAcknowledgement;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationHint;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationInput;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentTarget;
-import io.github.loadup.payment.channel.api.model.ChannelRefundNotificationHint;
-import io.github.loadup.payment.channel.api.model.PreparedChannelRefund;
-import io.github.loadup.payment.channel.api.model.VerifiedChannelNotification;
-import io.github.loadup.payment.channel.api.model.VerifiedChannelRefundNotification;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.components.payment.channel.api.model.ChannelRefundNotificationHint;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.payment.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.components.payment.channel.api.model.VerifiedChannelRefundNotification;
 
 public interface PaymentChannelNotificationGateway {
     ChannelNotificationHint identify(Channel channel, String bindingRevisionId, ChannelNotificationInput input);

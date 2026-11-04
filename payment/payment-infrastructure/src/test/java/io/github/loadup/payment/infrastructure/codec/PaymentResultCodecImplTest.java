@@ -20,9 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;

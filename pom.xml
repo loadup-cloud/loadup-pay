@@ -38,7 +38,6 @@
         <module>limitcenter</module>
         <module>productcenter</module>
         <module>productmng</module>
-        <module>channel</module>
         <module>payment</module>
         <module>acquire</module>
         <module>realtime</module>
@@ -88,27 +87,6 @@
                 <artifactId>reconciliation-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>channel-api</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>channel-core</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>channel-alipay</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>channel-wechat</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>realtime-client</artifactId>

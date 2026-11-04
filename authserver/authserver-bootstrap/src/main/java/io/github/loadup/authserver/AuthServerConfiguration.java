@@ -15,7 +15,6 @@
  */
 package io.github.loadup.authserver;
 
-import io.github.loadup.commons.json.JsonUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.context.annotation.Bean;
@@ -42,11 +41,11 @@ class AuthServerConfiguration {
             JdbcTemplate jdbc,
             PlatformTransactionManager transactions,
             Environment environment,
+            JsonMapper mapper,
             @Value("${pay.authserver.catalog}") String catalogJson) {
         ServiceClientCatalog catalog;
         try {
-            catalog =
-                    JsonUtil.customize(JsonMapper.builder()).build().readValue(catalogJson, ServiceClientCatalog.class);
+            catalog = mapper.readValue(catalogJson, ServiceClientCatalog.class);
         } catch (RuntimeException failure) {
             throw new IllegalArgumentException("Cannot load service authorization catalog (details suppressed)");
         }

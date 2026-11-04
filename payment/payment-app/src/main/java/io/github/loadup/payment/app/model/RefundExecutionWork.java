@@ -16,7 +16,7 @@
 package io.github.loadup.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 
 /**
  * Only an in-memory winner receives firstSubmission=true; replays always query the same persisted request.

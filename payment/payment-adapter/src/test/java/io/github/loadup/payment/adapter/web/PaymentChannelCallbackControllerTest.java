@@ -26,8 +26,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.github.loadup.payment.channel.api.model.ChannelNotificationAcknowledgement;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.payment.client.facade.PaymentChannelCallbackFacade;
 import io.github.loadup.payment.client.facade.RefundChannelCallbackFacade;
 import jakarta.servlet.ReadListener;

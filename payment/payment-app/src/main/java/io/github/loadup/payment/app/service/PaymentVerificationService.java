@@ -23,12 +23,12 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.app.converter.PaymentVerificationConverter;
 import io.github.loadup.payment.app.port.PaymentVerificationTargetReader;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
 import io.github.loadup.payment.client.facade.PaymentVerificationFacade;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;

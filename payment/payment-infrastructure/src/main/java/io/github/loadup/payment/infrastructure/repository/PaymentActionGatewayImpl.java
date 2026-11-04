@@ -23,8 +23,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.channel.api.codec.ChannelActionCodec;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentAction;
+import io.github.loadup.components.payment.channel.api.codec.ChannelActionCodec;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.payment.domain.gateway.PaymentActionGateway;
 import io.github.loadup.payment.domain.model.PaymentActionSource;
 import io.github.loadup.payment.domain.model.StoredPaymentAction;

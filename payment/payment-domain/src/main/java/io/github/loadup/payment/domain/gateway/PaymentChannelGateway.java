@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.domain.gateway;
 
-import io.github.loadup.payment.channel.api.model.ChannelPaymentRecovery;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentSubmission;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentTarget;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentValidation;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
-import io.github.loadup.payment.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.payment.channel.api.model.PreparedChannelRefund;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 
 /**
  * Verified channel integration, invoked outside local payment transactions. Capability lookup is local only.

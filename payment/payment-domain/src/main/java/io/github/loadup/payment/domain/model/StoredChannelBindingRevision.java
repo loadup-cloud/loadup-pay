@@ -18,7 +18,7 @@ package io.github.loadup.payment.domain.model;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import java.time.LocalDateTime;
 import java.util.Objects;
 

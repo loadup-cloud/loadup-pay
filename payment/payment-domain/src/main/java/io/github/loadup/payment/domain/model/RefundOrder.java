@@ -23,7 +23,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import java.util.Objects;
 
 public record RefundOrder(

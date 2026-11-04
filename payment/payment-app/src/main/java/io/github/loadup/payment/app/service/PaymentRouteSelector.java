@@ -23,7 +23,7 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPP
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.payment.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.payment.domain.gateway.RoutingProfileGateway;

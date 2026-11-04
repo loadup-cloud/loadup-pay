@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.codec;
 
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.payment.app.port.PaymentResultCodec;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

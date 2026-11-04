@@ -27,14 +27,14 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPP
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.api.error.ChannelResultCodeEnum;
+import io.github.loadup.components.payment.channel.api.facade.ChannelStatementFacade;
+import io.github.loadup.components.payment.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.components.payment.channel.api.model.ChannelStatementRequest;
+import io.github.loadup.components.payment.channel.api.model.ChannelStatementScope;
+import io.github.loadup.components.payment.channel.api.model.VerifiedChannelStatement;
 import io.github.loadup.payment.app.converter.PaymentStatementConverter;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
-import io.github.loadup.payment.channel.api.error.ChannelResultCodeEnum;
-import io.github.loadup.payment.channel.api.facade.ChannelStatementFacade;
-import io.github.loadup.payment.channel.api.model.ChannelExecutionContext;
-import io.github.loadup.payment.channel.api.model.ChannelStatementRequest;
-import io.github.loadup.payment.channel.api.model.ChannelStatementScope;
-import io.github.loadup.payment.channel.api.model.VerifiedChannelStatement;
 import io.github.loadup.payment.client.dto.PaymentStatementDTO;
 import io.github.loadup.payment.client.facade.PaymentStatementFacade;
 import io.github.loadup.payment.client.query.PaymentStatementQuery;

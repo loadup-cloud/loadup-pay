@@ -17,12 +17,12 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.limitcenter.client.command.LimitBeginExecutionCommand;
 import io.github.loadup.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.limitcenter.client.command.LimitReserveCommand;
 import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentRecovery;
-import io.github.loadup.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.payment.domain.model.RiskConsultation;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;

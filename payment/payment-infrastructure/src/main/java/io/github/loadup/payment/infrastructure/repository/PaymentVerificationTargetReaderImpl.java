@@ -19,11 +19,11 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.payment.app.model.PaymentVerificationTarget;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentVerificationTargetReader;
 import io.github.loadup.payment.app.service.PaymentExecutionBindings;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;

@@ -63,7 +63,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.channel.api.model.H5SceneType;
+import io.github.loadup.components.payment.channel.api.model.H5SceneType;
 import io.github.loadup.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.payment.client.dto.PaymentCloseDTO;

@@ -20,8 +20,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentTarget;
-import io.github.loadup.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.payment.domain.model.PaymentVerificationDisposition;
 
 /**

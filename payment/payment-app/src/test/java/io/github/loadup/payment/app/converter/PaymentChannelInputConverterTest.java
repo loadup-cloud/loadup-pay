@@ -19,9 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.loadup.payment.channel.api.model.ChannelH5Input;
-import io.github.loadup.payment.channel.api.model.H5SceneType;
-import io.github.loadup.payment.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
+import io.github.loadup.components.payment.channel.api.model.H5SceneType;
+import io.github.loadup.components.payment.channel.api.model.WechatH5ChannelAction;
 import io.github.loadup.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.payment.client.dto.RedirectActionDTO;
 import io.github.loadup.payment.domain.model.PaymentActionType;

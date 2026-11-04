@@ -16,10 +16,10 @@
 package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.payment.channel.api.model.AlipayAccountIdentity;
-import io.github.loadup.payment.channel.api.model.ChannelAccountIdentity;
-import io.github.loadup.payment.channel.api.model.ChannelBindingRevision;
-import io.github.loadup.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
+import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.payment.client.dto.AlipayAccountIdentityDTO;
 import io.github.loadup.payment.client.dto.ChannelAccountIdentityDTO;

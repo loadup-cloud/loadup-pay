@@ -16,7 +16,7 @@
 package io.github.loadup.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.payment.infrastructure.dataobject.RefundAcceptanceDO;
 import org.mapstruct.Mapper;

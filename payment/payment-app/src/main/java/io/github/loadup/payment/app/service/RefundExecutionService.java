@@ -22,10 +22,10 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPP
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.model.RefundExecutionWork;
-import io.github.loadup.payment.channel.api.model.ChannelRefundOutcome;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.payment.domain.model.RefundProgressChange;

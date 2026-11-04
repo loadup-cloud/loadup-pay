@@ -18,9 +18,9 @@ package io.github.loadup.payment.infrastructure.codec;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.RefundResultCodec;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;

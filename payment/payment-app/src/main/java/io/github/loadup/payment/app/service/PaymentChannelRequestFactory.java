@@ -21,10 +21,10 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FO
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentRequest;
-import io.github.loadup.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import java.time.Clock;

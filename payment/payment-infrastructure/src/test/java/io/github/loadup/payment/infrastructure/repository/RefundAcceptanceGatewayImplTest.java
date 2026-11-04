@@ -34,7 +34,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.payment.infrastructure.converter.RefundAcceptanceStorageConverter;
 import io.github.loadup.payment.infrastructure.converter.RefundStorageConverter;

@@ -24,7 +24,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import java.util.Objects;
 
 /**

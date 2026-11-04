@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.client.facade;
 
-import io.github.loadup.payment.channel.api.model.ChannelNotificationAcknowledgement;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
 
 /**
  * Public channel protocol ingress; request headers cannot supply the trusted tenant or a financial outcome.

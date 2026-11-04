@@ -23,16 +23,16 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.payment.channel.api.codec.ChannelActionCodec;
+import io.github.loadup.components.payment.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentExecution;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.model.LockedPayment;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.channel.api.codec.ChannelActionCodec;
-import io.github.loadup.payment.channel.api.model.AlipayH5ChannelAction;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentExecution;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentSubmission;
-import io.github.loadup.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentActionGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;

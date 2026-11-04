@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.domain.gateway;
 
-import io.github.loadup.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import java.util.Optional;
 
 /**

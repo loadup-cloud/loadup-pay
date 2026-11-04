@@ -1,6 +1,8 @@
 # LoadUp Pay
 
-面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用和渠道插件聚合，采用 Java 25、Spring Boot 4.1.2、LoadUp Framework 0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
+面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用；支付宝/微信渠道协议由 LoadUp Framework 的
+`loadup-components-payment-channel` 组件族提供。项目采用 Java 25、Spring Boot 4.1.2、LoadUp Framework
+0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
 ## 模块导航
 
@@ -16,7 +18,10 @@
 | [limitcenter](limitcenter/README.md) | 限额预占、执行门禁、确认与释放 |
 | [realtime](realtime/README.md) | 商户查询投影和重放 |
 | [reconciliation](reconciliation/README.md) | 后置账单核对、差错与独立复核 |
-| [channel](channel/README.md) | 支付宝、微信协议适配与公共渠道能力 |
+
+渠道 SPI、路由引擎和支付宝/微信协议 binder 位于
+[Framework payment-channel](../loadup-framework/loadup-components/integration/loadup-components-payment-channel/README.md)；
+payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，bootstrap 以 runtime 依赖装配 core 和厂商 binder。
 
 架构、RPC 与数据库约束见 [ARCHITECTURE](ARCHITECTURE.md)，脚本用法见 [scripts](scripts/README.md)，监控部署见 [deploy](deploy/README.md)。
 
@@ -74,8 +79,9 @@ docker --context orbstack exec -i postgres psql -U admin -d loadup -v ON_ERROR_S
 | 检查依赖禁用规则 | `mvnd enforcer:enforce` |
 | 检查可更新依赖 / 插件 | `mvnd versions:display-dependency-updates` / `mvnd versions:display-plugin-updates` |
 
-SpotBugs 需要编译产物，例如 `mvnd -pl channel/channel-api -am clean compile spotbugs:check`。
-JaCoCo 不会自动注入测试代理；需要覆盖率时显式执行，例如 `mvnd -pl channel/channel-api -am clean jacoco:prepare-agent test jacoco:report`。
+SpotBugs 需要编译产物，例如 `mvnd -pl payment/payment-infrastructure -am clean compile spotbugs:check`。
+JaCoCo 不会自动注入测试代理；需要覆盖率时显式执行，例如
+`mvnd -pl payment/payment-app -am clean jacoco:prepare-agent test jacoco:report`。
 Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同步的规则文件。
 
 ## HTTP 调用默认配置

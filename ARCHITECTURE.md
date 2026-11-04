@@ -27,19 +27,22 @@ merchantmng 的签约动作调用 productcenter，商户事实由 productcenter 
 | customer | 商户/子商户资格、关系和授权，主档复用框架商户模块 | 框架 merchant |
 | product | 产品、合约条款、准入和额度策略发布 | customer、limitcenter |
 | acquire | 收单订单、付款金额占用、订单终态、商户通知 | product、payment、realtime |
-| payment | 独立付款、attempt、退款、冻结渠道绑定及渠道证据 | channel、limitcenter、acquire、realtime |
+| payment | 独立付款、attempt、退款、冻结渠道绑定及渠道证据 | Framework payment-channel、limitcenter、acquire、realtime |
 | limitcenter | 周期限额、预占、执行凭证、消耗、释放及退款恢复 | payment 查证 |
 | realtime | 订单/付款/退款投影与来源版本 | 接收可靠事件 |
 | reconciliation | 封存账单、交易快照、批次、差错及复核记录 | payment、框架 file/transfer |
-| channel | 渠道能力与支付宝/微信适配 | 外部渠道协议 |
 
-realtime 和 reconciliation 不裁定支付结果，不直接修改交易资金事实。channel 是 payment 使用的插件聚合，不是独立业务数据库所有者。
+realtime 和 reconciliation 不裁定支付结果，不直接修改交易资金事实。支付宝/微信协议适配由 Framework
+`loadup-components-payment-channel` 组件族提供；payment 仅通过其 API 调用，不拥有渠道协议实现，也不引入独立渠道数据库。
 
 ## 分层与入口
 
 七个服务均按 `client/domain/app/infrastructure/adapter/bootstrap` 拆分。client 保存 Facade、DTO、错误码及传输契约；domain 保存领域模型；app 编排用例并声明端口；infrastructure 实现持久化和远端调用；adapter 接入 HTTP；bootstrap 装配应用。
 
-渠道模块按 `channel-api/channel-core/channel-alipay/channel-wechat` 拆分。各服务的配置以 `*-bootstrap/src/main/resources/application.yml` 及其附属配置为准，数据库迁移位于各 infrastructure 的 `src/main/resources/db/migration`。
+渠道组件按 Framework 的 `loadup-components-payment-channel-api/core/alipay/wechat` 拆分，Pay 不再包含
+`channel/` reactor。payment 的 client/domain/app/infrastructure 只编译依赖 channel API，bootstrap 以 runtime 依赖装配 core
+和厂商 binder。各服务的配置以 `*-bootstrap/src/main/resources/application.yml` 及其附属配置为准，数据库迁移位于各
+infrastructure 的 `src/main/resources/db/migration`。
 
 ## 金额、状态与执行边界
 

@@ -26,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
@@ -34,8 +36,6 @@ import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.payment.app.service.PaymentAcceptanceTransactions;
 import io.github.loadup.payment.app.service.PaymentResultService;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.payment.client.support.PaymentCaptureContentHash;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;

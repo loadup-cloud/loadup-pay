@@ -17,8 +17,8 @@ package io.github.loadup.payment.app.service;
 
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
-import io.github.loadup.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.payment.domain.model.PaymentOrder;

@@ -13,6 +13,10 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-runtime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-kms-binder-local</artifactId>
         </dependency>
         <dependency>
@@ -42,7 +46,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>channel-core</artifactId>
+            <artifactId>loadup-components-payment-channel-core</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -52,12 +56,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>channel-alipay</artifactId>
+            <artifactId>loadup-components-payment-channel-alipay</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>channel-wechat</artifactId>
+            <artifactId>loadup-components-payment-channel-wechat</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>

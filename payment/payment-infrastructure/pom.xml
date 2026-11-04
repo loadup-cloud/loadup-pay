@@ -20,7 +20,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>channel-api</artifactId>
+            <artifactId>loadup-components-payment-channel-api</artifactId>
         </dependency>
 
         <dependency>

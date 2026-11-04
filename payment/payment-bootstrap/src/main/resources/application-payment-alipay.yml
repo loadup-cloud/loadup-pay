@@ -1,6 +1,6 @@
 # Optional runtime profile for payment. No credential values belong here.
 loadup:
-  pay:
+  payment:
     channel:
       alipay:
         enabled: true

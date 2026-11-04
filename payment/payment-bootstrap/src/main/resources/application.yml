@@ -188,12 +188,12 @@ loadup:
 resilience4j:
   bulkhead:
     instances:
-      pay-channel-recovery-alipay:
+      payment-channel-recovery-alipay:
         max-concurrent-calls: ${PAYMENT_ALIPAY_RECOVERY_MAX_CONCURRENT:16}
         max-wait-duration: 0ms
-      pay-channel-recovery-wechat:
+      payment-channel-recovery-wechat:
         max-concurrent-calls: ${PAYMENT_WECHAT_RECOVERY_MAX_CONCURRENT:16}
         max-wait-duration: 0ms
-      pay-channel-recovery-unionpay:
+      payment-channel-recovery-unionpay:
         max-concurrent-calls: ${PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT:16}
         max-wait-duration: 0ms

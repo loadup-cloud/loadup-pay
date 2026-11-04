@@ -22,12 +22,12 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.app.converter.RefundCallbackObservationConverter;
 import io.github.loadup.payment.app.port.ChannelCallbackEndpointResolver;
 import io.github.loadup.payment.app.port.RefundResultCodec;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationAcknowledgement;
-import io.github.loadup.payment.channel.api.model.ChannelNotificationInput;
-import io.github.loadup.payment.channel.api.model.RefundObservation;
 import io.github.loadup.payment.client.facade.RefundChannelCallbackFacade;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.payment.domain.gateway.PaymentChannelNotificationGateway;
