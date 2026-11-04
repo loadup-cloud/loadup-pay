@@ -13,10 +13,7 @@
     <description>COLA modules for customer.</description>
     <modules>
         <module>merchantcenter-client</module>
-        <module>merchantcenter-domain</module>
-        <module>merchantcenter-app</module>
-        <module>merchantcenter-infrastructure</module>
-        <module>merchantcenter-adapter</module>
+        <module>merchantcenter-service</module>
         <module>merchantcenter-bootstrap</module>
     </modules>
 </project>

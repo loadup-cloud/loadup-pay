@@ -10,13 +10,10 @@
     <artifactId>realtime</artifactId>
     <packaging>pom</packaging>
     <name>LoadUp Pay Realtime</name>
-    <description>COLA modules for realtime.</description>
+    <description>Service modules for realtime.</description>
     <modules>
         <module>realtime-client</module>
-        <module>realtime-domain</module>
-        <module>realtime-app</module>
-        <module>realtime-infrastructure</module>
-        <module>realtime-adapter</module>
+        <module>realtime-service</module>
         <module>realtime-bootstrap</module>
     </modules>
 </project>

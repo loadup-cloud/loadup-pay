@@ -92,10 +92,6 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-http</artifactId>
-        </dependency>
     </dependencies>
     <build>
         <plugins>

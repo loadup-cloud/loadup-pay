@@ -37,12 +37,12 @@ realtime 和 reconciliation 不裁定支付结果，不直接修改交易资金�
 
 ## 分层与入口
 
-七个服务均按 `client/domain/app/infrastructure/adapter/bootstrap` 拆分。client 保存 Facade、DTO、错误码及传输契约；domain 保存领域模型；app 编排用例并声明端口；infrastructure 实现持久化和远端调用；adapter 接入 HTTP；bootstrap 装配应用。
+merchantcenter、realtime 等小型服务按 `client/service/bootstrap` 拆分：client 保存 Facade、DTO、错误码及传输契约；service 在同一 JAR 内保留 domain/app/infrastructure 包边界，实现领域模型、用例编排和持久化；bootstrap 承载启动类与 HTTP adapter。payment、acquire 等复杂服务继续按 `client/domain/app/infrastructure/adapter/bootstrap` 分层发布。所有 client 不依赖 service 实现，service 是可复用的普通 JAR。
 
 渠道组件按 Framework 的 `loadup-components-payment-channel-api/core/alipay/wechat` 拆分，Pay 不再包含
 `channel/` reactor。payment 的 client/domain/app/infrastructure 只编译依赖 channel API，bootstrap 以 runtime 依赖装配 core
 和厂商 binder。各服务的配置以 `*-bootstrap/src/main/resources/application.yml` 及其附属配置为准，数据库迁移位于各
-infrastructure 的 `src/main/resources/db/migration`。
+service（保留完整分层的服务为 infrastructure）的 `src/main/resources/db/migration`。
 
 ## 金额、状态与执行边界
 

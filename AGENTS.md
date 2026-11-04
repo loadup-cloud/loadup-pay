@@ -169,19 +169,29 @@ loadup-components-{name}/
 
 ---
 
-## 业务模块内部分层（COLA 4.0）
+## 业务模块内部分层
+
+服务按业务复杂度选择模块边界，避免所有服务统一拆成六层。
+
+### 小型服务：client + service + bootstrap
 
 ```
-loadup-modules-{mod}/
-├── {mod}-client/          # Facade、DTO、Command、Query、消费方 SPI
-├── {mod}-domain/          # 纯 POJO + Gateway 接口 + 枚举（零 Spring 注解）
-├── {mod}-infrastructure/  # DO extends BaseDO、Mapper、GatewayImpl、Converter
-├── {mod}-app/             # @Service 业务编排、AutoConfiguration
-├── {mod}-web/             # 可选 Controller 适配；按 Maven 依赖装配
-└── {mod}-test/            # 集成测试 + 单元测试（parent = 根 loadup-parent）
+{mod}/
+├── {mod}-client/      # Facade、DTO、Command、Query、传输契约
+├── {mod}-service/     # domain + app + infrastructure 包，同一发布单元
+└── {mod}-bootstrap/   # 启动装配与 adapter/HTTP 入口
 ```
 
-**domain 层铁律**：无 `@Table`、无 `@Service`、无任何 Spring / ORM 注解。
+- service 内保留 `domain / app / infrastructure` 包边界和依赖方向；合并 Maven 模块不等于取消职责分层。
+- service 是可复用的普通 JAR，其他服务可直接依赖；不要只保留可执行应用包。
+- bootstrap 承载启动类、HTTP adapter 与部署配置；client 不依赖 domain 或 service。
+
+### 复杂服务：保留完整分层
+
+payment、acquire 等业务代码量大的服务保留
+`client / domain / app / infrastructure / adapter / bootstrap`，按层独立发布。
+
+**domain 层铁律**：无 `@Table`、无 `@Service`、无任何 Spring / ORM 注解。该规则同样适用于 service 内的 domain 包。
 
 ---
 
@@ -237,8 +247,7 @@ Commons、Components、Modules、Testify，例如 `LoadUp Commons JSON`、`LoadU
 保持大写，JetCache、JobRunr、ConfigCenter、AuthServer、RetryTask、GlobalUnique、WebMVC、SpringDoc、Testcontainers、Resilience4j、NanoCaptcha
 保持约定拼写。根项目、应用、BOM 分别使用 `LoadUp Framework`、`LoadUp Application`、`LoadUp Dependencies`；Gotone channels 聚合为
 `LoadUp Components Gotone Channels`。详细用途写入 description，名称保持空格分隔的统一结构。 每个 POM 均显式声明简短英文
-`<description>`，说明实际职责；client/domain/app/infrastructure/web/test 分别描述公开契约、领域模型、业务编排、持久化适配、HTTP
-入口和测试范围，未实现的传输能力如实标明状态。
+`<description>`，说明实际职责；client/service/bootstrap（或保留完整分层模块的 domain/app/infrastructure/adapter）分别描述公开契约、服务实现、HTTP 入口与启动装配、持久化适配，未实现的传输能力如实标明状态。
 
 | 类型              | 规则                                     | 示例                             |
 |-------------------|------------------------------------------|----------------------------------|
