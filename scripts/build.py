@@ -63,6 +63,7 @@ def main(argv=None):
         jars = sorted(target.glob(f"{app}-bootstrap-*.jar"))
         if len(jars) != 1:
             common.fail(f"Expected one executable JAR for {app}; found {len(jars)}.")
+        os.chmod(jars[0], 0o644)
         image = f"{common.image_prefix()}/{app}:{os.environ['IMAGE_TAG']}"
         common.run(
             [

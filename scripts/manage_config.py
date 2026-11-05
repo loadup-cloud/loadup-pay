@@ -285,10 +285,12 @@ def main(argv=None):
 
 
 def execute(action, selection, apps):
-    os.umask(0o077)
+    previous_umask = os.umask(0o077)
     try:
         main([action, selection, *apps])
     except UnicodeError:
         fail("Configuration operation failed: environment/token files must be valid UTF-8.")
     except (ValueError, OSError, KeyError) as error:
         fail(f"Configuration operation failed: {error}")
+    finally:
+        os.umask(previous_umask)
