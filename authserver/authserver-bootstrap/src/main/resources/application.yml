@@ -14,7 +14,6 @@ spring:
     virtual:
       enabled: false
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:

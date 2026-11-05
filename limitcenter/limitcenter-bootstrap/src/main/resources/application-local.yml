@@ -12,6 +12,7 @@ loadup:
     clients:
       payment:
         base-url: ${PAYMENT_BASE_URL:http://localhost:8081}
+        allow-private-addresses: true
   modules:
     limitcenter:
       permit:

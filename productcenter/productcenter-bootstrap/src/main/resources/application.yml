@@ -14,7 +14,6 @@ spring:
   application:
     name: productcenter
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:
@@ -52,29 +51,6 @@ loadup:
     request-body:
       path-prefix: /api/internal/
       max-size: 1MB
-  http:
-    client:
-    clients:
-      limitcenter:
-        base-url: ${LIMITCENTER_BASE_URL:http://limitcenter:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 3s
-        max-connections: 50
-        max-connections-per-route: 20
-        max-request-bytes: 1048576
-        max-response-bytes: 1048576
-      merchantcenter:
-        base-url: ${MERCHANTCENTER_BASE_URL:http://merchantcenter:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 3s
-        max-connections: 50
-        max-connections-per-route: 20
-        max-request-bytes: 65536
-        max-response-bytes: 65536
   modules:
     productcenter:
       materialize-seconds: ${PRODUCTCENTER_MATERIALIZE_SECONDS:300}
@@ -105,22 +81,13 @@ loadup:
       client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
       registrations:
         merchantcenter:
-          client-id: ${PRODUCTCENTER_MERCHANTCENTER_OAUTH_CLIENT_ID:productcenter.default.merchantcenter}
-          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-          service-id: productcenter
-          audience: ${MERCHANTCENTER_JWT_AUDIENCE:merchantcenter}
           scopes:
             - pay:merchant:profile:read
         limitcenter:
-          client-id: ${PRODUCTCENTER_LIMITCENTER_OAUTH_CLIENT_ID:productcenter.default.limitcenter}
-          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-          service-id: productcenter
-          audience: limitcenter
           scopes:
             - pay:limit:activate
     resource-server:
       enabled: true
-      issuer-uri: ${PRODUCTCENTER_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
-      audience: ${PRODUCTCENTER_JWT_AUDIENCE:productcenter}
-      jwk-set-uri: ${PRODUCTCENTER_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
-      public-key-location: ${PRODUCTCENTER_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}

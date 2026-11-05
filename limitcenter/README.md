@@ -61,7 +61,7 @@ java \
 | LIMITCENTER_JDBC_URL                                  | 独立 PostgreSQL 业务库                            |
 | LIMITCENTER_JDBC_USERNAME / LIMITCENTER_JDBC_PASSWORD | 外部 Secret 提供的凭证                                              |
 | LIMITCENTER_JWT_ISSUER_URI                            | 服务令牌的可信 issuer                                               |
-| LIMITCENTER_JWT_AUDIENCE                              | limitcenter API audience                                            |
+| —                                                     | 入站 audience 取 `spring.application.name`（limitcenter）           |
 | LIMITCENTER_JWT_JWK_SET_URI                           | 签发方公钥地址                                                      |
 | LIMITCENTER_RESERVE_SECONDS                           | 首次预占执行窗口，默认120秒                                         |
 | LIMITCENTER_PERMIT_SECRET                             | v1许可HMAC密钥，至少32个随机UTF-8字节，外部Secret注入；无开发默认值 |

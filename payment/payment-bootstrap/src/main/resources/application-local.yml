@@ -12,5 +12,7 @@ loadup:
     clients:
       acquire:
         base-url: ${ACQUIRE_BASE_URL:http://localhost:8082}
+        allow-private-addresses: true
       realtime:
         base-url: ${REALTIME_BASE_URL:http://localhost:8086}
+        allow-private-addresses: true

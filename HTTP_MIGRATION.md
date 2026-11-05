@@ -95,7 +95,7 @@
 - 所有代理通过既有 HttpTemplate 创建，共享命名 Apache 连接池、TLS Bundle、DNS 策略、Boot Observation 与刷新生命周期。
   非 2xx 不读取远端业务文案；HTTP 200 先验证成功码/状态/非空 data。事务外联网、目标凭证和本地错误白名单保留。
 - customer 请求/响应各 64 KiB，product/limitcenter 各 1 MiB，其余调用组各 32 MiB。
-  reconciliation 的 payment-statements 独立读取 60s、最大连接 8/每路由 4，仍使用 PAYMENT_BASE_URL。
+  reconciliation 的 payment-statements 独立读取 60s、最大连接 8/每路由 4，作为特殊客户端显式配置地址。
   这些是客户端限制。七应用另已配置 WebMVC 内部请求上限：customer 64 KiB、product/limitcenter 1 MiB、其余 32 MiB。
   入站 Advice 完整有界读取后才转换 JSON，未知/虚假长度与尾随输入均计入，超限 HTTP 413；源码已补，运行待验证。
 - capture 的 INIT/SEALED/BLOCKED presence、显式零值、计数/金额、scope、哈希、时间与分页/连续 ordinal 由
@@ -108,7 +108,7 @@
   audience/token-file 默认按目标应用取值，service-id 默认取调用方 spring.application.name；helper 只绑定配置，不读取或验证 token。
   不保留 loadup.rpc.client 别名。已有 ACQUIRE/PAYMENT 等模块环境变量继续生效。
 - 默认 Service 地址为 http://<app>:8080。本地 profile 按 payment/acquire/customer/limitcenter/product/realtime/reconciliation
-  的 8081/8082/8083/8084/8085/8086/8087 配置出站地址；BASE_URL 环境变量仍可覆盖。
+  的 8081/8082/8083/8084/8085/8086/8087 配置出站地址；特殊端口或地址可单独覆盖，常规目标使用应用名与 8080 约定。
 
 ## 依赖与部署
 

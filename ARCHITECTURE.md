@@ -98,13 +98,15 @@ HttpServiceResponses 同时核对 code/status/data；仅本地白名单恢复业
 
 ### 地址、资源与发布
 
-按目标服务配置 loadup.http.clients.<group>.base-url，共享已有 HttpTemplate 命名连接池与 Boot Observation。
-默认 http://<app>:8080，K8s 普通 ClusterIP Service DNS；本地 profile 配置对应 localhost 端口，环境变量可覆盖。
-无需 K8s API 权限或独立注册中心。连接/池等待各 1s，普通读取 3s；对账下载独立 60s 有界连接池。
-客户端不自动重试、不跟随重定向；业务可靠重投由原 Outbox/任务负责，未来网关也不得叠加隐式重试。
+Service Client 以目标应用名命名，默认地址 `http://<目标应用名>:8080`，共享已有 HttpTemplate 命名连接池与 Boot Observation。
+K8s 普通 ClusterIP Service DNS 直接适用；本地 profile 只覆盖对应 localhost 端口，环境变量仍可按需覆盖特殊环境。
+无需 K8s API 权限或独立注册中心。超时、连接池和大小限制使用框架默认值；只有偏离约定的客户端才单独配置，例如对账下载
+`payment-statements` 保留 60s 读取和独立有界连接池。客户端不自动重试、不跟随重定向；业务可靠重投由原 Outbox/任务负责，
+未来网关也不得叠加隐式重试。
 
-共享配置默认由 HttpClientDefaults 绑定 loadup.http.client；模块显式配置优先。调用方 service-id 与目标 audience 分别取值，
-helper 不负责认证，也不缓存 token。旧 loadup.rpc.client 配置不再读取。
+共享配置默认由 HttpClientDefaults 绑定 loadup.http.client；模块显式配置优先。service-auth 注册项只声明 scopes，调用方、租户、
+目标 audience 和 client-id 按应用名约定推导，个别环境可覆盖。helper 不负责认证，也不缓存 token。旧 loadup.rpc.client 配置不再读取。
+入站资源服务器 audience 取 `spring.application.name`，ConfigMap 不再维护 `<APP>_JWT_AUDIENCE` 和 `*_BASE_URL`。
 
 源清单包含十个业务应用和独立 AuthServer 的 HTTP Deployment/Service。版本化 ConfigMap/环境 Secret 与 AuthServer KeyStore 文件 Secret 已接入发布渲染；
 显式版本写入 Pod template，预检只读取 immutable 元数据，归档镜像/引用组合。滚动与排空源码已补，运行待验收；

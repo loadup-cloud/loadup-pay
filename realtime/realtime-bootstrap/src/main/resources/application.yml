@@ -14,7 +14,6 @@ spring:
   application:
     name: realtime
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:
@@ -69,7 +68,6 @@ loadup:
   security:
     resource-server:
       enabled: true
-      issuer-uri: ${REALTIME_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
-      audience: ${REALTIME_JWT_AUDIENCE:realtime}
-      jwk-set-uri: ${REALTIME_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
-      public-key-location: ${REALTIME_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}

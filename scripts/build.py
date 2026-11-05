@@ -25,7 +25,7 @@ def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] in {"--help", "-h"}:
         print("Usage: scripts/build.py [all|application] [extra mvnd arguments]")
-        print("Installs required sibling framework components, then builds clean JARs and local Docker images;")
+        print("Installs the complete sibling framework reactor, then builds clean JARs and local Docker images;")
         print("tests are skipped. Set SKIP_FRAMEWORK_BUILD=1 only when matching framework artifacts are installed.")
         return
     scope = args.pop(0) if args else "all"

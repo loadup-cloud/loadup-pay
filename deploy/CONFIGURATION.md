@@ -10,7 +10,7 @@
 | 不可变环境 Secret | `<app>-secret-<SECRET_VERSION>` | 密码、业务密钥、OAuth 应用凭证；启动读取 |
 | 不可变文件 Secret | `authserver-files-<SECRET_VERSION>` | PKCS12，只读挂载 AuthServer，内容参与 Secret 摘要 |
 
-业务应用不再挂载 JWT 文件或私钥。调用方从 AuthServer 自动获取和续取 5 分钟服务令牌；接收方使用 JWKS 缓存公钥、本地验签，继续检查 issuer、audience、有效期、token_use、租户及权限。商户/用户委托保持原来的 Actor 流程。
+业务应用不再挂载 JWT 文件或私钥。调用方从 AuthServer 自动获取和续取 5 分钟服务令牌；接收方使用 JWKS 缓存公钥、本地验签，继续检查 issuer、audience、有效期、token_use、租户及权限。商户/用户委托保持原来的 Actor 流程。内部服务地址按目标应用名和统一 8080 端口约定，入站 audience 取 `spring.application.name`；环境目录不再维护 `*_BASE_URL` 和 `<APP>_JWT_AUDIENCE`，特殊地址在应用配置中覆盖。
 
 ## 发布
 
@@ -24,7 +24,7 @@ APP_ENV=dev IMAGE_TAG=auth-002 python3 scripts/up.py all
 APP_ENV=dev python3 scripts/configmap.py update payment
 ```
 
-up.py 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建会先安装所需 framework 组件；全量发布先等待 AuthServer 就绪，再逐个发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
+up.py 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建默认全量安装相邻 framework 的全部组件，避免镜像遗漏或混用旧 jar；全量发布先等待 AuthServer 就绪，再逐个发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
 
 直接 deploy.py/render.py 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 34 个资源：Namespace、十一组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
 

@@ -17,7 +17,6 @@ package io.github.loadup.acquire.adapter.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
@@ -30,7 +29,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtAcquireActorProviderTest {
-    private final JwtAcquireActorProvider provider = new JwtAcquireActorProvider("product");
+    private final JwtAcquireActorProvider provider = new JwtAcquireActorProvider();
 
     @AfterEach
     void clear() {
@@ -53,10 +52,8 @@ class JwtAcquireActorProviderTest {
     }
 
     @Test
-    void onlyProductAudienceEnablesCredentialDelegation() {
+    void delegatesTheVerifiedCallerToken() {
         authenticated("synthetic", List.of("acquire"), "MERCHANT_APP", "merchant");
-        assertNull(provider.current().productAccessToken());
-        authenticated("synthetic", List.of("acquire", "product"), "MERCHANT_APP", "merchant");
         assertEquals("synthetic", provider.current().productAccessToken());
     }
 

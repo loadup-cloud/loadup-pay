@@ -40,9 +40,8 @@ trade_order_projection、trade_payment_projection、trade_refund_projection、tr
 DATETIME (6) 微秒，JVM/Clock/会话时区 系统默认时区，无 UTC 数据库列。读接口使用独立只读一致事务；投影写入和回执用本地事务/唯一键/源版本
 CAS，不锁主交易库。无序 HTTP 完整快照以每行 sourceVersion 为推进依据，流级重建/checkpoint 尚未实现，不冒充全局就绪状态。
 
-业务运行需 REALTIME_JDBC_URL/USERNAME/PASSWORD、REALTIME_JWT_ISSUER_URI/AUDIENCE/JWK_SET_URI，默认使用业务装配。payment 出站配置 REALTIME_JWT_AUDIENCE、PAYMENT_REALTIME_TOKEN_FILE，tenant 默认复用
-PAYMENT_LIMITCENTER_TENANT_ID，可由 PAYMENT_REALTIME_TENANT_ID 指定；令牌需 pay:realtime:projection:payment。复用
-HttpTemplate 和挂载 SERVICE token 轮换读取，不转发商户令牌。
+业务运行需 REALTIME_JDBC_URL/USERNAME/PASSWORD、共用 JWT_ISSUER_URI/JWT_JWK_SET_URI；入站 audience 取本应用名。payment/acquire 出站目标按应用名约定，服务令牌由 AuthServer 按目标 audience 签发，
+需 pay:realtime:projection:* 权限。复用 HttpTemplate，不转发商户令牌。
 
 新增领域/接收/查询/规范编码/服务身份/发送与生产测试源码，未运行 IDEA、构建、测试、DDL、镜像或部署。当前部署清单与旧运行记录不证明本批业务
 profile 已装配或联通。
@@ -50,4 +49,4 @@ profile 已装配或联通。
 
 实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
 
-内部调用已删除 proto/Wire/Dubbo 生成与 Nacos profile。消费方使用 REALTIME_BASE_URL；源身份与 ACK 语义不变，运行验收见 [迁移清单](../HTTP_MIGRATION.md)。
+内部调用已删除 proto/Wire/Dubbo 生成与 Nacos profile。消费方目标按应用名约定 http://realtime:8080；源身份与 ACK 语义不变，运行验收见 [迁移清单](../HTTP_MIGRATION.md)。

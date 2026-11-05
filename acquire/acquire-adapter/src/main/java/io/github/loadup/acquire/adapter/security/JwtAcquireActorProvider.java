@@ -29,21 +29,12 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 @Component
 public class JwtAcquireActorProvider implements AcquireActorProvider {
-    private final String productAudience;
-
-    public JwtAcquireActorProvider(@Value("${loadup.modules.acquire.product-audience}") String productAudience) {
-        if (productAudience.isBlank()) {
-            throw new IllegalArgumentException("Product JWT audience is required");
-        }
-        this.productAudience = productAudience;
-    }
 
     @Override
     public AcquireActor current() {
@@ -74,9 +65,7 @@ public class JwtAcquireActorProvider implements AcquireActorProvider {
                     .formatHex(MessageDigest.getInstance("SHA-256")
                             .digest(JsonUtil.toJson(Arrays.asList(tenant, type, principal, merchant))
                                     .getBytes(StandardCharsets.UTF_8)));
-            String delegated = jwt.getAudience() != null && jwt.getAudience().contains(productAudience)
-                    ? jwt.getTokenValue()
-                    : null;
+            String delegated = jwt.getTokenValue();
             return new AcquireActor(
                     tenant,
                     scope,

@@ -91,13 +91,18 @@ Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同�
 
 ## HTTP 调用默认配置
 
-按提供方配置 BASE_URL，K8s 使用普通 Service DNS，本地 profile 使用 localhost。调用身份统一使用框架默认值，无需为每个目标服务重复配置：
+Service Client 以目标应用名命名，默认地址为 `http://<目标应用名>:8080`，K8s 普通 Service DNS 直接适用；本地 profile 只覆盖
+`base-url` 为 localhost 端口。超时、连接池、请求/响应大小和私有地址策略使用框架默认值，无需为每个目标重复配置。只有地址或参数
+不同于约定的客户端（例如单列连接池的对账账单下载、外部商户地址）才在应用配置中单独声明。
+
+调用身份统一使用框架默认值，无需为每个目标服务重复配置：
 
 | 参数 | 默认值 |
 |---|---|
 | tenant-id | `__default__` |
 | service-id | 当前 `spring.application.name` |
 | audience | 目标服务名，例如 `limitcenter` |
+| client-id | `<service-id>.default.<audience>` |
 
 需要统一覆盖时仅配置一次：
 
@@ -109,7 +114,7 @@ loadup:
       audience: internal
 ```
 
-单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.http.client` > 框架约定。入站 HTTP audience 仍由各服务 `<SERVICE>_JWT_AUDIENCE` 配置，出站目标 audience 可通过模块配置分别覆盖。服务令牌由独立 AuthServer 按租户、调用方、目标服务及权限签发；共享 OAuth 客户端负责缓存和续取，资源端继续验签与授权。见 [AuthServer](authserver/README.md)。
+单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.http.client` > 框架约定。service-auth 注册项只需声明 `scopes`，身份字段按上表推导；入站 HTTP audience 使用各服务的 `spring.application.name`，不再需要 `<SERVICE>_JWT_AUDIENCE`。出站目标 audience 可通过模块配置分别覆盖。服务令牌由独立 AuthServer 按租户、调用方、目标服务及权限签发；共享 OAuth 客户端负责缓存和续取，资源端继续验签与授权。见 [AuthServer](authserver/README.md)。
 
 K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，仅 AuthServer 挂载其签名 KeyStore。资源准备、预览、排空和回退见 [配置与发布](deploy/CONFIGURATION.md)。
 

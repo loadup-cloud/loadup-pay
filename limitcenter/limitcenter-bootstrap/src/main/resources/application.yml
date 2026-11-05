@@ -14,7 +14,6 @@ spring:
   application:
     name: limitcenter
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:
@@ -52,17 +51,6 @@ loadup:
     request-body:
       path-prefix: /api/internal/
       max-size: 1MB
-  http:
-    client:
-    clients:
-      payment:
-        base-url: ${PAYMENT_BASE_URL:http://payment:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 3s
-        max-request-bytes: 33554432
-        max-response-bytes: 33554432
   modules:
     limitcenter:
       payment-service-id: ${LIMITCENTER_PAYMENT_SERVICE_ID:payment}
@@ -89,17 +77,12 @@ loadup:
       client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
       registrations:
         payment:
-          client-id: ${LIMITCENTER_PAYMENT_OAUTH_CLIENT_ID:limitcenter.default.payment}
-          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-          service-id: limitcenter
-          audience: payment
           scopes:
             - pay:payment:read
             - pay:payment:limit-facts
             - pay:payment:refund-facts
     resource-server:
       enabled: true
-      issuer-uri: ${LIMITCENTER_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
-      audience: ${LIMITCENTER_JWT_AUDIENCE:limitcenter}
-      jwk-set-uri: ${LIMITCENTER_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
-      public-key-location: ${LIMITCENTER_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}

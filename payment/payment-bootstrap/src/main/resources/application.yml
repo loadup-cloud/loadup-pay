@@ -14,7 +14,6 @@ spring:
   application:
     name: payment
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:
@@ -52,35 +51,6 @@ loadup:
     request-body:
       path-prefix: /api/internal/
       max-size: 32MB
-  http:
-    client:
-    clients:
-      acquire:
-        base-url: ${ACQUIRE_BASE_URL:http://acquire:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 3s
-        max-request-bytes: 33554432
-        max-response-bytes: 33554432
-      realtime:
-        base-url: ${REALTIME_BASE_URL:http://realtime:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 3s
-        max-request-bytes: 33554432
-        max-response-bytes: 33554432
-      limitcenter:
-        base-url: ${LIMITCENTER_BASE_URL:http://limitcenter:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 3s
-        max-connections: 50
-        max-connections-per-route: 20
-        max-request-bytes: 1048576
-        max-response-bytes: 1048576
   resilience4j:
     enabled: true
     binder-type: core
@@ -144,19 +114,11 @@ loadup:
       client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
       registrations:
         acquire:
-          client-id: ${PAYMENT_ACQUIRE_OAUTH_CLIENT_ID:payment.default.acquire}
-          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-          service-id: payment
-          audience: acquire
           scopes:
             - pay:acquire:payment:outcome
             - pay:acquire:fee:refund
             - pay:acquire:refund:notification
         limitcenter:
-          client-id: ${PAYMENT_LIMITCENTER_OAUTH_CLIENT_ID:payment.default.limitcenter}
-          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-          service-id: payment
-          audience: limitcenter
           scopes:
             - pay:limit:reserve
             - pay:limit:read
@@ -167,10 +129,6 @@ loadup:
             - pay:limit:release
             - pay:limit:refund:restore
         realtime:
-          client-id: ${PAYMENT_REALTIME_OAUTH_CLIENT_ID:payment.default.realtime}
-          tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
-          service-id: payment
-          audience: realtime
           scopes:
             - pay:realtime:projection:payment
             - pay:realtime:projection:refund
@@ -180,10 +138,9 @@ loadup:
       permit-all:
         - /api/payment/channel-callbacks/*
         - /api/payment/channel-callbacks/*/refund
-      issuer-uri: ${PAYMENT_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
-      audience: ${PAYMENT_JWT_AUDIENCE:payment}
-      jwk-set-uri: ${PAYMENT_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
-      public-key-location: ${PAYMENT_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}
 
 resilience4j:
   bulkhead:

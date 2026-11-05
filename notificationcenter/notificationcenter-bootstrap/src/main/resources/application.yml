@@ -14,7 +14,6 @@ spring:
   application:
     name: notificationcenter
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:
@@ -62,7 +61,6 @@ loadup:
   security:
     resource-server:
       enabled: true
-      issuer-uri: ${NOTIFICATIONCENTER_JWT_ISSUER_URI:${JWT_ISSUER_URI:}}
-      audience: ${NOTIFICATIONCENTER_JWT_AUDIENCE:notificationcenter}
-      jwk-set-uri: ${NOTIFICATIONCENTER_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
-      public-key-location: ${NOTIFICATIONCENTER_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}

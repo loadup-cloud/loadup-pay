@@ -10,7 +10,7 @@ payment-client 持有 Facade、Command/Query/DTO、结果码和四组标准 HTTP
 | PaymentStatementHttpService | statements/download | PaymentStatementDTO，JSON Base64 原文/证据，16 MiB 原文与 32 KiB 证据保持原上限 |
 | PaymentVerificationHttpService | verifications/verify | 只读观察，Money 和原查询绑定；不是执行许可或收款证明 |
 
-普通调用读取 3s，statement download 保留独立 60s/32 MiB 有界组，复用同一个 PAYMENT_BASE_URL。
+普通调用使用框架默认超时；statement download 保留独立 60s/32 MiB 有界组，复用同一个 payment 目标（按应用名约定）。
 客户端不自动重试，未知结果按原工作流恢复；未知错误不变成业务拒绝，异常不保留令牌或原报文。
 
 PaymentCaptureContracts 保留旧 Wire 验证的状态/字段存在性、金额/计数、scope、时间与分页/序号约束；

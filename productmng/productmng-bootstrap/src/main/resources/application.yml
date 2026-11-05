@@ -7,7 +7,6 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 75s
 server:
-  port: 8080
   shutdown: graceful
 management:
   endpoints:
@@ -34,18 +33,6 @@ loadup:
   security:
     resource-server:
       enabled: true
-      issuer-uri: ${JWT_ISSUER_URI}
-      audience: productmng
-      jwk-set-uri: ${JWT_JWK_SET_URI}
-  http:
-    clients:
-      productcenter:
-        base-url: ${PRODUCTCENTER_BASE_URL:http://productcenter:8080}
-        allow-private-addresses: true
-        connect-timeout: 1s
-        acquire-timeout: 1s
-        read-timeout: 5s
-        max-connections: 30
-        max-connections-per-route: 20
-        max-request-bytes: 1048576
-        max-response-bytes: 1048576
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}

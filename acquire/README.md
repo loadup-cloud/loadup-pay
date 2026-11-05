@@ -54,12 +54,9 @@ java \
 | 环境变量                                                                | 用途                                                            |
 |-------------------------------------------------------------------------|-----------------------------------------------------------------|
 | ACQUIRE_JDBC_URL / ACQUIRE_JDBC_USERNAME / ACQUIRE_JDBC_PASSWORD        | 独立 PostgreSQL 业务库及外部 Secret 凭证                             |
-| ACQUIRE_JWT_ISSUER_URI / ACQUIRE_JWT_AUDIENCE / ACQUIRE_JWT_JWK_SET_URI | 本服务已验证资源服务器                                          |
-| PRODUCT_JWT_AUDIENCE                                 | product 委托 audience；目标由 PRODUCT_BASE_URL 配置                           |
-| PAYMENT_JWT_AUDIENCE                                 | payment 服务凭证 audience；目标由 PAYMENT_BASE_URL 配置                       |
-| ACQUIRE_PAYMENT_TENANT_ID                                               | 当前出站服务凭证所属租户；其他租户在占用前拒绝                  |
-| ACQUIRE_SERVICE_ID                                                      | 出站 SERVICE 身份，默认 acquire，须匹配 payment 的受信配置      |
-| ACQUIRE_PAYMENT_TOKEN_FILE                                              | 外部 Secret 挂载的服务 JWT 文件；每次请求重新读取以支持轮换     |
+| JWT_ISSUER_URI / JWT_JWK_SET_URI                                        | 共享资源服务器 issuer/JWKS；入站 audience 取 `spring.application.name` |
+| SERVICE_AUTH_TOKEN_URI / SERVICE_AUTH_CLIENT_SECRET                     | AuthServer 标准客户端凭证                                       |
+| SERVICE_AUTH_TENANT_ID                                                  | 服务令牌逻辑租户，默认 `__default__`                            |
 | ACQUIRE_CHECKOUT_PAGE_URL                                               | 同源托管 `/checkout` 的公开 HTTPS 地址；本地 loopback 可用 HTTP |
 | ACQUIRE_CHECKOUT_SECRET                                                 | v1会话 HMAC 密钥，至少32个随机 UTF-8 字节，由外部 Secret 注入   |
 | ACQUIRE_CHECKOUT_ACTIVE_KEY_VERSION                                     | 默认v1；切换版本须同时配置 checkout.keys 对应条目               |
@@ -74,5 +71,5 @@ deploy/pay.yml 未包含业务 DB/JWT 配置，业务上线需覆盖层显式注
 ## 应用间 HTTP
 
 内部事件路径 /api/internal/v1/acquire/events/ 接收 payment 的付款结果、费用退款汇总与商户退款通知。
-PRODUCT_BASE_URL、PAYMENT_BASE_URL、REALTIME_BASE_URL 默认使用普通 Service 的 HTTP 8080，本地 profile 使用 localhost 8085/8081/8086。
+productcenter、payment、realtime 目标按应用名默认 http://<app>:8080，本地 profile 使用 localhost 8085/8081/8086；仅特殊地址单独配置。
 每次传递目标受众的原凭证，原事务、幂等、来源/ACK 和错误语义保留。已清除 proto/Wire/Dubbo/Nacos 默认装配，运行验收见 [迁移清单](../HTTP_MIGRATION.md)。

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clean-install the framework artifacts required by the Pay applications."""
+"""Clean-install the complete framework reactor so no component jar is stale."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ TARGETED_PROJECTS = ",".join(
         "loadup-dependencies",
         "loadup-components/integration/loadup-components-http",
         "loadup-components/security/loadup-components-resource-server",
+        "loadup-components/security/loadup-components-service-auth",
         "loadup-components/security/loadup-components-authserver/loadup-components-authserver-binder-sas",
         "loadup-components/security/loadup-components-kms/loadup-components-kms-binder-local",
     ]
@@ -32,9 +33,9 @@ def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     if args and args[0] in {"--help", "-h"}:
         print("Usage: scripts/build_framework.py [extra mvnd arguments]")
-        print("Clean-install the BOM and the HTTP, resource-server, SAS and local KMS components with their dependencies.")
-        print("FRAMEWORK_SCOPE=all builds the complete framework reactor; use it to bootstrap a clean checkout.")
-        print("FRAMEWORK_DIR defaults to the sibling loadup-framework repository; tests are skipped.")
+        print("Clean-install the complete framework reactor by default; tests are skipped.")
+        print("FRAMEWORK_SCOPE=targeted installs only the components the Pay applications use.")
+        print("FRAMEWORK_DIR defaults to the sibling loadup-framework repository.")
         return
     common.prepare_java()
     common.require_command("mvnd")
@@ -44,9 +45,12 @@ def main(argv=None):
             "Framework checkout is unavailable; set FRAMEWORK_DIR or explicitly use SKIP_FRAMEWORK_BUILD=1 "
             "with installed artifacts."
         )
-    if os.environ.get("FRAMEWORK_SCOPE", "targeted") == "all":
+    scope = os.environ.get("FRAMEWORK_SCOPE", "all")
+    if scope == "all":
         common.run(["mvnd", *MVND_FLAGS, *args], cwd=framework_dir)
         return
+    if scope != "targeted":
+        common.fail("FRAMEWORK_SCOPE must be all or targeted.")
     common.run(["mvnd", *MVND_FLAGS, "-pl", TARGETED_PROJECTS, "-am", *args], cwd=framework_dir)
 
 

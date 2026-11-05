@@ -31,7 +31,7 @@ payment 拥有独立付款、attempt、退款、渠道绑定与路由事实。�
 ## 应用间 HTTP
 
 payment 全部 19 个提供操作与 acquire/realtime/limitcenter 出站调用均使用 HTTP。
-ACQUIRE_BASE_URL、REALTIME_BASE_URL、LIMITCENTER_BASE_URL 默认普通 Service HTTP 8080，本地 profile 使用 localhost 8082/8086/8084。
+ACQUIRE、REALTIME、LIMITCENTER 目标按应用名默认 http://<app>:8080，本地 profile 使用 localhost 8082/8086/8084；仅特殊地址单独配置。
 原事务、幂等、未知结果恢复与错误白名单保留，逐次传递目标受众的服务凭证。
 capture 明细使用平面 PageResponse；statement 字节经 JSON Base64 传输，消费方保留独立 60s/32 MiB 有界组。
 原 Wire 检查已移至 DTO/协议无关 client.support，全部协议生成和 Dubbo/Nacos 装配已删除。源码与运行验收见 [迁移清单](../HTTP_MIGRATION.md)。

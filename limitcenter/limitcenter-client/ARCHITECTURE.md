@@ -7,7 +7,7 @@ Controller 调用现有 LimitPolicy/LimitReservation/LimitExecution/LimitSettlem
 SERVICE 的 service_id、sub、租户和权限仍由既有 ActorProvider/业务层检查。客户端不会把认证失败当作已结算或限额拒绝。
 
 product 使用 activate；payment 使用 reserve/begin/verify/confirm/release/restoreRefund；其余操作保留为明确的完整业务契约。
-令牌逐次读取，按提供方配置 LIMITCENTER_BASE_URL，共享现有 HTTP 管理资源，写调用不自动重试。
+令牌逐次读取，payment 目标按应用名约定 http://payment:8080，共享现有 HTTP 管理资源，写调用不自动重试。
 release 先于 reserve 的空 reservation、执行 epoch/permit、退款身份与来源版本、ACK 的 policy/version/hash 语义不变。
 
 limitcenter 应用的 payment 证据查证也已迁移 HTTP，出站 Dubbo 装配和 Nacos profile 已删除。

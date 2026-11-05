@@ -13,8 +13,8 @@
 ## 运行
 
 - 启动模块：`productmng/productmng-bootstrap`，Java 25 / Spring Boot 4.1。
-- 配置：共用 `JWT_ISSUER_URI`、`JWT_JWK_SET_URI`；资源 audience 为 `productmng`。
-- 下游地址：`MERCHANTCENTER_BASE_URL` / `PRODUCTCENTER_BASE_URL`，按实际使用配置；默认 K8s Service DNS。
+- 配置：共用 `JWT_ISSUER_URI`、`JWT_JWK_SET_URI`；资源 audience 取 `spring.application.name`（productmng）。
+- 下游地址：merchantcenter / productcenter 按应用名默认 `http://<app>:8080`，仅特殊地址单独配置。
 - 配置目录：`deploy/config/<env>/productmng`；不要求 JDBC 凭证或 SERVICE_AUTH_CLIENT_SECRET。
 - `python3 scripts/build.py productmng` 和 `python3 scripts/up.py productmng` 由开发者按需执行。
 

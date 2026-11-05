@@ -20,7 +20,7 @@
 直接维护 `deploy/config/dev|test|prod` 的 common.env、应用 config.env/secret.env 与 service-authorizations.json。AuthServer 另有忽略提交的 authserver.p12。配置含义见 [环境目录](../deploy/config/README.md) 与 [AuthServer](../authserver/README.md)。
 
 ```bash
-# 先准备独立 loadup_authserver 数据库。构建脚本会安装所需 framework 组件。
+# 先准备独立 loadup_authserver 数据库。构建脚本默认全量安装相邻 framework 的组件。
 # dev 的 up.py authserver/all 会自动准备缺失的 RSA KeyStore 和应用凭证。
 APP_ENV=dev python3 scripts/configmap.py check all
 APP_ENV=dev IMAGE_TAG=auth-001 python3 scripts/up.py authserver
@@ -46,7 +46,7 @@ up.py 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘�
 
 - Java 25：优先使用项目`mise.toml`已安装的运行时；无mise时使用`JAVA_HOME`/PATH并校验主版本。不自动下载Java，也不回退到Java
   21。
-- 应用构建前自动对相邻 framework 的 HTTP、resource-server、SAS、kms-local 及必需依赖执行窄范围 `clean install`；可用 `FRAMEWORK_DIR` 指定仓库。已安装匹配制品时显式设置 `SKIP_FRAMEWORK_BUILD=1`。独立入口为 `scripts/build_framework.py`；干净环境可使用 `FRAMEWORK_SCOPE=all`。
+- 应用构建前默认对相邻 framework 执行全量 `clean install`，避免遗漏任一组件 jar；可用 `FRAMEWORK_DIR` 指定仓库。已安装匹配制品时显式设置 `SKIP_FRAMEWORK_BUILD=1`。独立入口为 `scripts/build_framework.py`；仅需最小集时可设置 `FRAMEWORK_SCOPE=targeted`。
 - 使用`mvnd clean package -pl <选定bootstrap列表> -am -Dmaven.test.skip=true`
   ；全量应用只执行一次Maven，不逐应用重复清理共享依赖。默认不编译或执行测试，构建通过不等于单测通过。
 - Docker和Kubernetes默认context均为`orbstack`，脚本通过显式context调用，不更改全局当前context。部署固定namespace为
@@ -96,7 +96,7 @@ rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator
 
 ## 配置与 HTTP 发布边界
 
-十一个应用均使用标准 HTTP Service Clients，内部路径 /api/internal/v1/，目标按提供方 BASE_URL 配置，默认 http://<app>:8080。
+十一个应用均使用标准 HTTP Service Clients，内部路径 /api/internal/v1/，目标按应用名约定 http://<app>:8080，仅特殊地址单独配置。
 非 Kubernetes 环境使用同一制品，覆盖服务基础地址即可；无需 nacos profile 或 DUBBO_REGISTRY_ADDRESS。
 当前开发阶段没有协议双栈或自动回退，十一个应用须使用匹配镜像、地址、JWT 与配置；旧协议回退也须恢复整套匹配配置和 Service。
 

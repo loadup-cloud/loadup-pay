@@ -107,8 +107,8 @@ IMPORT_MAX_REQUEST_SIZE。
 - 出站服务凭证为 `RECONCILIATION_SERVICE_ID`（默认 reconciliation），配置 `RECONCILIATION_PAYMENT_TENANT_ID`、
   `RECONCILIATION_PAYMENT_AUDIENCE`（默认 payment）和 `RECONCILIATION_PAYMENT_TOKEN_FILE`。当前凭证配置对应一个租户，其他租户显式拒绝。
   接收方需授予 `pay:payment:reconciliation:capture:create/read/retry`；逐次读取挂载凭证，未签发真实令牌。
-- PAYMENT_BASE_URL 默认 http://payment:8080；本地 profile 为 localhost:8081。普通读取 3s，账单下载独立组 60s，
-  连接/池等待各 1s，32 MiB 请求/响应上限。完整抓取预算由 RECONCILIATION_LEDGER_FETCH_SECONDS 控制；分页 100。
+- payment 目标按应用名默认 http://payment:8080；本地 profile 为 localhost:8081。普通调用使用框架默认超时与大小，
+  账单下载使用独立组 60s 读取、8/4 连接限额和 32 MiB 响应上限。完整抓取预算由 RECONCILIATION_LEDGER_FETCH_SECONDS 控制；分页 100。
   目标地址由部署配置，不写在业务代码。
 - INIT/BLOCKED 不能导入；BLOCKED 是覆盖阻断样本，无可导出金额/行。查证原资金后使用新 requestKey 请求新 RR，原快照永不覆盖。
 
@@ -159,7 +159,7 @@ API/持久化/投递/Facade/索引迁移和测试源码已补，均未运行。�
 
 ## Payment HTTP 客户端迁移
 
-付款快照、账单来源下载和只读查证已改为标准 HTTP Service Clients，共用 PAYMENT_BASE_URL（默认 http://payment:8080）。
-普通组读取 3s；payment-statements 组保留 60s、32 MiB 响应上限及独立 8/4 连接限额，兼顾 Base64 膨胀与普通查证可用连接。
+付款快照、账单来源下载和只读查证已改为标准 HTTP Service Clients，payment 目标按应用名默认 http://payment:8080。
+普通组使用框架默认；payment-statements 组保留 60s、32 MiB 响应上限及独立 8/4 连接限额，兼顾 Base64 膨胀与普通查证可用连接。
 原 SERVICE token 每次重读，事务外联网、错误白名单与原来源校验保留；分页错序、非封存统计、字节/哈希异常不能当作权威输入。
 本服务六个内部提供操作亦已迁移 HTTP，旧协议生成/装配已删除；源码进度与未运行的验收见 [迁移清单](../HTTP_MIGRATION.md)。
