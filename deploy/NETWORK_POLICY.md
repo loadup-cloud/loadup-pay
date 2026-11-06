@@ -2,19 +2,21 @@
 
 # HTTP 入站网络策略
 
-八个 `<app>-http-ingress` NetworkPolicy 随应用清单渲染，限定目标 Pod 的 TCP 8080；不配置 Egress，保留 DNS、数据库、KMS、渠道及通知等出站路径。
+各 `<app>-http-ingress` NetworkPolicy 随应用清单渲染，限定目标 Pod 的 TCP 8080；不配置 Egress，保留 DNS、数据库、KMS、渠道及通知等出站路径。
 策略按现有调用关系允许入站，不给业务服务增加发现 RBAC：
 
 | 提供方 | 允许的 loadup-pay 调用方 |
 | --- | --- |
-| authserver | customer、product、limitcenter、payment、acquire、realtime、reconciliation |
-| customer | product |
-| product | acquire |
-| limitcenter | product、payment |
+| authserver | merchantcenter、productcenter、limitcenter、payment、acquire、realtime、reconciliation、merchantmng、productmng、notificationcenter |
+| merchantcenter | authserver、productcenter、merchantmng |
+| productcenter | acquire、merchantmng、productmng |
+| limitcenter | productcenter、payment |
 | payment | acquire、limitcenter、reconciliation |
 | acquire | payment |
 | realtime | acquire、payment |
 | reconciliation | 无直接内部调用方；受控外部集成经过网关 |
+| merchantmng / productmng | 无直接内部调用方；仅网关 |
+| notificationcenter | loadup-pay 命名空间内 Pod；无网关路由 |
 
 每个 peer 的 namespaceSelector 与 podSelector 放在同一项，二者同时满足；没有 `{}` 全放行项。
 除 limitcenter、authserver 外，另允许 envoy-gateway-system 中 app.kubernetes.io/name=envoy 且归属 loadup-pay/loadup-pay Gateway 的代理 Pod。

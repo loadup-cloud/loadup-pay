@@ -14,6 +14,7 @@
 | `python3 scripts/render.py [all或应用名]` | 仅渲染镜像/配置版本引用清单供审查，不 apply |
 | `python3 scripts/up.py [all或应用名]` | 校验并创建配置快照，再调用 deploy.py 构建及部署 |
 | `python3 scripts/configmap.py <动作> [all或应用名]` | 初始化、检查、创建、换版、查看、删除配置及管理授权配置 |
+| `python3 scripts/dev_merchant_token.py --merchant-id <id>` | 仅 dev：用 AuthServer 本地 KeyStore 签发测试商户 JWT 到 stdout |
 
 ## 环境配置与一键部署
 
@@ -37,6 +38,39 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py
 up.py 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，创建不可变快照并发布。授权 JSON 进入 ConfigMap 摘要，密码及 PKCS12 进入 Secret 摘要；相同对象复用，同名不同内容拒绝。CONFIG_DIR 可覆盖完整环境目录；单应用与 all 摘要范围不同，回退使用归档中的实际版本。
 
 业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。私钥仅挂载 AuthServer，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
+
+## 开发用商户 JWT
+
+AuthServer 只签发 SERVICE 令牌，不提供用户/商户登录。本地测试商户 token 由 dev KeyStore 签发，脚本仅允许 `APP_ENV=dev`：
+
+```bash
+TOKEN=$(python3 scripts/dev_merchant_token.py --merchant-id 6f1c2a3e-9d4b-4f7a-8c2e-1b5d7a9c0e11)
+
+# 覆盖 aud、permissions、principal_type 或有效期
+TOKEN=$(python3 scripts/dev_merchant_token.py --merchant-id <id> --subject <app-id> \
+  --principal-type MERCHANT_APP --audience acquire,productcenter,merchantcenter \
+  --permissions pay:acquire:create,pay:product:admit --ttl-seconds 1800)
+```
+
+默认从 `deploy/config/dev/authserver/authserver.p12` 和 `secret.env` 的 `KMS_KEYSTORE_PASSWORD` 读取签名材料；私钥只在临时目录短暂存在，token 输出到 stdout。`iss` 默认取 `CONFIG_DIR/common.env` 的 `JWT_ISSUER_URI`，`kid` 默认 `<AUTHSERVER_SIGNING_KEY>-v1`，可用 `--issuer`/`--kid` 覆盖。不要提交 token 或私钥；test/prod 必须使用真实 IdP 签发的令牌。
+
+外部调用走 Gateway API，不要 `port-forward` 或直连内部 Service。当前本地网关 `pay.loadup.local` 使用自签名证书：
+
+```bash
+TOKEN=$(python3 scripts/dev_merchant_token.py --merchant-id <merchant-id>)
+
+curl --noproxy '*' --resolve pay.loadup.local:443:192.168.139.2 \
+  --cacert deploy/gateway/rendered/pay.loadup.local.crt \
+  -X POST https://pay.loadup.local/api/acquire/orders/create \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"payeeMerchantId":"<merchant-id>","merchantOrderNo":"TEST-ORDER-004",
+       "productScopeKey":"default","amountMinor":100,"currency":"CNY","subject":"Test order"}'
+```
+
+网关按 `/api/acquire` 前缀转发到 acquire，并负责 TLS、限流和超时；JWT 仍由后端资源服务器校验。`--resolve` 的 IP 以本地网关实际地址为准。
+
+管理操作同样走网关：catalog / limit publication 使用 `/api/productmng`，合约 preview/sign 使用 `/api/merchantmng/product/merchant-contracts/*`；`productcenter` 和 `merchantcenter` 不直接对外。当前集群若仍保留旧的 `/api/product`、`/api/customer` 路由，需要先按 [网关说明](../deploy/gateway/README.md) 用 `values-local.yaml` 升级 Gateway chart。
 
 版本变化通过滚动重启生效，不承诺 ConfigMap 自动刷新 Bean。test/prod 默认要求 HTTPS token endpoint。凭证与签名密钥轮换、回退限制见 [发布约定](../deploy/CONFIGURATION.md)。
 

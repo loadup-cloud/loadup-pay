@@ -28,7 +28,7 @@ class RenderDeployTest(unittest.TestCase):
                    "limitcenter": ["productcenter", "payment"],
                    "payment": ["acquire", "limitcenter", "reconciliation"], "acquire": ["payment"],
                    "realtime": ["acquire", "payment"], "reconciliation": [],
-                   "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation"],
+                   "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "merchantmng", "productmng", "notificationcenter"],
                    "notificationcenter": []}
         for app in self.apps:
             peers = []

@@ -759,7 +759,10 @@ spec:
                     "payment",
                     "acquire",
                     "realtime",
-                    "reconciliation"
+                    "reconciliation",
+                    "merchantmng",
+                    "productmng",
+                    "notificationcenter"
                   ]
                 }
               ]
