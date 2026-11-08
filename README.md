@@ -2,7 +2,7 @@
 
 面向商户和子商户的外部渠道收单平台。当前 reactor 包含十一个应用；支付宝/微信渠道协议由 LoadUp Framework 的
 `loadup-components-payment-channel` 组件族提供。项目采用 Java 25、Spring Boot 4.1.2、LoadUp Framework
-0.0.2-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
+0.0.1-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
 ## 模块导航
 

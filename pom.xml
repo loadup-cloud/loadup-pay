@@ -55,7 +55,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.compiler.release>${java.version}</maven.compiler.release>
-        <loadup.framework.version>0.0.2-SNAPSHOT</loadup.framework.version>
+        <loadup.framework.version>0.0.1-SNAPSHOT</loadup.framework.version>
 
         <!-- Manual quality and maintenance tools, aligned with LoadUp Framework. -->
         <license.useJavaNoReformatCommentStartTag>false</license.useJavaNoReformatCommentStartTag>
