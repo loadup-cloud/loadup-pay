@@ -30,8 +30,8 @@ import io.github.loadup.commons.result.PageInfo;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.client.http.PaymentCaptureHttpService;
 import io.github.loadup.payment.client.http.PaymentCapturePageResponse;
 import io.github.loadup.payment.client.http.PaymentStatementHttpService;
@@ -116,8 +116,7 @@ class PaymentEvidenceHttpClientTest {
     }
 
     @Test
-    void wrongTenantAndAnOuterTransactionDoNotReachTheProvider() {
-        assertThrows(CommonException.class, () -> captureClient.detail("capture"));
+    void anOuterTransactionDoesNotReachTheProvider() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

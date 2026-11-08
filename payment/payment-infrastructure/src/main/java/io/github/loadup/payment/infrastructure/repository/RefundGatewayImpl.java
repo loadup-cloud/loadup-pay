@@ -15,14 +15,15 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.RefundGateway;
@@ -30,7 +31,6 @@ import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.payment.domain.model.RefundRequestReference;
 import io.github.loadup.payment.domain.model.RefundRequestState;
-import io.github.loadup.payment.domain.model.RefundState;
 import io.github.loadup.payment.domain.model.StoredRefundChild;
 import io.github.loadup.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.payment.infrastructure.converter.PaymentResultStorageConverter;
@@ -40,7 +40,6 @@ import io.github.loadup.payment.infrastructure.dataobject.RefundAllocationPlanDO
 import io.github.loadup.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundRequestDO;
 import io.github.loadup.payment.infrastructure.mapper.RefundRequestMapper;
-import io.github.loadup.productcenter.client.dto.AdmittedOrderTermsDTO;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -100,15 +99,18 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     public Optional<RefundRequestReference> reference(String id) {
         requireReadTransaction();
         requireJdbc();
-        return read(() -> Optional.ofNullable(getById(id)).map(converter::toReference));
+        return read(() -> Optional.ofNullable(
+                        request("id = :id", new MapSqlParameterSource().addValue("id", id), false))
+                .map(converter::toReference));
     }
 
     @Override
     public Optional<RefundRequestReference> merchantReference(String merchant, String number) {
         requireReadTransaction();
         requireJdbc();
-        return read(() -> Optional.ofNullable(getOne(
-                        QueryWrapper.create().eq("payee_merchant_id", merchant).eq("merchant_refund_no", number)))
+        var args = new MapSqlParameterSource().addValue("merchant", merchant).addValue("number", number);
+        return read(() -> Optional.ofNullable(
+                        request("payee_merchant_id = :merchant AND merchant_refund_no = :number", args, false))
                 .map(converter::toReference));
     }
 

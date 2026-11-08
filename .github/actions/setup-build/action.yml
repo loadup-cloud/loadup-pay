@@ -1,0 +1,28 @@
+name: Set up LoadUp Pay build
+description: Set up Temurin 25 and the Maven dependency cache.
+runs:
+  using: composite
+  steps:
+    - name: Set up Java and Maven dependency cache
+      uses: actions/setup-java@v6 # v6
+      with:
+        distribution: temurin
+        java-version: '25'
+        cache: maven
+        cache-dependency-path: '**/pom.xml'
+    - name: Clear cached Maven download failures
+      shell: bash
+      run: |
+        python3 - <<'PYTHON'
+        from pathlib import Path
+
+        repository = Path.home() / ".m2" / "repository"
+        removed = 0
+        for marker in repository.rglob("*.lastUpdated"):
+            marker.unlink()
+            removed += 1
+        print(f"Removed {removed} cached Maven download failure markers")
+        PYTHON
+    - name: Show toolchain
+      shell: bash
+      run: mvn --version

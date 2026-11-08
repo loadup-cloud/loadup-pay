@@ -30,6 +30,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutco
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
+import io.github.loadup.contracts.model.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
@@ -46,7 +47,6 @@ import io.github.loadup.payment.domain.model.PaymentCaptureRead;
 import io.github.loadup.payment.domain.model.PaymentCaptureScope;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.payment.domain.model.PaymentLedgerLine;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.payment.infrastructure.converter.PaymentCaptureStorageConverter;
@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -74,6 +75,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
         classes = {PaymentResultPersistenceIT.Application.class, PaymentCapturePersistenceIT.Configuration.class},
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class PaymentCapturePersistenceIT {
     final PaymentAcceptanceTransactions transactions;
     final PaymentAcceptanceGateway payments;
@@ -128,7 +130,7 @@ class PaymentCapturePersistenceIT {
     }
 
     @Test
-    void submittedUnknownPreventsAnEmptySuccessfulExportAndTenantScopeIsEnforced() {
+    void submittedUnknownPreventsAnEmptySuccessfulExport() {
         var fixture = seed(null, false);
         var scope = scope(fixture);
         var blocked = transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(scope));
@@ -142,8 +144,6 @@ class PaymentCapturePersistenceIT {
                 transactions
                         .readSnapshot(fixture.tenant(), () -> reader.read(unknown))
                         .blocker());
-        assertThrows(
-                CommonException.class, () -> transactions.readSnapshot(fixture.tenant(), () -> reader.read(scope)));
         assertThrows(CommonException.class, () -> transactions.writeLocal(fixture.tenant(), () -> reader.read(scope)));
         assertThrows(CommonException.class, () -> reader.read(scope));
     }
@@ -170,10 +170,6 @@ class PaymentCapturePersistenceIT {
             assertThrows(CommonException.class, () -> captures.page(value, 1, 101));
             return true;
         });
-        assertEquals(
-                0L,
-                transactions.readSnapshot(
-                        "other", () -> captures.find(original.id()).stream().count()));
     }
 
     @Test
@@ -330,7 +326,7 @@ class PaymentCapturePersistenceIT {
         }
     }
 
-    static final class FaultingCaptures extends PaymentCaptureGatewayImpl {
+    static class FaultingCaptures extends PaymentCaptureGatewayImpl {
         final AtomicBoolean failAfterSeal = new AtomicBoolean();
 
         FaultingCaptures(

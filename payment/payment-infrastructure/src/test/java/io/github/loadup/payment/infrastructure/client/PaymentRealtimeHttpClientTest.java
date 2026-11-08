@@ -34,11 +34,11 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.PaymentSnapshotEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
-import io.github.loadup.payment.domain.model.PaymentState;
-import io.github.loadup.payment.domain.model.RefundState;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.payment.infrastructure.config.PaymentRealtimeProperties;
 import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
@@ -171,12 +171,6 @@ class PaymentRealtimeHttpClientTest {
         assertEquals(summaryAck, client.applyRefundSummary(summary));
         verify(realtimeHttp).refund(anyString(), any());
         verify(realtimeHttp).refundSummary(anyString(), any());
-    }
-
-    @Test
-    void unconfiguredTenantCannotBeRoutedToTheReadModel() {
-        assertThrows(CommonException.class, () -> client.apply(event));
-        verifyNoInteractions(realtimeHttp);
     }
 
     @Test

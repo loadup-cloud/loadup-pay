@@ -18,12 +18,12 @@ package io.github.loadup.limitcenter.client.support;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.limitcenter.client.dto.LimitRuleDTO;
 import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitWindowType;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

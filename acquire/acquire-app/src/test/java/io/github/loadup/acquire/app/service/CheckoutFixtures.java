@@ -16,7 +16,6 @@
 package io.github.loadup.acquire.app.service;
 
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.CheckoutSession;
 import io.github.loadup.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.acquire.domain.model.CheckoutSessionState;
@@ -24,27 +23,28 @@ import io.github.loadup.acquire.domain.model.OrderAdmissionProof;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.productcenter.client.dto.AcquiringTermsDTO;
-import io.github.loadup.productcenter.client.dto.ChannelCapabilityDTO;
-import io.github.loadup.productcenter.client.dto.FeeTermsDTO;
-import io.github.loadup.productcenter.client.dto.LimitPolicyRefDTO;
-import io.github.loadup.productcenter.client.dto.NotificationTermsDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.AcquiringTermsDTO;
+import io.github.loadup.contracts.product.ChannelCapabilityDTO;
+import io.github.loadup.contracts.product.FeeRefundPolicy;
+import io.github.loadup.contracts.product.FeeTermsDTO;
+import io.github.loadup.contracts.product.LimitPolicyRefDTO;
+import io.github.loadup.contracts.product.NotificationTermsDTO;
+import io.github.loadup.contracts.product.OrderTermsDTO;
+import io.github.loadup.contracts.product.PaymentTermsDTO;
+import io.github.loadup.contracts.product.RefundAllocationPolicy;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
+import io.github.loadup.contracts.product.RefundTermsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
-import io.github.loadup.productcenter.client.dto.OrderTermsDTO;
-import io.github.loadup.productcenter.client.dto.PaymentTermsDTO;
-import io.github.loadup.productcenter.client.dto.RefundTermsDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
-import io.github.loadup.productcenter.client.enums.FeeRefundPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAllocationPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.productcenter.client.enums.RefundCountRestorePolicy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -133,8 +133,7 @@ final class CheckoutFixtures {
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
                 1,
-                new OrderTermsDTO(
-                        600, 3600, io.github.loadup.productcenter.client.enums.UnpaidOrderAction.CLOSE, false, 0, 300),
+                new OrderTermsDTO(600, 3600, UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, 100000, null, true),
                 new FeeTermsDTO(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.NO_RETURN),
                 new RefundTermsDTO(true, true, 86400, RefundAllocationPolicy.FIFO),

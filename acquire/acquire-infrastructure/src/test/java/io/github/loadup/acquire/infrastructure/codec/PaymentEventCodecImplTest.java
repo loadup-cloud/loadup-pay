@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.payment.domain.model.PaymentState;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.model.PaymentState;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;

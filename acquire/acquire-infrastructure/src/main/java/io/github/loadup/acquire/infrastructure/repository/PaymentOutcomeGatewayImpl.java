@@ -22,7 +22,6 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 import io.github.loadup.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.acquire.domain.gateway.PaymentOutcomeGateway;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.AllocationState;
 import io.github.loadup.acquire.domain.model.OrderPaymentChange;
 import io.github.loadup.acquire.domain.model.PaymentOutcomeReceipt;
@@ -33,6 +32,7 @@ import io.github.loadup.acquire.infrastructure.converter.PaymentOutcomeStorageCo
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.contracts.model.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;

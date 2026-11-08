@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,6 +52,8 @@ import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefu
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
@@ -83,7 +85,6 @@ import io.github.loadup.payment.domain.model.PaymentCaptureScope;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.payment.domain.model.PaymentLedgerStatus;
 import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.payment.domain.model.RefundChannelReceipt;
@@ -93,7 +94,6 @@ import io.github.loadup.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.payment.domain.model.RefundRecoveryKey;
 import io.github.loadup.payment.domain.model.RefundRequest;
 import io.github.loadup.payment.domain.model.RefundRequestState;
-import io.github.loadup.payment.domain.model.RefundState;
 import io.github.loadup.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
@@ -122,6 +122,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,6 +149,7 @@ import tools.jackson.databind.json.JsonMapper;
             "loadup.modules.payment.recovery-polling.jitter-percent=0"
         })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class RefundRecoveryHandlerPersistenceIT {
     private static final long REFUND_MINOR = 5000L;
     private final PaymentAcceptanceTransactions transactions;
@@ -1057,7 +1059,7 @@ class RefundRecoveryHandlerPersistenceIT {
         }
     }
 
-    static final class RefundFaults {
+    static class RefundFaults {
         final AtomicReference<FailurePoint> next = new AtomicReference<>();
 
         void after(FailurePoint point) {
@@ -1124,7 +1126,7 @@ class RefundRecoveryHandlerPersistenceIT {
         }
     }
 
-    static final class FaultingRefundAcceptances extends RefundAcceptanceGatewayImpl {
+    static class FaultingRefundAcceptances extends RefundAcceptanceGatewayImpl {
         final AtomicReference<String> failAfterWrite = new AtomicReference<>();
 
         FaultingRefundAcceptances(
@@ -1146,7 +1148,7 @@ class RefundRecoveryHandlerPersistenceIT {
         }
     }
 
-    static final class RefundChannelControl {
+    static class RefundChannelControl {
         final Map<String, PreparedChannelRefund> originals = new ConcurrentHashMap<>();
         final Map<String, RefundObservation> observations = new ConcurrentHashMap<>();
         final AtomicReference<PaymentResultPersistenceIT.PausedQuery> pause = new AtomicReference<>();

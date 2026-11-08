@@ -41,7 +41,7 @@ import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import java.time.LocalDateTime;
 import java.util.List;

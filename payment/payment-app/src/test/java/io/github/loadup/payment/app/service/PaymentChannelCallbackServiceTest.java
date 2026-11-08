@@ -42,13 +42,13 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutco
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.payment.app.converter.PaymentCallbackObservationConverter;
 import io.github.loadup.payment.app.model.ChannelCallbackEndpoint;
 import io.github.loadup.payment.app.model.PaymentResultApplication;
 import io.github.loadup.payment.app.port.ChannelCallbackEndpointResolver;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentResultCodec;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;

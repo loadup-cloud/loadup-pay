@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,22 +46,22 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutco
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.contracts.model.PaymentActionType;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.payment.PaymentActionDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.RedirectActionDTO;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.model.LockedPayment;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.PaymentActionDTO;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.dto.RedirectActionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentActionGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.model.PaymentActionSource;
-import io.github.loadup.payment.domain.model.PaymentActionType;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.payment.domain.model.PaymentOrder;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAction;
@@ -146,7 +146,8 @@ class PaymentActionServiceTest {
                 template.rowVersion());
         var acceptance = AttemptFixtures.accepted(true);
         var locked = locked(acceptance.payment(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
-        var original = prepared(new Fixture(acceptance, storedAttempt, locked, null, command, null), amount, method, 1);
+        var original =
+                prepared(new Fixture(acceptance, storedAttempt, locked, null, command, null), amount, method, epoch);
         var action = new AlipayJsapiChannelAction("trade-1", EXPIRES_AT);
         return new Fixture(acceptance, storedAttempt, locked, original, command, action);
     }
@@ -387,6 +388,8 @@ class PaymentActionServiceTest {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var saved = new AtomicReference<StoredPaymentAction>();
         when(actions.find("attempt")).thenAnswer(call -> Optional.ofNullable(saved.get()));
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(codec.decode(any())).thenReturn(fixture.command());
         doAnswer(call -> {
                     saved.set(call.getArgument(0));
                     return null;
@@ -415,6 +418,8 @@ class PaymentActionServiceTest {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var saved = new AtomicReference<>(storedAction(fixture, "trade-1", EXPIRES_AT));
         when(actions.find("attempt")).thenAnswer(call -> Optional.ofNullable(saved.get()));
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(codec.decode(any())).thenReturn(fixture.command());
 
         var changedTrade = submission(fixture, "trade-2", EXPIRES_AT);
         var tradeFailure = assertThrows(
@@ -436,6 +441,8 @@ class PaymentActionServiceTest {
     void validatesAttemptEpochAmountCallerAndMethodBeforeRecording() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         when(actions.find("attempt")).thenReturn(Optional.empty());
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(codec.decode(any())).thenReturn(fixture.command());
 
         var wrongEpoch = fixture(PaymentMethod.JSAPI, 2, Money.ofMinor(4000, "CNY"));
         var epochFailure = assertThrows(
@@ -443,8 +450,8 @@ class PaymentActionServiceTest {
                 () -> inTransaction(() -> service.record(
                         TENANT,
                         wrongEpoch.locked(),
-                        fixture.original(),
-                        submission(fixture, "trade-1", EXPIRES_AT),
+                        wrongEpoch.original(),
+                        submission(wrongEpoch, "trade-1", EXPIRES_AT),
                         "receipt-1")));
         assertEquals(OUTCOME_UNKNOWN, epochFailure.getResultCode());
 
@@ -461,6 +468,7 @@ class PaymentActionServiceTest {
         assertEquals(OUTCOME_UNKNOWN, amountFailure.getResultCode());
 
         var wrongCaller = withAttemptCaller(fixture, "another-caller");
+        when(attempts.find("attempt")).thenReturn(Optional.of(wrongCaller.storedAttempt()));
         var callerFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(() -> service.record(
@@ -472,6 +480,7 @@ class PaymentActionServiceTest {
         assertEquals(SNAPSHOT_INVALID, callerFailure.getResultCode());
 
         var wrongMethod = fixture(PaymentMethod.PAYMENT_CODE, 1, Money.ofMinor(4000, "CNY"));
+        when(attempts.find("attempt")).thenReturn(Optional.of(wrongMethod.storedAttempt()));
         var methodFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(() -> service.record(
@@ -488,6 +497,8 @@ class PaymentActionServiceTest {
     void ignoresActionsForAnotherActiveAttemptExpiredActionsAndInactivePaymentsOrGates() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         when(actions.find(anyString())).thenReturn(Optional.empty());
+        when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(codec.decode(any())).thenReturn(fixture.command());
 
         var anotherAttempt = withActiveAttempt(fixture, "new-attempt");
         inTransaction(() -> service.record(
@@ -501,7 +512,7 @@ class PaymentActionServiceTest {
                 TENANT,
                 fixture.locked(),
                 fixture.original(),
-                submission(fixture, "trade-2", OffsetDateTime.parse("2026-10-22T11:00:00Z")),
+                submission(fixture, "trade-2", OffsetDateTime.parse("2026-10-22T03:00:00Z")),
                 "receipt-2"));
 
         var closing =
@@ -547,7 +558,7 @@ class PaymentActionServiceTest {
 
         assertSame(decorated, inTransaction(() -> service.present(TENANT, fixture.locked())));
 
-        var expired = storedAction(fixture, "trade-1", OffsetDateTime.parse("2026-10-22T11:00:00Z"));
+        var expired = storedAction(fixture, "trade-1", OffsetDateTime.parse("2026-10-22T03:00:00Z"));
         when(actions.find("attempt")).thenReturn(Optional.of(expired));
         assertSame(base, inTransaction(() -> service.present(TENANT, fixture.locked())));
 

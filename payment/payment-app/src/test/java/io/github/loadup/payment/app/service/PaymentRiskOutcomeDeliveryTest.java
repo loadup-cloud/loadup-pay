@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,11 +33,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.contracts.model.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.domain.gateway.RiskOutcomeGateway;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RiskDecisionType;
 import io.github.loadup.payment.domain.model.RiskOutcome;
 import org.junit.jupiter.api.AfterEach;

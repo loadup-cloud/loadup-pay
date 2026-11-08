@@ -16,7 +16,7 @@
 package io.github.loadup.acquire.app.port;
 
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 
 /**
  * Owns the acquiring allocation intent format; public payment Commands are only a boundary representation.

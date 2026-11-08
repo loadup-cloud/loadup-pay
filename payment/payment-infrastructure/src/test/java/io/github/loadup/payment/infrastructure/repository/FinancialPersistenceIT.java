@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +41,11 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentCodeInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentInputDTO;
+import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.limitcenter.client.command.LimitBeginExecutionCommand;
 import io.github.loadup.limitcenter.client.command.LimitReserveCommand;
 import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
@@ -62,11 +67,6 @@ import io.github.loadup.payment.app.service.PaymentInputAccess;
 import io.github.loadup.payment.app.service.PaymentInputPublication;
 import io.github.loadup.payment.app.service.PaymentInputService;
 import io.github.loadup.payment.app.service.PaymentSubmissionPreparation;
-import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.payment.client.dto.PaymentCodeInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
@@ -115,9 +115,11 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -132,6 +134,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SpringBootTest(classes = FinancialPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class FinancialPersistenceIT {
     private final PaymentAcceptanceTransactions transactions;
     private final PaymentSubmissionPreparation preparation;
@@ -590,7 +593,7 @@ class FinancialPersistenceIT {
                         fixture.command().paymentId()));
     }
 
-    static final class RemotePorts {
+    static class RemotePorts {
         static final String PERMIT = "e".repeat(64);
         final AtomicReference<CyclicBarrier> barrier = new AtomicReference<>();
         final Map<String, String> operationPayments = new ConcurrentHashMap<>();
@@ -669,7 +672,7 @@ class FinancialPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(basePackageClasses = {PaymentRecoveryStorageConverter.class, PaymentSubmissionConverter.class})
     @Import({
         PaymentAcceptanceGatewayImpl.class,

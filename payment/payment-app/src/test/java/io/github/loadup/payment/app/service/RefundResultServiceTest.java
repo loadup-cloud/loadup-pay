@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.IGNORED;
@@ -38,6 +38,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.payment.app.model.LockedRefund;
@@ -49,7 +50,6 @@ import io.github.loadup.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.payment.domain.model.RefundProgressChange;
 import io.github.loadup.payment.domain.model.RefundResultAnomaly;
-import io.github.loadup.payment.domain.model.RefundState;
 import io.github.loadup.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.payment.domain.model.StoredRefundRequest;
 import java.time.Clock;

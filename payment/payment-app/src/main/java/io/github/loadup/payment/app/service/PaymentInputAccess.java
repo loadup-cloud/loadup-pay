@@ -15,28 +15,28 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_ALREADY_BOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_ALREADY_BOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.payment.NoInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.NoInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentInteractionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.payment.domain.model.PaymentInput;
 import io.github.loadup.payment.domain.model.PaymentInputState;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import java.time.Clock;
 import java.time.LocalDateTime;

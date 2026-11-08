@@ -74,22 +74,22 @@ def apply_all(manifest: str, release_dir: Path, apps: list[str]) -> None:
     first = [
         item
         for item in data["items"]
-        if item["kind"] == "Namespace" or item["metadata"]["name"] in {"authserver", "authserver-http-ingress"}
+        if item["kind"] == "Namespace" or item["metadata"]["name"] in {"oauth2-server", "oauth2-server-http-ingress"}
     ]
     remaining = [item for item in data["items"] if item not in first]
-    (release_dir / "authserver.json").write_text(
+    (release_dir / "oauth2-server.json").write_text(
         json.dumps({"apiVersion": "v1", "kind": "List", "items": first}), encoding="utf-8"
     )
     (release_dir / "business.json").write_text(
         json.dumps({"apiVersion": "v1", "kind": "List", "items": remaining}), encoding="utf-8"
     )
     common.run(
-        ["kubectl", "--context", common.kube_context(), "apply", "-f", str(release_dir / "authserver.json")]
+        ["kubectl", "--context", common.kube_context(), "apply", "-f", str(release_dir / "oauth2-server.json")]
     )
-    verify("authserver")
+    verify("oauth2-server")
     # Roll consumers one at a time to bound startup CPU and database connections.
     for app in apps:
-        if app == "authserver":
+        if app == "oauth2-server":
             continue
         selected = [
             item
@@ -174,8 +174,8 @@ def main(argv=None):
                     raise SystemExit(1)
                 if immutable != "true":
                     common.fail(f"Release configuration must be immutable: {reference}")
-            if app == "authserver":
-                present, immutable = kubectl_jsonpath(f"secret/authserver-files-{os.environ['SECRET_VERSION']}")
+            if app == "oauth2-server":
+                present, immutable = kubectl_jsonpath(f"secret/oauth2-server-files-{os.environ['SECRET_VERSION']}")
                 if not present or immutable != "true":
                     common.fail("AuthServer signing files must be an immutable versioned Secret.")
         if os.environ.get("SKIP_BUILD") != "1":

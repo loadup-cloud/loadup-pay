@@ -17,7 +17,7 @@ package io.github.loadup.payment.client.command;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

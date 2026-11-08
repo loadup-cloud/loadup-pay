@@ -12,5 +12,12 @@ loadup:
   security:
     resource-server:
       enabled: false
+    service-auth:
+      token-uri: https://oauth2-server.invalid/oauth2/token
+      client-secret: test-service-secret
+      registrations:
+        internal:
+          scopes:
+            - internal
   kms:
     enabled: false

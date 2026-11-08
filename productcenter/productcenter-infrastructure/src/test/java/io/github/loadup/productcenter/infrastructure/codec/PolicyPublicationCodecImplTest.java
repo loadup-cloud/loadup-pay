@@ -20,13 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.limitcenter.client.dto.LimitRuleDTO;
 import io.github.loadup.limitcenter.client.support.LimitPolicyHash;
 import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitWindowType;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import io.github.loadup.productcenter.domain.model.PolicyPublication;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;

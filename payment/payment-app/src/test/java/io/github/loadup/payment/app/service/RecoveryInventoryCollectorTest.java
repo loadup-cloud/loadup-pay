@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.app.service;
 
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.payment.app.model.RecoveryInventoryCell.Kind.PAYMENT;
 import static io.github.loadup.payment.app.model.RecoveryInventoryCell.Kind.REFUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -108,8 +108,7 @@ class RecoveryInventoryCollectorTest {
             assertEquals(700.0, gauge(registry, ".unknown.nominal.amount", "refund"));
             assertEquals(2.0, gauge(registry, ".configured.tenants", null));
             assertEquals(1.0, gauge(registry, ".initialized", null));
-            verify(reader, times(1)).read();
-            verify(reader, times(1)).read();
+            verify(reader, times(2)).read();
             collector.execute();
             for (int i = 0; i < 5; i++) {
                 gauge(registry, ".unknown.count", "payment");

@@ -16,11 +16,10 @@ PAY_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_DIR = PAY_ROOT / "scripts"
 NAMESPACE = "loadup-pay"
 PAY_APPS = (
-    "authserver",
+    "oauth2-server",
+    "admin",
     "merchantcenter",
-    "merchantmng",
     "productcenter",
-    "productmng",
     "limitcenter",
     "payment",
     "acquire",

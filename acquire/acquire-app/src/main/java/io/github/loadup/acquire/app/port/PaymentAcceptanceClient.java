@@ -15,14 +15,14 @@
  */
 package io.github.loadup.acquire.app.port;
 
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.command.PaymentInputExpireCommand;
-import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.payment.client.dto.PaymentInputExpiryDTO;
-import io.github.loadup.payment.client.dto.PaymentInputLookupDTO;
-import io.github.loadup.payment.client.query.PaymentInputLookupQuery;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentInputDTO;
+import io.github.loadup.contracts.payment.PaymentInputExpireCommand;
+import io.github.loadup.contracts.payment.PaymentInputExpiryDTO;
+import io.github.loadup.contracts.payment.PaymentInputLookupDTO;
+import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
+import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
 
 /**
  * Service identity is supplied by the transport, never by the merchant.

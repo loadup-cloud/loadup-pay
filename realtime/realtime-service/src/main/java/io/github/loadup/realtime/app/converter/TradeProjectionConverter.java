@@ -15,12 +15,12 @@
  */
 package io.github.loadup.realtime.app.converter;
 
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.PaymentSnapshotEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
 import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.client.dto.TradeOrderDTO;
 import io.github.loadup.realtime.client.dto.TradePaymentDTO;

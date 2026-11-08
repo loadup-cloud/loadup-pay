@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.ConcurrencyFailureException;

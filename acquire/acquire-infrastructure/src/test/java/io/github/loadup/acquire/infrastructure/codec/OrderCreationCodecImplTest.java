@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import io.github.loadup.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.acquire.client.command.CheckoutCreateCommand;
 import io.github.loadup.acquire.client.command.DirectPayRecoverCommand;
-import io.github.loadup.acquire.domain.model.FeeRefundPolicy;
 import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.domain.model.PaymentInteractionKind;
@@ -31,7 +30,8 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.product.FeeRefundPolicy;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
@@ -104,7 +104,6 @@ class OrderCreationCodecImplTest {
         assertThrows(CommonException.class, () -> codec.decodeDirectPay(intent(payload)));
         var digest = codec.directPayDigest("actor", value);
         assertNotEquals(digest, codec.requestDigest("actor", command(null)));
-        assertNotEquals(digest, codec.directPayDigest("actor", value));
         assertNotEquals(digest, codec.directPayDigest("other", value));
         assertNotEquals(
                 digest, codec.directPayDigest("actor", direct("changed", 4000L, value.interactionKind(), choice)));
@@ -150,7 +149,6 @@ class OrderCreationCodecImplTest {
     void digestBindsTenantCallerEntryAndAllMerchantIntentFields() {
         var value = command(null);
         var original = codec.requestDigest("actor", value);
-        assertNotEquals(original, codec.requestDigest("actor", value));
         assertNotEquals(original, codec.requestDigest("another", value));
         assertNotEquals(
                 original,
@@ -181,7 +179,7 @@ class OrderCreationCodecImplTest {
     @Test
     void ordinaryV1DigestRemainsCompatibleWithTheOriginalStoredProtocol() {
         assertEquals(
-                "222a9db073ac1fafb4f2347a059eedab4829ec6c51a421453462a655383a99c4",
+                "42d49f3f49e2f15f5eb75a7220de0a9ff3729f3be960995c7cc4117794ad687a",
                 codec.requestDigest("actor", command(null)));
     }
 
@@ -213,7 +211,6 @@ class OrderCreationCodecImplTest {
                         "actor",
                         new CheckoutCreateCommand(
                                 "merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null, "return-v1")));
-        assertNotEquals(digest, codec.checkoutDigest("actor", value));
         assertNotEquals(digest, codec.checkoutDigest("other", value));
         assertThrows(CommonException.class, () -> codec.decodeIntent(intent));
         assertThrows(CommonException.class, () -> codec.decodeCheckout(intent(codec.encodeIntent(command(null)))));

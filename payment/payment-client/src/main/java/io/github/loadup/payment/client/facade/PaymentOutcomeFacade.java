@@ -16,7 +16,7 @@
 package io.github.loadup.payment.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
 
 public interface PaymentOutcomeFacade {
     PaymentOutcomeDTO outcome(IdQuery query);

@@ -31,6 +31,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -48,17 +49,17 @@ import io.github.loadup.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.payment.ParentFenceDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.util.List;
@@ -212,7 +213,7 @@ class OrderClosureOperationsTest {
 
     @Test
     void authoritativeParentConvergenceAndSettledAllocationsCanFinishClosure() {
-        when(payment.parentFenceStatus(any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
+        doReturn(new ParentFenceDTO("order", 1L, true, true, 0)).when(payment).parentFenceStatus(any());
         when(store.allAllocationsSettled("order")).thenReturn(true);
         var result = operations.close(scope, command);
         assertEquals(AcquireOrderState.CLOSED, result.state());
@@ -271,7 +272,7 @@ class OrderClosureOperationsTest {
                                 Money.ofMinor(1000L, "CNY")),
                         NOW);
         order.set(withOrder(original, change.order()));
-        when(payment.parentFenceStatus(any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
+        doReturn(new ParentFenceDTO("order", 1L, true, true, 0)).when(payment).parentFenceStatus(any());
         when(store.allAllocationsSettled("order")).thenReturn(true);
         operations.close(scope, command);
         assertEquals(1000L, order.get().order().paymentReservedMinor());

@@ -15,11 +15,11 @@
  */
 package io.github.loadup.acquire.client.dto;
 
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.PaymentProgress;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;

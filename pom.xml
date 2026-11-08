@@ -32,12 +32,12 @@
     </developers>
 
     <modules>
-        <module>authserver</module>
+        <module>pay-contracts</module>
+        <module>oauth2-server</module>
+        <module>admin</module>
         <module>merchantcenter</module>
-        <module>merchantmng</module>
         <module>limitcenter</module>
         <module>productcenter</module>
-        <module>productmng</module>
         <module>payment</module>
         <module>acquire</module>
         <module>realtime</module>
@@ -76,6 +76,11 @@
     </properties>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>pay-contracts-events</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>

@@ -26,7 +26,7 @@ import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;

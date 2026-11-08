@@ -20,11 +20,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;

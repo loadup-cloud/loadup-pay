@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.app.converter.LimitConverterImpl;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
@@ -29,8 +31,6 @@ import io.github.loadup.limitcenter.client.support.LimitPolicyHash;
 import io.github.loadup.limitcenter.domain.model.ActivatedLimitPolicy;
 import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitWindowType;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitPolicyRevisionDO;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -96,7 +96,7 @@ class LimitPolicyCodecTest {
     @Test
     void largeIntegerThresholdAndActivationMicrosecondsSurviveStorage() {
         var row = row();
-        var value = codec.decode(row);
+        var value = decode("tenant", row);
         assertEquals(9007199254740993L, value.rules().getFirst().threshold());
         assertEquals(row.getActivatedAt(), value.activatedAt());
     }

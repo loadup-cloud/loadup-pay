@@ -20,7 +20,7 @@ import io.github.loadup.acquire.client.dto.RefundNotificationAckDTO;
 import io.github.loadup.acquire.domain.model.RefundNotificationReceipt;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,6 +29,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -200,7 +202,7 @@ class PaymentCloseServiceTest {
             ChannelPaymentOutcome.Kind.UNKNOWN, ChannelPaymentOutcome.Kind.SUCCEEDED
         }) {
             var observed = observation(kind, PaymentObservation.Source.QUERY_RESPONSE, "b".repeat(64));
-            when(channels.close(any())).thenReturn(observed);
+            doReturn(observed).when(channels).close(any());
             assertEquals(applied, service.close("tenant", original));
             verify(results).record("tenant", observed);
         }
@@ -213,8 +215,9 @@ class PaymentCloseServiceTest {
         for (var source : new PaymentObservation.Source[] {
             PaymentObservation.Source.QUERY_RESPONSE, PaymentObservation.Source.CALLBACK
         }) {
-            when(channels.close(any()))
-                    .thenReturn(observation(ChannelPaymentOutcome.Kind.NO_COLLECTION, source, "b".repeat(64)));
+            doReturn(observation(ChannelPaymentOutcome.Kind.NO_COLLECTION, source, "b".repeat(64)))
+                    .when(channels)
+                    .close(any());
             assertEquals(
                     SNAPSHOT_INVALID,
                     assertThrows(CommonException.class, () -> service.close("tenant", original))
@@ -226,7 +229,7 @@ class PaymentCloseServiceTest {
 
     @Test
     void lostNetworkResponseLeavesNoEvidenceAndDoesNotReleaseAnyFinancialState() {
-        when(channels.close(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(channels).close(any());
         assertThrows(CommonException.class, () -> service.close("tenant", original));
         assertNull(saved.get());
         verifyNoInteractions(results);
@@ -260,11 +263,15 @@ class PaymentCloseServiceTest {
                 "e".repeat(64),
                 1L,
                 AttemptFixtures.NOW);
-        when(channels.close(any())).thenAnswer(call -> {
-            saved.set(winner);
-            return observation(
-                    ChannelPaymentOutcome.Kind.NO_COLLECTION, PaymentObservation.Source.CLOSE_RESPONSE, "f".repeat(64));
-        });
+        doAnswer(call -> {
+                    saved.set(winner);
+                    return observation(
+                            ChannelPaymentOutcome.Kind.NO_COLLECTION,
+                            PaymentObservation.Source.CLOSE_RESPONSE,
+                            "f".repeat(64));
+                })
+                .when(channels)
+                .close(any());
         service.close("tenant", original);
         verify(evidence, never()).insert(any());
         assertEquals(winner, saved.get());
@@ -316,8 +323,7 @@ class PaymentCloseServiceTest {
     void targetMismatchNeverReachesEvidenceStorageOrY3() {
         var observed = observation(
                 ChannelPaymentOutcome.Kind.NO_COLLECTION, PaymentObservation.Source.CLOSE_RESPONSE, "b".repeat(64));
-        when(channels.close(any()))
-                .thenReturn(new PaymentObservation(
+        doReturn(new PaymentObservation(
                         observed.identity(),
                         observed.kind(),
                         Money.ofMinor(1L, "CNY"),
@@ -325,7 +331,9 @@ class PaymentCloseServiceTest {
                         null,
                         observed.source(),
                         observed.receiptKey(),
-                        observed.sourceDigest()));
+                        observed.sourceDigest()))
+                .when(channels)
+                .close(any());
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.close("tenant", original))

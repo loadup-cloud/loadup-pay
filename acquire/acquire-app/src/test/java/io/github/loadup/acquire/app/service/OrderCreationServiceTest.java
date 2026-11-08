@@ -75,23 +75,23 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.product.AcquiringTermsDTO;
+import io.github.loadup.contracts.product.ChannelCapabilityDTO;
+import io.github.loadup.contracts.product.FeeRefundPolicy;
+import io.github.loadup.contracts.product.FeeTermsDTO;
+import io.github.loadup.contracts.product.LimitPolicyRefDTO;
+import io.github.loadup.contracts.product.NotificationTermsDTO;
+import io.github.loadup.contracts.product.OrderTermsDTO;
+import io.github.loadup.contracts.product.PaymentTermsDTO;
+import io.github.loadup.contracts.product.RefundAllocationPolicy;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
+import io.github.loadup.contracts.product.RefundTermsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
-import io.github.loadup.productcenter.client.dto.AcquiringTermsDTO;
-import io.github.loadup.productcenter.client.dto.ChannelCapabilityDTO;
-import io.github.loadup.productcenter.client.dto.FeeTermsDTO;
-import io.github.loadup.productcenter.client.dto.LimitPolicyRefDTO;
-import io.github.loadup.productcenter.client.dto.NotificationTermsDTO;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
-import io.github.loadup.productcenter.client.dto.OrderTermsDTO;
-import io.github.loadup.productcenter.client.dto.PaymentTermsDTO;
-import io.github.loadup.productcenter.client.dto.RefundTermsDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
-import io.github.loadup.productcenter.client.enums.FeeRefundPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAllocationPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.productcenter.client.enums.RefundCountRestorePolicy;
-import io.github.loadup.productcenter.client.enums.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
@@ -224,7 +224,7 @@ class OrderCreationServiceTest {
         when(tokens.matches(anyString(), any())).thenReturn(true);
         when(presentation.allowedOrigin()).thenReturn("https://pay.example");
         when(presentation.url(anyString(), anyString()))
-                .thenAnswer(c -> "https://pay.example/checkout#token=" + c.getArgument(2));
+                .thenAnswer(c -> "https://pay.example/checkout#token=" + c.getArgument(1));
         when(sessions.find(anyString())).thenAnswer(c -> Optional.ofNullable(session.get()));
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
@@ -317,11 +317,11 @@ class OrderCreationServiceTest {
 
     @Test
     void aLostDirectPayAdmissionReplyResumesTheOriginalReservedOrderIdentity() {
-        when(product.authorize(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(product).authorize(any());
         assertThrows(CommonException.class, () -> service.createDirectPay(direct()));
         var original = intent.get();
         assertEquals("INIT", original.state());
-        when(product.authorize(any())).thenAnswer(call -> admitted(call.getArgument(0)));
+        doAnswer(call -> admitted(call.getArgument(0))).when(product).authorize(any());
         var resumed = service.resumeDirectPay(direct());
         assertEquals(original.orderId(), resumed.orderId());
         assertEquals(original.id(), intent.get().id());

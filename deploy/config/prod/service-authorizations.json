@@ -6,17 +6,7 @@
       "serviceId": "acquire",
       "audience": "payment",
       "permissions": [
-        "pay:payment:input:prepare",
-        "pay:payment:input:read",
-        "pay:payment:input:expire",
-        "pay:payment:accept",
-        "pay:payment:read",
-        "pay:payment:fence",
-        "pay:payment:fence:read",
-        "pay:payment:close",
-        "pay:payment:attempt:start",
-        "pay:payment:acquire-facts",
-        "pay:payment:refund-summary:read"
+        "internal"
       ],
       "secretEnv": "ACQUIRE_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -27,7 +17,7 @@
       "serviceId": "acquire",
       "audience": "realtime",
       "permissions": [
-        "pay:realtime:projection:order"
+        "internal"
       ],
       "secretEnv": "ACQUIRE_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -38,9 +28,7 @@
       "serviceId": "limitcenter",
       "audience": "payment",
       "permissions": [
-        "pay:payment:read",
-        "pay:payment:limit-facts",
-        "pay:payment:refund-facts"
+        "internal"
       ],
       "secretEnv": "LIMITCENTER_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -51,9 +39,7 @@
       "serviceId": "payment",
       "audience": "acquire",
       "permissions": [
-        "pay:acquire:payment:outcome",
-        "pay:acquire:fee:refund",
-        "pay:acquire:refund:notification"
+        "internal"
       ],
       "secretEnv": "PAYMENT_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -64,14 +50,7 @@
       "serviceId": "payment",
       "audience": "limitcenter",
       "permissions": [
-        "pay:limit:reserve",
-        "pay:limit:read",
-        "pay:limit:execute",
-        "pay:limit:verify",
-        "pay:limit:expire",
-        "pay:limit:confirm",
-        "pay:limit:release",
-        "pay:limit:refund:restore"
+        "internal"
       ],
       "secretEnv": "PAYMENT_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -82,9 +61,7 @@
       "serviceId": "payment",
       "audience": "realtime",
       "permissions": [
-        "pay:realtime:projection:payment",
-        "pay:realtime:projection:refund",
-        "pay:realtime:projection:refund-summary"
+        "internal"
       ],
       "secretEnv": "PAYMENT_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -95,7 +72,7 @@
       "serviceId": "productcenter",
       "audience": "limitcenter",
       "permissions": [
-        "pay:limit:activate"
+        "internal"
       ],
       "secretEnv": "PRODUCTCENTER_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -106,11 +83,7 @@
       "serviceId": "reconciliation",
       "audience": "payment",
       "permissions": [
-        "pay:payment:reconciliation:capture:create",
-        "pay:payment:reconciliation:capture:retry",
-        "pay:payment:reconciliation:capture:read",
-        "pay:payment:reconciliation:statement:read",
-        "pay:payment:reconciliation:verify"
+        "internal"
       ],
       "secretEnv": "RECONCILIATION_OAUTH2_CLIENT_SECRET",
       "enabled": true
@@ -121,7 +94,7 @@
       "serviceId": "productcenter",
       "audience": "merchantcenter",
       "permissions": [
-        "pay:merchant:profile:read"
+        "internal"
       ],
       "secretEnv": "PRODUCTCENTER_OAUTH2_CLIENT_SECRET",
       "enabled": true

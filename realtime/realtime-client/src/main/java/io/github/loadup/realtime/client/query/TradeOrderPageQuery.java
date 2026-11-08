@@ -15,10 +15,10 @@
  */
 package io.github.loadup.realtime.client.query;
 
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.model.AcquireOrderState;
 import io.github.loadup.realtime.client.error.RealtimeResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

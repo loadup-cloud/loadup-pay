@@ -21,12 +21,12 @@ import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderFee;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderContractSnapshotDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderCreateIntentDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

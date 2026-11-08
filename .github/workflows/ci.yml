@@ -1,0 +1,165 @@
+name: Pay CI
+
+on:
+  push:
+    branches: [main, develop, dev]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      integration-tests:
+        description: Run the Testcontainers integration tests in addition to unit tests
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MAVEN_OPTS: -Xmx3072m -Djava.awt.headless=true
+  TZ: Asia/Shanghai
+  FRAMEWORK_REPOSITORY: loadup-cloud/loadup-framework
+  # GitHub Packages requires authenticated reads even for public packages; the framework
+  # publish job uploads every snapshot to loadup-cloud/loadup-packages.
+  LOADUP_PACKAGES_USERNAME: ${{ vars.PACKAGES_USERNAME || github.actor }}
+  LOADUP_PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+  MAVEN_SETTINGS: .github/maven-settings.xml
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v5 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never
+
+  tooling:
+    name: Repository Tooling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7 # v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: scripts/tests/requirements.txt
+      - name: Install test dependencies
+        run: python3 -m pip install --disable-pip-version-check -r scripts/tests/requirements.txt
+      - name: Check out the framework schema templates
+        uses: actions/checkout@v7 # v7
+        with:
+          repository: ${{ env.FRAMEWORK_REPOSITORY }}
+          ref: ${{ vars.FRAMEWORK_REF || 'main' }}
+          path: framework
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Test build, migration and deployment scripts
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Check component migrations are regenerated
+        env:
+          LOADUP_FRAMEWORK_ROOT: ${{ github.workspace }}/framework
+        run: python3 scripts/gen-migrations.py --check
+
+  lint:
+    name: Formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build
+      - name: Require registry credentials
+        run: |
+          if [[ -z "$LOADUP_PACKAGES_TOKEN" ]]; then
+            echo 'Set PACKAGES_TOKEN with read:packages for loadup-cloud/loadup-packages.' >&2
+            exit 1
+          fi
+      - name: Check Java and POM formatting
+        run: mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" spotless:check -Dskip.spotless=false
+
+  verify:
+    name: Build and Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: 'false'
+      TESTCONTAINERS_CHECKS_DISABLE: 'false'
+    steps:
+      - uses: actions/checkout@v7 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build
+      - name: Require registry credentials
+        run: |
+          if [[ -z "$LOADUP_PACKAGES_TOKEN" ]]; then
+            echo 'Set PACKAGES_TOKEN with read:packages for loadup-cloud/loadup-packages.' >&2
+            exit 1
+          fi
+      - name: Select the Maven test scope
+        run: |
+          if [[ "${{ inputs.integration-tests }}" == "true" ]]; then
+            echo 'Running unit and integration tests.'
+            echo 'MAVEN_TEST_SCOPE=' >> "$GITHUB_ENV"
+          else
+            echo 'Running unit tests; integration tests stay opt-in until they pass.'
+            echo 'MAVEN_TEST_SCOPE=-DskipITs' >> "$GITHUB_ENV"
+          fi
+      - name: Compile, run tests and enforce dependency rules
+        run: |
+          docker info
+          mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" clean enforcer:enforce verify \
+            $MAVEN_TEST_SCOPE -Dspring.profiles.active=ci -Dtestcontainers.reuse.enable=false
+      - name: Show container state on failure
+        if: failure()
+        run: docker ps -a
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7 # v7
+        with:
+          name: verify-reports
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+
+  quality-gate:
+    name: Quality Gate
+    needs: [tooling, lint, verify]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every job to pass
+        env:
+          TOOLING_RESULT: ${{ needs.tooling.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          for entry in "tooling:$TOOLING_RESULT" "lint:$LINT_RESULT" "verify:$VERIFY_RESULT"; do
+            job="${entry%%:*}"
+            result="${entry#*:}"
+            if [[ "$result" != success ]]; then
+              echo "$job did not pass: ${result:-missing}" >&2
+              exit 1
+            fi
+          done
+          echo 'All Pay checks passed.'

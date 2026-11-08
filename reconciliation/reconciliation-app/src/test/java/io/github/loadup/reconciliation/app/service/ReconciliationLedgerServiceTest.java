@@ -166,13 +166,13 @@ class ReconciliationLedgerServiceTest {
         });
         when(source.lines(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            PaymentCaptureLinesQuery query = call.getArgument(1);
+            PaymentCaptureLinesQuery query = call.getArgument(0);
             return PageDTO.of(query.page() == 1 ? List.of(row) : List.of(), 1L, query.page(), 100);
         });
         when(files.upload(eq("ops"), anyString(), eq("application/octet-stream"), anyLong(), any()))
                 .thenAnswer(call -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                    byte[] bytes = ((InputStream) call.getArgument(5)).readAllBytes();
+                    byte[] bytes = ((InputStream) call.getArgument(4)).readAllBytes();
                     assertArrayEquals(PaymentCaptureContentHash.archive(capture, List.of(row), 16777216), bytes);
                     String hash = HexFormat.of()
                             .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
@@ -280,7 +280,7 @@ class ReconciliationLedgerServiceTest {
     void prepareUsesOnlyOriginalBatchScopeAndRetryRequiresTheExactOriginalTask() {
         when(source.create(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            PaymentCaptureCreateCommand command = call.getArgument(1);
+            PaymentCaptureCreateCommand command = call.getArgument(0);
             assertEquals(scope.channel(), command.channel());
             assertEquals(scope.accountScopeHash(), command.accountScopeHash());
             assertEquals(scope.billDate(), command.billDate());

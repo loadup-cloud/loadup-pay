@@ -39,6 +39,10 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.app.converter.LimitRefundConverter;
 import io.github.loadup.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.limitcenter.app.security.LimitActor;
@@ -62,13 +66,9 @@ import io.github.loadup.limitcenter.domain.model.LimitRestoreResult;
 import io.github.loadup.limitcenter.domain.model.LimitRule;
 import io.github.loadup.limitcenter.domain.model.LimitSettlementReceipt;
 import io.github.loadup.limitcenter.domain.model.LimitWindowType;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;
-import io.github.loadup.payment.client.event.RefundOutcomeEventDTO;
-import io.github.loadup.payment.domain.model.RefundState;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
@@ -313,7 +313,7 @@ class LimitRefundServiceTest {
     void firstAckIsReplayedWithoutQueryingAgainAndChangedOriginalParametersConflict() {
         var original = command("refund1", 1000);
         var first = service.restoreRefund(original);
-        when(payment.refundFacts(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(payment).refundFacts(anyString());
         assertEquals(first, service.restoreRefund(original));
         var changed = new LimitRefundRestoreCommand(
                 "operation", "payment", "refund1", 2, "event-refund1", 999, 1000, "CNY", "proof-refund1");

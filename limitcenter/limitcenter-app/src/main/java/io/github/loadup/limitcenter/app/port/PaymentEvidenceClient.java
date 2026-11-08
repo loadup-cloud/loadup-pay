@@ -15,7 +15,7 @@
  */
 package io.github.loadup.limitcenter.app.port;
 
-import io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
 import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;
 
 public interface PaymentEvidenceClient {

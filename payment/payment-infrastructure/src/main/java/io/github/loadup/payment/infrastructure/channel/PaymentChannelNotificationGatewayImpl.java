@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.channel;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;

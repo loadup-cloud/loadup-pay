@@ -24,8 +24,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.infrastructure.config.AcquireRealtimeProperties;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
@@ -34,6 +32,8 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
 import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import java.time.Clock;

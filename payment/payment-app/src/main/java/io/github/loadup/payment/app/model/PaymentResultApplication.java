@@ -16,7 +16,7 @@
 package io.github.loadup.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
 import io.github.loadup.payment.domain.model.PaymentReceiptDisposition;
 
 /**

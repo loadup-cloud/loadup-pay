@@ -15,24 +15,25 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.payment.channel.api.error.ChannelResultCodeEnum;
+import io.github.loadup.contracts.model.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.payment.app.model.PaymentResultApplication;
@@ -46,7 +47,6 @@ import io.github.loadup.payment.domain.model.GateState;
 import io.github.loadup.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.payment.domain.model.PaymentReceiptDisposition;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import java.time.Clock;
 import java.time.LocalDateTime;

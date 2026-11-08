@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.IGNORED;
@@ -28,6 +28,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.payment.app.model.LockedRefund;
@@ -39,7 +40,6 @@ import io.github.loadup.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.payment.domain.model.RefundProgressChange;
 import io.github.loadup.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.payment.domain.model.RefundResultAnomaly;
-import io.github.loadup.payment.domain.model.RefundState;
 import io.github.loadup.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.payment.domain.model.StoredRefundRequest;
 import java.time.Clock;

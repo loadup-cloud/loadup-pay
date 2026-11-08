@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.STATEMENT_NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.STATEMENT_NOT_READY;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.STATEMENT_NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.STATEMENT_NOT_READY;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -194,18 +195,23 @@ class PaymentStatementServiceTest {
     @Test
     void signedAbsenceIsExplicitAndOtherChannelFailuresRemainDependencyFailures() {
         when(bindings.findRevision("revision")).thenReturn(Optional.of(binding));
-        when(channels.download(any(), any())).thenThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_FOUND));
+        doThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_FOUND))
+                .when(channels)
+                .download(any(), any());
         assertEquals(
                 STATEMENT_NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.download(query))
                         .getResultCode());
-        when(channels.download(any(), any())).thenThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_READY));
+        doThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_READY))
+                .when(channels)
+                .download(any(), any());
         assertEquals(
                 STATEMENT_NOT_READY,
                 assertThrows(CommonException.class, () -> service.download(query))
                         .getResultCode());
-        when(channels.download(any(), any()))
-                .thenThrow(new CommonException(ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID));
+        doThrow(new CommonException(ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID))
+                .when(channels)
+                .download(any(), any());
         assertEquals(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service.download(query))

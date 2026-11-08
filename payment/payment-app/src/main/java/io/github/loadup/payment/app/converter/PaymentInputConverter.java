@@ -17,9 +17,9 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.payment.client.dto.PaymentInputLookupDTO;
+import io.github.loadup.contracts.payment.PaymentInputDTO;
+import io.github.loadup.contracts.payment.PaymentInputLookupDTO;
+import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
 import io.github.loadup.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.payment.domain.model.PaymentInput;
 import java.time.LocalDateTime;
@@ -29,9 +29,9 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInputConverter {
-    @Mapping(target = "found", source = "found")
-    @Mapping(target = "input", source = "input")
-    PaymentInputLookupDTO toLookup(boolean found, PaymentInputDTO input);
+    default PaymentInputLookupDTO toLookup(boolean found, PaymentInputDTO input) {
+        return new PaymentInputLookupDTO(found, input);
+    }
 
     @Mapping(target = "id", source = "inputRef")
     @Mapping(

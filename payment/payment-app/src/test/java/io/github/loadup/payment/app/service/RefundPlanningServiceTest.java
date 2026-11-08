@@ -15,12 +15,12 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.REFUND_AMOUNT_EXCEEDED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.REFUND_AMOUNT_EXCEEDED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,6 +30,7 @@ import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -46,10 +47,11 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
 import io.github.loadup.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.security.RefundActor;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.client.command.RefundCreateCommand;
 import io.github.loadup.payment.client.dto.RefundExplicitAllocationDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -68,7 +70,6 @@ import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.payment.domain.model.StoredRefundRequest;
-import io.github.loadup.productcenter.client.dto.AdmittedOrderTermsDTO;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.nio.charset.StandardCharsets;
@@ -337,13 +338,14 @@ class RefundPlanningServiceTest {
     @Test
     void aFencedCollectionGateStillPermitsIndependentRefunds() {
         var original = AttemptFixtures.gate(true);
-        when(payments.lockParent("order"))
-                .thenReturn(Optional.of(new StoredPaymentGate(
+        doReturn(Optional.of(new StoredPaymentGate(
                         original.id(),
                         original.payeeMerchantId(),
                         original.callerServiceId(),
                         original.gate().fence(1),
-                        original.rowVersion() + 1)));
+                        original.rowVersion() + 1)))
+                .when(payments)
+                .lockParent("order");
         assertEquals(6000, service(AttemptFixtures.NOW).create(command(6000)).amountMinor());
     }
 

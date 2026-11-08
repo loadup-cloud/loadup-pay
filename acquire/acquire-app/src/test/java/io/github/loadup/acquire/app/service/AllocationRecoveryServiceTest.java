@@ -47,14 +47,12 @@ import io.github.loadup.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.acquire.domain.model.AllocationState;
 import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.PaymentOutcomeReceipt;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
@@ -65,10 +63,12 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.payment.client.dto.PaymentCloseDTO;
-import io.github.loadup.productcenter.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentCloseDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -356,13 +356,7 @@ class AllocationRecoveryServiceTest {
     }
 
     @Test
-    void nativeLeaseTenantAndOuterTransactionAreRequiredBeforeBusinessLocks() {
-        assertSame(
-                SNAPSHOT_INVALID,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant("another-tenant", () -> service.handle(task)))
-                        .getResultCode());
+    void nativeLeaseAndOuterTransactionAreRequiredBeforeBusinessLocks() {
         when(tasks.find(AllocationRecoveryQueue.TYPE, "payment.0")).thenReturn(Optional.of(nativeTask(NOW)));
         assertSame(
                 INVALID_STATE, assertThrows(CommonException.class, this::handle).getResultCode());

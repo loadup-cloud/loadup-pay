@@ -53,11 +53,8 @@ loadup:
       max-size: 64KB
   database:
     multi-tenant:
-      enabled: true
-      required: true
-      request:
-        header-name: ""
-        subdomain-enabled: false
+      enabled: false
+      required: false
   flyway:
     enabled: true
     locations:

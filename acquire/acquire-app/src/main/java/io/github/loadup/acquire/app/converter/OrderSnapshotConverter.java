@@ -16,9 +16,9 @@
 package io.github.loadup.acquire.app.converter;
 
 import io.github.loadup.acquire.app.model.OrderSnapshotFacts;
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;

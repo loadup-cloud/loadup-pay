@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.IGNORED;
@@ -58,6 +58,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarge
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
+import io.github.loadup.contracts.model.PaymentState;
 import io.github.loadup.payment.app.config.RecoveryPollingConfiguration;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
@@ -96,7 +97,6 @@ import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.PaymentRecoveryKey;
 import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
@@ -123,11 +123,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -149,6 +151,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
             "loadup.modules.payment.recovery-polling.jitter-percent=0"
         })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class PaymentResultPersistenceIT {
     private final PaymentAcceptanceTransactions transactions;
     private final PaymentAcceptanceGateway payments;
@@ -668,9 +671,8 @@ class PaymentResultPersistenceIT {
     }
 
     @Test
-    void inventoryUsesTheFirstCommittedUnknownTimeAndKeepsOtherTenantsOutOfTheCount() {
+    void inventoryUsesTheFirstCommittedUnknownTime() {
         var first = seedSubmitted();
-        var other = seedSubmitted();
         var original = remote.observations.get(first.attempt().attempt().id());
         var firstUnknown = new PaymentObservation(
                 original.identity(),
@@ -690,20 +692,18 @@ class PaymentResultPersistenceIT {
                 first.command().paymentId()));
         clock.advance(Duration.ofMinutes(2));
         var firstUnknownAt = now();
-        for (var fixture : List.of(first, other)) {
-            var attempt = fixture.attempt().attempt();
-            resultService.record(
-                    fixture.tenant(),
-                    new PaymentObservation(
-                            attempt.identity(),
-                            ChannelPaymentOutcome.Kind.UNKNOWN,
-                            attempt.amount(),
-                            null,
-                            null,
-                            PaymentObservation.Source.QUERY_RESPONSE,
-                            "inventory-unknown",
-                            "b".repeat(64)));
-        }
+        var attempt = first.attempt().attempt();
+        resultService.record(
+                first.tenant(),
+                new PaymentObservation(
+                        attempt.identity(),
+                        ChannelPaymentOutcome.Kind.UNKNOWN,
+                        attempt.amount(),
+                        null,
+                        null,
+                        PaymentObservation.Source.QUERY_RESPONSE,
+                        "inventory-unknown",
+                        "b".repeat(64)));
         clock.advance(Duration.ofMinutes(1));
         resultService.record(
                 first.tenant(),
@@ -761,7 +761,7 @@ class PaymentResultPersistenceIT {
     }
 
     @Test
-    void unknownInvestigationKeepsTenantAndKeysetBoundariesAndDoesNotBlockFinancialWrites() {
+    void unknownInvestigationKeepsKeysetBoundariesAndDoesNotBlockFinancialWrites() {
         var first = seedSubmitted(true);
         var generated = FinancialPersistenceFixtures.prepared(codec, bindingCodec);
         var second = persistSubmitted(
@@ -773,9 +773,8 @@ class PaymentResultPersistenceIT {
                         generated.head(),
                         generated.revision()),
                 true);
-        var outsider = seedSubmitted(true);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            for (var fixture : List.of(first, second, outsider)) {
+            for (var fixture : List.of(first, second)) {
                 var original =
                         remote.observations.get(fixture.attempt().attempt().id());
                 resultService.record(
@@ -866,7 +865,7 @@ class PaymentResultPersistenceIT {
                                                     new UnknownRecoveryWindow(AT, null, null, 10))))
                             .getResultCode());
         } finally {
-            for (var fixture : List.of(first, second, outsider)) {
+            for (var fixture : List.of(first, second)) {
                 cancelRemainingTasks(fixture);
             }
         }
@@ -1085,9 +1084,10 @@ class PaymentResultPersistenceIT {
             assertEquals(
                     expected,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM delayed_task WHERE task_type = ?",
+                                    "SELECT COUNT(*) FROM delayed_task WHERE task_type = ? AND biz_id LIKE ?",
                                     Long.class,
-                                    PaymentRecoveryService.TYPE)
+                                    PaymentRecoveryService.TYPE,
+                                    fixture.command().paymentId() + ".%")
                             .longValue());
             return true;
         });
@@ -1121,7 +1121,7 @@ class PaymentResultPersistenceIT {
     /**
      * Virtual business/native time, independent of persistence audit timestamps and the machine clock.
      */
-    static final class ControlledClock extends Clock {
+    static class ControlledClock extends Clock {
         private final AtomicReference<Instant> instant;
         private final ZoneId zone;
 
@@ -1159,7 +1159,7 @@ class PaymentResultPersistenceIT {
         }
     }
 
-    static final class PausedQuery {
+    static class PausedQuery {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch resume = new CountDownLatch(1);
 
@@ -1169,7 +1169,7 @@ class PaymentResultPersistenceIT {
         }
     }
 
-    static final class Faults {
+    static class Faults {
         final AtomicReference<FailurePoint> next = new AtomicReference<>();
 
         void after(FailurePoint point) {
@@ -1247,7 +1247,7 @@ class PaymentResultPersistenceIT {
     /**
      * Only authenticated external facts and unreachable first-submit/action branches are test doubles.
      */
-    static final class RemoteChannel {
+    static class RemoteChannel {
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
         final PaymentInitialAttemptService initial = mock(PaymentInitialAttemptService.class);
         final PaymentSubmissionPreparation preparation = mock(PaymentSubmissionPreparation.class);
@@ -1285,7 +1285,7 @@ class PaymentResultPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(basePackageClasses = {PaymentResultStorageConverter.class, PaymentAcceptanceConverter.class})
     @Import({
         PaymentAcceptanceGatewayImpl.class,

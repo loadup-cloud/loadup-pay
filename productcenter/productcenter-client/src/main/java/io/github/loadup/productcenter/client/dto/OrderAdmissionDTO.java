@@ -17,6 +17,7 @@ package io.github.loadup.productcenter.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.product.AcquiringTermsDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;

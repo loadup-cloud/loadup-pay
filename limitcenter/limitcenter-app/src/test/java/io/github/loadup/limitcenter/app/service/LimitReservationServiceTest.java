@@ -68,7 +68,7 @@ class LimitReservationServiceTest {
                         f.policy(currentVersion, threshold).rules().getFirst(),
                         currentVersion)));
         when(f.reservations.lockBuckets(anyList())).thenAnswer(call -> {
-            List<LimitBucketKey> keys = call.getArgument(1);
+            List<LimitBucketKey> keys = call.getArgument(0);
             var values = new HashMap<LimitBucketKey, LimitBucket>();
             for (var key : keys) {
                 values.put(key, new LimitBucket(key, used, 0, 4));

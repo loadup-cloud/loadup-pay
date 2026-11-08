@@ -16,9 +16,9 @@
 package io.github.loadup.limitcenter.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.client.dto.LimitRuleDTO;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

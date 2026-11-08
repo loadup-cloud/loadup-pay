@@ -54,7 +54,6 @@ import io.github.loadup.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.acquire.client.dto.PaymentStartDTO;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.gateway.PaymentOutcomeGateway;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.AllocationState;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.infrastructure.codec.OrderCreationCodecImpl;
@@ -69,12 +68,13 @@ import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.NoInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.dto.PaymentOutcomeDTO;
-import io.github.loadup.payment.domain.model.PaymentState;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.payment.NoInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import java.time.Clock;
 import java.time.ZoneId;
@@ -90,11 +90,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -109,6 +111,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
         classes = AcquiringFinancialPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class AcquiringFinancialPersistenceIT {
     private final OrderCreationGateway orders;
     private final PaymentOutcomeGateway outcomes;
@@ -350,7 +353,8 @@ class AcquiringFinancialPersistenceIT {
                             .state());
             assertEquals(1L, receiptCount(fixture));
             assertEquals("CONFIRMED", feeState(fixture));
-            assertEquals(1L, adjustmentCount(fixture));
+            // A non-refundable fee has no refund-driven adjustment to book at confirmation.
+            assertEquals(0L, adjustmentCount(fixture));
             assertEquals(2L, outboxCount(fixture));
             return true;
         });
@@ -408,7 +412,7 @@ class AcquiringFinancialPersistenceIT {
                 f.stored().order().id());
     }
 
-    static final class RemotePayment {
+    static class RemotePayment {
         final AtomicReference<AcquireActor> actor = new AtomicReference<>();
         final AtomicBoolean failSnapshot = new AtomicBoolean();
         final Map<String, PaymentExecuteCommand> commands = new ConcurrentHashMap<>();
@@ -458,7 +462,7 @@ class AcquiringFinancialPersistenceIT {
         }
     }
 
-    static final class FaultingSnapshotEvents extends OrderSnapshotEvents {
+    static class FaultingSnapshotEvents extends OrderSnapshotEvents {
         private final RemotePayment remote;
 
         FaultingSnapshotEvents(
@@ -482,7 +486,7 @@ class AcquiringFinancialPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(basePackageClasses = {OrderCreationStorageConverter.class, AcquireOrderConverter.class})
     @Import({
         OrderCreationGatewayImpl.class,

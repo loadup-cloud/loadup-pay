@@ -25,6 +25,8 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.time.LocalDateTime;
 import java.util.Objects;
 

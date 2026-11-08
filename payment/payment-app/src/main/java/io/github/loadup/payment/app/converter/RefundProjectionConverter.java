@@ -17,10 +17,10 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
 import io.github.loadup.payment.app.model.RefundSnapshotFacts;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.payment.domain.model.RefundRequest;
 import java.time.LocalDateTime;

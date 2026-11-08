@@ -29,12 +29,12 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.app.security.CashierActor;
 import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 

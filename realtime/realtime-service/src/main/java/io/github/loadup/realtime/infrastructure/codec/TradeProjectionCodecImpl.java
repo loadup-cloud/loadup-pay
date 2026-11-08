@@ -17,13 +17,13 @@ package io.github.loadup.realtime.infrastructure.codec;
 
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.PaymentSnapshotEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
 import io.github.loadup.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.realtime.app.port.TradeProjectionCodec;
 import io.github.loadup.realtime.domain.model.SourceVersion;
@@ -145,7 +145,7 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
         var data = new StringBuilder();
         for (var field : List.of(
                 "realtime-delivery-v1",
-                tenant,
+                tenant == null ? "" : tenant,
                 service,
                 event.deliveryId(),
                 event.businessEventId(),

@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,15 +36,15 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -124,20 +125,14 @@ class OrderClosureRecoveryServiceTest {
 
     @Test
     void oldGenerationOrTerminalOrderHasNoAnotherPass() {
-        when(operations.isCurrent(scope, order, intent, 3L)).thenReturn(false);
+        doReturn(false).when(operations).isCurrent(scope, order, intent, 3L);
         handle();
         verify(operations, never()).resume(any(), any());
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
 
     @Test
-    void missingOriginalIntentAndWrongTenantCannotManufactureAClose() {
-        assertSame(
-                SNAPSHOT_INVALID,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant("another-tenant", () -> service.handle(task)))
-                        .getResultCode());
+    void missingOriginalIntentCannotManufactureAClose() {
         when(closes.findIntent("order")).thenReturn(Optional.empty());
         assertSame(
                 SNAPSHOT_INVALID,

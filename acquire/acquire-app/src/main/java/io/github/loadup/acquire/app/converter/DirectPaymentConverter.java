@@ -26,11 +26,11 @@ import io.github.loadup.acquire.client.dto.PaymentRecoveryDTO;
 import io.github.loadup.acquire.domain.model.OrderCreationRecoveryState;
 import io.github.loadup.acquire.domain.model.PaymentInteractionKind;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.payment.client.dto.ChannelIdentityInteractionDTO;
-import io.github.loadup.payment.client.dto.H5SceneInteractionDTO;
-import io.github.loadup.payment.client.dto.NoInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentCodeInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.contracts.payment.ChannelIdentityInteractionDTO;
+import io.github.loadup.contracts.payment.H5SceneInteractionDTO;
+import io.github.loadup.contracts.payment.NoInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentCodeInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

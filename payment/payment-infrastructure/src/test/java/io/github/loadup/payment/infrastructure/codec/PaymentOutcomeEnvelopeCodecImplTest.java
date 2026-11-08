@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.codec;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.payment.domain.model.PaymentState;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.model.PaymentState;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;

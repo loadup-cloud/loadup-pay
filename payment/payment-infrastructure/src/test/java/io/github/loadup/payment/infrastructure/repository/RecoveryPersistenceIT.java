@@ -45,9 +45,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -59,6 +61,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @SpringBootTest(classes = RecoveryPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class RecoveryPersistenceIT {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 26, 12, 0);
     private static final String AUDIT_TYPE = "pay.review.native-retry";
@@ -292,7 +295,7 @@ class RecoveryPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(basePackageClasses = PaymentRecoveryStorageConverter.class)
     @Import({
         PaymentRecoveryGatewayImpl.class,

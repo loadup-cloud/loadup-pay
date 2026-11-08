@@ -57,11 +57,8 @@ loadup:
       merchantcenter-audience: ${MERCHANTCENTER_JWT_AUDIENCE:merchantcenter}
   database:
     multi-tenant:
-      enabled: true
-      required: true
-      request:
-        header-name: ""
-        subdomain-enabled: false
+      enabled: false
+      required: false
   outbox:
     enabled: true
     worker-enabled: true
@@ -76,16 +73,16 @@ loadup:
       - classpath:db/migration
   security:
     service-auth:
-      token-uri: ${SERVICE_AUTH_TOKEN_URI:http://authserver:8080/oauth2/token}
+      token-uri: ${SERVICE_AUTH_TOKEN_URI:http://oauth2-server:8080/oauth2/token}
       allow-insecure-http: ${SERVICE_AUTH_ALLOW_INSECURE_HTTP:false}
       client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
       registrations:
         merchantcenter:
           scopes:
-            - pay:merchant:profile:read
+            - internal
         limitcenter:
           scopes:
-            - pay:limit:activate
+            - internal
     resource-server:
       enabled: true
       issuer-uri: ${JWT_ISSUER_URI:}

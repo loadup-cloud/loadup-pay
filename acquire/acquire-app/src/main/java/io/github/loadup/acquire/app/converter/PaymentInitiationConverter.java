@@ -22,15 +22,15 @@ import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.payment.client.command.PaymentCloseCommand;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.command.PaymentInputExpireCommand;
-import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.dto.PaymentInteractionDTO;
-import io.github.loadup.payment.client.query.PaymentInputLookupQuery;
-import io.github.loadup.productcenter.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentCloseCommand;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentInputExpireCommand;
+import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
+import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
+import io.github.loadup.contracts.payment.PaymentInteractionDTO;
+import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -98,25 +98,25 @@ public interface PaymentInitiationConverter {
     @Mapping(
             target = "requestKey",
             expression =
-                    "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
+                    "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
-            expression = "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.FENCE_EPOCH)")
     @Mapping(
             target = "reasonCode",
-            expression = "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.REASON)")
+            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.REASON)")
     PaymentCloseCommand toInputExpiryClose(PaymentExecuteCommand command);
 
     @Mapping(
             target = "requestKey",
             expression =
-                    "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.PREPARATION_REQUEST_KEY_PREFIX + command.allocationId())")
+                    "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.PREPARATION_REQUEST_KEY_PREFIX + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
-            expression = "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.FENCE_EPOCH)")
     @Mapping(
             target = "reasonCode",
-            expression = "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.PREPARATION_REASON)")
+            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.PREPARATION_REASON)")
     PaymentCloseCommand toPreparationExpiryClose(PaymentExecuteCommand command);
 
     @Mapping(target = "preparedInputRef", source = "inputRef")

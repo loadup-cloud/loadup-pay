@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: admin
+  datasource:
+    url: ${ADMIN_JDBC_URL}
+    username: ${ADMIN_JDBC_USERNAME}
+    password: ${ADMIN_JDBC_PASSWORD}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
+  threads:
+    virtual:
+      enabled: false
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: [readinessState, db]
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: ${METRICS_ENABLED:false}
+  metrics:
+    enable:
+      all: ${METRICS_ENABLED:false}
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+loadup:
+  webmvc:
+    request-body:
+      path-prefix: /api/
+      max-size: 1MB
+  database:
+    multi-tenant:
+      enabled: false
+      required: false
+  kms:
+    enabled: true
+    binder: local
+    local:
+      key-store-location: ${ADMIN_KEYSTORE_LOCATION:file:/var/run/loadup/secrets/admin.p12}
+      key-store-type: PKCS12
+      key-store-password-env: KMS_KEYSTORE_PASSWORD
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${JWT_ISSUER_URI:http://admin:8080}
+      audience: ${JWT_AUDIENCE:admin}
+      permit-all:
+        - /api/auth/login
+    auth-server:
+      issuer: ${JWT_ISSUER_URI:http://admin:8080}
+      audience: ${JWT_AUDIENCE:admin}
+      protocol-endpoints-enabled: false
+      signing:
+        active-key:
+          name: ${ADMIN_SIGNING_KEY:admin-jwt}
+          version: 1

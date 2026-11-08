@@ -26,14 +26,14 @@ import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.PaymentProgress;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.product.FeeTermsDTO;
+import io.github.loadup.contracts.product.PaymentTermsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
-import io.github.loadup.productcenter.client.dto.FeeTermsDTO;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
-import io.github.loadup.productcenter.client.dto.PaymentTermsDTO;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;
@@ -49,7 +49,7 @@ public interface AcquireOrderConverter {
 
     OrderFeePolicy toFeePolicy(FeeTermsDTO terms);
 
-    UnpaidOrderAction toUnpaidAction(io.github.loadup.productcenter.client.enums.UnpaidOrderAction action);
+    UnpaidOrderAction toUnpaidAction(UnpaidOrderAction action);
 
     @Mapping(target = "contract", source = "value")
     OrderAdmissionProof toProof(OrderAdmissionDTO value);

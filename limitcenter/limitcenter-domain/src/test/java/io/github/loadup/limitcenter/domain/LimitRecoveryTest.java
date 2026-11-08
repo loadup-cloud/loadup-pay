@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.domain.model.LimitAttemptEvidence;
 import io.github.loadup.limitcenter.domain.model.LimitBucketKey;
 import io.github.loadup.limitcenter.domain.model.LimitMetric;
@@ -28,8 +30,6 @@ import io.github.loadup.limitcenter.domain.model.LimitOperationGate;
 import io.github.loadup.limitcenter.domain.model.LimitReservation;
 import io.github.loadup.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.limitcenter.domain.model.LimitWindowType;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.domain.model.WindowBounds;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;

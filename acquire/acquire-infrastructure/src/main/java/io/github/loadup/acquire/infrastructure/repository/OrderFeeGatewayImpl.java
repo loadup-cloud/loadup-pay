@@ -22,7 +22,6 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 
 import io.github.loadup.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.FeeState;
 import io.github.loadup.acquire.domain.model.OrderFee;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
@@ -32,6 +31,7 @@ import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.contracts.model.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;

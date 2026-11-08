@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -43,6 +43,8 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
@@ -54,10 +56,8 @@ import io.github.loadup.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.payment.domain.model.RefundProgressChange;
-import io.github.loadup.payment.domain.model.RefundState;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -277,7 +277,7 @@ class RefundProjectionEventsTest {
         assertEquals(2, ((Number) limitEnvelope.get("aggregateVersion")).longValue());
         assertEquals("refund", data.get("refundId"));
         assertEquals("SUCCEEDED", data.get("state"));
-        assertEquals("refund-transaction", data.get("evidenceId"));
+        assertEquals("receipt", data.get("evidenceId"));
         assertEquals(1000, ((Number) data.get("cumulativePaymentRefundedMinor")).longValue());
         assertEquals(
                 BusinessTime.external(RefundResultFixtures.NOW).toInstant(),

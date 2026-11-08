@@ -54,13 +54,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(classes = MerchantContractIT.Application.class)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class MerchantContractIT {
     private final MerchantService merchants;
     private final MerchantQueryFacade lookup;
@@ -255,7 +258,7 @@ class MerchantContractIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @org.springframework.context.annotation.Import({
         CatalogService.class,
         MerchantContractService.class,

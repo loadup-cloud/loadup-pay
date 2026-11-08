@@ -16,9 +16,9 @@
 package io.github.loadup.payment.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import java.util.stream.Collectors;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;

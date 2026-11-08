@@ -25,6 +25,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.model.RefundState;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;

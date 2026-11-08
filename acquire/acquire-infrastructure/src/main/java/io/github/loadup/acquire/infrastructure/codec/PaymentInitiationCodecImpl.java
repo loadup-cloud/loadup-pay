@@ -24,7 +24,7 @@ import io.github.loadup.acquire.infrastructure.converter.PaymentIntentSnapshotCo
 import io.github.loadup.acquire.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Component;
@@ -69,6 +69,9 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
+            if (!mapper.writeValueAsString(value).equals(stored.intentPayload())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var allocation = stored.allocation();
             if (value == null
                     || !allocation.id().equals(value.allocationId())

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,14 +34,14 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.limitcenter.domain.model.LimitRestoreResult;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.payment.app.port.PaymentLimitClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.payment.client.event.RefundOutcomeEventDTO;
-import io.github.loadup.payment.domain.model.RefundState;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

@@ -227,7 +227,7 @@ class PaymentChannelCallbackControllerTest {
 
         var response = controller.receive(ENDPOINT_REF, request(body, null));
 
-        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, response.getStatusCode());
+        assertEquals(HttpStatus.CONTENT_TOO_LARGE, response.getStatusCode());
         assertNull(response.getBody());
         verify(callbacks, never()).receive(anyString(), any());
     }

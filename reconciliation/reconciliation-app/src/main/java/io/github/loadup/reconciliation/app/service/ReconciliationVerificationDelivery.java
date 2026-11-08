@@ -86,16 +86,25 @@ public class ReconciliationVerificationDelivery {
                 || nativeRow.attempts() < 1) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
+        System.err.println("DIAG deliver activeTx=" + TransactionSynchronizationManager.isActualTransactionActive()
+                + " state=" + original.state() + " delivery=" + nativeRow.status());
         if (original.state() == ReconciliationVerificationState.RECORDED) {
             return;
         }
         transactions.readSnapshot(tenant, () -> approved(tenant, original, false));
         var query = converter.toQuery(original);
-        var result = payment.verify(query);
+        io.github.loadup.reconciliation.client.dto.PaymentVerificationDTO result;
+        try {
+            result = payment.verify(query);
+        } catch (RuntimeException failure) {
+            System.err.println("DIAG verify threw " + failure);
+            throw failure;
+        }
         if (result == null || !query.equals(result.request())) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         var receipt = converter.toReceipt(result);
+        System.err.println("DIAG verified result disposition=" + result.disposition());
         transactions.writeLocal(tenant, () -> {
             approved(tenant, original, true);
             var current = requests.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -110,6 +119,7 @@ public class ReconciliationVerificationDelivery {
                 throw new CommonException(INVALID_STATE);
             }
             requests.update(current.complete(receipt), current.version());
+            System.err.println("DIAG recorded receipt disposition=" + receipt.disposition());
             return true;
         });
     }

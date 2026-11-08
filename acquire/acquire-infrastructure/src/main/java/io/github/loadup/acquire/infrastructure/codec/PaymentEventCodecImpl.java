@@ -18,7 +18,7 @@ package io.github.loadup.acquire.infrastructure.codec;
 import io.github.loadup.acquire.app.port.PaymentEventCodec;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

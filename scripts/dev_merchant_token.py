@@ -62,7 +62,7 @@ def sign(p12: Path, password: str, signing_input: str) -> bytes:
             check=False,
         )
         if result.returncode != 0:
-            common.fail("Unable to read the AuthServer KeyStore; check authserver.p12 and KMS_KEYSTORE_PASSWORD.")
+            common.fail("Unable to read the OAuth2 server KeyStore; check oauth2-server.p12 and KMS_KEYSTORE_PASSWORD.")
         os.chmod(key, 0o600)
         result = subprocess.run(
             ["openssl", "dgst", "-sha256", "-sign", str(key)],
@@ -123,16 +123,16 @@ def main(argv: list[str] | None = None) -> None:
     common.require_command("openssl")
 
     config_dir = Path(os.environ["CONFIG_DIR"]).resolve()
-    auth = config_dir / "authserver"
+    auth = config_dir / "oauth2-server"
     common_values = env_file(config_dir / "common.env")
     auth_config = env_file(auth / "config.env")
     auth_secret = env_file(auth / "secret.env")
-    p12 = auth / "authserver.p12"
+    p12 = auth / "oauth2-server.p12"
     if not p12.is_file():
-        common.fail("AuthServer KeyStore is missing; run python3 scripts/up.py authserver for dev first.")
+        common.fail("OAuth2 server KeyStore is missing; run python3 scripts/up.py oauth2-server for dev first.")
     password = auth_secret.get("KMS_KEYSTORE_PASSWORD", "")
     if not password:
-        common.fail("KMS_KEYSTORE_PASSWORD is missing from authserver/secret.env.")
+        common.fail("KMS_KEYSTORE_PASSWORD is missing from oauth2-server/secret.env.")
 
     issuer = args.issuer or os.environ.get("JWT_ISSUER_URI") or common_values.get("JWT_ISSUER_URI")
     issuer = value("issuer", issuer, 512)

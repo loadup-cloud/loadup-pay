@@ -15,12 +15,12 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.SuccessResponse;

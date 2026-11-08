@@ -26,11 +26,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import org.junit.jupiter.api.Test;
 
 class OrderDeadlineTasksTest {

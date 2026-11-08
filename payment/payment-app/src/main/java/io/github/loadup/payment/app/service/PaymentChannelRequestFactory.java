@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRequest;
@@ -27,6 +27,7 @@ import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.payment.domain.model.PaymentAttemptState;
 import java.time.Clock;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
@@ -76,6 +77,9 @@ public class PaymentChannelRequestFactory {
                     attempts.find(prepared.identity().attemptId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var binding = PaymentExecutionBindings.submissionRequest(accepted, stored);
             var attempt = stored.attempt();
+            if (attempt.state() != PaymentAttemptState.SUBMITTING) {
+                throw new CommonException(INVALID_STATE);
+            }
             if (!attempt.identity().equals(prepared.identity())
                     || !attempt.amount().equals(prepared.amount())
                     || attempt.method() != prepared.method()

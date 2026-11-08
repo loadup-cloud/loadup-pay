@@ -59,7 +59,6 @@ import io.github.loadup.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.AllocationState;
 import io.github.loadup.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.acquire.domain.model.OrderPaymentChange;
@@ -68,21 +67,22 @@ import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.PaymentOutcomeReceipt;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.payment.client.dto.PaymentCloseDTO;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.dto.PaymentOutcomeDTO;
-import io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.payment.domain.model.PaymentState;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentCloseDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
+import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.util.HashMap;
@@ -264,9 +264,8 @@ class PaymentOutcomeEventServiceTest {
         when(admissions.decodeAdmission(anyString(), anyString())).thenReturn(admission());
         when(events.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.getArgument(0))));
         when(digests.digest(anyString(), any()))
-                .thenAnswer(c -> "%064x"
-                        .formatted(Integer.toUnsignedLong(
-                                Objects.hash(c.getArgument(0), c.getArgument(1), c.getArgument(2)))));
+                .thenAnswer(c ->
+                        "%064x".formatted(Integer.toUnsignedLong(Objects.hash(c.getArgument(0), c.getArgument(1)))));
         when(payment.facts("payment")).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return facts.get();

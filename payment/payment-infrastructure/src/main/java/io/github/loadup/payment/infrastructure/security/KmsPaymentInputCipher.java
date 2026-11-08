@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.security;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
@@ -27,9 +27,9 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.kms.KmsCiphertext;
 import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
+import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
-import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.payment.client.dto.PaymentInteractionDTO;
 import io.github.loadup.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.payment.domain.model.PaymentInput;
 import io.github.loadup.payment.infrastructure.config.PaymentInputProperties;

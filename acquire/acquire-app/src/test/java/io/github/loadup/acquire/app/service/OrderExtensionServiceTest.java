@@ -48,21 +48,21 @@ import io.github.loadup.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.acquire.domain.model.PaymentInteractionKind;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.productcenter.client.dto.AcquiringTermsDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.product.AcquiringTermsDTO;
+import io.github.loadup.contracts.product.OrderTermsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
-import io.github.loadup.productcenter.client.dto.OrderTermsDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -146,13 +146,7 @@ class OrderExtensionServiceTest {
         var t = terms();
         var extendedTerms = new AcquiringTermsDTO(
                 t.schemaVersion(),
-                new OrderTermsDTO(
-                        600L,
-                        3600L,
-                        io.github.loadup.productcenter.client.enums.UnpaidOrderAction.CLOSE,
-                        true,
-                        1200L,
-                        300L),
+                new OrderTermsDTO(600L, 3600L, UnpaidOrderAction.CLOSE, true, 1200L, 300L),
                 t.payment(),
                 t.fee(),
                 t.refund(),

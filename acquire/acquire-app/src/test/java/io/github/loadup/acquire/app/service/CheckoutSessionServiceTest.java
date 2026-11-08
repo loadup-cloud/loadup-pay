@@ -52,12 +52,12 @@ import io.github.loadup.acquire.app.security.AcquireActor;
 import io.github.loadup.acquire.client.command.CheckoutSessionCreateCommand;
 import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.CheckoutSession;
 import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.nio.charset.StandardCharsets;
@@ -124,8 +124,7 @@ class CheckoutSessionServiceTest {
         when(tokens.matches(anyString(), any())).thenReturn(true);
         when(presentation.allowedOrigin()).thenReturn(ORIGIN);
         when(presentation.url(anyString(), anyString()))
-                .thenAnswer(c -> ORIGIN + "/checkout#tenant=" + c.getArgument(0) + "&order=" + c.getArgument(1)
-                        + "&token=" + c.getArgument(2));
+                .thenAnswer(c -> ORIGIN + "/checkout#order=" + c.getArgument(0) + "&token=" + c.getArgument(1));
         when(sessions.findRequest(eq("order"), anyString()))
                 .thenAnswer(
                         c -> stored.get() != null && stored.get().requestKey().equals(c.getArgument(1))
@@ -161,7 +160,7 @@ class CheckoutSessionServiceTest {
         assertEquals(
                 Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS"),
                 stored.get().scope().permissions());
-        assertTrue(result.checkoutUrl().contains("#tenant=tenant"));
+        assertTrue(result.checkoutUrl().contains("#order=order"));
         assertFalse(stored.get().toString().contains("A".repeat(43)));
     }
 

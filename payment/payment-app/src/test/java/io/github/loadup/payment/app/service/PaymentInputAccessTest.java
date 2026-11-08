@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_ALREADY_BOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_ALREADY_BOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_EXPIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -39,11 +40,11 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
+import io.github.loadup.contracts.payment.H5SceneInteractionDTO;
+import io.github.loadup.contracts.payment.NoInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.H5SceneInteractionDTO;
-import io.github.loadup.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.payment.domain.model.PaymentInput;
@@ -199,7 +200,9 @@ class PaymentInputAccessTest {
         });
         verify(inputs).lock(INPUT_REF);
 
-        when(inputs.lock(INPUT_REF)).thenReturn(Optional.of(input(PaymentInputState.INIT, null, NOW)));
+        doReturn(Optional.of(input(PaymentInputState.INIT, null, NOW)))
+                .when(inputs)
+                .lock(INPUT_REF);
         var failure = assertThrows(
                 CommonException.class,
                 () -> transactions.writeLocal(TENANT, () -> {

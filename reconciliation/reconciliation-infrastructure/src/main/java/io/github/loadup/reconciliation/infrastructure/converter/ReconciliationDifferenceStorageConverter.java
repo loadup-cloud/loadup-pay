@@ -18,6 +18,7 @@ package io.github.loadup.reconciliation.infrastructure.converter;
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.app.model.StoredReconciliationDifference;
 import io.github.loadup.reconciliation.domain.model.ReconciliationDifference;
@@ -32,11 +33,23 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class, imports = ReconciliationDifferenceReason.class)
 public interface ReconciliationDifferenceStorageConverter {
+    default ReconciliationDifference toDifference(
+            ReconciliationDifferenceDO row, ReconciliationLine channel, ReconciliationLine ledger) {
+        if (reasons(row).isEmpty()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        try {
+            return toDifferenceInternal(row, channel, ledger);
+        } catch (DomainViolation inconsistent) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+    }
+
     @Mapping(target = "key", source = "row")
     @Mapping(target = "channel", source = "channel")
     @Mapping(target = "ledger", source = "ledger")
     @Mapping(target = "reasons", expression = "java(reasons(row))")
-    ReconciliationDifference toDifference(
+    ReconciliationDifference toDifferenceInternal(
             ReconciliationDifferenceDO row, ReconciliationLine channel, ReconciliationLine ledger);
 
     ReconciliationKey toKey(ReconciliationDifferenceDO row);

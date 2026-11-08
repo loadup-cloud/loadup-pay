@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -35,6 +35,7 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.contracts.model.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
@@ -45,7 +46,6 @@ import io.github.loadup.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import java.util.Optional;
@@ -211,18 +211,6 @@ class PaymentOutcomeDeliverySupportTest {
     }
 
     @Test
-    void dispatcherTenantContextMustMatchTheQueuedTenant() {
-        assertSame(
-                SNAPSHOT_INVALID,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant(
-                                        "other-tenant", () -> support.load(event, PaymentEvents.LIMIT)))
-                        .getResultCode());
-        verifyNoInteractions(outbox, payments);
-    }
-
-    @Test
     void anEventCannotReplaceItsPaymentVersionWithTheCurrentVersion() {
         var initial = source.get();
         var p = initial.payment().payment();
@@ -266,21 +254,6 @@ class PaymentOutcomeDeliverySupportTest {
                         "evidence")));
         when(results.capacity("payment")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::load);
-    }
-
-    @Test
-    void aClaimForAnotherTenantCannotServeAsLocalFinancialEvidence() {
-        when(results.attemptClaim("attempt"))
-                .thenReturn(Optional.of(new ChannelTransactionClaim(
-                        "claim",
-                        source.get().attempt().attempt().identity(),
-                        source.get().payment().payment().amount(),
-                        "transaction",
-                        AttemptFixtures.NOW,
-                        "evidence")));
-        assertSame(
-                SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, this::load).getResultCode());
     }
 
     @Test

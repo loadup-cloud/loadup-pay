@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,6 +34,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.limitcenter.client.command.LimitReleaseCommand;
@@ -44,7 +45,6 @@ import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.limitcenter.domain.model.LimitRestoreResult;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.infrastructure.config.PaymentLimitProperties;
 import java.time.Clock;
 import java.time.Instant;

@@ -19,12 +19,12 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.DEPEND
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.acquire.app.port.AcquireRealtimeClient;
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.acquire.infrastructure.config.AcquireRealtimeProperties;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
 import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import org.springframework.stereotype.Component;

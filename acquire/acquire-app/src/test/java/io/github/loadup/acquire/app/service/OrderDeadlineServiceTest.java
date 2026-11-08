@@ -36,14 +36,14 @@ import io.github.loadup.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.gateway.OrderExtensionGateway;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -165,12 +165,6 @@ class OrderDeadlineServiceTest {
 
     @Test
     void aTaskWithoutItsLiveNativeClaimCannotAcquireBusinessLocks() {
-        assertSame(
-                SNAPSHOT_INVALID,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant("another-tenant", () -> service.handle(task)))
-                        .getResultCode());
         when(tasks.find(OrderDeadlineTasks.TYPE, "order.1")).thenReturn(Optional.empty());
         assertSame(
                 SNAPSHOT_INVALID,

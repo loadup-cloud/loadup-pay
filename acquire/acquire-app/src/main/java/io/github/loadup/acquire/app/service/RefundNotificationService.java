@@ -39,7 +39,7 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;

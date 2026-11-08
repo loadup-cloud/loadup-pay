@@ -512,7 +512,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: authserver
+  name: oauth2-server
   namespace: loadup-pay
 spec:
   replicas: 1
@@ -523,24 +523,24 @@ spec:
     type: RollingUpdate
     rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
-    matchLabels: { app: authserver }
+    matchLabels: { app: oauth2-server }
   template:
     metadata:
-      labels: { app: authserver }
+      labels: { app: oauth2-server }
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 100
       containers:
-        - name: authserver
-          image: loadup-pay/authserver:bootstrap
+        - name: oauth2-server
+          image: loadup-pay/oauth2-server:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
           envFrom:
             - configMapRef:
-                name: authserver-config
+                name: oauth2-server-config
             - secretRef:
-                name: authserver-secret
+                name: oauth2-server-secret
           volumeMounts:
             - name: signing-keys
               mountPath: /var/run/loadup/secrets
@@ -566,23 +566,23 @@ spec:
       volumes:
         - name: signing-keys
           secret:
-            secretName: authserver-files
+            secretName: oauth2-server-files
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: authserver
+  name: oauth2-server
   namespace: loadup-pay
 spec:
-  selector: { app: authserver }
+  selector: { app: oauth2-server }
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Customer Service - JWT-authenticated HTTP
+# Operator console - UPMS login and merchant/product management
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: merchantmng
+  name: admin
   namespace: loadup-pay
 spec:
   replicas: 1
@@ -593,28 +593,108 @@ spec:
     type: RollingUpdate
     rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   selector:
-    matchLabels: { app: merchantmng }
+    matchLabels: { app: admin }
   template:
     metadata:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: /actuator/prometheus
         prometheus.io/port: "8080"
-      labels: { app: merchantmng }
+      labels: { app: admin }
     spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 100
       containers:
-        - name: merchantmng
-          image: loadup-pay/merchantmng:bootstrap
+        - name: admin
+          image: loadup-pay/admin:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
           envFrom:
             - configMapRef:
-                name: merchantmng-config
+                name: admin-config
             - secretRef:
-                name: merchantmng-secret
+                name: admin-secret
+          env:
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: signing-keys
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 180
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: signing-keys
+          secret:
+            secretName: oauth2-server-files
+---
+# Operator console ClusterIP - gateway routes /api/admin
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+  namespace: loadup-pay
+spec:
+  selector: { app: admin }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+# Notification Center - internal JWT-authenticated HTTP
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notificationcenter
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: notificationcenter }
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+      labels: { app: notificationcenter }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
+      containers:
+        - name: notificationcenter
+          image: loadup-pay/notificationcenter:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef:
+                name: notificationcenter-config
+            - secretRef:
+                name: notificationcenter-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -639,100 +719,49 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
-# Customer ClusterIP - HTTP only for client routing
+# Notification Center ClusterIP - internal HTTP only
 apiVersion: v1
 kind: Service
 metadata:
-  name: merchantmng
+  name: notificationcenter
   namespace: loadup-pay
 spec:
-  selector: { app: merchantmng }
+  selector: { app: notificationcenter }
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Customer Service - JWT-authenticated HTTP
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
 metadata:
-  name: productmng
+  name: notificationcenter-http-ingress
   namespace: loadup-pay
 spec:
-  replicas: 1
-  revisionHistoryLimit: 5
-  minReadySeconds: 5
-  progressDeadlineSeconds: 600
-  strategy:
-    type: RollingUpdate
-    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
-  selector:
-    matchLabels: { app: productmng }
-  template:
-    metadata:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /actuator/prometheus
-        prometheus.io/port: "8080"
-      labels: { app: productmng }
-    spec:
-      automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 100
-      containers:
-        - name: productmng
-          image: loadup-pay/productmng:bootstrap
-          imagePullPolicy: Never
-          ports:
-            - { name: http, containerPort: 8080 }
-          envFrom:
-            - configMapRef:
-                name: productmng-config
-            - secretRef:
-                name: productmng-secret
-          env:
-            - name: METRICS_ENABLED
-              value: "true"
-            - name: OTLP_TRACING_ENDPOINT
-              value: "http://cluster.local/v1/traces"
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/bin/sh", "-c", "sleep 10"]
-          startupProbe:
-            httpGet: { path: /actuator/health/liveness, port: http }
-            failureThreshold: 180
-            periodSeconds: 2
-          readinessProbe:
-            httpGet: { path: /actuator/health/readiness, port: http }
-          livenessProbe:
-            httpGet: { path: /actuator/health/liveness, port: http }
-          resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { memory: 512Mi }
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: [ ALL ] }
----
-# Customer ClusterIP - HTTP only for client routing
-apiVersion: v1
-kind: Service
-metadata:
-  name: productmng
-  namespace: loadup-pay
-spec:
-  selector: { app: productmng }
-  ports:
-    - { name: http, port: 8080, targetPort: http }
+  podSelector:
+    matchLabels: { app: notificationcenter }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+      ports:
+        - { protocol: TCP, port: 8080 }
+
 ---
 {
   "apiVersion": "networking.k8s.io/v1",
   "kind": "NetworkPolicy",
   "metadata": {
-    "name": "authserver-http-ingress",
+    "name": "acquire-http-ingress",
     "namespace": "loadup-pay"
   },
   "spec": {
     "podSelector": {
       "matchLabels": {
-        "app": "authserver"
+        "app": "acquire"
       }
     },
     "policyTypes": [
@@ -753,127 +782,12 @@ spec:
                   "key": "app",
                   "operator": "In",
                   "values": [
-                    "merchantcenter",
-                    "productcenter",
-                    "limitcenter",
-                    "payment",
-                    "acquire",
-                    "realtime",
-                    "reconciliation",
-                    "merchantmng",
-                    "productmng",
-                    "notificationcenter"
+                    "payment"
                   ]
                 }
               ]
             }
           },
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kubernetes.io/metadata.name": "observability"
-              }
-            },
-            "podSelector": {
-              "matchLabels": {
-                "loadup.io/metrics-scraper": "true"
-              }
-            }
-          }
-        ],
-        "ports": [
-          {
-            "protocol": "TCP",
-            "port": 8080
-          }
-        ]
-      }
-    ]
-  }
-}
----
-{
-  "apiVersion": "networking.k8s.io/v1",
-  "kind": "NetworkPolicy",
-  "metadata": {
-    "name": "merchantcenter-http-ingress",
-    "namespace": "loadup-pay"
-  },
-  "spec": {
-    "podSelector": {
-      "matchLabels": {
-        "app": "merchantcenter"
-      }
-    },
-    "policyTypes": [
-      "Ingress"
-    ],
-    "ingress": [
-      {
-        "from": [
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kubernetes.io/metadata.name": "loadup-pay"
-              }
-            },
-            "podSelector": {
-              "matchExpressions": [
-                {
-                  "key": "app",
-                  "operator": "In",
-                  "values": [
-                    "productcenter",
-                    "merchantmng",
-                    "authserver"
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kubernetes.io/metadata.name": "observability"
-              }
-            },
-            "podSelector": {
-              "matchLabels": {
-                "loadup.io/metrics-scraper": "true"
-              }
-            }
-          }
-        ],
-        "ports": [
-          {
-            "protocol": "TCP",
-            "port": 8080
-          }
-        ]
-      }
-    ]
-  }
-}
----
-{
-  "apiVersion": "networking.k8s.io/v1",
-  "kind": "NetworkPolicy",
-  "metadata": {
-    "name": "merchantmng-http-ingress",
-    "namespace": "loadup-pay"
-  },
-  "spec": {
-    "podSelector": {
-      "matchLabels": {
-        "app": "merchantmng"
-      }
-    },
-    "policyTypes": [
-      "Ingress"
-    ],
-    "ingress": [
-      {
-        "from": [
           {
             "namespaceSelector": {
               "matchLabels": {
@@ -916,76 +830,13 @@ spec:
   "apiVersion": "networking.k8s.io/v1",
   "kind": "NetworkPolicy",
   "metadata": {
-    "name": "productcenter-http-ingress",
+    "name": "admin-http-ingress",
     "namespace": "loadup-pay"
   },
   "spec": {
     "podSelector": {
       "matchLabels": {
-        "app": "productcenter"
-      }
-    },
-    "policyTypes": [
-      "Ingress"
-    ],
-    "ingress": [
-      {
-        "from": [
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kubernetes.io/metadata.name": "loadup-pay"
-              }
-            },
-            "podSelector": {
-              "matchExpressions": [
-                {
-                  "key": "app",
-                  "operator": "In",
-                  "values": [
-                    "acquire",
-                    "merchantmng",
-                    "productmng"
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kubernetes.io/metadata.name": "observability"
-              }
-            },
-            "podSelector": {
-              "matchLabels": {
-                "loadup.io/metrics-scraper": "true"
-              }
-            }
-          }
-        ],
-        "ports": [
-          {
-            "protocol": "TCP",
-            "port": 8080
-          }
-        ]
-      }
-    ]
-  }
-}
----
-{
-  "apiVersion": "networking.k8s.io/v1",
-  "kind": "NetworkPolicy",
-  "metadata": {
-    "name": "productmng-http-ingress",
-    "namespace": "loadup-pay"
-  },
-  "spec": {
-    "podSelector": {
-      "matchLabels": {
-        "app": "productmng"
+        "app": "admin"
       }
     },
     "policyTypes": [
@@ -1098,6 +949,187 @@ spec:
   "apiVersion": "networking.k8s.io/v1",
   "kind": "NetworkPolicy",
   "metadata": {
+    "name": "merchantcenter-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "merchantcenter"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "productcenter",
+                    "admin",
+                    "oauth2-server"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "notificationcenter-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "notificationcenter"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
+    "name": "oauth2-server-http-ingress",
+    "namespace": "loadup-pay"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "oauth2-server"
+      }
+    },
+    "policyTypes": [
+      "Ingress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "loadup-pay"
+              }
+            },
+            "podSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app",
+                  "operator": "In",
+                  "values": [
+                    "merchantcenter",
+                    "productcenter",
+                    "limitcenter",
+                    "payment",
+                    "acquire",
+                    "realtime",
+                    "reconciliation",
+                    "notificationcenter"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "observability"
+              }
+            },
+            "podSelector": {
+              "matchLabels": {
+                "loadup.io/metrics-scraper": "true"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "networking.k8s.io/v1",
+  "kind": "NetworkPolicy",
+  "metadata": {
     "name": "payment-http-ingress",
     "namespace": "loadup-pay"
   },
@@ -1175,13 +1207,13 @@ spec:
   "apiVersion": "networking.k8s.io/v1",
   "kind": "NetworkPolicy",
   "metadata": {
-    "name": "acquire-http-ingress",
+    "name": "productcenter-http-ingress",
     "namespace": "loadup-pay"
   },
   "spec": {
     "podSelector": {
       "matchLabels": {
-        "app": "acquire"
+        "app": "productcenter"
       }
     },
     "policyTypes": [
@@ -1202,24 +1234,11 @@ spec:
                   "key": "app",
                   "operator": "In",
                   "values": [
-                    "payment"
+                    "acquire",
+                    "admin"
                   ]
                 }
               ]
-            }
-          },
-          {
-            "namespaceSelector": {
-              "matchLabels": {
-                "kubernetes.io/metadata.name": "envoy-gateway-system"
-              }
-            },
-            "podSelector": {
-              "matchLabels": {
-                "app.kubernetes.io/name": "envoy",
-                "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
-                "gateway.envoyproxy.io/owning-gateway-name": "loadup-pay"
-              }
             }
           },
           {
@@ -1378,95 +1397,3 @@ spec:
     ]
   }
 }
----
-# Notification Center - internal JWT-authenticated HTTP
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: notificationcenter
-  namespace: loadup-pay
-spec:
-  replicas: 1
-  revisionHistoryLimit: 5
-  minReadySeconds: 5
-  progressDeadlineSeconds: 600
-  strategy:
-    type: RollingUpdate
-    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
-  selector:
-    matchLabels: { app: notificationcenter }
-  template:
-    metadata:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /actuator/prometheus
-        prometheus.io/port: "8080"
-      labels: { app: notificationcenter }
-    spec:
-      automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 100
-      containers:
-        - name: notificationcenter
-          image: loadup-pay/notificationcenter:bootstrap
-          imagePullPolicy: Never
-          ports:
-            - { name: http, containerPort: 8080 }
-          envFrom:
-            - configMapRef:
-                name: notificationcenter-config
-            - secretRef:
-                name: notificationcenter-secret
-          env:
-            - name: METRICS_ENABLED
-              value: "true"
-            - name: OTLP_TRACING_ENDPOINT
-              value: "http://cluster.local/v1/traces"
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/bin/sh", "-c", "sleep 10"]
-          startupProbe:
-            httpGet: { path: /actuator/health/liveness, port: http }
-            failureThreshold: 180
-            periodSeconds: 2
-          readinessProbe:
-            httpGet: { path: /actuator/health/readiness, port: http }
-          livenessProbe:
-            httpGet: { path: /actuator/health/liveness, port: http }
-          resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { memory: 512Mi }
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: [ ALL ] }
----
-# Notification Center ClusterIP - internal HTTP only
-apiVersion: v1
-kind: Service
-metadata:
-  name: notificationcenter
-  namespace: loadup-pay
-spec:
-  selector: { app: notificationcenter }
-  ports:
-    - { name: http, port: 8080, targetPort: http }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: notificationcenter-http-ingress
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchLabels: { app: notificationcenter }
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
-        - namespaceSelector:
-            matchLabels: { kubernetes.io/metadata.name: observability }
-          podSelector:
-            matchLabels: { loadup.io/metrics-scraper: "true" }
-      ports:
-        - { protocol: TCP, port: 8080 }

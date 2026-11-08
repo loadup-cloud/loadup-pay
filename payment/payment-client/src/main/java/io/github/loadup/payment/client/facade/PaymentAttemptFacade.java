@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.client.facade;
 
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
 import io.github.loadup.payment.client.command.PaymentAttemptStartCommand;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
 
 /**
  * Persist a fixed channel attempt; this response alone does not establish channel submission or collection.

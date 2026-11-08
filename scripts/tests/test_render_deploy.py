@@ -8,7 +8,7 @@ import unittest
 
 
 class RenderDeployTest(unittest.TestCase):
-    apps = ("authserver", "merchantcenter", "merchantmng", "productcenter", "productmng", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "notificationcenter")
+    apps = ("oauth2-server", "admin", "merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "notificationcenter")
 
     def resources(self):
         values = [{"kind": "Namespace", "metadata": {"name": "loadup-pay"}}]
@@ -18,17 +18,17 @@ class RenderDeployTest(unittest.TestCase):
                  "spec": {"template": {"spec": {"containers": [{"name": app, "image": "old",
                      "ports": [{"name": "http", "containerPort": 8080}],
                      "envFrom": [{"configMapRef": {"name": app + "-config"}}, {"secretRef": {"name": app + "-secret"}}],
-                     **({"volumeMounts": [{"name": "signing-keys", "mountPath": "/var/run/loadup/secrets", "readOnly": True}]} if app == "authserver" else {})}],
-                     **({"volumes": [{"name": "signing-keys", "secret": {"secretName": "authserver-files"}}]} if app == "authserver" else {})}}}},
+                     **({"volumeMounts": [{"name": "signing-keys", "mountPath": "/var/run/loadup/secrets", "readOnly": True}]} if app in ("oauth2-server", "admin") else {})}],
+                     **({"volumes": [{"name": "signing-keys", "secret": {"secretName": "oauth2-server-files"}}]} if app in ("oauth2-server", "admin") else {})}}}},
                 {"kind": "Service", "metadata": {"name": app, "namespace": "loadup-pay"},
                  "spec": {"selector": {"app": app}, "ports": [{"name": "http", "port": 8080, "targetPort": "http"}]}},
             ])
-        callers = {"merchantcenter": ["productcenter", "merchantmng", "authserver"],
-                   "productcenter": ["acquire", "merchantmng", "productmng"], "merchantmng": [], "productmng": [],
+        callers = {"merchantcenter": ["productcenter", "admin", "oauth2-server"],
+                   "productcenter": ["acquire", "admin"], "admin": [],
                    "limitcenter": ["productcenter", "payment"],
                    "payment": ["acquire", "limitcenter", "reconciliation"], "acquire": ["payment"],
                    "realtime": ["acquire", "payment"], "reconciliation": [],
-                   "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "merchantmng", "productmng", "notificationcenter"],
+                   "oauth2-server": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "notificationcenter"],
                    "notificationcenter": []}
         for app in self.apps:
             peers = []
@@ -37,7 +37,7 @@ class RenderDeployTest(unittest.TestCase):
             elif callers[app]:
                 peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "loadup-pay"}},
                               "podSelector": {"matchExpressions": [{"key": "app", "operator": "In", "values": callers[app]}]}})
-            if app not in {"merchantcenter", "productcenter", "limitcenter", "authserver", "notificationcenter"}:
+            if app not in {"merchantcenter", "productcenter", "limitcenter", "oauth2-server", "notificationcenter"}:
                 peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "envoy-gateway-system"}},
                               "podSelector": {"matchLabels": {"app.kubernetes.io/name": "envoy",
                                   "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
@@ -59,7 +59,7 @@ class RenderDeployTest(unittest.TestCase):
         original = copy.deepcopy(source)
         all_apps = self.render(source)
         self.assertEqual(all_apps.returncode, 0, all_apps.stderr)
-        self.assertEqual(len(json.loads(all_apps.stdout)["items"]), 34)
+        self.assertEqual(len(json.loads(all_apps.stdout)["items"]), 31)
         single = self.render(source, "payment")
         self.assertEqual(single.returncode, 0, single.stderr)
         items = json.loads(single.stdout)["items"]
@@ -103,7 +103,7 @@ class RenderDeployTest(unittest.TestCase):
     def test_unexpected_config_and_signing_key_bindings_are_rejected_before_output(self):
         for change in (lambda pod: pod["containers"][0]["envFrom"].append({"secretRef": {"name": "unversioned"}}),
                        lambda pod: pod["volumes"][0]["secret"].update(secretName="merchantcenter-secret"),
-                       lambda pod: pod["containers"][0]["volumeMounts"][0].update(subPath="authserver.p12")):
+                       lambda pod: pod["containers"][0]["volumeMounts"][0].update(subPath="oauth2-server.p12")):
             source = self.resources()
             change(source[1]["spec"]["template"]["spec"])
             result = self.render(source)
@@ -147,12 +147,12 @@ class RenderDeployTest(unittest.TestCase):
         resources = json.loads(self.render(self.resources()).stdout)["items"]
         kinds = [value["kind"] for value in resources]
         self.assertLess(max(index for index, kind in enumerate(kinds) if kind == "NetworkPolicy"), kinds.index("Deployment"))
-        for name in ("merchantcenter", "productcenter", "limitcenter", "authserver"):
+        for name in ("merchantcenter", "productcenter", "limitcenter", "oauth2-server"):
             policy = next(value for value in resources if value["kind"] == "NetworkPolicy" and value["metadata"]["name"] == name + "-http-ingress")
             peers = policy["spec"]["ingress"][0]["from"]
             self.assertEqual({peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for peer in peers},
                              {"loadup-pay", "observability"})
-        for name in ("merchantmng", "productmng"):
+        for name in ("admin", "realtime"):
             policy = next(value for value in resources if value["kind"] == "NetworkPolicy" and value["metadata"]["name"] == name + "-http-ingress")
             peers = policy["spec"]["ingress"][0]["from"]
             self.assertIn("envoy-gateway-system", {
@@ -160,14 +160,14 @@ class RenderDeployTest(unittest.TestCase):
                 for peer in peers
             })
 
-    def test_signing_keystore_is_only_mounted_by_authserver_and_versioned_with_its_secret(self):
+    def test_signing_keystore_is_only_mounted_by_the_oauth2_server_and_admin(self):
         resources = json.loads(self.render(self.resources(), "all", "cfg-002", "sec-002").stdout)["items"]
         for resource in resources:
             if resource["kind"] != "Deployment":
                 continue
             pod = resource["spec"]["template"]["spec"]
-            if resource["metadata"]["name"] == "authserver":
-                self.assertEqual(pod["volumes"][0]["secret"]["secretName"], "authserver-files-sec-002")
+            if resource["metadata"]["name"] in ("oauth2-server", "admin"):
+                self.assertEqual(pod["volumes"][0]["secret"]["secretName"], "oauth2-server-files-sec-002")
             else:
                 self.assertFalse(pod.get("volumes"))
 

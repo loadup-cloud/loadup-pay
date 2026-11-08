@@ -7,3 +7,13 @@ loadup:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  security:
+    resource-server:
+      enabled: false
+    service-auth:
+      token-uri: https://oauth2-server.invalid/oauth2/token
+      client-secret: test-service-secret
+      registrations:
+        internal:
+          scopes:
+            - internal

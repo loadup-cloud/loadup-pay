@@ -22,15 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.OrderPaymentChange;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.ParentCloseEvidence;
 import io.github.loadup.acquire.domain.model.PaymentIntent;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 

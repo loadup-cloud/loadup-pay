@@ -226,13 +226,13 @@ class ReconciliationStatementServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertNotNull(stored.get());
             assertEquals(ReconciliationStatementState.INIT, stored.get().state());
-            assertEquals("revision", ((PaymentStatementQuery) call.getArgument(1)).bindingRevisionId());
+            assertEquals("revision", ((PaymentStatementQuery) call.getArgument(0)).bindingRevisionId());
             return downloaded("revision");
         });
         when(files.upload(anyString(), anyString(), anyString(), anyLong(), any()))
                 .thenAnswer(call -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                    return ((String) call.getArgument(2)).endsWith(".csv") ? file : evidence;
+                    return ((String) call.getArgument(1)).endsWith(".csv") ? file : evidence;
                 });
         when(transfers.submit(
                         eq("ops"),

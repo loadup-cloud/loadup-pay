@@ -21,7 +21,6 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 
 import io.github.loadup.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.acquire.app.port.OrderSnapshotReader;
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
@@ -31,6 +30,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 

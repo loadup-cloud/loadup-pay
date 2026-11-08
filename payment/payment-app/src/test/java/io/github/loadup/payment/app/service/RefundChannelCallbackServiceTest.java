@@ -43,12 +43,12 @@ import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcom
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelRefundNotification;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.payment.app.converter.RefundCallbackObservationConverter;
 import io.github.loadup.payment.app.model.ChannelCallbackEndpoint;
 import io.github.loadup.payment.app.model.RefundResultApplication;
 import io.github.loadup.payment.app.port.ChannelCallbackEndpointResolver;
 import io.github.loadup.payment.app.port.RefundResultCodec;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.payment.domain.gateway.PaymentChannelNotificationGateway;
 import io.github.loadup.payment.domain.gateway.RefundCallbackTargetGateway;

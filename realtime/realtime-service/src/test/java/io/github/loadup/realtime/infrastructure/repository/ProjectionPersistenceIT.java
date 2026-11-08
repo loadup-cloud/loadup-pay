@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.payment.AccessMode;
@@ -30,11 +28,13 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.PaymentSnapshotEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
-import io.github.loadup.payment.domain.model.PaymentState;
-import io.github.loadup.payment.domain.model.RefundState;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.realtime.app.security.RealtimeActor;
 import io.github.loadup.realtime.app.security.RealtimeActorProvider;
@@ -59,11 +59,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -79,6 +81,7 @@ import tools.jackson.databind.json.JsonMapper;
         classes = ProjectionPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class ProjectionPersistenceIT {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
     private final TradeProjectionService service;
@@ -430,7 +433,7 @@ class ProjectionPersistenceIT {
         }
     }
 
-    private static final class Fixture {
+    private static class Fixture {
         final Kind kind;
         final String tenant = "tenant-" + UUID.randomUUID();
         final String aggregate = "aggregate-" + UUID.randomUUID();
@@ -445,7 +448,7 @@ class ProjectionPersistenceIT {
     /**
      * Only the trusted actor adapter is supplied by the test; each racing caller owns its scope.
      */
-    static final class Actors implements RealtimeActorProvider {
+    static class Actors implements RealtimeActorProvider {
         private final ThreadLocal<RealtimeActor> current = new ThreadLocal<>();
 
         @Override
@@ -470,7 +473,7 @@ class ProjectionPersistenceIT {
     /**
      * Injects failure only after the actual JDBC insert of the receipt.
      */
-    static final class FaultingReceipts extends ProjectionReceiptGatewayImpl {
+    static class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 
         FaultingReceipts(
@@ -491,7 +494,7 @@ class ProjectionPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(basePackageClasses = {TradeStorageConverter.class, TradeProjectionConverter.class})
     @Import({
         TradeProjectionGatewayImpl.class,

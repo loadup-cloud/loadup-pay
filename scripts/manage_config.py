@@ -56,14 +56,14 @@ def env_file(path):
 
 
 def file_data(app, directory):
-    if app != "authserver":
+    if app != "oauth2-server":
         return None
-    key_store = directory / "authserver.p12"
+    key_store = directory / "oauth2-server.p12"
     if key_store.is_symlink() or not key_store.is_file() or not key_store.stat().st_size:
-        fail("AuthServer requires its local authserver.p12 KeyStore; run up.py authserver for dev.")
+        fail("OAuth2 server requires its local oauth2-server.p12 KeyStore; run up.py oauth2-server for dev.")
     if key_store.stat().st_size > 1024 * 1024:
-        fail("AuthServer KeyStore exceeds the Kubernetes Secret size limit.")
-    return {"authserver.p12": base64.b64encode(key_store.read_bytes()).decode("ascii")}
+        fail("OAuth2 server KeyStore exceeds the Kubernetes Secret size limit.")
+    return {"oauth2-server.p12": base64.b64encode(key_store.read_bytes()).decode("ascii")}
 
 
 def catalog_data(directory, secret):
@@ -83,7 +83,7 @@ def catalog_data(directory, secret):
                 fail("Invalid authorization identity; logical tenant ids are distinct from database schemas.")
         permissions = client.get("permissions")
         if not isinstance(permissions, list) or not permissions or any(
-                not isinstance(permission, str) or not re.fullmatch(r"pay:[a-z0-9:-]{1,120}", permission)
+                not isinstance(permission, str) or not re.fullmatch(r"(?:internal|pay:[a-z0-9:-]{1,120})", permission)
                 for permission in permissions):
             fail("Invalid service permissions.")
         variable = client.get("secretEnv")
@@ -91,7 +91,7 @@ def catalog_data(directory, secret):
                 or not isinstance(client.get("enabled"), bool)):
             fail("Each service client requires an explicit enabled flag and secretEnv name.")
         if client["enabled"] and not re.fullmatch(r"[A-Za-z0-9_-]{32,72}", secret.get(variable, "")):
-            fail(f"Missing/invalid client secret in authserver/secret.env: {variable}")
+            fail(f"Missing/invalid client secret in oauth2-server/secret.env: {variable}")
     return json.dumps(catalog, separators=(",", ":"), sort_keys=True)
 
 
@@ -107,7 +107,7 @@ def resource(kind, name, data, immutable):
 def names(app):
     return [("ConfigMap", f"{app}-config-{os.environ['CONFIG_VERSION']}"),
             ("Secret", f"{app}-secret-{os.environ['SECRET_VERSION']}")] + (
-                [("Secret", f"authserver-files-{os.environ['SECRET_VERSION']}")] if app == "authserver" else [])
+                [("Secret", f"oauth2-server-files-{os.environ['SECRET_VERSION']}")] if app == "oauth2-server" else [])
 
 
 def local_resources(app, directory):
@@ -115,20 +115,17 @@ def local_resources(app, directory):
     app_config = env_file(directory / "config.env")
     config.update(app_config)
     secret = env_file(directory / "secret.env")
-    prefix = app.upper()
+    prefix = app.upper().replace("-", "_")
     required_config = [f"{prefix}_{suffix}" for suffix in
                        ("JDBC_URL", "JDBC_USERNAME")]
     if not config.get(f"{prefix}_JWT_ISSUER_URI", config.get("JWT_ISSUER_URI", "")).strip():
         fail(f"Missing JWT_ISSUER_URI in common.env or {prefix}_JWT_ISSUER_URI for {app}.")
-    if app != "authserver":
+    if app != "oauth2-server":
         public_key = config.get(f"{prefix}_JWT_PUBLIC_KEY_LOCATION", config.get("JWT_PUBLIC_KEY_LOCATION", ""))
         jwk_set = config.get(f"{prefix}_JWT_JWK_SET_URI", config.get("JWT_JWK_SET_URI", ""))
         if public_key or not jwk_set:
             fail(f"AuthServer migration requires JWKS verification, without legacy public-key files: {app}.")
     required_secret = [f"{prefix}_JDBC_PASSWORD"]
-    if app in {"merchantmng", "productmng"}:
-        required_config = []
-        required_secret = []
     if app == "reconciliation":
         required_config.append("RECONCILIATION_S3_BUCKET")
         if bool(secret.get("RECONCILIATION_S3_ACCESS_KEY")) != bool(secret.get("RECONCILIATION_S3_SECRET_KEY")):
@@ -142,7 +139,7 @@ def local_resources(app, directory):
         required_secret.append("SERVICE_AUTH_CLIENT_SECRET")
         if not re.fullmatch(r"[A-Za-z0-9_-]{32,72}", secret.get("SERVICE_AUTH_CLIENT_SECRET", "")):
             fail(f"Missing/invalid SERVICE_AUTH_CLIENT_SECRET for {app} (32-72 URL-safe ASCII characters).")
-    if app == "authserver":
+    if app == "oauth2-server":
         required_secret.append("KMS_KEYSTORE_PASSWORD")
         config["AUTHSERVER_SERVICE_AUTHORIZATIONS"] = catalog_data(directory, secret)
     for data, required in ((config, required_config), (secret, required_secret)):

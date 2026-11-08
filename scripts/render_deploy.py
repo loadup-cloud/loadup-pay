@@ -9,11 +9,10 @@ import re
 import sys
 
 APPS = {
-    "authserver",
+    "oauth2-server",
+    "admin",
     "merchantcenter",
-    "merchantmng",
     "productcenter",
-    "productmng",
     "limitcenter",
     "payment",
     "acquire",
@@ -21,19 +20,18 @@ APPS = {
     "reconciliation",
     "notificationcenter",
 }
-INTERNAL_APPS = {"limitcenter", "authserver", "merchantcenter", "productcenter", "notificationcenter"}
+INTERNAL_APPS = {"limitcenter", "oauth2-server", "merchantcenter", "productcenter", "notificationcenter"}
 INTERNAL_NAMESPACE_APPS = {"notificationcenter"}
 CALLERS = {
-    "merchantcenter": ["productcenter", "merchantmng", "authserver"],
-    "productcenter": ["acquire", "merchantmng", "productmng"],
-    "merchantmng": [],
-    "productmng": [],
+    "merchantcenter": ["productcenter", "admin", "oauth2-server"],
+    "productcenter": ["acquire", "admin"],
+    "admin": [],
     "limitcenter": ["productcenter", "payment"],
     "payment": ["acquire", "limitcenter", "reconciliation"],
     "acquire": ["payment"],
     "realtime": ["acquire", "payment"],
     "reconciliation": [],
-    "authserver": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "merchantmng", "productmng", "notificationcenter"],
+    "oauth2-server": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "notificationcenter"],
     "notificationcenter": [],
 }
 
@@ -151,21 +149,21 @@ def render(source, scope, prefix, tag, config_version, secret_version):
                     or environment[1]["secretRef"].get("optional", False)
                 ):
                     raise SystemExit("Application must declare exactly the expected configuration references")
-                if name == "authserver":
+                if name in {"oauth2-server", "admin"}:
                     volumes = pod.get("volumes", [])
                     mounts = container.get("volumeMounts", [])
                     if (
                         len(volumes) != 1
                         or volumes[0].get("name") != "signing-keys"
-                        or volumes[0].get("secret", {}).get("secretName") != "authserver-files"
+                        or volumes[0].get("secret", {}).get("secretName") != "oauth2-server-files"
                         or len(mounts) != 1
                         or mounts[0].get("name") != "signing-keys"
                         or mounts[0].get("mountPath") != "/var/run/loadup/secrets"
                         or mounts[0].get("readOnly") is not True
                         or mounts[0].get("subPath")
                     ):
-                        raise SystemExit("AuthServer requires a dedicated read-only signing KeyStore Secret")
-                    volumes[0]["secret"]["secretName"] = f"authserver-files-{secret_version}"
+                        raise SystemExit("OAuth2 server and admin require a dedicated read-only signing KeyStore Secret")
+                    volumes[0]["secret"]["secretName"] = f"oauth2-server-files-{secret_version}"
                 elif pod.get("volumes") or container.get("volumeMounts"):
                     raise SystemExit(
                         "Business applications must not mount private signing keys or legacy service JWT files"

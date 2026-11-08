@@ -9,6 +9,7 @@
     </parent>
     <artifactId>reconciliation</artifactId>
     <packaging>pom</packaging>
+    <name>LoadUp Pay Reconciliation</name>
     <modules>
         <module>reconciliation-client</module>
         <module>reconciliation-domain</module>

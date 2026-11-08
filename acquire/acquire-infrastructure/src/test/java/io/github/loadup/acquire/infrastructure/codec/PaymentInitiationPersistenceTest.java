@@ -23,12 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.AllocationState;
 import io.github.loadup.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
-import io.github.loadup.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
 import io.github.loadup.acquire.infrastructure.converter.PaymentIntentSnapshotConverter;
 import io.github.loadup.acquire.infrastructure.model.PaymentIntentSnapshot;
@@ -38,21 +36,23 @@ import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.productcenter.client.dto.AcquiringTermsDTO;
-import io.github.loadup.productcenter.client.dto.AdmittedOrderTermsDTO;
-import io.github.loadup.productcenter.client.dto.ChannelCapabilityDTO;
-import io.github.loadup.productcenter.client.dto.FeeTermsDTO;
-import io.github.loadup.productcenter.client.dto.LimitPolicyRefDTO;
-import io.github.loadup.productcenter.client.dto.NotificationTermsDTO;
-import io.github.loadup.productcenter.client.dto.OrderTermsDTO;
-import io.github.loadup.productcenter.client.dto.PaymentTermsDTO;
-import io.github.loadup.productcenter.client.dto.RefundTermsDTO;
-import io.github.loadup.productcenter.client.enums.FeeRefundPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAllocationPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.productcenter.client.enums.RefundCountRestorePolicy;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.contracts.product.AcquiringTermsDTO;
+import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
+import io.github.loadup.contracts.product.ChannelCapabilityDTO;
+import io.github.loadup.contracts.product.FeeRefundPolicy;
+import io.github.loadup.contracts.product.FeeTermsDTO;
+import io.github.loadup.contracts.product.LimitPolicyRefDTO;
+import io.github.loadup.contracts.product.NotificationTermsDTO;
+import io.github.loadup.contracts.product.OrderTermsDTO;
+import io.github.loadup.contracts.product.PaymentTermsDTO;
+import io.github.loadup.contracts.product.RefundAllocationPolicy;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
+import io.github.loadup.contracts.product.RefundTermsDTO;
+import io.github.loadup.contracts.product.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
@@ -85,8 +85,7 @@ class PaymentInitiationPersistenceTest {
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
                 1,
-                new OrderTermsDTO(
-                        600, 3600, io.github.loadup.productcenter.client.enums.UnpaidOrderAction.CLOSE, false, 0, 300),
+                new OrderTermsDTO(600, 3600, UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, Long.MAX_VALUE, null, true),
                 new FeeTermsDTO(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.NO_RETURN),
                 new RefundTermsDTO(true, true, 86400, RefundAllocationPolicy.FIFO),

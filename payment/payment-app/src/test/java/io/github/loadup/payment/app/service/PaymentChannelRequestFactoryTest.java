@@ -15,14 +15,15 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,10 +39,10 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentInput
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRequest;
 import io.github.loadup.components.payment.channel.api.model.NoChannelInput;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.contracts.payment.NoInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
@@ -307,8 +308,10 @@ class PaymentChannelRequestFactoryTest {
 
     private void stubRecords(
             StoredPaymentAcceptance acceptance, StoredPaymentAttempt storedAttempt, PaymentExecuteCommand command) {
+        when(transactions.withTenantContext(eq(TENANT), any()))
+                .thenAnswer(call -> ((Supplier<?>) call.getArgument(1)).get());
         when(payments.find("payment")).thenReturn(Optional.of(acceptance));
-        when(attempts.find("attempt")).thenReturn(Optional.of(storedAttempt));
+        doReturn(Optional.of(storedAttempt)).when(attempts).find("attempt");
         when(codec.decode(acceptance)).thenReturn(command);
     }
 }

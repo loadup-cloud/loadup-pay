@@ -15,16 +15,16 @@
  */
 package io.github.loadup.payment.infrastructure.codec;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
-import io.github.loadup.payment.client.event.RefundOutcomeEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
-import io.github.loadup.payment.domain.model.RefundState;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.core.type.TypeReference;

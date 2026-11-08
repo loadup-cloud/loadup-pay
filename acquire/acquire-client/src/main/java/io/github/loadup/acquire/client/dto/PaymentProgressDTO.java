@@ -16,7 +16,7 @@
 package io.github.loadup.acquire.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 

@@ -22,12 +22,12 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 import io.github.loadup.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.acquire.infrastructure.converter.OrderExtensionStorageConverter;
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderExtensionReceiptDO;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.contracts.model.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;

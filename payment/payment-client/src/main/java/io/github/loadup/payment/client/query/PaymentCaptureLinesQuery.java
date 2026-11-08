@@ -17,7 +17,7 @@ package io.github.loadup.payment.client.query;
 
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

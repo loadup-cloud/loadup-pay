@@ -17,7 +17,7 @@ package io.github.loadup.payment.app.model;
 
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import java.time.LocalDateTime;

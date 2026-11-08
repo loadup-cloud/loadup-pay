@@ -17,7 +17,7 @@ package io.github.loadup.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.payment.domain.model.RefundState;
+import io.github.loadup.contracts.model.RefundState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;

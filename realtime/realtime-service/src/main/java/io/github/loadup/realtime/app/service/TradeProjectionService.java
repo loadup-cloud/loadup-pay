@@ -19,15 +19,15 @@ import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.IDEM
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 
-import io.github.loadup.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.PaymentSnapshotEventDTO;
-import io.github.loadup.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
 import io.github.loadup.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.realtime.app.port.TradeProjectionCodec;
 import io.github.loadup.realtime.app.security.RealtimeActor;

@@ -15,28 +15,28 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.payment.ChannelIdentityInteractionDTO;
+import io.github.loadup.contracts.payment.H5SceneInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentCodeInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentInputDTO;
+import io.github.loadup.contracts.payment.PaymentInputLookupDTO;
+import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
+import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
-import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.payment.client.dto.ChannelIdentityInteractionDTO;
-import io.github.loadup.payment.client.dto.H5SceneInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentCodeInteractionDTO;
-import io.github.loadup.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.payment.client.facade.PaymentInputFacade;
-import io.github.loadup.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.payment.domain.model.PaymentInput;
 import jakarta.validation.Validator;

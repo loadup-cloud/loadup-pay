@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.app.port;
 
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 
 /**

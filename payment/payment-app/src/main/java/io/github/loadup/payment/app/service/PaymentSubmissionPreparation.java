@@ -15,22 +15,24 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.payment.channel.api.error.ChannelResultCodeEnum;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.product.LimitPolicyRefDTO;
 import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.limitcenter.domain.model.LimitReservationState;
@@ -48,12 +50,10 @@ import io.github.loadup.payment.domain.gateway.RiskConsultGateway;
 import io.github.loadup.payment.domain.model.GateState;
 import io.github.loadup.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.payment.domain.model.PaymentAttemptState;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.RiskDecisionType;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
-import io.github.loadup.productcenter.client.dto.LimitPolicyRefDTO;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;

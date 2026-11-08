@@ -17,7 +17,7 @@ package io.github.loadup.acquire.client.facade;
 
 import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
 
 /**
  * Business use cases; identity and authorization come from a trusted invocation context.

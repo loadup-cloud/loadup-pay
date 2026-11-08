@@ -15,12 +15,12 @@
  */
 package io.github.loadup.payment.infrastructure.codec;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.infrastructure.converter.PaymentIntentSnapshotConverter;
 import io.github.loadup.payment.infrastructure.model.PaymentIntentSnapshot;
@@ -78,6 +78,9 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
+            if (!mapper.writeValueAsString(value).equals(stored.intentPayload())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var payment = stored.payment();
             if (value == null
                     || !payment.id().equals(value.paymentId())

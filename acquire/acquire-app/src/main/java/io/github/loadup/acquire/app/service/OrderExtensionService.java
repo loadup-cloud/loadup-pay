@@ -39,7 +39,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.productcenter.client.dto.OrderTermsDTO;
+import io.github.loadup.contracts.product.OrderTermsDTO;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;

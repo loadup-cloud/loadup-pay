@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: oauth2-server
+  datasource:
+    url: ${AUTHSERVER_JDBC_URL}
+    username: ${AUTHSERVER_JDBC_USERNAME}
+    password: ${AUTHSERVER_JDBC_PASSWORD}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/oauth2-server
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
+  threads:
+    virtual:
+      enabled: false
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: [readinessState, db]
+pay:
+  oauth2server:
+    catalog: ${AUTHSERVER_SERVICE_AUTHORIZATIONS}
+loadup:
+  kms:
+    enabled: true
+    binder: local
+    local:
+      key-store-location: ${AUTHSERVER_KEYSTORE_LOCATION:file:/var/run/loadup/secrets/oauth2-server.p12}
+      key-store-type: PKCS12
+      key-store-password-env: KMS_KEYSTORE_PASSWORD
+  security:
+    auth-server:
+      issuer: ${JWT_ISSUER_URI:http://oauth2-server.loadup-pay.svc.cluster.local:8080}
+      # Protocol is owned by the service-only application configuration (no OIDC/user login).
+      protocol-endpoints-enabled: false
+      signing:
+        active-key:
+          name: ${AUTHSERVER_SIGNING_KEY:auth-jwt}
+          version: 1

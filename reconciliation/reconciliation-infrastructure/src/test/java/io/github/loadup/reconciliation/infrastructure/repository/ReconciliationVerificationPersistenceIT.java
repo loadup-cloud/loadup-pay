@@ -104,11 +104,13 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -128,6 +130,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
         })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 @Execution(ExecutionMode.SAME_THREAD)
+@ExtendWith(DatabaseResetExtension.class)
 class ReconciliationVerificationPersistenceIT {
     final ReconciliationVerificationService service;
     final ReconciliationReviewService reviews;
@@ -213,7 +216,7 @@ class ReconciliationVerificationPersistenceIT {
         var fixture = fixture();
         requests.failure.set("insert");
         assertThrows(IllegalStateException.class, () -> submit(fixture));
-        assertEquals(0L, count("reconciliation_verification", fixture.tenant()));
+        assertEquals(0L, count("reconciliation_verification_request", fixture.tenant()));
         assertEquals(0L, count("loadup_outbox_event", fixture.tenant()));
         assertEquals(0, payment.calls.get());
         var first = submit(fixture);
@@ -221,7 +224,7 @@ class ReconciliationVerificationPersistenceIT {
         assertEquals(first, replay);
         assertEquals("INIT", first.state().name());
         assertNull(first.receipt());
-        assertEquals(1L, count("reconciliation_verification", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_verification_request", fixture.tenant()));
         assertEquals(1L, count("loadup_outbox_event", fixture.tenant()));
         assertOriginal(fixture);
     }
@@ -279,7 +282,7 @@ class ReconciliationVerificationPersistenceIT {
         assertEquals(committed.receipt(), recovered.receipt());
         assertEquals(committed.version(), recovered.version());
         assertEquals(1, payment.calls.get());
-        assertEquals(1L, count("reconciliation_verification", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_verification_request", fixture.tenant()));
         assertOriginal(fixture);
     }
 
@@ -296,7 +299,7 @@ class ReconciliationVerificationPersistenceIT {
             var second = executor.submit(action);
             assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
         }
-        assertEquals(1L, count("reconciliation_verification", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_verification_request", fixture.tenant()));
         assertEquals(1L, count("loadup_outbox_event", fixture.tenant()));
         assertEquals(0, payment.calls.get());
     }
@@ -529,7 +532,7 @@ class ReconciliationVerificationPersistenceIT {
 
     private long count(String table, String tenant) {
         if (!Set.of(
-                        "reconciliation_verification",
+                        "reconciliation_verification_request",
                         "loadup_outbox_event",
                         "loadup_outbox_replay",
                         "reconciliation_difference",
@@ -548,7 +551,7 @@ class ReconciliationVerificationPersistenceIT {
             String proposalId,
             String approvalId) {}
 
-    static final class Actors implements ReconciliationActorProvider {
+    static class Actors implements ReconciliationActorProvider {
         final ThreadLocal<ReconciliationActor> actor = new ThreadLocal<>();
 
         @Override
@@ -574,7 +577,7 @@ class ReconciliationVerificationPersistenceIT {
         }
     }
 
-    static final class Payment implements ReconciliationPaymentVerification {
+    static class Payment implements ReconciliationPaymentVerification {
         final AtomicInteger calls = new AtomicInteger();
         final AtomicReference<Function<PaymentVerificationQuery, PaymentVerificationDTO>> action =
                 new AtomicReference<>();
@@ -640,7 +643,7 @@ class ReconciliationVerificationPersistenceIT {
         }
     }
 
-    static final class Handler implements OutboxHandler {
+    static class Handler implements OutboxHandler {
         final ReconciliationVerificationDelivery delivery;
         final AtomicBoolean failAfterCommit = new AtomicBoolean();
 
@@ -663,7 +666,7 @@ class ReconciliationVerificationPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(
             basePackageClasses = {ReconciliationReviewStorageConverter.class, ReconciliationReviewConverter.class})
     @Import({

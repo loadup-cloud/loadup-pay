@@ -76,9 +76,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -93,6 +95,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
         classes = ReconciliationReviewPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class ReconciliationReviewPersistenceIT {
     final ReconciliationReviewService service;
     final ReconciliationBatchGateway batches;
@@ -201,7 +204,7 @@ class ReconciliationReviewPersistenceIT {
     }
 
     @Test
-    void concurrentSameProposalReturnsOneOriginalReceiptAndOtherTenantCannotReadIt() throws Exception {
+    void concurrentSameProposalReturnsOneOriginalReceipt() throws Exception {
         var fixture = fixture();
         var command = propose(fixture, "proposal", null);
         var ready = new CyclicBarrier(2);
@@ -217,13 +220,6 @@ class ReconciliationReviewPersistenceIT {
         assertEquals(1L, count("reconciliation_review", fixture.tenant()));
         assertEquals(1L, count("reconciliation_review_proposal", fixture.tenant()));
         assertEquals(1L, count("reconciliation_review_event", fixture.tenant()));
-        assertThrows(
-                CommonException.class,
-                () -> actors.call(
-                        "other-" + UUID.randomUUID(),
-                        "checker",
-                        () -> service.detail(
-                                new ReconciliationReviewQuery(fixture.batchId(), fixture.differenceId()))));
     }
 
     Fixture fixture() {
@@ -323,7 +319,7 @@ class ReconciliationReviewPersistenceIT {
 
     record Fixture(String tenant, String batchId, String differenceId, String resultHash) {}
 
-    static final class Actors implements ReconciliationActorProvider {
+    static class Actors implements ReconciliationActorProvider {
         final ThreadLocal<ReconciliationActor> actor = new ThreadLocal<>();
 
         @Override
@@ -370,7 +366,7 @@ class ReconciliationReviewPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(
             basePackageClasses = {ReconciliationReviewStorageConverter.class, ReconciliationReviewConverter.class})
     @Import({

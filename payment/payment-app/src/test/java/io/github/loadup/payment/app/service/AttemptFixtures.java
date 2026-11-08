@@ -22,7 +22,7 @@ import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdenti
 import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
-import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.payment.domain.model.PaymentOrder;

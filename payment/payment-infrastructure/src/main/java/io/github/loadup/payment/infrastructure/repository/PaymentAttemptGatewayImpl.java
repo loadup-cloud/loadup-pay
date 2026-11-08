@@ -15,11 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
@@ -67,12 +66,14 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
 
     @Override
     public Optional<StoredPaymentAttempt> find(String id) {
-        return read(getById(id));
+        var args = new MapSqlParameterSource().addValue("id", id);
+        return read(one("id = :id", args, false));
     }
 
     @Override
     public Optional<StoredPaymentAttempt> findRequest(String payment, String key) {
-        return read(getOne(QueryWrapper.create().eq("payment_id", payment).eq("request_key", key)));
+        var args = new MapSqlParameterSource().addValue("payment", payment).addValue("key", key);
+        return read(one("payment_id = :payment AND request_key = :key", args, false));
     }
 
     @Override

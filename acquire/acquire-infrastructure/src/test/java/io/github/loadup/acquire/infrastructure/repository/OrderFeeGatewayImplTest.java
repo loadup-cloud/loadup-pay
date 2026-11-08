@@ -25,8 +25,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.domain.model.AcquireOrder;
-import io.github.loadup.acquire.domain.model.AcquireOrderState;
-import io.github.loadup.acquire.domain.model.FeeRefundPolicy;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.infrastructure.converter.FeeAdjustmentStorageConverter;
 import io.github.loadup.acquire.infrastructure.converter.OrderFeeStorageConverter;
@@ -34,6 +32,8 @@ import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.product.FeeRefundPolicy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;

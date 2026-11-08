@@ -16,7 +16,7 @@
 package io.github.loadup.productcenter.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.productcenter.client.dto.AcquiringTermsDTO;
+import io.github.loadup.contracts.product.AcquiringTermsDTO;
 import io.github.loadup.productcenter.domain.model.ValueOrigin;
 import java.util.Map;
 

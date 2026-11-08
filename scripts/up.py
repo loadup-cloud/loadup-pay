@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-import authserver
+import oauth2_server
 import common
 import manage_config
 
@@ -21,8 +21,8 @@ def main(argv=None):
         print("APP_ENV selects dev (default), test or prod; edit deploy/config/<APP_ENV> directly.")
         print("Snapshot versions are derived from content; explicit versions override them.")
         print("Use SKIP_BUILD=1 IMAGE_TAG=<existing-tag> to reuse existing images.")
-        print("Dev all/authserver prepares missing local signing credentials; existing values are preserved.")
-        print("Builds the required sibling framework components and waits for AuthServer before business applications.")
+        print("Dev all/oauth2-server prepares missing local signing credentials; existing values are preserved.")
+        print("Builds the required sibling framework components and waits for the OAuth2 server before business applications.")
         print("Does not install the gateway controller, database or S3.")
         return
     if len(args) > 1:
@@ -34,12 +34,12 @@ def main(argv=None):
     if os.environ.get("SKIP_BUILD") == "1" and not os.environ.get("IMAGE_TAG"):
         common.fail("SKIP_BUILD=1 requires the existing IMAGE_TAG.")
     common.prepare_image_tag()
-    if os.environ["APP_ENV"] == "dev" and scope in {"all", "authserver"}:
+    if os.environ["APP_ENV"] == "dev" and scope in {"all", "oauth2-server"}:
         common.prepare_java()
         try:
-            authserver.prepare_dev()
+            oauth2_server.prepare_dev()
         except (ValueError, OSError, subprocess.TimeoutExpired) as error:
-            common.fail(f"AuthServer preparation failed: {error}")
+            common.fail(f"OAuth2 server preparation failed: {error}")
     try:
         versions = manage_config.resolve_versions(apps, Path(os.environ["CONFIG_DIR"]).resolve())
     except (UnicodeError, ValueError, OSError, KeyError) as error:

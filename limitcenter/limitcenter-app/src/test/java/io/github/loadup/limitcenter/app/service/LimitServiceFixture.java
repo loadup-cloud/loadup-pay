@@ -19,6 +19,8 @@ import static org.mockito.Mockito.mock;
 
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
+import io.github.loadup.contracts.product.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.app.converter.LimitConverterImpl;
 import io.github.loadup.limitcenter.app.security.LimitActor;
@@ -31,8 +33,6 @@ import io.github.loadup.limitcenter.domain.gateway.MerchantLimitGateway;
 import io.github.loadup.limitcenter.domain.model.ActivatedLimitPolicy;
 import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitWindowType;
-import io.github.loadup.limitcenter.domain.model.RefundAmountRestorePolicy;
-import io.github.loadup.limitcenter.domain.model.RefundCountRestorePolicy;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.time.Clock;

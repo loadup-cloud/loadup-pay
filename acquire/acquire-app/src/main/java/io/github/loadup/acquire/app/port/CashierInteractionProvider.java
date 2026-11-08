@@ -16,8 +16,8 @@
 package io.github.loadup.acquire.app.port;
 
 import io.github.loadup.acquire.app.security.CashierActor;
-import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 
 /**
  * Produces trusted payer interaction from the server request or an authenticated channel authorization flow.

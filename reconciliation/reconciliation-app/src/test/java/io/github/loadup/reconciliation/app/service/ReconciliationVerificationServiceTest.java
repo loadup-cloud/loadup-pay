@@ -170,7 +170,7 @@ class ReconciliationVerificationServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertNotNull(stored.get());
             assertEquals(ReconciliationVerificationState.INIT, stored.get().state());
-            PaymentVerificationQuery query = call.getArgument(1);
+            PaymentVerificationQuery query = call.getArgument(0);
             assertEquals("owner-request", query.merchantPaymentNo());
             return result(query, PaymentVerificationDisposition.OBSERVED);
         });
@@ -212,7 +212,7 @@ class ReconciliationVerificationServiceTest {
     void noLocalTargetIsRecordedAsCoverageGapWithoutInventedMoneyOrOutcome() {
         service.submit(command);
         nativeRow.set(row("PROCESSING", 1));
-        doAnswer(call -> result(call.getArgument(1), PaymentVerificationDisposition.NO_LOCAL_TARGET))
+        doAnswer(call -> result(call.getArgument(0), PaymentVerificationDisposition.NO_LOCAL_TARGET))
                 .when(payment)
                 .verify(any());
         deliver();
@@ -228,7 +228,7 @@ class ReconciliationVerificationServiceTest {
         service.submit(command);
         nativeRow.set(row("PROCESSING", 1));
         doAnswer(call -> {
-                    PaymentVerificationQuery q = call.getArgument(1);
+                    PaymentVerificationQuery q = call.getArgument(0);
                     return result(
                             new PaymentVerificationQuery(
                                     "another-request",
@@ -248,7 +248,7 @@ class ReconciliationVerificationServiceTest {
         assertEquals(ReconciliationVerificationState.INIT, stored.get().state());
         doAnswer(call -> {
                     nativeRow.set(row("PROCESSING", 2));
-                    return result(call.getArgument(1), PaymentVerificationDisposition.OBSERVED);
+                    return result(call.getArgument(0), PaymentVerificationDisposition.OBSERVED);
                 })
                 .when(payment)
                 .verify(any());

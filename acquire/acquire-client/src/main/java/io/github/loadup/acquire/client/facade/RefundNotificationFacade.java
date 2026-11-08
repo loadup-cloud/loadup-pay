@@ -17,7 +17,7 @@ package io.github.loadup.acquire.client.facade;
 
 import io.github.loadup.acquire.client.dto.RefundNotificationAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
 
 /**
  * Trusted payment source only; no merchant-facing arbitrary event enqueue endpoint.

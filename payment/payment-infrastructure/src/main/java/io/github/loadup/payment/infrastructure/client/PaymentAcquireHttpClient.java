@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
@@ -27,10 +27,10 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
+import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.RefundMerchantEventDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
-import io.github.loadup.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.payment.infrastructure.config.PaymentAcquireProperties;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;

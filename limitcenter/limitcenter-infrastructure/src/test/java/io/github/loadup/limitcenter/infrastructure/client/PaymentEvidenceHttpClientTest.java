@@ -15,7 +15,6 @@
  */
 package io.github.loadup.limitcenter.infrastructure.client;
 
-import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -32,11 +31,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.model.RefundState;
 import io.github.loadup.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;
-import io.github.loadup.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.payment.client.http.PaymentHttpService;
-import io.github.loadup.payment.domain.model.RefundState;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -120,11 +119,7 @@ class PaymentEvidenceHttpClientTest {
     }
 
     @Test
-    void refundFactsCannotRouteAnotherTenantOrRemainInsideAnOuterTransaction() {
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> client.refundFacts("refund"))
-                        .getResultCode());
+    void refundFactsCannotRemainInsideAnOuterTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

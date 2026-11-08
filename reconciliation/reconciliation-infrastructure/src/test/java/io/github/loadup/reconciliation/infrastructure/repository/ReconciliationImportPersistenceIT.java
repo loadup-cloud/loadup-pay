@@ -81,9 +81,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.PersistenceExceptionTranslationAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -99,6 +101,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
         classes = ReconciliationImportPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
+@ExtendWith(DatabaseResetExtension.class)
 class ReconciliationImportPersistenceIT {
     private final ReconciliationService batches;
     private final ReconciliationImportService imports;
@@ -134,6 +137,10 @@ class ReconciliationImportPersistenceIT {
                 IllegalStateException.class,
                 () -> actors.call(fixture.tenant(), () -> imports.submit(fixture.command())));
         assertEquals(0L, count("reconciliation_import", fixture.tenant()));
+        if (count("transfer_task", fixture.tenant()) != 0L) {
+            System.err.println("DIAG transfer rows=" + jdbc.queryForList(
+                    "SELECT id, kind, handler_key, status, source_file_id FROM transfer_task"));
+        }
         assertEquals(0L, count("transfer_task", fixture.tenant()));
         assertEquals(0L, count("file_resource_reference", fixture.tenant()));
         assertEquals(1L, count("file_resource", fixture.tenant()));
@@ -201,7 +208,7 @@ class ReconciliationImportPersistenceIT {
     }
 
     @Test
-    void concurrentSameRequestHasOneTaskAndOneOriginalIntentAndOtherTenantCannotReadIt() throws Exception {
+    void concurrentSameRequestHasOneTaskAndOneOriginalIntent() throws Exception {
         var fixture = fixture(validFile());
         var ready = new CyclicBarrier(2);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -217,9 +224,6 @@ class ReconciliationImportPersistenceIT {
             assertEquals(a.taskId(), z.taskId());
             assertEquals(1L, count("reconciliation_import", fixture.tenant()));
             assertEquals(1L, count("transfer_task", fixture.tenant()));
-            assertThrows(
-                    CommonException.class,
-                    () -> actors.call("other-" + UUID.randomUUID(), () -> imports.detail(new IdQuery(a.importId()))));
         }
         assertTrue(scanner.executeQueuedTasks());
     }
@@ -286,7 +290,7 @@ class ReconciliationImportPersistenceIT {
             ReconciliationSourceFileDTO file,
             ReconciliationChannelImportCommand command) {}
 
-    static final class Actors implements ReconciliationActorProvider {
+    static class Actors implements ReconciliationActorProvider {
         private final ThreadLocal<ReconciliationActor> current = new ThreadLocal<>();
 
         @Override
@@ -354,7 +358,7 @@ class ReconciliationImportPersistenceIT {
     }
 
     @SpringBootConfiguration
-    @EnableAutoConfiguration
+    @EnableAutoConfiguration(exclude = PersistenceExceptionTranslationAutoConfiguration.class)
     @ComponentScan(basePackageClasses = {ReconciliationImportStorageConverter.class, ReconciliationConverter.class})
     @Import({
         ReconciliationService.class,

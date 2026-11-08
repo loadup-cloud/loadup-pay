@@ -15,13 +15,12 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.IGNORED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,6 +31,7 @@ import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
@@ -58,26 +58,26 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecov
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.contracts.model.PaymentActionType;
+import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.payment.PaymentActionDTO;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.payment.app.port.PaymentResultCodec;
-import io.github.loadup.payment.client.dto.PaymentActionDTO;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.payment.domain.model.GateState;
-import io.github.loadup.payment.domain.model.PaymentActionType;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.payment.domain.model.PaymentChannelReceipt;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.PaymentResultAnomaly;
-import io.github.loadup.payment.domain.model.PaymentState;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
@@ -362,7 +362,7 @@ class PaymentResultServiceTest {
         var action = new AlipayH5ChannelAction(url, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
         var submission = new ChannelPaymentSubmission(original.identity(), original.amount(), null, action);
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
-        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
         doAnswer(call -> {
                     active();
                     return null;
@@ -401,7 +401,7 @@ class PaymentResultServiceTest {
                 null,
                 1,
                 BusinessTime.external(AttemptFixtures.NOW));
-        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
         when(actions.present("tenant", locked)).thenReturn(presented);
         doAnswer(call -> {
                     active();
@@ -444,7 +444,7 @@ class PaymentResultServiceTest {
                 null,
                 1,
                 BusinessTime.external(AttemptFixtures.NOW));
-        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
         when(actions.present("tenant", locked)).thenReturn(presented);
         doAnswer(call -> {
                     active();
@@ -495,7 +495,7 @@ class PaymentResultServiceTest {
         var original = jsapiPayment(accepted.get().payment().amount());
         var submission = jsapiSubmission(original, "trade-1");
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
-        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
         doAnswer(call -> {
                     active();
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -730,22 +730,6 @@ class PaymentResultServiceTest {
                         .disposition());
         assertEquals(PaymentState.SUCCEEDED, accepted.get().payment().state());
         verifyNoInteractions(events);
-    }
-
-    @Test
-    void channelTransactionClaimConflictsAcrossTenantAliasesWithoutReturningTheOtherOwner() {
-        claim.set(new ChannelTransactionClaim(
-                "other-claim",
-                attempt.get().attempt().identity(),
-                accepted.get().payment().amount(),
-                "channel-transaction",
-                AttemptFixtures.NOW,
-                "other-evidence"));
-        var result = service.record("tenant", success());
-        assertEquals(CONFLICT, result.disposition());
-        assertEquals("CHANNEL_TRANSACTION_ALREADY_CLAIMED", anomalies.getFirst().reasonCode());
-        assertFalse(result.toString().contains("other-tenant"));
-        assertNull(capacity.get());
     }
 
     @Test

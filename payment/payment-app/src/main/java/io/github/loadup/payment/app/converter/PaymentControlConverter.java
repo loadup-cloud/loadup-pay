@@ -16,14 +16,14 @@
 package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.payment.client.command.PaymentCloseCommand;
-import io.github.loadup.payment.client.command.PaymentInputExpireCommand;
-import io.github.loadup.payment.client.dto.ParentFenceDTO;
-import io.github.loadup.payment.client.dto.PaymentCloseDTO;
-import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.payment.client.dto.PaymentInputExpiryDTO;
+import io.github.loadup.contracts.model.PaymentInputExpiryDisposition;
+import io.github.loadup.contracts.payment.ParentFenceDTO;
+import io.github.loadup.contracts.payment.PaymentCloseCommand;
+import io.github.loadup.contracts.payment.PaymentCloseDTO;
+import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.contracts.payment.PaymentInputExpireCommand;
+import io.github.loadup.contracts.payment.PaymentInputExpiryDTO;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
-import io.github.loadup.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
@@ -42,13 +42,13 @@ public interface PaymentControlConverter {
     @Mapping(
             target = "requestKey",
             expression =
-                    "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
+                    "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
-            expression = "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.FENCE_EPOCH)")
     @Mapping(
             target = "reasonCode",
-            expression = "java(io.github.loadup.payment.client.facade.PaymentInputExpiryPolicy.REASON)")
+            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.REASON)")
     PaymentCloseCommand toInputExpiryClose(PaymentInputExpireCommand command);
 
     @Mapping(target = "gate", source = "gate")
