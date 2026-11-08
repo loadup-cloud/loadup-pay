@@ -12,7 +12,7 @@
     </servers>
     <profiles>
         <profile>
-            <id>github</id>
+            <id>loadup</id>
             <repositories>
                 <repository>
                     <id>github</id>
@@ -29,6 +29,6 @@
         </profile>
     </profiles>
     <activeProfiles>
-        <activeProfile>loadup-packages</activeProfile>
+        <activeProfile>loadup</activeProfile>
     </activeProfiles>
 </settings>
