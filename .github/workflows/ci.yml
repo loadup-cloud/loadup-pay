@@ -88,7 +88,7 @@ jobs:
       - uses: ./.github/actions/setup-build
       - name: Require registry credentials
         run: |
-          if [[ -z "$LOADUP_PACKAGES_TOKEN" ]]; then
+          if [[ -z "OSSRH_TOKEN" ]]; then
             echo 'Set PACKAGES_TOKEN with read:packages for loadup-cloud/loadup-packages.' >&2
             exit 1
           fi
@@ -109,7 +109,7 @@ jobs:
       - uses: ./.github/actions/setup-build
       - name: Require registry credentials
         run: |
-          if [[ -z "$LOADUP_PACKAGES_TOKEN" ]]; then
+          if [[ -z "OSSRH_TOKEN" ]]; then
             echo 'Set PACKAGES_TOKEN with read:packages for loadup-cloud/loadup-packages.' >&2
             exit 1
           fi
