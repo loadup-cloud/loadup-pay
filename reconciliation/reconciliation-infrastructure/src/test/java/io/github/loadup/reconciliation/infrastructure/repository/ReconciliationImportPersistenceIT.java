@@ -138,8 +138,8 @@ class ReconciliationImportPersistenceIT {
                 () -> actors.call(fixture.tenant(), () -> imports.submit(fixture.command())));
         assertEquals(0L, count("reconciliation_import", fixture.tenant()));
         if (count("transfer_task", fixture.tenant()) != 0L) {
-            System.err.println("DIAG transfer rows=" + jdbc.queryForList(
-                    "SELECT id, kind, handler_key, status, source_file_id FROM transfer_task"));
+            System.err.println("DIAG transfer rows="
+                    + jdbc.queryForList("SELECT id, kind, handler_key, status, source_file_id FROM transfer_task"));
         }
         assertEquals(0L, count("transfer_task", fixture.tenant()));
         assertEquals(0L, count("file_resource_reference", fixture.tenant()));
