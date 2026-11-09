@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.github.loadup-cloud</groupId>
+        <artifactId>loadup-pay</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>loadup-pay-oauth2-server</artifactId>
+    <packaging>pom</packaging>
+    <name>LoadUp Pay OAuth2 Server</name>
+    <description>OAuth2 authorization server for merchant, application and internal service tokens.</description>
+    <modules>
+        <module>loadup-pay-oauth2-server-bootstrap</module>
+    </modules>
+</project>

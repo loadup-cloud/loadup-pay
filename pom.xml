@@ -32,17 +32,17 @@
     </developers>
 
     <modules>
-        <module>pay-contracts</module>
-        <module>oauth2-server</module>
-        <module>admin</module>
-        <module>merchantcenter</module>
-        <module>limitcenter</module>
-        <module>productcenter</module>
-        <module>payment</module>
-        <module>acquire</module>
-        <module>realtime</module>
-        <module>reconciliation</module>
-        <module>notificationcenter</module>
+        <module>loadup-pay-contracts</module>
+        <module>loadup-pay-oauth2-server</module>
+        <module>loadup-pay-admin</module>
+        <module>loadup-pay-merchantcenter</module>
+        <module>loadup-pay-limitcenter</module>
+        <module>loadup-pay-productcenter</module>
+        <module>loadup-pay-payment</module>
+        <module>loadup-pay-acquire</module>
+        <module>loadup-pay-realtime</module>
+        <module>loadup-pay-reconciliation</module>
+        <module>loadup-pay-notificationcenter</module>
     </modules>
     <properties>
         <java.version>25</java.version>
@@ -78,63 +78,63 @@
         <dependencies>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>pay-contracts-commercial</artifactId>
+                <artifactId>loadup-pay-contracts-commercial</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>pay-contracts-events</artifactId>
+                <artifactId>loadup-pay-contracts-events</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-app</artifactId>
+                <artifactId>loadup-pay-reconciliation-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-infrastructure</artifactId>
+                <artifactId>loadup-pay-reconciliation-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-client</artifactId>
+                <artifactId>loadup-pay-reconciliation-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-domain</artifactId>
+                <artifactId>loadup-pay-reconciliation-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>realtime-client</artifactId>
+                <artifactId>loadup-pay-realtime-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-client</artifactId>
+                <artifactId>loadup-pay-acquire-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-client</artifactId>
+                <artifactId>loadup-pay-payment-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-client</artifactId>
+                <artifactId>loadup-pay-limitcenter-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>productcenter-client</artifactId>
+                <artifactId>loadup-pay-productcenter-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>merchantcenter-client</artifactId>
+                <artifactId>loadup-pay-merchantcenter-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -146,132 +146,132 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>merchantcenter-service</artifactId>
+                <artifactId>loadup-pay-merchantcenter-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>merchantcenter-bootstrap</artifactId>
+                <artifactId>loadup-pay-merchantcenter-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-domain</artifactId>
+                <artifactId>loadup-pay-limitcenter-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-bootstrap</artifactId>
+                <artifactId>loadup-pay-limitcenter-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>productcenter-domain</artifactId>
+                <artifactId>loadup-pay-productcenter-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-app</artifactId>
+                <artifactId>loadup-pay-limitcenter-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-infrastructure</artifactId>
+                <artifactId>loadup-pay-limitcenter-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-adapter</artifactId>
+                <artifactId>loadup-pay-limitcenter-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>productcenter-app</artifactId>
+                <artifactId>loadup-pay-productcenter-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>productcenter-infrastructure</artifactId>
+                <artifactId>loadup-pay-productcenter-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>productcenter-adapter</artifactId>
+                <artifactId>loadup-pay-productcenter-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>productcenter-bootstrap</artifactId>
+                <artifactId>loadup-pay-productcenter-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-domain</artifactId>
+                <artifactId>loadup-pay-payment-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-app</artifactId>
+                <artifactId>loadup-pay-payment-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-infrastructure</artifactId>
+                <artifactId>loadup-pay-payment-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-adapter</artifactId>
+                <artifactId>loadup-pay-payment-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-bootstrap</artifactId>
+                <artifactId>loadup-pay-payment-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-app</artifactId>
+                <artifactId>loadup-pay-acquire-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-infrastructure</artifactId>
+                <artifactId>loadup-pay-acquire-infrastructure</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-adapter</artifactId>
+                <artifactId>loadup-pay-acquire-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-domain</artifactId>
+                <artifactId>loadup-pay-acquire-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-bootstrap</artifactId>
+                <artifactId>loadup-pay-acquire-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>realtime-service</artifactId>
+                <artifactId>loadup-pay-realtime-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>realtime-bootstrap</artifactId>
+                <artifactId>loadup-pay-realtime-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-adapter</artifactId>
+                <artifactId>loadup-pay-reconciliation-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-bootstrap</artifactId>
+                <artifactId>loadup-pay-reconciliation-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
