@@ -196,3 +196,9 @@ Gateway API + Envoy Gateway v1.9.3 是默认入口参考，见 [网关配置](de
 独立 AuthServer 使用 SAS + KMS-local、标准 PostgreSQL 客户端注册/授权存储，按审查过的环境授权同步；客户端按逻辑租户、调用方、目标 audience 取令牌。商户/用户委托不改成服务身份。实现及运行边界见 [AuthServer](authserver/README.md)。
 
 当前 TenantFilter 仍绑定默认租户，DatabaseTenant 尚把租户 ID 直接解释成 schema，缺少动态连接路由。已有 ContextHolder/ExecutionContext 基于 ScopedValue，可继续承载逻辑租户；后续应增加受控租户注册和按应用解析的 schema 映射，在验签后、事务前建立上下文。无效/缺失租户拒绝访问；跨线程显式传播，事务内不能切换，连接归还不能残留 schema，缓存/任务身份仍须包含租户。业务表不恢复 tenant_id；JWT 与控制面授权保留逻辑租户，不传播物理 schema。此项尚未实施，不能将当前源码当成动态多租户隔离已完成。
+
+## 外部制品版本
+
+Pay 根 POM 同时导入 framework 的 loadup-dependencies 和 modules 的 loadup-modules-bom，分别使用
+loadup.framework.version 与 loadup.modules.version。子模块继承这两个导入，外部 modules JAR 不逐个声明版本。
+业务模块 JAR 的普通传递依赖不会把 modules 父 POM 的版本清单提供给 Pay，因此必须显式 import modules BOM。
