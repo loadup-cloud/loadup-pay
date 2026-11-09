@@ -47,11 +47,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
@@ -247,7 +247,7 @@ class PaymentControlServiceTest {
                 "order",
                 "allocation",
                 "merchant",
-                DomainChecks.cnyAmount(4000, "CNY"),
+                ChannelAmounts.cnyAmount(4000, "CNY"),
                 "operation",
                 now,
                 state,
@@ -312,7 +312,7 @@ class PaymentControlServiceTest {
                 "order",
                 "allocation",
                 "merchant",
-                DomainChecks.cnyAmount(4000, "CNY"),
+                ChannelAmounts.cnyAmount(4000, "CNY"),
                 "action",
                 Channel.WECHAT,
                 PaymentMethod.H5,

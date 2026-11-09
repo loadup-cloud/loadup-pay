@@ -22,7 +22,7 @@ import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.time.LocalDateTime;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
@@ -35,7 +35,7 @@ public interface PaymentOutcomeStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),row.getCurrency()))")
     VerifiedPaymentOutcome toOutcome(OrderPaymentOutcomeDO row);
 
     @Mapping(target = "outcome", source = "outcome")

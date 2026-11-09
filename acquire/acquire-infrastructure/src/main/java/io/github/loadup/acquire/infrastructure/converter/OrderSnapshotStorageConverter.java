@@ -17,7 +17,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 
 import io.github.loadup.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -27,7 +27,7 @@ public interface OrderSnapshotStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "paidMinor", source = "paidAmountMinor")
     @Mapping(target = "reservedMinor", source = "paymentReservedMinor")
     @Mapping(target = "orderCreatedAt", source = "createdAt")

@@ -16,8 +16,8 @@
 package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitRefundRestoreCommand;
 import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;

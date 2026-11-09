@@ -22,9 +22,9 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.model.LockedPayment;
 import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.model.PaymentAttemptBinding;

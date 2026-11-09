@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.client.command.RefundCreateCommand;
 import io.github.loadup.payment.client.dto.RefundAllocationDTO;
 import io.github.loadup.payment.client.dto.RefundRequestDTO;

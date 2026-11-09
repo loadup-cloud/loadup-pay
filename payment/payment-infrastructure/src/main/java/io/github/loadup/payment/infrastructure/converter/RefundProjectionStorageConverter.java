@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.payment.app.model.RefundSummaryFacts;
 import io.github.loadup.payment.domain.model.OrderRefundSummary;
@@ -31,7 +31,7 @@ public interface RefundProjectionStorageConverter {
     @Mapping(
             target = "orderAmount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getOrderAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getOrderAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     OrderRefundSummary toSummary(OrderRefundSummaryDO row);
@@ -58,7 +58,7 @@ public interface RefundProjectionStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "refundCreatedAt", source = "row.createdAt")
     @Mapping(target = "sourceUpdatedAt", source = "row.updatedAt")
     @Mapping(target = "sourceVersion", source = "row.rowVersion")

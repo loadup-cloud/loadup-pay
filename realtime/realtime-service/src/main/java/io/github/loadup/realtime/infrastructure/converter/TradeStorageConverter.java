@@ -15,7 +15,7 @@
  */
 package io.github.loadup.realtime.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.realtime.domain.model.TradeOrderProjection;
 import io.github.loadup.realtime.domain.model.TradePaymentProjection;

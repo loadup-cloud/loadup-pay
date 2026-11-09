@@ -18,7 +18,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 import io.github.loadup.acquire.domain.model.OrderFee;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.time.LocalDateTime;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
@@ -29,11 +29,11 @@ public interface OrderFeeStorageConverter {
     @Mapping(
             target = "baseAmount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getBaseAmountMinor(),row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getBaseAmountMinor(),row.getCurrency()))")
     @Mapping(
             target = "feeAmount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getFeeAmountMinor(),row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getFeeAmountMinor(),row.getCurrency()))")
     @Mapping(target = "policy", source = "policy")
     @Mapping(target = "adjustedMinor", source = "row.adjustedAmountMinor")
     OrderFee toFee(OrderFeeDO row, OrderFeePolicy policy);

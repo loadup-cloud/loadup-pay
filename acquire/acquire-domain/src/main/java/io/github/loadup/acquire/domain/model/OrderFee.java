@@ -24,6 +24,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
 public record OrderFee(
@@ -39,8 +40,8 @@ public record OrderFee(
     public OrderFee {
         DomainChecks.id(id);
         DomainChecks.id(orderId);
-        DomainChecks.cnyAmount(baseAmount);
-        DomainChecks.cnyAmount(feeAmount);
+        ChannelAmounts.cnyAmount(baseAmount);
+        ChannelAmounts.cnyAmount(feeAmount);
         Objects.requireNonNull(policy);
         Objects.requireNonNull(state);
         require(baseAmount.getCurrencyValue().equals(feeAmount.getCurrencyValue()), CURRENCY_MISMATCH);

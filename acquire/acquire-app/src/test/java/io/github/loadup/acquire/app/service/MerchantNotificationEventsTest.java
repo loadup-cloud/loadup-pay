@@ -56,9 +56,9 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import java.math.BigDecimal;
@@ -242,7 +242,7 @@ class MerchantNotificationEventsTest {
         enableNotifications(TARGET, "signing-v1");
         prepare(AcquireOrderState.PENDING, 4000, NOW, 9);
         var payment = new VerifiedPaymentOutcome(
-                ORDER_ID, "payment", DomainChecks.cnyAmount(4000, "CNY"), SUCCEEDED, 3, "evidence", false);
+                ORDER_ID, "payment", ChannelAmounts.cnyAmount(4000, "CNY"), SUCCEEDED, 3, "evidence", false);
 
         write(() -> events.payment(TENANT, ORDER_ID, payment));
 
@@ -331,7 +331,7 @@ class MerchantNotificationEventsTest {
         var order = new AcquireOrder(
                 ORDER_ID,
                 MERCHANT_ID,
-                DomainChecks.cnyAmount(10000, "CNY"),
+                ChannelAmounts.cnyAmount(10000, "CNY"),
                 paid,
                 0,
                 paid == 0 ? 0 : 1,

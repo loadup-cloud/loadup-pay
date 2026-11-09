@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.limitcenter.app.converter.LimitRefundConverter;
@@ -159,14 +159,14 @@ class LimitRefundServiceTest {
                     "payment",
                     "order",
                     "merchant",
-                    DomainChecks.cnyAmount(10000, "CNY"),
+                    ChannelAmounts.cnyAmount(10000, "CNY"),
                     "policy",
                     1,
                     initiated,
                     initiated.plusMinutes(2))
             .reserve()
             .beginExecution("attempt", initiated.plusSeconds(1))
-            .confirm("payment", DomainChecks.cnyAmount(10000, "CNY"), 3);
+            .confirm("payment", ChannelAmounts.cnyAmount(10000, "CNY"), 3);
     final AtomicReference<StoredLimitReservation> stored =
             new AtomicReference<>(new StoredLimitReservation(confirmed, "a".repeat(64), "b".repeat(64), "payment"));
     final AtomicReference<List<LimitReservationItem>> items = new AtomicReference<>();
@@ -333,7 +333,7 @@ class LimitRefundServiceTest {
                         "payment",
                         "order",
                         "merchant",
-                        DomainChecks.cnyAmount(10000, "CNY"),
+                        ChannelAmounts.cnyAmount(10000, "CNY"),
                         "policy",
                         1,
                         initiated,

@@ -16,9 +16,9 @@
 package io.github.loadup.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;

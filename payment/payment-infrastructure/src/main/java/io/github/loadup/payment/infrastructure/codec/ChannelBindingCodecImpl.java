@@ -18,9 +18,9 @@ package io.github.loadup.payment.infrastructure.codec;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.payment.client.command.ChannelBindingPublishCommand;

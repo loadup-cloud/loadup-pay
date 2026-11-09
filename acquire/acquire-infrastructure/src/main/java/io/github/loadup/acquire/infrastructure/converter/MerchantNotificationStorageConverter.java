@@ -18,7 +18,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 import io.github.loadup.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

@@ -39,11 +39,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
 import io.github.loadup.components.payment.channel.api.model.PayerIdentityType;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.payment.app.port.PaymentInputCipher;

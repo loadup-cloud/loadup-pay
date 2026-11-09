@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;

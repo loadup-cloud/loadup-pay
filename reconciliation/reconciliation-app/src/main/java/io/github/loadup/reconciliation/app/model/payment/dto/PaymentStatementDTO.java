@@ -20,7 +20,7 @@ import static io.github.loadup.reconciliation.app.model.payment.error.PaymentRes
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;

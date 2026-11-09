@@ -21,7 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.acquire.client.enums.FeeRefundPolicy;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
@@ -46,7 +46,7 @@ public record OrderFeePolicy(
     }
 
     public Money calculate(Money orderAmount) {
-        DomainChecks.cnyAmount(orderAmount);
+        ChannelAmounts.cnyAmount(orderAmount);
         require(orderAmount.getCent() > 0, INVALID_ARGUMENT);
         long rounded = BigDecimal.valueOf(orderAmount.getCent())
                 .multiply(rate)
@@ -57,7 +57,7 @@ public record OrderFeePolicy(
         if (maximumMinor != null) {
             fee = Math.min(maximumMinor, fee);
         }
-        return DomainChecks.cnyAmount(fee, orderAmount.getCurrencyValue());
+        return ChannelAmounts.cnyAmount(fee, orderAmount.getCurrencyValue());
     }
 
     public long refundableFee(long originalFee, long orderAmount, long cumulativeRefund) {

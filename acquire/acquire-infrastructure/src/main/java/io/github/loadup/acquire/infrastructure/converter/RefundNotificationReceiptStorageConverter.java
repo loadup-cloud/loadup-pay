@@ -17,7 +17,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 
 import io.github.loadup.acquire.domain.model.RefundNotificationReceipt;
 import io.github.loadup.acquire.infrastructure.dataobject.RefundNotificationReceiptDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

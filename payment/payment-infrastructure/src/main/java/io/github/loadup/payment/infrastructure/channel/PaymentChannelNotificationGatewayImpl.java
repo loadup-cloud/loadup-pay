@@ -21,7 +21,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.facade.ChannelNotificationFacade;
 import io.github.loadup.components.payment.channel.api.model.ChannelExecutionContext;
@@ -33,6 +32,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelRefundNotifi
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelNotification;
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelRefundNotification;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.payment.domain.gateway.PaymentChannelNotificationGateway;
 import org.springframework.stereotype.Component;

@@ -22,6 +22,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.reconciliation.client.enums.ReconciliationEntryStatus;
 import java.util.Objects;
 
@@ -38,7 +39,7 @@ public record ReconciliationLine(
         Objects.requireNonNull(key);
         Objects.requireNonNull(status);
         DomainChecks.text(merchantPaymentNo, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(amount.getCent() > 0 && recordNumber > 0, INVALID_ARGUMENT);
     }
 

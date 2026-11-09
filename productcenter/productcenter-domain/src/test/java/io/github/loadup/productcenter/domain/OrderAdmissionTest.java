@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import io.github.loadup.productcenter.domain.model.ContractAdmissionState;
 import io.github.loadup.productcenter.domain.model.MerchantContractFacts;

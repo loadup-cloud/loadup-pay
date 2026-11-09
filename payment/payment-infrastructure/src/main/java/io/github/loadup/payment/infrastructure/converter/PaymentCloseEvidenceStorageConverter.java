@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.PaymentCloseEvidence;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentCloseEvidenceDO;
 import org.mapstruct.Mapper;
@@ -30,7 +30,7 @@ public interface PaymentCloseEvidenceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     PaymentCloseEvidence toModel(PaymentCloseEvidenceDO row);
 
     @Mapping(target = "id", source = "value.identity.attemptId")

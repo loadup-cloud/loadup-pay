@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.payment.infrastructure.dataobject.RefundAcceptanceDO;
 import org.mapstruct.Mapper;
@@ -31,7 +31,7 @@ public interface RefundAcceptanceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     RefundAcceptanceEvidence toModel(RefundAcceptanceDO row);
 
     @Mapping(target = "id", source = "value.refundId")

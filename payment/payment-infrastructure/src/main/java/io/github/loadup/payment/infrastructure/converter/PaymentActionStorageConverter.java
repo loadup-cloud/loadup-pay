@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentActionDO;
 import java.time.LocalDateTime;
@@ -30,7 +30,7 @@ public interface PaymentActionStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "executionEpoch", source = "row.executionEpoch")
     @Mapping(target = "action", source = "action")
     @Mapping(target = "source", source = "row.source")

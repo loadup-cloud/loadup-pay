@@ -21,10 +21,10 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STAT
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.enums.ChannelBindingState;
 import java.util.Objects;
 

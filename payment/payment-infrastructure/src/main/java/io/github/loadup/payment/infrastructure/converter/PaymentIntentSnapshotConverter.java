@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.payment.client.dto.terms.AcquiringTermsDTO;

@@ -15,7 +15,7 @@
  */
 package io.github.loadup.productcenter.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.productcenter.app.support.ContractMappingSupport;
 import io.github.loadup.productcenter.client.dto.CatalogDefinitions;
 import io.github.loadup.productcenter.client.dto.CatalogVersionDTO;

@@ -21,6 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
 public record PaymentIntent(
         String allocationId,
@@ -35,7 +36,7 @@ public record PaymentIntent(
         DomainChecks.text(actorScope, 128);
         DomainChecks.text(actionKey, 128);
         DomainChecks.text(requestDigest, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
     }
 

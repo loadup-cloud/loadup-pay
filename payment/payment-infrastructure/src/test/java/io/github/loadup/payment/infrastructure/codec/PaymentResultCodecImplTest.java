@@ -18,11 +18,11 @@ package io.github.loadup.payment.infrastructure.codec;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -38,7 +38,7 @@ class PaymentResultCodecImplTest {
         return new PaymentObservation(
                 identity,
                 ChannelPaymentOutcome.Kind.SUCCEEDED,
-                DomainChecks.cnyAmount(amount, "CNY"),
+                ChannelAmounts.cnyAmount(amount, "CNY"),
                 transaction,
                 paidAt,
                 PaymentObservation.Source.CALLBACK,
@@ -91,7 +91,7 @@ class PaymentResultCodecImplTest {
         var unknown = new PaymentObservation(
                 identity,
                 ChannelPaymentOutcome.Kind.UNKNOWN,
-                DomainChecks.cnyAmount(1000, "CNY"),
+                ChannelAmounts.cnyAmount(1000, "CNY"),
                 null,
                 null,
                 PaymentObservation.Source.QUERY_RESPONSE,

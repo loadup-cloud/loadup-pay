@@ -10,6 +10,7 @@
 | 各服务 `client.enums` | 需要对外暴露的状态和参数枚举；domain 可使用这些纯类型 |
 | 消费方 `client.dto.<provider>` | 消费方公开接口自身需要的表示，不向上游暴露远端 Java 类型 |
 | 消费方 `app.model.<provider>` | 应用端口、持久化快照、业务编排所需的本地模型 |
+| `pay-contracts-commercial` | 产品与收单共享的不可变商业合约引用 |
 | `pay-contracts-events` | 按发布方组织的集成事件和事件生命周期枚举 |
 
 `pay-contracts-events` 只保留七个事件记录及三个公开事件状态枚举，包名为
@@ -20,7 +21,7 @@
 
 - client 不依赖 domain、应用实现或其他 Pay 服务 client。
 - app/domain 不导入其他 Pay 服务 client；消费方基础设施负责处理远端协议。
-- 事件工件不依赖服务的 client/domain，也不依赖渠道 API。
+- 事件工件不依赖服务的 client/domain，也不依赖渠道 API；渠道枚举与金额策略直接引用轻量 payment-channel-contracts。
 - 使用同一个 reactor 发布版本；本轮直接全量迁移包名、类型及所有调用方，不保留兼容别名或历史适配层。
 - 结构门禁位于 `scripts/tests/test_contract_ownership.py`，验证依赖方向、事件工件职责及 Maven 模块无环。
 

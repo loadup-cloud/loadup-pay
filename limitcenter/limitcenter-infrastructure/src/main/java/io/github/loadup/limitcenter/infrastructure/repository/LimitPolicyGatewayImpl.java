@@ -21,8 +21,8 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.dataobject.BaseDO;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.limitcenter.domain.gateway.LimitPolicyGateway;
 import io.github.loadup.limitcenter.domain.gateway.LimitWriteRaceException;

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.dataobject;
 
-import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.components.database.dataobject.BaseDO;
 
 public class RefundAllocationPlanDO extends BaseDO {
     private String refundRequestId;

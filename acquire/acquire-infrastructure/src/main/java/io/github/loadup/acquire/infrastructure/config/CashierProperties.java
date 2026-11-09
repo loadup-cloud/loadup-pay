@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.infrastructure.config;
 
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

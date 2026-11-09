@@ -25,6 +25,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.client.enums.RefundRequestState;
 import java.util.HashSet;
@@ -48,7 +49,7 @@ public record RefundRequest(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantRefundNo, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(state);
         children = List.copyOf(children);
         require(amount.getCent() > 0 && planVersion > 0 && version >= 0 && !children.isEmpty(), INVALID_ARGUMENT);

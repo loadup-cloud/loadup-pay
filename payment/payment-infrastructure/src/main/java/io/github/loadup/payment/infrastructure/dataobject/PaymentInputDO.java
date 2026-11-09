@@ -16,9 +16,9 @@
 package io.github.loadup.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
-import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
 
 @Table("payment_input")

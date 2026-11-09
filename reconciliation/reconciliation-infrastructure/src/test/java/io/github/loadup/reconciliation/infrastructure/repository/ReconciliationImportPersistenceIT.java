@@ -26,13 +26,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.dfs.DfsService;
 import io.github.loadup.components.dfs.model.FileDownloadResponse;
 import io.github.loadup.components.dfs.model.FileMetadata;
 import io.github.loadup.components.dfs.model.FileUploadRequest;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.modules.file.client.facade.FileResourceFacade;

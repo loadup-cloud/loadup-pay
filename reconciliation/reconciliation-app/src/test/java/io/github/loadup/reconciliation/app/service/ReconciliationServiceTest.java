@@ -41,12 +41,12 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.app.converter.ReconciliationConverter;
 import io.github.loadup.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.reconciliation.app.port.ReconciliationDifferenceReader;

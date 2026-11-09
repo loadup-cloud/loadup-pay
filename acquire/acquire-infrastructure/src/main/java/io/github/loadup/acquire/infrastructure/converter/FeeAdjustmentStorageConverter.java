@@ -18,7 +18,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 import io.github.loadup.acquire.domain.model.FeeAdjustment;
 import io.github.loadup.acquire.domain.model.OrderFee;
 import io.github.loadup.acquire.infrastructure.dataobject.FeeAdjustmentDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -30,7 +30,7 @@ public interface FeeAdjustmentStorageConverter {
     @Mapping(
             target = "adjustment",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(fee.adjustmentDueMinor(), fee.baseAmount().getCurrencyValue()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(fee.adjustmentDueMinor(), fee.baseAmount().getCurrencyValue()))")
     @Mapping(target = "refundSourceVersion", source = "fee.refundBasisVersion")
     FeeAdjustment toAdjustment(String id, OrderFee fee, String triggerKey);
 

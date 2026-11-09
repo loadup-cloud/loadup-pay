@@ -19,7 +19,7 @@ import io.github.loadup.acquire.app.service.PaymentIntentRecovery;
 import io.github.loadup.acquire.client.command.PaymentRecoverCommand;
 import io.github.loadup.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.acquire.client.dto.PaymentRecoveryDTO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

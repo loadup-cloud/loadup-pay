@@ -28,9 +28,9 @@ import io.github.loadup.acquire.client.dto.payment.H5SceneInteractionDTO;
 import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.acquire.client.enums.PaymentRecoveryState;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

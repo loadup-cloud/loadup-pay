@@ -21,9 +21,9 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import java.util.Objects;
 

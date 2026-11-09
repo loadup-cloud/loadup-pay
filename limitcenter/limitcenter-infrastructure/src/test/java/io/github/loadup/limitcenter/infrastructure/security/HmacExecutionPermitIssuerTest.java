@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.limitcenter.domain.model.LimitReservation;
 import io.github.loadup.limitcenter.domain.model.StoredLimitReservation;
@@ -44,7 +44,7 @@ class HmacExecutionPermitIssuerTest {
                         "payment",
                         "order",
                         "merchant",
-                        DomainChecks.cnyAmount(amount, "CNY"),
+                        ChannelAmounts.cnyAmount(amount, "CNY"),
                         "policy",
                         1,
                         now.minusHours(1),

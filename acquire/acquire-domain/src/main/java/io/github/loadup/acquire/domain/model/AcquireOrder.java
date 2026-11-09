@@ -26,6 +26,7 @@ import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -50,7 +51,7 @@ public record AcquireOrder(
     public AcquireOrder {
         DomainChecks.id(id);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(state);
         Objects.requireNonNull(orderDueAt);
         Objects.requireNonNull(unpaidAction);

@@ -41,8 +41,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.modules.transfer.client.dto.TransferTaskDTO;
 import io.github.loadup.modules.transfer.client.enums.TransferKind;
 import io.github.loadup.modules.transfer.client.enums.TransferStatus;

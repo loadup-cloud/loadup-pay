@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitBeginExecutionCommand;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitExecutionVerifyCommand;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitReserveCommand;

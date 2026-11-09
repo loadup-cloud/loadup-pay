@@ -24,7 +24,6 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
 
-import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -32,6 +31,8 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.app.converter.OrderAdmissionConverter;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
@@ -165,7 +166,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     command.payeeMerchantId(),
                     command.productScopeKey(),
                     command.requestDigest(),
-                    DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                    ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                     command.requestedDueAt() == null ? null : BusinessTime.local(command.requestedDueAt()),
                     actor.scopeHash());
             var prior = admissions.findByOrder(intent.orderId());

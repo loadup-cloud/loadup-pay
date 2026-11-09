@@ -68,7 +68,7 @@ loadup-cloud/
 ├── loadup-dependencies/        # BOM，统一依赖版本
 ├── loadup-commons/             # 最底层通用基础
 │   ├── loadup-commons-context/ # JDK 25 ScopedValue 只读执行链上下文
-│   ├── loadup-commons-dto/     # 通用响应、DTO 与 BaseDO
+│   ├── loadup-commons-dto/     # 通用响应、分页与共享值
 │   ├── loadup-commons-util/    # 工具类：StringUtils、DateUtils、MoneyUtil
 │   ├── loadup-commons-log/     # 统一日志格式与 trace MDC 约定
 ├── loadup-components/          # 技术组件，分类目录不增加 Maven 层级
@@ -323,8 +323,8 @@ Commons、Components、Modules、Testify，例如 `LoadUp Commons JSON`、`LoadU
 所有对象映射统一使用 MapStruct，且只允许 Spring 组件模式，不允许 `default`/instance 模式
 （`Mappers.getMapper(...)`、手动 `new XxxConverterImpl()`）。
 
-- 共享配置统一使用 `loadup-commons-dto` 的 `LoadUpMapStructConfig`
-  （`io.github.loadup.commons.mapping`），固定配置：
+- 共享配置统一使用 `loadup-components-runtime` 的 `LoadUpMapStructConfig`
+  （`io.github.loadup.components.runtime.mapping`），固定配置：
   `componentModel = "spring"`、`unmappedTargetPolicy = ERROR`、`unmappedSourcePolicy = WARN`
 - converter 声明一律为 `@Mapper(config = LoadUpMapStructConfig.class)`，
   不在 `@Mapper` 上重复写 componentModel/policy

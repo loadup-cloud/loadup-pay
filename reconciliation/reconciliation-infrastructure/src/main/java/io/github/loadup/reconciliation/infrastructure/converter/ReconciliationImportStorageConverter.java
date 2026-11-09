@@ -15,7 +15,7 @@
  */
 package io.github.loadup.reconciliation.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.domain.model.ReconciliationFileSnapshot;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;

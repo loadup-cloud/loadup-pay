@@ -15,7 +15,7 @@
  */
 package io.github.loadup.limitcenter.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.limitcenter.domain.model.LimitRefundReceipt;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitRefundReceiptDO;
 import org.mapstruct.Mapper;

@@ -25,6 +25,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -43,7 +44,7 @@ public record StoredPaymentAction(
         LocalDateTime issuedAt) {
     public StoredPaymentAction {
         Objects.requireNonNull(identity);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(action);
         require(amount.getCent() > 0 && executionEpoch > 0 && action.channel() == identity.channel(), INVALID_ARGUMENT);
         Objects.requireNonNull(source);

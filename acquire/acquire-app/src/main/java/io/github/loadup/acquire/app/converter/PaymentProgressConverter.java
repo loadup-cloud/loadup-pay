@@ -24,7 +24,7 @@ import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.PaymentOutcomeReceipt;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -37,7 +37,7 @@ public interface PaymentProgressConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(),command.currency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(),command.currency()))")
     @Mapping(target = "kind", constant = "NOT_ACCEPTED")
     @Mapping(target = "paymentVersion", constant = "0L")
     @Mapping(target = "evidenceId", source = "noCollectionEvidenceId")
@@ -52,7 +52,7 @@ public interface PaymentProgressConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(payment.amountMinor(),payment.currency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(payment.amountMinor(),payment.currency()))")
     @Mapping(target = "paymentVersion", source = "payment.version")
     @Mapping(target = "evidenceId", source = "payment.terminalEvidenceId")
     VerifiedPaymentOutcome toOutcome(

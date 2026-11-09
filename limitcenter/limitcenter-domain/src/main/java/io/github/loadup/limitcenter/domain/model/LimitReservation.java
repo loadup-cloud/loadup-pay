@@ -24,6 +24,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.client.enums.LimitReservationState;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -51,7 +52,7 @@ public record LimitReservation(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.id(policyId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(initiatedAt);
         Objects.requireNonNull(reserveExpiresAt);
         Objects.requireNonNull(state);

@@ -76,10 +76,10 @@ import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
@@ -161,7 +161,7 @@ class PaymentOutcomeEventServiceTest {
                 "merchant/" + OWNER,
                 "action",
                 "f".repeat(64),
-                DomainChecks.cnyAmount(amount, "CNY"));
+                ChannelAmounts.cnyAmount(amount, "CNY"));
         var held = original.order().reservePayment(intent, NOW);
         order.set(context.getBean(PaymentProgressConverter.class).withOrder(original, held.order()));
         allocation.set(new StoredPaymentAllocation(held.allocation(), OWNER, "intent", "d".repeat(64), 0));

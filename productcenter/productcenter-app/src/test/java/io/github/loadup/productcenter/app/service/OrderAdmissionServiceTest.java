@@ -29,11 +29,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.app.converter.OrderAdmissionConverter;
 import io.github.loadup.productcenter.app.converter.OrderAdmissionConverterImpl;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
@@ -134,7 +134,7 @@ class OrderAdmissionServiceTest {
                 "merchant",
                 "scope",
                 "a".repeat(64),
-                DomainChecks.cnyAmount(amount, "CNY"),
+                ChannelAmounts.cnyAmount(amount, "CNY"),
                 null,
                 actor.scopeHash());
     }

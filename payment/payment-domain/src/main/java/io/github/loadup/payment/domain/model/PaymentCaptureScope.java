@@ -19,7 +19,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;

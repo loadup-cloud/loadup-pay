@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.app.converter.UnknownRecoveryOperationsConverter;
 import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.payment.app.model.UnknownRecoveryWindow;
@@ -222,6 +222,6 @@ class PaymentUnknownRecoveryServiceTest {
 
     private UnknownRecoveryEntry entry(PaymentRecoveryKind kind, String id, String subject, LocalDateTime firstAt) {
         return new UnknownRecoveryEntry(
-                kind, id, subject, "order", "merchant", DomainChecks.cnyAmount(1000L, "CNY"), firstAt, 2L, 3L, false);
+                kind, id, subject, "order", "merchant", ChannelAmounts.cnyAmount(1000L, "CNY"), firstAt, 2L, 3L, false);
     }
 }

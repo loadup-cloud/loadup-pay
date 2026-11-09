@@ -20,12 +20,12 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.payment.client.dto.AlipayAccountIdentityDTO;

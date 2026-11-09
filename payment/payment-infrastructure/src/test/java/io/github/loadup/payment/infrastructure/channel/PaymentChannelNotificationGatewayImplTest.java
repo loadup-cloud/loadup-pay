@@ -24,9 +24,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.facade.ChannelNotificationFacade;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
@@ -34,6 +31,9 @@ import io.github.loadup.components.payment.channel.api.model.ChannelExecutionCon
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;

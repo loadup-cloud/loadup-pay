@@ -16,7 +16,7 @@
 package io.github.loadup.payment.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

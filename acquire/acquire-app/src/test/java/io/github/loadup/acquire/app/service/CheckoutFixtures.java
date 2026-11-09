@@ -38,12 +38,12 @@ import io.github.loadup.acquire.domain.model.OrderAdmissionProof;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.commons.contract.ContractReference;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
+import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -71,7 +71,7 @@ final class CheckoutFixtures {
         var order = new AcquireOrder(
                 "order",
                 "merchant",
-                DomainChecks.cnyAmount(10000, "CNY"),
+                ChannelAmounts.cnyAmount(10000, "CNY"),
                 paid,
                 0,
                 paid > 0 ? 1 : 0,

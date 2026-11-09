@@ -24,7 +24,7 @@ import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.ParentCloseEvidence;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

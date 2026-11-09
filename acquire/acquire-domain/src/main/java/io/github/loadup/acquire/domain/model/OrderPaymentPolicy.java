@@ -21,7 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
 public record OrderPaymentPolicy(
         long minAmountMinor, long maxAmountMinor, Integer maxSuccessfulPayments, boolean allowExactRemainderBelowMin) {
@@ -34,7 +34,7 @@ public record OrderPaymentPolicy(
     }
 
     public void validate(Money payment, long available, long occupiedCount) {
-        DomainChecks.cnyAmount(payment);
+        ChannelAmounts.cnyAmount(payment);
         require(
                 payment.getCent() > 0 && payment.getCent() <= available && payment.getCent() <= maxAmountMinor,
                 AMOUNT_EXCEEDED);

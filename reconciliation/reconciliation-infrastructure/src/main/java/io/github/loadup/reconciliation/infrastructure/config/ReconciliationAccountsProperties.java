@@ -19,8 +19,8 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
 import java.util.Map;
 import java.util.Objects;

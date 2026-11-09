@@ -17,7 +17,7 @@ package io.github.loadup.limitcenter.infrastructure.converter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.client.enums.LimitMetric;
 import io.github.loadup.limitcenter.client.enums.LimitReservationState;
 import io.github.loadup.limitcenter.client.enums.LimitWindowType;
@@ -71,7 +71,7 @@ class LimitStorageConverterTest {
                 "payment",
                 "order",
                 "merchant",
-                DomainChecks.cnyAmount(400, "CNY"),
+                ChannelAmounts.cnyAmount(400, "CNY"),
                 "policy",
                 3,
                 initiated,

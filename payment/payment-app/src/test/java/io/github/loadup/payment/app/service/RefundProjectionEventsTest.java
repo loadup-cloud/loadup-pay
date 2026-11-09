@@ -39,10 +39,10 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
@@ -171,7 +171,7 @@ class RefundProjectionEventsTest {
 
     void plan() {
         transactions.writeLocal("tenant", () -> {
-            events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"));
+            events.planned("tenant", RefundResultFixtures.initial(), ChannelAmounts.cnyAmount(10000, "CNY"));
             return true;
         });
     }
@@ -324,7 +324,7 @@ class RefundProjectionEventsTest {
                 "order",
                 "merchant",
                 second.originalSucceededAt(),
-                DomainChecks.cnyAmount(4000, "CNY"),
+                ChannelAmounts.cnyAmount(4000, "CNY"),
                 0,
                 500,
                 1);
@@ -411,7 +411,7 @@ class RefundProjectionEventsTest {
                 assertThrows(
                                 CommonException.class,
                                 () -> events.planned(
-                                        "tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY")))
+                                        "tenant", RefundResultFixtures.initial(), ChannelAmounts.cnyAmount(10000, "CNY")))
                         .getResultCode());
         assertSame(
                 ACTION_FORBIDDEN,
@@ -421,7 +421,7 @@ class RefundProjectionEventsTest {
                                     events.planned(
                                             "tenant",
                                             RefundResultFixtures.initial(),
-                                            DomainChecks.cnyAmount(10000, "CNY"));
+                                            ChannelAmounts.cnyAmount(10000, "CNY"));
                                     return true;
                                 }))
                         .getResultCode());

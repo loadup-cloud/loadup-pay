@@ -30,7 +30,7 @@ import io.github.loadup.acquire.client.dto.payment.PaymentCodeInteractionDTO;
 import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.acquire.client.enums.OrderCreationRecoveryState;
 import io.github.loadup.acquire.client.enums.PaymentInteractionKind;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

@@ -19,8 +19,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.dataobject.BaseDO;
 import io.github.loadup.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
 import io.github.loadup.payment.client.enums.PaymentLedgerKind;

@@ -19,14 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.domain.model.OrderRefundSummary;
 import org.junit.jupiter.api.Test;
 
 class OrderRefundSummaryTest {
     @Test
     void independentRequestsShareOneMonotonicMonetaryVersionWithoutChangingTheOrderTotal() {
-        var initial = OrderRefundSummary.init("order", "merchant", DomainChecks.cnyAmount(10000, "CNY"));
+        var initial = OrderRefundSummary.init("order", "merchant", ChannelAmounts.cnyAmount(10000, "CNY"));
         var held = initial.reserve(6000).reserve(1000);
         var succeeded = held.settle(2000, true);
         var failed = succeeded.settle(1000, false);
@@ -40,7 +40,7 @@ class OrderRefundSummaryTest {
 
     @Test
     void totalAndOriginalHoldsBoundEveryReservationAndSettlement() {
-        var held = OrderRefundSummary.init("order", "merchant", DomainChecks.cnyAmount(1000, "CNY"))
+        var held = OrderRefundSummary.init("order", "merchant", ChannelAmounts.cnyAmount(1000, "CNY"))
                 .reserve(800);
         assertThrows(DomainViolation.class, () -> held.reserve(201));
         assertThrows(DomainViolation.class, () -> held.settle(801, true));

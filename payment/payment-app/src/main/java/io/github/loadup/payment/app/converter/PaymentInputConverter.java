@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.payment.client.dto.PaymentInputLookupDTO;
@@ -36,7 +36,7 @@ public interface PaymentInputConverter {
     @Mapping(target = "id", source = "inputRef")
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(),"
+            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(),"
                     + " command.currency()))")
     @Mapping(target = "channel", source = "command.choice.channel")
     @Mapping(target = "method", source = "command.choice.method")

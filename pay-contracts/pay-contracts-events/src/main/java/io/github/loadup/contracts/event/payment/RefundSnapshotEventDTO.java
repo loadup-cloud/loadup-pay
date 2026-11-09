@@ -24,6 +24,7 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -58,7 +59,7 @@ public record RefundSnapshotEventDTO(
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(amountMinor, currency);
+        ChannelAmounts.cnyAmount(amountMinor, currency);
         require(amountMinor > 0 && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
         require((state == RefundState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
         Objects.requireNonNull(refundCreatedAt);

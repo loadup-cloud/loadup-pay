@@ -23,6 +23,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -43,7 +44,7 @@ public record RefundAcceptanceEvidence(
         Objects.requireNonNull(original);
         DomainChecks.text(originalChannelTransactionNo, 128);
         DomainChecks.text(channelRefundNo, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         Objects.requireNonNull(acceptedAt);
         acceptedAt = acceptedAt.truncatedTo(ChronoUnit.MICROS);

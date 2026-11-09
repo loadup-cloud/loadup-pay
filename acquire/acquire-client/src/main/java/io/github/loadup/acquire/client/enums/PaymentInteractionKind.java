@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.client.enums;
 
-import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 
 /**
  * The input type is immutable metadata; sensitive input values remain in the payment input vault.

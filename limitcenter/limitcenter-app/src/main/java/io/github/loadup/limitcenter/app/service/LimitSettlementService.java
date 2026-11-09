@@ -27,6 +27,7 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.app.converter.LimitSettlementConverter;
@@ -166,7 +167,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
                 var after = before.confirm(items);
                 var changed = current.transitionTo(value.confirm(
                         command.paymentId(),
-                        DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                        ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                         command.paymentVersion()));
                 reservations.updateBuckets(before, after);
                 settlements.updateItems(

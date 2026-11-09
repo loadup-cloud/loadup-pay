@@ -12,6 +12,7 @@
     <name>LoadUp Pay Contracts</name>
     <description>Neutral cross-service contracts shared by Pay producers and consumers.</description>
     <modules>
+        <module>pay-contracts-commercial</module>
         <module>pay-contracts-events</module>
     </modules>
 </project>

@@ -42,8 +42,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.result.PageDTO;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.app.converter.ReconciliationConverter;
 import io.github.loadup.reconciliation.app.converter.ReconciliationLedgerConverter;
 import io.github.loadup.reconciliation.app.model.payment.command.PaymentCaptureCreateCommand;

@@ -15,7 +15,7 @@
  */
 package io.github.loadup.reconciliation.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.domain.model.ReconciliationBatch;
 import io.github.loadup.reconciliation.domain.model.ReconciliationKey;
 import io.github.loadup.reconciliation.domain.model.ReconciliationLine;
@@ -118,7 +118,7 @@ public interface ReconciliationStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "status", source = "state")
     ReconciliationLine toLine(ReconciliationEntryDO row);
 

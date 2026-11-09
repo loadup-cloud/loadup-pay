@@ -22,7 +22,7 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.client.enums.ReconciliationEntryStatus;
 import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import io.github.loadup.reconciliation.client.enums.ReconciliationSide;

@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
 import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;

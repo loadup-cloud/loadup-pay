@@ -17,7 +17,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 
 import io.github.loadup.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.acquire.infrastructure.dataobject.AllocationRecoveryCursorDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

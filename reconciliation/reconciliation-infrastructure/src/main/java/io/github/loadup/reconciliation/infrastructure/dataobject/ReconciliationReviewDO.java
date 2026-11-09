@@ -15,8 +15,8 @@
  */
 package io.github.loadup.reconciliation.infrastructure.dataobject;
 
-import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.components.database.dataobject.BaseDO;
 
 public class ReconciliationReviewDO extends BaseDO {
     private String batchId;

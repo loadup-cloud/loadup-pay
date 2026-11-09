@@ -21,6 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
 public record FeeAdjustment(
         String id, String feeId, String orderId, String triggerKey, Money adjustment, long refundSourceVersion) {
@@ -29,7 +30,7 @@ public record FeeAdjustment(
         DomainChecks.id(feeId);
         DomainChecks.id(orderId);
         DomainChecks.text(triggerKey, 128);
-        DomainChecks.cnyAmount(adjustment);
+        ChannelAmounts.cnyAmount(adjustment);
         require(refundSourceVersion >= 0, INVALID_ARGUMENT);
     }
 

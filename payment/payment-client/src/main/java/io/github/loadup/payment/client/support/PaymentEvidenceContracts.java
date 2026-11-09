@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.client.support;
 
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.dto.PaymentStatementDTO;
 import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
 

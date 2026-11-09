@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.PaymentInput;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentInputDO;
 import org.mapstruct.BeanMapping;
@@ -27,7 +27,7 @@ public interface PaymentInputStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     PaymentInput toInput(PaymentInputDO row);
 
     @Mapping(target = "amountMinor", source = "value.amount.cent")

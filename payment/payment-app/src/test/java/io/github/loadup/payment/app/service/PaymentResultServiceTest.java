@@ -43,11 +43,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.components.payment.channel.api.model.AlipayJsapiChannelAction;
@@ -58,6 +54,10 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecov
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
@@ -467,7 +467,7 @@ class PaymentResultServiceTest {
 
     @Test
     void conflictingRecoveredObservationDoesNotRecordItsAction() {
-        var prepared = jsapiPayment(DomainChecks.cnyAmount(3999, "CNY"));
+        var prepared = jsapiPayment(ChannelAmounts.cnyAmount(3999, "CNY"));
         var original = recovery(prepared);
         var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.QUERY_RESPONSE);
 
@@ -513,7 +513,7 @@ class PaymentResultServiceTest {
 
     @Test
     void conflictingObservationDoesNotAttemptToRecordItsAction() {
-        var original = jsapiPayment(DomainChecks.cnyAmount(3999, "CNY"));
+        var original = jsapiPayment(ChannelAmounts.cnyAmount(3999, "CNY"));
         var submission = jsapiSubmission(original, "trade-1");
 
         var result = service.recordSubmission("tenant", original, submission);
@@ -565,7 +565,7 @@ class PaymentResultServiceTest {
         var changed = new PaymentObservation(
                 original.identity(),
                 original.kind(),
-                DomainChecks.cnyAmount(3999, "CNY"),
+                ChannelAmounts.cnyAmount(3999, "CNY"),
                 original.channelTransactionNo(),
                 original.succeededAt(),
                 original.source(),
@@ -583,7 +583,7 @@ class PaymentResultServiceTest {
         var wrong = new PaymentObservation(
                 o.identity(),
                 o.kind(),
-                DomainChecks.cnyAmount(3999, "CNY"),
+                ChannelAmounts.cnyAmount(3999, "CNY"),
                 o.channelTransactionNo(),
                 o.succeededAt(),
                 o.source(),

@@ -22,6 +22,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundPlanItem;
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ public final class FifoRefundPolicy {
             List<PaymentRefundCapacity> candidates) {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         var sorted = candidates.stream()
                 .sorted(Comparator.comparing(PaymentRefundCapacity::succeededAt)
@@ -71,7 +72,7 @@ public final class FifoRefundPolicy {
                 result.add(new RefundPlanItem(
                         result.size() + 1,
                         capacity.paymentId(),
-                        DomainChecks.cnyAmount(portion, amount.getCurrencyValue())));
+                        ChannelAmounts.cnyAmount(portion, amount.getCurrencyValue())));
                 remaining -= portion;
             }
             if (remaining == 0) {

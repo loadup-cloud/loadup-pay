@@ -23,12 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.domain.model.GateState;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentAttemptBinding;

@@ -20,7 +20,7 @@ import io.github.loadup.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -30,7 +30,7 @@ public interface PaymentInitiationStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),row.getCurrency()))")
     OrderPaymentAllocation toAllocation(OrderPaymentAllocationDO row);
 
     @Mapping(target = "allocation", source = "allocation")

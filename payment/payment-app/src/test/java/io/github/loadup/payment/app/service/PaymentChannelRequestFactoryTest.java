@@ -32,13 +32,13 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentInput;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRequest;
 import io.github.loadup.components.payment.channel.api.model.NoChannelInput;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;

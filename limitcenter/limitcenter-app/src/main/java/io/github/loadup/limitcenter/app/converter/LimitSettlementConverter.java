@@ -15,8 +15,8 @@
  */
 package io.github.loadup.limitcenter.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.limitcenter.domain.model.LimitReleaseEvidence;

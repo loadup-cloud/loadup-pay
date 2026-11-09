@@ -18,7 +18,7 @@ package io.github.loadup.payment.infrastructure.converter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
@@ -45,7 +45,7 @@ class PaymentAcceptanceStorageConverterTest {
                 "order",
                 "allocation",
                 "merchant",
-                DomainChecks.cnyAmount(4000, "CNY"),
+                ChannelAmounts.cnyAmount(4000, "CNY"),
                 "operation",
                 LocalDateTime.of(2026, 10, 22, 12, 0));
         var value = new StoredPaymentAcceptance(

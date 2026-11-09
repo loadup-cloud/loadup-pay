@@ -24,6 +24,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.RefundState;
 import java.util.Objects;
 
@@ -41,7 +42,7 @@ public record RefundOrder(
         DomainChecks.id(refundRequestId);
         DomainChecks.id(paymentId);
         DomainChecks.text(channelRefundNo, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) {

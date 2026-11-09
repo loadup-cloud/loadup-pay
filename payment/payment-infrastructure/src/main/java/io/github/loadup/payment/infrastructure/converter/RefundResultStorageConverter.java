@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;
@@ -56,7 +56,7 @@ public interface RefundResultStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     RefundTransactionClaim toClaim(RefundTransactionClaimDO row, ChannelPaymentIdentity original);
 
     @Mapping(target = "paymentId", source = "original.paymentId")

@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.limitcenter.client.command.LimitBeginExecutionCommand;
 import io.github.loadup.limitcenter.client.command.LimitExecutionVerifyCommand;
@@ -73,7 +73,7 @@ class LimitExecutionServiceTest {
                                 "payment-id",
                                 "order",
                                 "merchant",
-                                DomainChecks.cnyAmount(40, "CNY"),
+                                ChannelAmounts.cnyAmount(40, "CNY"),
                                 "policy",
                                 1,
                                 f.now.minusDays(1),

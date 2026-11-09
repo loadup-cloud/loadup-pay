@@ -21,11 +21,12 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
 public record RefundPlanItem(int sequenceNo, String paymentId, Money amount) {
     public RefundPlanItem {
         DomainChecks.id(paymentId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(sequenceNo > 0 && amount.getCent() > 0, INVALID_ARGUMENT);
     }
 

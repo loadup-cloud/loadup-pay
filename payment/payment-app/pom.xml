@@ -11,6 +11,14 @@
     <name>LoadUp Pay Payment App</name>
     <dependencies>
         <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-payment-channel-contracts</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-runtime</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-annotations-jakarta</artifactId>
         </dependency>

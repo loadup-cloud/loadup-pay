@@ -15,7 +15,7 @@
  */
 package io.github.loadup.limitcenter.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.limitcenter.domain.model.ActivatedLimitPolicy;
 import io.github.loadup.limitcenter.domain.model.LimitBucket;
 import io.github.loadup.limitcenter.domain.model.LimitBucketKey;
@@ -134,7 +134,7 @@ public interface LimitStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "release", ignore = true)
     @Mapping(target = "expire", ignore = true)

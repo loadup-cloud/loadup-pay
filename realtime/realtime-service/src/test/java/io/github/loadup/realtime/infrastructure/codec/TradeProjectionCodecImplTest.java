@@ -20,9 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.realtime.domain.model.SourceVersion;
 import io.github.loadup.realtime.domain.model.TradePaymentProjection;
@@ -44,7 +44,7 @@ class TradeProjectionCodecImplTest {
                 "payment",
                 "order",
                 "merchant",
-                DomainChecks.cnyAmount(1000, "CNY"),
+                ChannelAmounts.cnyAmount(1000, "CNY"),
                 "SUCCEEDED",
                 Channel.WECHAT,
                 AccessMode.DIRECT,

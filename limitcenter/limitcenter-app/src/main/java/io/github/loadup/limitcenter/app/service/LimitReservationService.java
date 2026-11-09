@@ -27,6 +27,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.app.security.LimitActor;
 import io.github.loadup.limitcenter.client.command.LimitReserveCommand;
@@ -102,7 +103,7 @@ public class LimitReservationService implements LimitReservationFacade {
         DomainChecks.id(command.orderId());
         DomainChecks.id(command.payeeMerchantId());
         DomainChecks.id(command.policyId());
-        var amount = DomainChecks.cnyAmount(command.amountMinor(), command.currency());
+        var amount = ChannelAmounts.cnyAmount(command.amountMinor(), command.currency());
         LocalDateTime initiated = BusinessTime.local(command.initiatedAt());
         if (initiated.getNano() % 1000 != 0 || initiated.getYear() < 1970 || initiated.getYear() >= 9999) {
             throw new CommonException(INVALID_ARGUMENT);

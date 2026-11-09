@@ -26,7 +26,7 @@ import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -55,9 +55,9 @@ class SharedMoneyTest {
                 assertThrows(DomainViolation.class, () -> order(negative)).reason());
         assertEquals(
                 DomainViolation.Reason.CURRENCY_MISMATCH,
-                assertThrows(DomainViolation.class, () -> DomainChecks.cnyAmount(100, "XXX"))
+                assertThrows(DomainViolation.class, () -> ChannelAmounts.cnyAmount(100, "XXX"))
                         .reason());
-        assertEquals(0, DomainChecks.cnyAmount(0, "CNY").getCent());
+        assertEquals(0, ChannelAmounts.cnyAmount(0, "CNY").getCent());
     }
 
     @Test

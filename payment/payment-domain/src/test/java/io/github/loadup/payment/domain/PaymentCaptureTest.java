@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
 import io.github.loadup.payment.client.enums.PaymentCaptureState;
 import io.github.loadup.payment.client.enums.PaymentLedgerKind;

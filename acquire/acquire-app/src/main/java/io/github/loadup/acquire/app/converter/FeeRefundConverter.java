@@ -18,7 +18,7 @@ package io.github.loadup.acquire.app.converter;
 import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.acquire.domain.model.FeeRefundReceipt;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;

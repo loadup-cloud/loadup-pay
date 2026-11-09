@@ -23,8 +23,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;

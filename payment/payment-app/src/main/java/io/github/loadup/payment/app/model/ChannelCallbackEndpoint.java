@@ -16,8 +16,8 @@
 package io.github.loadup.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import java.util.Objects;
 
 /**

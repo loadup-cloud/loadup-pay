@@ -21,9 +21,10 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
@@ -44,7 +45,7 @@ public record TradePaymentProjection(
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(source);
         Objects.requireNonNull(snapshotAt);
         Objects.requireNonNull(initiatedAt);

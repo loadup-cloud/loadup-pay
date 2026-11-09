@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
 import io.github.loadup.payment.client.enums.PaymentCaptureState;
 import io.swagger.v3.oas.annotations.media.Schema;

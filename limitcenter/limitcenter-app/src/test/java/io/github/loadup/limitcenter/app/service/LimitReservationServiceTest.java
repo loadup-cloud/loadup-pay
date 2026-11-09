@@ -27,7 +27,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.limitcenter.client.query.LimitOperationQuery;
 import io.github.loadup.limitcenter.domain.gateway.LimitWriteRaceException;
@@ -84,7 +84,7 @@ class LimitReservationServiceTest {
                         "payment-id",
                         "order",
                         "merchant",
-                        DomainChecks.cnyAmount(40, "CNY"),
+                        ChannelAmounts.cnyAmount(40, "CNY"),
                         "policy",
                         1,
                         f.now.minusDays(1),

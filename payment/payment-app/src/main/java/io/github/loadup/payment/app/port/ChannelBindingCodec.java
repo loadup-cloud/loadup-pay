@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.port;
 
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.Channel;
 
 public interface ChannelBindingCodec {
     String encodeIdentity(ChannelAccountIdentity identity);

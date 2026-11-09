@@ -23,6 +23,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -39,7 +40,7 @@ public record PaymentCloseEvidence(
         LocalDateTime recordedAt) {
     public PaymentCloseEvidence {
         Objects.requireNonNull(identity);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(amount.getCent() > 0 && executionEpoch > 0, INVALID_ARGUMENT);
         if (channelTransactionNo != null) {
             DomainChecks.text(channelTransactionNo, 128);

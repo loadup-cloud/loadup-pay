@@ -23,6 +23,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
 /**
  * Order monetary aggregate, independent of order/payment lifecycle and individual request versions.
@@ -37,7 +38,7 @@ public record OrderRefundSummary(
     public OrderRefundSummary {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(orderAmount);
+        ChannelAmounts.cnyAmount(orderAmount);
         require(
                 orderAmount.getCent() > 0
                         && refundedMinor >= 0

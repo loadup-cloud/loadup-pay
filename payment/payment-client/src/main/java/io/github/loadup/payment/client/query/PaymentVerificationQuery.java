@@ -20,7 +20,7 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.enums.PaymentLedgerKind;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

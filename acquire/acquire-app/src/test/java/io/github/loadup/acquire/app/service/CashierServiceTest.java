@@ -61,11 +61,11 @@ import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import jakarta.validation.Validation;
@@ -151,7 +151,7 @@ class CashierServiceTest {
                         scope,
                         "action",
                         "a".repeat(64),
-                        DomainChecks.cnyAmount(1000, "CNY"),
+                        ChannelAmounts.cnyAmount(1000, "CNY"),
                         AllocationState.HELD,
                         0),
                 OWNER,

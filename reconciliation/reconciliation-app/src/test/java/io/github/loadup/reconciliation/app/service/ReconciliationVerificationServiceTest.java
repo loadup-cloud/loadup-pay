@@ -40,13 +40,13 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.app.converter.ReconciliationVerificationConverter;
 import io.github.loadup.reconciliation.app.model.ApprovedReconciliationReview;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;

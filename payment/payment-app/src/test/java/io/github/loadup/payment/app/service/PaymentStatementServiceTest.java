@@ -38,9 +38,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.components.payment.channel.api.facade.ChannelStatementFacade;
@@ -51,6 +48,9 @@ import io.github.loadup.components.payment.channel.api.model.ChannelStatementReq
 import io.github.loadup.components.payment.channel.api.model.ChannelStatementScope;
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelStatement;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.PaymentStatementConverter;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.query.PaymentStatementQuery;

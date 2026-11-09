@@ -24,11 +24,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -59,7 +59,7 @@ class RefundResultCodecImplTest {
                 "refund-request",
                 originalTransaction,
                 ChannelRefundOutcome.Kind.SUCCEEDED,
-                DomainChecks.cnyAmount(amount, "CNY"),
+                ChannelAmounts.cnyAmount(amount, "CNY"),
                 refundTransaction,
                 LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456789),
                 RefundObservation.Source.CALLBACK,

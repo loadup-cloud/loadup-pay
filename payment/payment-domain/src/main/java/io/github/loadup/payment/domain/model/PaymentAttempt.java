@@ -24,11 +24,12 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.util.Objects;
 import java.util.Set;
 
@@ -47,7 +48,7 @@ public record PaymentAttempt(
         DomainChecks.id(id);
         DomainChecks.id(paymentId);
         DomainChecks.text(channelRequestNo, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(binding);
         Objects.requireNonNull(method);
         Objects.requireNonNull(state);

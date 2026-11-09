@@ -22,8 +22,9 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
@@ -167,7 +168,7 @@ public class PaymentInputService implements PaymentInputFacade {
             DomainChecks.id(query.payeeMerchantId());
             DomainChecks.text(query.inputKey(), 128);
             DomainChecks.positive(query.amountMinor());
-            DomainChecks.cnyAmount(query.amountMinor(), query.currency());
+            ChannelAmounts.cnyAmount(query.amountMinor(), query.currency());
             var known = store.findByPayment(query.paymentId());
             if (known.isEmpty()) {
                 return converter.toLookup(false, null);
@@ -199,7 +200,7 @@ public class PaymentInputService implements PaymentInputFacade {
         DomainChecks.id(command.payeeMerchantId());
         DomainChecks.text(command.inputKey(), 128);
         DomainChecks.positive(command.amountMinor());
-        DomainChecks.cnyAmount(command.amountMinor(), command.currency());
+        ChannelAmounts.cnyAmount(command.amountMinor(), command.currency());
         if (command.choice().method() == PaymentMethod.PAYMENT_CODE
                 && command.interaction() instanceof PaymentCodeInteractionDTO code) {
             DomainChecks.text(code.paymentCode(), 4096);

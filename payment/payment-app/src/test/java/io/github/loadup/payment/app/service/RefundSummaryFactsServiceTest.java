@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -57,7 +57,7 @@ class RefundSummaryFactsServiceTest {
             new AtomicReference<>(new PaymentActor("tenant", "acquire", Set.of("pay:payment:refund-summary:read")));
     final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(AttemptFixtures.gate(true));
     final OrderRefundSummary summary =
-            new OrderRefundSummary("order", "merchant", DomainChecks.cnyAmount(10000, "CNY"), 1000, 500, 3);
+            new OrderRefundSummary("order", "merchant", ChannelAmounts.cnyAmount(10000, "CNY"), 1000, 500, 3);
     final RefundSummaryFactsService service = new RefundSummaryFactsService(
             actor::get,
             payments,
@@ -133,7 +133,7 @@ class RefundSummaryFactsServiceTest {
     void summaryMustMatchTheOriginalCollectingMerchant() {
         when(summaries.lock("order"))
                 .thenReturn(Optional.of(new OrderRefundSummary(
-                        "order", "another-merchant", DomainChecks.cnyAmount(10000, "CNY"), 1000, 500, 3)));
+                        "order", "another-merchant", ChannelAmounts.cnyAmount(10000, "CNY"), 1000, 500, 3)));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.refundSummary(new IdQuery("order")))

@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.reconciliation.infrastructure.config.ReconciliationAccountsProperties;

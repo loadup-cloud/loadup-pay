@@ -15,7 +15,7 @@
  */
 package io.github.loadup.reconciliation.app.model.payment.support;
 
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentStatementDTO;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;
 

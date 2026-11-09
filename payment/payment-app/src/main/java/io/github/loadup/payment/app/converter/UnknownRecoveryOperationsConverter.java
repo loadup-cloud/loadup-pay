@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.payment.client.dto.PaymentUnknownRecoveryDTO;
 import io.github.loadup.payment.client.enums.PaymentRecoveryAttentionLevel;

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.components.payment.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
@@ -29,6 +28,7 @@ import io.github.loadup.components.payment.channel.api.model.NoChannelInput;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.components.payment.channel.api.model.WechatH5ChannelAction;
 import io.github.loadup.components.payment.channel.api.model.WechatJsapiChannelAction;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.client.dto.AlipayJsapiActionDTO;
 import io.github.loadup.payment.client.dto.ChannelIdentityInteractionDTO;

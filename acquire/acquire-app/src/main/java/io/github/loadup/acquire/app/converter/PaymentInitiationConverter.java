@@ -31,7 +31,7 @@ import io.github.loadup.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -44,7 +44,7 @@ public interface PaymentInitiationConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(), currency))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(), currency))")
     PaymentIntent toIntent(
             PaymentStartCommand command,
             String allocationId,

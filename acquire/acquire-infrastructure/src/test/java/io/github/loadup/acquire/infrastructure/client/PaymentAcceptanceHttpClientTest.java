@@ -46,13 +46,13 @@ import io.github.loadup.acquire.infrastructure.config.PaymentTransportProperties
 import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpCallException;
 import io.github.loadup.components.http.HttpServiceResponses;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.client.dto.PaymentExecutionDTO;

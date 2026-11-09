@@ -20,11 +20,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.result.FailureResponse;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.result.PageResponse;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;

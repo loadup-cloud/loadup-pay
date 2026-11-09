@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.client.dto.ReconciliationBatchDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationInputDTO;
 import io.github.loadup.reconciliation.client.enums.ReconciliationSide;

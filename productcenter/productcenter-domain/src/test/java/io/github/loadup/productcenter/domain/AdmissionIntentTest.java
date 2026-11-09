@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.productcenter.domain.model.AdmissionIntent;
 import io.github.loadup.productcenter.domain.policy.OrderAdmissionPolicy;
 import java.time.LocalDateTime;
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 class AdmissionIntentTest {
     private AdmissionIntent intent(long amount, String scope, String caller) {
         return new AdmissionIntent(
-                "order", "merchant", scope, "a".repeat(64), DomainChecks.cnyAmount(amount, "CNY"), null, caller);
+                "order", "merchant", scope, "a".repeat(64), ChannelAmounts.cnyAmount(amount, "CNY"), null, caller);
     }
 
     @Test
@@ -48,7 +48,7 @@ class AdmissionIntentTest {
                 "merchant",
                 "scope",
                 "a".repeat(64),
-                DomainChecks.cnyAmount(100, "CNY"),
+                ChannelAmounts.cnyAmount(100, "CNY"),
                 LocalDateTime.of(2026, 10, 21, 11, 0),
                 "b".repeat(64));
         assertThrows(DomainViolation.class, () -> original.requireSame(due));
@@ -63,7 +63,7 @@ class AdmissionIntentTest {
                 "merchant",
                 "scope",
                 "a".repeat(64),
-                DomainChecks.cnyAmount(100, "CNY"),
+                ChannelAmounts.cnyAmount(100, "CNY"),
                 now.plusSeconds(600),
                 "b".repeat(64));
         assertTrue(policy.acceptsRequestedDeadline(future, now, 600));
@@ -80,7 +80,7 @@ class AdmissionIntentTest {
                         "merchant",
                         "scope",
                         "a".repeat(64),
-                        DomainChecks.cnyAmount(100, "CNY"),
+                        ChannelAmounts.cnyAmount(100, "CNY"),
                         LocalDateTime.of(2026, 10, 21, 11, 0, 0, 1),
                         "b".repeat(64)));
     }

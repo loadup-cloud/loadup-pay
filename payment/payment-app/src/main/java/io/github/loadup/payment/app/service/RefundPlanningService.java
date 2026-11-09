@@ -30,6 +30,7 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
@@ -204,7 +205,7 @@ public class RefundPlanningService implements RefundFacade {
                 plan = fifo.plan(
                         command.orderId(),
                         actor.merchantId(),
-                        DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()),
+                        ChannelAmounts.cnyAmount(command.amountMinor(), admitted.currency()),
                         terms.partialAllowed(),
                         eligible);
             } catch (DomainViolation invalid) {
@@ -234,7 +235,7 @@ public class RefundPlanningService implements RefundFacade {
                     command.orderId(),
                     actor.merchantId(),
                     command.merchantRefundNo(),
-                    DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()),
+                    ChannelAmounts.cnyAmount(command.amountMinor(), admitted.currency()),
                     children.stream().map(StoredRefundChild::refund).toList());
             String payload = JsonUtil.toJson(admitted);
             var stored = converter.toStored(
@@ -249,7 +250,7 @@ public class RefundPlanningService implements RefundFacade {
                     children);
             refunds.insertPlan(stored, reservations);
             projections.planned(
-                    actor.tenantId(), stored, DomainChecks.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
+                    actor.tenantId(), stored, ChannelAmounts.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
             recovery.register(actor.tenantId(), stored);
             return dto(stored);
         });

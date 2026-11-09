@@ -19,13 +19,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
+import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
 import io.github.loadup.productcenter.app.model.EncodedAcquiringTerms;
 import io.github.loadup.productcenter.app.support.ContractCodec;
@@ -112,7 +112,7 @@ class CompiledTermsCodecImplTest {
     private StoredOrderAdmission stored(EncodedAcquiringTerms encoded, String contract) {
         var at = LocalDateTime.of(2026, 10, 21, 10, 0);
         var intent = new AdmissionIntent(
-                "order", "merchant", "scope", "a".repeat(64), DomainChecks.cnyAmount(100, "CNY"), null, "b".repeat(64));
+                "order", "merchant", "scope", "a".repeat(64), ChannelAmounts.cnyAmount(100, "CNY"), null, "b".repeat(64));
         var admission = new OrderAdmission(
                 "admission",
                 "order",

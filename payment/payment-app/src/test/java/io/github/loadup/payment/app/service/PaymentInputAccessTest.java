@@ -35,11 +35,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
@@ -101,7 +101,7 @@ class PaymentInputAccessTest {
                 command.orderId(),
                 command.allocationId(),
                 command.payeeMerchantId(),
-                DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                 "action",
                 Channel.WECHAT,
                 PaymentMethod.H5,

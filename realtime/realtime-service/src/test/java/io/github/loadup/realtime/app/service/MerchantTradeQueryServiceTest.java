@@ -34,7 +34,7 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.realtime.app.security.RealtimeActor;
 import io.github.loadup.realtime.client.query.TradeDetailQuery;
@@ -76,7 +76,7 @@ class MerchantTradeQueryServiceTest {
                 "order",
                 "merchant",
                 "M1",
-                DomainChecks.cnyAmount(1000, "CNY"),
+                ChannelAmounts.cnyAmount(1000, "CNY"),
                 0,
                 0,
                 "PENDING",

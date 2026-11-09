@@ -31,9 +31,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.codec.ChannelActionCodec;
@@ -46,6 +43,9 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutco
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;

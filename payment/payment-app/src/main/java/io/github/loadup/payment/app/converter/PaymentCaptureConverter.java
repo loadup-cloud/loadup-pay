@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.payment.domain.model.PaymentCapture;

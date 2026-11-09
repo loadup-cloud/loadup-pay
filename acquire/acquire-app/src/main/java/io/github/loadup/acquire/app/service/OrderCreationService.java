@@ -51,6 +51,7 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -168,7 +169,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         DomainChecks.id(command.merchantOrderNo());
         DomainChecks.text(command.productScopeKey(), 128);
         DomainChecks.text(command.subject(), 200);
-        DomainChecks.cnyAmount(command.amountMinor(), command.currency());
+        ChannelAmounts.cnyAmount(command.amountMinor(), command.currency());
         if (command.requestedDueAt() != null) {
             time(command.requestedDueAt());
         }
@@ -243,7 +244,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             var order = AcquireOrder.init(
                     locked.orderId(),
                     locked.payeeMerchantId(),
-                    DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                    ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                     due,
                     converter.toUnpaidAction(terms.order().unpaidAction()),
                     converter.toPaymentPolicy(terms.payment()));

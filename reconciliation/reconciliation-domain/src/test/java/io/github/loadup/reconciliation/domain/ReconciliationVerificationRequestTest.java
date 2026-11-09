@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationDisposition;
 import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationOutcome;

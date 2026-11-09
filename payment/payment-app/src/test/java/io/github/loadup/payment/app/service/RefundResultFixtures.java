@@ -15,11 +15,11 @@
  */
 package io.github.loadup.payment.app.service;
 
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundOrder;
 import io.github.loadup.payment.domain.model.RefundRequest;
@@ -33,9 +33,9 @@ final class RefundResultFixtures {
 
     static StoredRefundRequest initial() {
         var first =
-                RefundOrder.init("refund", "request", "payment", DomainChecks.cnyAmount(1000, "CNY"), "refund-request");
+                RefundOrder.init("refund", "request", "payment", ChannelAmounts.cnyAmount(1000, "CNY"), "refund-request");
         var second = RefundOrder.init(
-                "refund2", "request", "payment2", DomainChecks.cnyAmount(500, "CNY"), "refund-request2");
+                "refund2", "request", "payment2", ChannelAmounts.cnyAmount(500, "CNY"), "refund-request2");
         var a = new StoredRefundChild(
                 first, 1, AttemptFixtures.prepared().attempt().identity(), "original-transaction", NOW.minusHours(1));
         var b = new StoredRefundChild(
@@ -46,7 +46,7 @@ final class RefundResultFixtures {
                 "original-transaction2",
                 NOW.minusMinutes(30));
         var request = RefundRequest.init(
-                "request", "order", "merchant", "R001", DomainChecks.cnyAmount(1500, "CNY"), List.of(first, second));
+                "request", "order", "merchant", "R001", ChannelAmounts.cnyAmount(1500, "CNY"), List.of(first, second));
         return new StoredRefundRequest(
                 request,
                 "CUSTOMER_REQUEST",
@@ -61,7 +61,7 @@ final class RefundResultFixtures {
 
     static PaymentRefundCapacity capacity() {
         return new PaymentRefundCapacity(
-                "payment", "order", "merchant", NOW.minusHours(1), DomainChecks.cnyAmount(4000, "CNY"), 0, 1000, 1);
+                "payment", "order", "merchant", NOW.minusHours(1), ChannelAmounts.cnyAmount(4000, "CNY"), 0, 1000, 1);
     }
 
     static RefundObservation observation(ChannelRefundOutcome.Kind kind, String key, RefundObservation.Source source) {

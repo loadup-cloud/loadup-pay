@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.dfs.DfsService;
 import io.github.loadup.components.outbox.JdbcOutboxRepository;
@@ -33,6 +32,7 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxHandler;
 import io.github.loadup.components.outbox.OutboxProperties;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.reconciliation.app.converter.ReconciliationReviewConverter;

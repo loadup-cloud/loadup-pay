@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.payment.infrastructure.model.RecoveryInventoryAggregate;
 import java.math.BigDecimal;

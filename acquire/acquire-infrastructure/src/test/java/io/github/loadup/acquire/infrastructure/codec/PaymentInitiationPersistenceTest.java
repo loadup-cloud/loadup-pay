@@ -48,10 +48,10 @@ import io.github.loadup.acquire.infrastructure.converter.PaymentIntentSnapshotCo
 import io.github.loadup.acquire.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -145,7 +145,7 @@ class PaymentInitiationPersistenceTest {
                 "merchant/" + "c".repeat(64),
                 "action",
                 "a".repeat(64),
-                DomainChecks.cnyAmount(AMOUNT, "CNY"),
+                ChannelAmounts.cnyAmount(AMOUNT, "CNY"),
                 AllocationState.HELD,
                 0);
         return new StoredPaymentAllocation(allocation, "c".repeat(64), payload, hash, 0);
@@ -205,7 +205,7 @@ class PaymentInitiationPersistenceTest {
         var order = new AcquireOrder(
                 "order",
                 "merchant",
-                DomainChecks.cnyAmount(10000, "CNY"),
+                ChannelAmounts.cnyAmount(10000, "CNY"),
                 2000,
                 3000,
                 1,

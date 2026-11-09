@@ -16,9 +16,9 @@
 package io.github.loadup.realtime.app.service;
 
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import java.time.Clock;

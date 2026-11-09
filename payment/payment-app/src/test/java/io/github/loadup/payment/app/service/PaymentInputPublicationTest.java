@@ -31,9 +31,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;

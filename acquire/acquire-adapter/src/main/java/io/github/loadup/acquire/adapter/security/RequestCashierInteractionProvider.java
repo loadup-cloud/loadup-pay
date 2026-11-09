@@ -25,9 +25,9 @@ import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 

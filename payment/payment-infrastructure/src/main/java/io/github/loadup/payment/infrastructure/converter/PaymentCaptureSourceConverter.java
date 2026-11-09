@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.payment.infrastructure.dataobject.ChannelTransactionClaimDO;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentOrderDO;
@@ -35,7 +35,7 @@ public interface PaymentCaptureSourceConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(claim.getAmountMinor(), claim.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(claim.getAmountMinor(), claim.getCurrency()))")
     @Mapping(target = "sourceAt", source = "claim.succeededAt")
     @Mapping(target = "sourceId", source = "claim.paymentId")
     @Mapping(target = "evidenceId", source = "claim.receiptId")
@@ -51,7 +51,7 @@ public interface PaymentCaptureSourceConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(accepted.getAmountMinor(), accepted.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(accepted.getAmountMinor(), accepted.getCurrency()))")
     @Mapping(target = "sourceAt", source = "accepted.acceptedAt")
     @Mapping(target = "sourceId", source = "accepted.id")
     @Mapping(target = "evidenceId", source = "accepted.receiptId")

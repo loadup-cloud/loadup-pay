@@ -39,9 +39,9 @@ import io.github.loadup.acquire.app.port.OrderSnapshotReader;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -71,7 +71,7 @@ class OrderSnapshotEventsTest {
             "order",
             "merchant",
             "M001",
-            DomainChecks.cnyAmount(10000, "CNY"),
+            ChannelAmounts.cnyAmount(10000, "CNY"),
             4000,
             2000,
             "PENDING",

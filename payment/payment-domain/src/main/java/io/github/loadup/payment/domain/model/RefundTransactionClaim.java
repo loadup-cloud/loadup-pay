@@ -19,6 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -38,7 +39,7 @@ public record RefundTransactionClaim(
         Objects.requireNonNull(original);
         DomainChecks.text(channelRefundNo, 64);
         DomainChecks.text(originalChannelTransactionNo, 128);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         DomainChecks.positive(amount.getCent());
         DomainChecks.text(channelRefundTransactionNo, 128);
         Objects.requireNonNull(succeededAt);

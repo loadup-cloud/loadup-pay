@@ -16,8 +16,8 @@
 package io.github.loadup.payment.client.support;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.result.PageDTO;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.payment.client.enums.PaymentCaptureState;

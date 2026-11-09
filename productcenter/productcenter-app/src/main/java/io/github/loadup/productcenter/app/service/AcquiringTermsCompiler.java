@@ -18,9 +18,9 @@ package io.github.loadup.productcenter.app.service;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.client.dto.terms.AcquiringTermsDTO;
 import io.github.loadup.productcenter.client.dto.terms.ChannelCapabilityDTO;

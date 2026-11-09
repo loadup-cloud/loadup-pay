@@ -18,9 +18,9 @@ package io.github.loadup.realtime.domain;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.realtime.domain.model.ProjectionFacts;
 import io.github.loadup.realtime.domain.model.SourceVersion;
 import io.github.loadup.realtime.domain.model.TradePaymentProjection;
@@ -36,7 +36,7 @@ class ProjectionFactsTest {
                 "payment",
                 "order",
                 merchant,
-                DomainChecks.cnyAmount(1000, "CNY"),
+                ChannelAmounts.cnyAmount(1000, "CNY"),
                 state,
                 Channel.WECHAT,
                 AccessMode.DIRECT,
@@ -72,7 +72,7 @@ class ProjectionFactsTest {
                 "payment",
                 "order",
                 "merchant",
-                DomainChecks.cnyAmount(999, "CNY"),
+                ChannelAmounts.cnyAmount(999, "CNY"),
                 "PROCESSING",
                 Channel.WECHAT,
                 AccessMode.DIRECT,

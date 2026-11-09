@@ -23,6 +23,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
 public record OrderPaymentAllocation(
@@ -42,7 +43,7 @@ public record OrderPaymentAllocation(
         DomainChecks.text(actorScope, 128);
         DomainChecks.text(actionKey, 128);
         DomainChecks.text(requestDigest, 64);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && paymentSourceVersion >= 0, INVALID_ARGUMENT);
     }

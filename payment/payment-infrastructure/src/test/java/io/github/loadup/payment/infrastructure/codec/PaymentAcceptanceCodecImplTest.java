@@ -23,10 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.payment.client.dto.terms.AcquiringTermsDTO;
@@ -134,7 +134,7 @@ class PaymentAcceptanceCodecImplTest {
                         command.orderId(),
                         command.allocationId(),
                         command.payeeMerchantId(),
-                        DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                        ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                         "operation",
                         LocalDateTime.of(2026, 10, 22, 12, 0)),
                 "admission",

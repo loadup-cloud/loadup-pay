@@ -19,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.domain.model.PaymentCloseEvidence;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;

@@ -21,6 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
 /**
  * A trusted final payment outcome, not a timeout or a caller's claim.
@@ -30,7 +31,7 @@ public record LimitReleaseEvidence(
     public LimitReleaseEvidence {
         DomainChecks.id(paymentId);
         DomainChecks.id(evidenceId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(paymentVersion > 0 && executionFenced, INVALID_ARGUMENT);
     }
 

@@ -43,10 +43,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.components.payment.channel.api.model.NoChannelInput;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;

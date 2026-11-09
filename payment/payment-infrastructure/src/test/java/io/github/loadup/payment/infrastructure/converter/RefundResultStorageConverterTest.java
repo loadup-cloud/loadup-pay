@@ -18,9 +18,9 @@ package io.github.loadup.payment.infrastructure.converter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.payment.domain.model.RefundOrder;
@@ -55,7 +55,7 @@ class RefundResultStorageConverterTest {
                 original,
                 "refund-request",
                 "original-transaction",
-                DomainChecks.cnyAmount(300, "CNY"),
+                ChannelAmounts.cnyAmount(300, "CNY"),
                 "refund-transaction",
                 now,
                 "receipt");
@@ -68,10 +68,10 @@ class RefundResultStorageConverterTest {
     @Test
     void aStartPatchOnlyWritesProgressAndTheOneWaySubmissionMarker() {
         var child =
-                RefundOrder.init("refund", "request", "payment", DomainChecks.cnyAmount(300, "CNY"), "refund-request");
+                RefundOrder.init("refund", "request", "payment", ChannelAmounts.cnyAmount(300, "CNY"), "refund-request");
         var request = RefundRequest.init("request", "order", "merchant", "R001", child.amount(), List.of(child));
         var capacity = new PaymentRefundCapacity(
-                "payment", "order", "merchant", now.minusHours(1), DomainChecks.cnyAmount(1000, "CNY"), 0, 300, 1);
+                "payment", "order", "merchant", now.minusHours(1), ChannelAmounts.cnyAmount(1000, "CNY"), 0, 300, 1);
         var stored = new StoredRefundChild(child, 1, original, "original-transaction", now.minusHours(1));
         var started = child.beginSubmission();
         var change = new RefundProgressChange(

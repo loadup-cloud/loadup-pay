@@ -15,7 +15,7 @@
  */
 package io.github.loadup.reconciliation.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.app.model.StoredReconciliationDifference;
 import io.github.loadup.reconciliation.client.dto.ReconciliationBatchDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationDifferenceDTO;

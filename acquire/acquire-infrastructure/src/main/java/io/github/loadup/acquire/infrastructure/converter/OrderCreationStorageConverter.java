@@ -26,7 +26,7 @@ import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderContractSnapshotDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderCreateIntentDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -45,7 +45,7 @@ public interface OrderCreationStorageConverter {
 
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),"
+            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
                     + " row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "paymentPolicy", source = "policy")

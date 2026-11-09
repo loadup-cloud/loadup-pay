@@ -16,8 +16,8 @@
 package io.github.loadup.reconciliation.app.converter;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentStatementDTO;
 import io.github.loadup.reconciliation.app.model.payment.query.PaymentStatementQuery;
 import io.github.loadup.reconciliation.client.dto.ReconciliationStatementDTO;

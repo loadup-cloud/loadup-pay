@@ -17,7 +17,7 @@ package io.github.loadup.acquire.infrastructure.converter;
 
 import io.github.loadup.acquire.domain.model.FeeRefundReceipt;
 import io.github.loadup.acquire.infrastructure.dataobject.FeeRefundReceiptDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

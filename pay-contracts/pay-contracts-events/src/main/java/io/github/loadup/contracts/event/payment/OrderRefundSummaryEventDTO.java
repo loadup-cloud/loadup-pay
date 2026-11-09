@@ -22,6 +22,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
 
@@ -47,7 +48,7 @@ public record OrderRefundSummaryEventDTO(
     public OrderRefundSummaryEventDTO {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(refundedMinor, currency);
+        ChannelAmounts.cnyAmount(refundedMinor, currency);
         require(
                 refundedMinor >= 0
                         && refundReservedMinor >= 0

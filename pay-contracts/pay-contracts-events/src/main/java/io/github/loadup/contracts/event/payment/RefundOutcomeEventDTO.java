@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
 
@@ -48,7 +49,7 @@ public record RefundOutcomeEventDTO(
         DomainViolation.require(
                 amountMinor > 0 && refundVersion > 0 && state != null && cumulativePaymentRefundedMinor >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
-        DomainChecks.cnyAmount(amountMinor, currency);
+        ChannelAmounts.cnyAmount(amountMinor, currency);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) {
             DomainChecks.id(evidenceId);
         }

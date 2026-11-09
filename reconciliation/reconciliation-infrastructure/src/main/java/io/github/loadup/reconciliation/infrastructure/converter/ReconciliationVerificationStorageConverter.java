@@ -18,8 +18,8 @@ package io.github.loadup.reconciliation.infrastructure.converter;
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.domain.model.ReconciliationKey;
 import io.github.loadup.reconciliation.domain.model.ReconciliationReviewReference;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;

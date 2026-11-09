@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundOrderDO;
 import org.mapstruct.Mapper;
@@ -36,11 +36,11 @@ public interface RefundCallbackStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(
             target = "originalAmount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(capacity.getSucceededMinor(), capacity.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(capacity.getSucceededMinor(), capacity.getCurrency()))")
     @Mapping(target = "originalChannelTransactionNo", source = "row.originalChannelTransactionNo")
     PreparedChannelRefund toPrepared(
             RefundOrderDO row, PaymentRefundCapacityDO capacity, ChannelPaymentIdentity original);

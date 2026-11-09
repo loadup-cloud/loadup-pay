@@ -27,7 +27,7 @@ import io.github.loadup.acquire.app.model.productcenter.dto.terms.PaymentTermsDT
 import io.github.loadup.acquire.app.model.productcenter.dto.terms.RefundTermsDTO;
 import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.infrastructure.model.PaymentIntentSnapshot;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.time.OffsetDateTime;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;

@@ -15,13 +15,13 @@
  */
 package io.github.loadup.payment.app.service;
 
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
@@ -73,7 +73,7 @@ final class AttemptFixtures {
                 "attempt",
                 command.paymentId(),
                 1,
-                DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                 binding(),
                 command.choice().method(),
                 "a".repeat(32));
@@ -99,7 +99,7 @@ final class AttemptFixtures {
                 command.orderId(),
                 command.allocationId(),
                 command.payeeMerchantId(),
-                DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
+                ChannelAmounts.cnyAmount(command.amountMinor(), command.currency()),
                 "operation",
                 NOW);
         if (attempted) {

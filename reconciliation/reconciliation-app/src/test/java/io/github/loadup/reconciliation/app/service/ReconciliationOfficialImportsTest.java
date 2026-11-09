@@ -24,7 +24,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.app.port.ReconciliationSourceFiles;
 import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
 import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;

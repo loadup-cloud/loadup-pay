@@ -16,9 +16,9 @@
 package io.github.loadup.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;

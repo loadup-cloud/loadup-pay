@@ -15,8 +15,8 @@
  */
 package io.github.loadup.productcenter.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.productcenter.client.dto.LimitPolicyPublicationDTO;
 import io.github.loadup.productcenter.domain.model.PolicyPublication;
 import java.time.LocalDateTime;

@@ -15,7 +15,7 @@
  */
 package io.github.loadup.productcenter.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.productcenter.domain.model.PolicyPublication;
 import io.github.loadup.productcenter.infrastructure.dataobject.ContractLimitPublicationDO;
 import org.mapstruct.Mapper;

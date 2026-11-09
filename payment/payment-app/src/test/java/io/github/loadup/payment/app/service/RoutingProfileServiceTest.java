@@ -38,12 +38,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.RoutingProfileConverter;
 import io.github.loadup.payment.app.port.RoutingProfileCodec;
 import io.github.loadup.payment.app.security.PaymentActor;

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.productcenter.infrastructure.converter;
 
-import io.github.loadup.commons.contract.ContractReference;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.domain.model.AdmissionIntent;
 import io.github.loadup.productcenter.domain.model.OrderAdmission;
@@ -35,7 +35,7 @@ public interface AdmissionStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     AdmissionIntent toIntent(OrderAdmissionDO row);
 
     @Mapping(target = "decision", source = "state")

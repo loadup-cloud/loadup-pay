@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
@@ -32,7 +32,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     // A domain transition is not a fluent setter.
     @Mapping(target = "applyAttempt", ignore = true)

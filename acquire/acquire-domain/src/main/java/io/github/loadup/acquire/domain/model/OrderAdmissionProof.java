@@ -18,9 +18,9 @@ package io.github.loadup.acquire.domain.model;
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.commercial.ContractReference;
 import java.util.Objects;
 
 public record OrderAdmissionProof(

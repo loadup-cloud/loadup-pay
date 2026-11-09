@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.app.service;
 
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.components.payment.channel.contract.AccessMode;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.payment.client.dto.terms.AcquiringTermsDTO;

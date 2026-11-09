@@ -30,7 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.limitcenter.client.command.LimitExpireCommand;
 import io.github.loadup.limitcenter.client.enums.LimitReservationState;
@@ -68,7 +68,7 @@ class LimitExpiryServiceTest {
                         "payment-id",
                         "order",
                         "merchant",
-                        DomainChecks.cnyAmount(40, "CNY"),
+                        ChannelAmounts.cnyAmount(40, "CNY"),
                         "policy",
                         1,
                         f.now.minusDays(1),

@@ -25,8 +25,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FO
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentInputCipher;

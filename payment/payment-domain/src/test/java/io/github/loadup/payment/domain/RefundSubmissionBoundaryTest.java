@@ -21,10 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;
@@ -39,13 +39,13 @@ import org.junit.jupiter.api.Test;
 class RefundSubmissionBoundaryTest {
     final LocalDateTime now = LocalDateTime.of(2026, 10, 23, 12, 0);
     final RefundOrder initial =
-            RefundOrder.init("refund", "request", "payment", DomainChecks.cnyAmount(300, "CNY"), "refund-request");
+            RefundOrder.init("refund", "request", "payment", ChannelAmounts.cnyAmount(300, "CNY"), "refund-request");
     final RefundRequest request =
             RefundRequest.init("request", "order", "merchant", "R001", initial.amount(), List.of(initial));
     final ChannelPaymentIdentity original = new ChannelPaymentIdentity(
             "payment", "attempt", Channel.WECHAT, "revision", "a".repeat(64), "payment-request");
     final PaymentRefundCapacity capacity = new PaymentRefundCapacity(
-            "payment", "order", "merchant", now.minusHours(1), DomainChecks.cnyAmount(1000, "CNY"), 0, 300, 1);
+            "payment", "order", "merchant", now.minusHours(1), ChannelAmounts.cnyAmount(1000, "CNY"), 0, 300, 1);
 
     StoredRefundChild stored(RefundOrder refund) {
         return new StoredRefundChild(refund, 1, original, "original-transaction", now.minusHours(1));

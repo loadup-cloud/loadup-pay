@@ -12,6 +12,18 @@
     <description>Durable order admission and typed acquiring terms compilation.</description>
     <dependencies>
         <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>pay-contracts-commercial</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-payment-channel-contracts</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-runtime</artifactId>
+        </dependency>
+        <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>

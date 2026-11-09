@@ -15,8 +15,8 @@
  */
 package io.github.loadup.reconciliation.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import java.util.Collection;
 import java.util.List;
 import org.mapstruct.Mapper;

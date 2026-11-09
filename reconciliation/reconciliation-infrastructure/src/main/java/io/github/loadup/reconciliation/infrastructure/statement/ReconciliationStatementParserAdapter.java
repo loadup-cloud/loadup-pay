@@ -20,7 +20,7 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.app.port.ReconciliationStatementParser;
 import io.github.loadup.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;

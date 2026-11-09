@@ -21,6 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
 /**
@@ -37,7 +38,7 @@ public record VerifiedPaymentOutcome(
     public VerifiedPaymentOutcome {
         DomainChecks.id(orderId);
         DomainChecks.id(paymentId);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         Objects.requireNonNull(kind);
         // A tombstone has no payment row or invented payment version.
         require(kind == Kind.NOT_ACCEPTED ? paymentVersion == 0 : paymentVersion > 0, INVALID_ARGUMENT);

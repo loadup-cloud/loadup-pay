@@ -15,8 +15,8 @@
  */
 package io.github.loadup.limitcenter.infrastructure.dataobject;
 
-import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.components.database.dataobject.BaseDO;
 
 public class LimitOperationGateDO extends BaseDO {
     private String operationId;

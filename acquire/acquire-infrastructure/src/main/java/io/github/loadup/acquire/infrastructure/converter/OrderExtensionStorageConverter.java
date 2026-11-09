@@ -19,7 +19,7 @@ import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderExtensionReceiptDO;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

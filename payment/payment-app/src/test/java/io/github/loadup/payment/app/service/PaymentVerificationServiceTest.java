@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
@@ -43,6 +42,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcom
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.app.converter.PaymentVerificationConverter;
 import io.github.loadup.payment.app.model.PaymentVerificationTarget;
 import io.github.loadup.payment.app.port.PaymentVerificationTargetReader;

@@ -29,9 +29,9 @@ import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
@@ -232,7 +232,7 @@ class OrderCreationCodecImplTest {
         var restored = mapper.readValue(payload, OrderFeePolicy.class);
         assertEquals(policy, restored);
         assertEquals(
-                policy.calculate(DomainChecks.cnyAmount(9007199254740993L, "CNY")),
-                restored.calculate(DomainChecks.cnyAmount(9007199254740993L, "CNY")));
+                policy.calculate(ChannelAmounts.cnyAmount(9007199254740993L, "CNY")),
+                restored.calculate(ChannelAmounts.cnyAmount(9007199254740993L, "CNY")));
     }
 }

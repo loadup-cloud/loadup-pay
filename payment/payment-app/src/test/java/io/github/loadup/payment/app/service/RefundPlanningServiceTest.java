@@ -41,12 +41,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.security.RefundActor;
@@ -190,7 +190,7 @@ class RefundPlanningServiceTest {
                 "attempt-" + id,
                 id,
                 1,
-                DomainChecks.cnyAmount(amount, "CNY"),
+                ChannelAmounts.cnyAmount(amount, "CNY"),
                 AttemptFixtures.binding(),
                 PaymentMethod.H5,
                 "request-" + id);

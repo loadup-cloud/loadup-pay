@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentRecoveryRetryReceiptDO;
 import org.mapstruct.Mapper;

@@ -56,7 +56,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import java.util.HashMap;
@@ -130,7 +130,7 @@ class RefundNotificationServiceTest {
                         "merchant:merchant",
                         "action",
                         "a".repeat(64),
-                        DomainChecks.cnyAmount(2000, "CNY"),
+                        ChannelAmounts.cnyAmount(2000, "CNY"),
                         state,
                         5),
                 "b".repeat(64),

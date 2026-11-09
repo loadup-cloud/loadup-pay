@@ -23,11 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.delayedtask.DelayedTaskDispatcher;
 import io.github.loadup.components.delayedtask.DelayedTaskProperties;
+import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.reconciliation.app.service.ReconciliationExecutionService;

@@ -13,6 +13,10 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-payment-channel-contracts</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>reconciliation-client</artifactId>
         </dependency>
         <dependency>

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.limitcenter.app.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO;

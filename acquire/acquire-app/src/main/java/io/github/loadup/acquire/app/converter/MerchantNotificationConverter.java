@@ -20,7 +20,7 @@ import io.github.loadup.acquire.app.model.MerchantRefundNotificationData;
 import io.github.loadup.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.acquire.app.model.productcenter.dto.terms.NotificationTermsDTO;
 import io.github.loadup.acquire.domain.model.MerchantNotificationPolicy;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

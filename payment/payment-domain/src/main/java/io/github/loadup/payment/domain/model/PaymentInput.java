@@ -22,9 +22,10 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -63,7 +64,7 @@ public record PaymentInput(
         DomainChecks.id(fingerprintKeyId);
         DomainChecks.text(encryptionKey, 128);
         DomainChecks.text(ciphertext, 65536);
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         DomainChecks.positive(amount.getCent());
         Objects.requireNonNull(channel);
         Objects.requireNonNull(method);

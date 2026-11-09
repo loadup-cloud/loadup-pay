@@ -22,6 +22,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.client.enums.PaymentLedgerKind;
 import io.github.loadup.payment.client.enums.PaymentLedgerStatus;
 import java.time.LocalDateTime;
@@ -51,7 +52,7 @@ public record PaymentLedgerLine(
         } else {
             require(channelRefundNo == null && status == PaymentLedgerStatus.SUCCEEDED, INVALID_ARGUMENT);
         }
-        DomainChecks.cnyAmount(amount);
+        ChannelAmounts.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         Objects.requireNonNull(sourceAt);
         sourceAt = sourceAt.truncatedTo(ChronoUnit.MICROS);

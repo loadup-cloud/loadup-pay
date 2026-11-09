@@ -19,7 +19,7 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
 import io.github.loadup.reconciliation.app.model.StoredReconciliationDifference;
 import io.github.loadup.reconciliation.client.enums.ReconciliationDifferenceReason;
 import io.github.loadup.reconciliation.domain.model.ReconciliationDifference;

@@ -13,3 +13,6 @@
 Payment 的接受请求携带 Payment 自己的冻结条款表示，避免 `payment-client` 传递依赖 `productcenter-client`。
 Acquire 维护本地订单准入和付款操作表示，避免其公开响应直接嵌入其他服务 Java DTO。
 事件校验仍检查事件来源、身份、版本和金额不变量；本次重构没有增加历史格式分支或兼容转发。
+
+商业合约引用归 `pay-contracts-commercial` 的 `io.github.loadup.contracts.commercial.ContractReference`。
+渠道词汇与固定 CNY 金额校验归 framework 的 payment-channel-contracts；事件保持独立于渠道操作 API。
