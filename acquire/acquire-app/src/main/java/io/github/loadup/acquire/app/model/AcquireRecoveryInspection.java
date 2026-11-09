@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.app.model;
 
-import io.github.loadup.acquire.domain.model.AcquireRecoveryKind;
+import io.github.loadup.acquire.client.enums.AcquireRecoveryKind;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.delayedtask.DelayedTask;

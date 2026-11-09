@@ -19,8 +19,8 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SESSIO
 
 import io.github.loadup.acquire.app.port.CheckoutTokens;
 import io.github.loadup.acquire.app.security.CashierActor;
+import io.github.loadup.acquire.client.enums.CheckoutSessionState;
 import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.commons.error.CommonException;
 import java.time.Clock;
 import java.time.LocalDateTime;

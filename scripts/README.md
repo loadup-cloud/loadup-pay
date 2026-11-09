@@ -18,6 +18,8 @@
 
 ## 环境配置与一键部署
 
+数据库准备可使用下文的 [Framework 初始化 SQL 手动导入](#framework-初始化-sql-手动导入)，并按说明协调应用迁移。
+
 直接维护 `deploy/config/dev|test|prod` 的 common.env、应用 config.env/secret.env 与 service-authorizations.json。AuthServer 另有忽略提交的 authserver.p12。配置含义见 [环境目录](../deploy/config/README.md) 与 [AuthServer](../authserver/README.md)。
 
 ```bash
@@ -38,6 +40,46 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py
 up.py 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，创建不可变快照并发布。授权 JSON 进入 ConfigMap 摘要，密码及 PKCS12 进入 Secret 摘要；相同对象复用，同名不同内容拒绝。CONFIG_DIR 可覆盖完整环境目录；单应用与 all 摘要范围不同，回退使用归档中的实际版本。
 
 业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。私钥仅挂载 AuthServer，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
+
+## Framework 初始化 SQL 手动导入
+
+Framework 保留组件原始 `db/schema` 模板和业务模块 Flyway 迁移，并提供生成的完整 `sql/framework-schema.sql`。
+整合版包含六份组件 SQL 和七份业务模块迁移，先组件、再按版本执行业务迁移。在 Pay 根目录执行以下命令，
+先更新 Framework 整合版，再手动引入 Pay 并导入明确指定数据库的空 schema：
+
+```bash
+python3 ../loadup-framework/tools/export-schema.py
+mkdir -p scripts/sql
+cp ../loadup-framework/sql/framework-schema.sql scripts/sql/framework-schema.sql
+PGHOST=localhost PGPORT=5432 PGUSER=admin \
+  psql -X --dbname=loadup_payment --set=ON_ERROR_STOP=1 --single-transaction \
+  --file=scripts/sql/framework-schema.sql
+```
+
+密码通过 `.pgpass` 或交互输入提供。也可直接在数据库工具中导入 Framework 的整合文件，无需复制。
+使用制品而没有 Framework 源码时，可取得与制品版本匹配的 `sql/framework-schema.sql` 后执行同一条 psql 命令。
+该文件没有 psql 专有命令，可用于 PostgreSQL 数据库工具的 SQL 编辑器。
+
+这是手动操作入口，build/deploy/up 不会执行它。每次只导入指定的数据库，不会遍历 Pay 的数据库。
+合并 SQL 使用连接的 `search_path`，自定义 schema 时需事先创建并选择与应用相同的 schema。
+整合版会创建 Framework 全部组件和业务模块的表，Pay 自己的业务表仍需应用迁移。
+它不登记 Flyway 历史，部分业务表和索引没有 `IF NOT EXISTS`，因此仅能用于空 schema 的一次性初始化，不能重复导入。
+手动管理迁移的环境可配置 `loadup.flyway.migrate-at-start=false`，并自行执行 Pay 应用所需的其他迁移。
+若后续使用自动迁移，需先按实际导入范围建立匹配的 Flyway 基线，不能直接从头重跑同一批迁移。
+
+现有自动方式继续保留：应用显式扫描 `classpath:db/migration/pay/<app>`，并选择获准的 Framework 模块命名空间。
+admin 选择 `framework/upms`，notificationcenter 选择 `framework/notification`，reconciliation 选择 `framework/file` 和 `framework/transfer`。
+oauth2-server 已有独立目录 `db/migration/oauth2-server`。`classpath:db/migration` 不是应用隔离范围，不应配置为扫描根。
+
+`python3 scripts/gen-migrations.py` 只创建缺失的组件初始快照，提交时同时包含 SQL 和 `scripts/component-migrations.lock.json`。
+`python3 scripts/gen-migrations.py --check` 只检查已登记快照的存在及哈希，不依赖 Framework checkout，也不写目录或文件。
+模板变化不会覆盖快照，移除组件依赖不会删除历史；已登记快照修改或丢失会报错，须恢复原文件。
+组件结构升级要编写新的、经过审核的 `V<timestamp>__<change>.sql`，版本高于应用当前历史；新增组件也需审核首次执行顺序。
+新版本可能需要 ALTER，不能用重新复制当前 CREATE 模板代替升级。手动整合版也不能替代增量迁移。
+
+本次目录调整保留了已有 SQL 的文件名、版本与字节内容。重新构建时须使用 clean 清除旧路径资源；不对数据库自动执行 clean、repair 或 baseline。
+先构建或发布包含新迁移目录的 Framework 制品，再构建 Pay；旧 Framework JAR 不包含新的模块命名空间，不能与本次 locations 配置混用。
+完整说明见 [Framework SQL](../../loadup-framework/sql/README.md)。
 
 ## 开发用商户 JWT
 

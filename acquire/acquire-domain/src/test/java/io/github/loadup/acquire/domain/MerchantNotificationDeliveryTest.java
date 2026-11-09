@@ -18,9 +18,9 @@ package io.github.loadup.acquire.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
+import io.github.loadup.acquire.client.enums.MerchantNotificationState;
 import io.github.loadup.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.acquire.domain.model.MerchantNotificationPolicy;
-import io.github.loadup.acquire.domain.model.MerchantNotificationState;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;

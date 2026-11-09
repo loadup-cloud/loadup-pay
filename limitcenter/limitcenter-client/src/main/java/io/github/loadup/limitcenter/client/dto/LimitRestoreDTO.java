@@ -16,7 +16,7 @@
 package io.github.loadup.limitcenter.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.limitcenter.domain.model.LimitRestoreResult;
+import io.github.loadup.limitcenter.client.enums.LimitRestoreResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 

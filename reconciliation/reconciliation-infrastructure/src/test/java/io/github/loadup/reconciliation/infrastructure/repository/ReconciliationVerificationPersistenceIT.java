@@ -35,11 +35,11 @@ import io.github.loadup.components.outbox.OutboxProperties;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
-import io.github.loadup.payment.client.query.PaymentVerificationQuery;
-import io.github.loadup.payment.domain.model.PaymentVerificationDisposition;
-import io.github.loadup.payment.domain.model.PaymentVerificationOutcome;
 import io.github.loadup.reconciliation.app.converter.ReconciliationReviewConverter;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;
+import io.github.loadup.reconciliation.app.model.payment.enums.PaymentVerificationDisposition;
+import io.github.loadup.reconciliation.app.model.payment.enums.PaymentVerificationOutcome;
+import io.github.loadup.reconciliation.app.model.payment.query.PaymentVerificationQuery;
 import io.github.loadup.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.reconciliation.app.port.ReconciliationPaymentVerification;
 import io.github.loadup.reconciliation.app.port.ReconciliationSourceFiles;
@@ -55,22 +55,22 @@ import io.github.loadup.reconciliation.client.command.ReconciliationReviewPropos
 import io.github.loadup.reconciliation.client.command.ReconciliationVerificationRetryCommand;
 import io.github.loadup.reconciliation.client.command.ReconciliationVerificationSubmitCommand;
 import io.github.loadup.reconciliation.client.dto.ReconciliationVerificationDTO;
+import io.github.loadup.reconciliation.client.enums.ReconciliationEntryStatus;
+import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewConclusion;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationResultGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationBatch;
 import io.github.loadup.reconciliation.domain.model.ReconciliationDataset;
-import io.github.loadup.reconciliation.domain.model.ReconciliationEntryStatus;
 import io.github.loadup.reconciliation.domain.model.ReconciliationFileSnapshot;
 import io.github.loadup.reconciliation.domain.model.ReconciliationKey;
 import io.github.loadup.reconciliation.domain.model.ReconciliationLine;
 import io.github.loadup.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.reconciliation.domain.model.ReconciliationMatcher;
-import io.github.loadup.reconciliation.domain.model.ReconciliationRecordKind;
-import io.github.loadup.reconciliation.domain.model.ReconciliationReviewConclusion;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.reconciliation.domain.model.ReconciliationVerificationRequest;
@@ -336,7 +336,8 @@ class ReconciliationVerificationPersistenceIT {
                 assertEquals(
                         1,
                         jdbc.update(
-                                "UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1 seconds') WHERE id = ? AND status = 'PROCESSING'",
+                                "UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1"
+                                        + " seconds') WHERE id = ? AND status = 'PROCESSING'",
                                 initial.deliveryId()));
                 assertEquals(1, secondWorker.dispatchBatch());
                 var winner = detail(fixture, initial.requestId());

@@ -13,6 +13,10 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>acquire-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>pay-contracts-events</artifactId>
         </dependency>
         <dependency>

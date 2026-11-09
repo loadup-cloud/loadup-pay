@@ -28,7 +28,7 @@ import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -64,11 +64,11 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 .addValue("actor", actorScope)
                 .addValue("key", actionKey);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
-                       caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
-                FROM order_payment_allocation WHERE order_id = :order AND actor_scope = :actor
-                    AND action_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class)).stream()
+            SELECT id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
+                   caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
+            FROM order_payment_allocation WHERE order_id = :order AND actor_scope = :actor
+                AND action_key = :key AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {
@@ -113,10 +113,10 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 .addValue("version", prepared.rowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE order_payment_allocation SET intent_payload = :payload, payload_hash = :hash, row_version = :version, updated_at = :updated
-                WHERE id = :id AND payment_id = :payment AND state = 'HELD' AND payment_source_version = 0
-                    AND row_version = :expected AND payload_hash = :oldHash AND deleted = FALSE
-                """, args);
+            UPDATE order_payment_allocation SET intent_payload = :payload, payload_hash = :hash, row_version = :version, updated_at = :updated
+            WHERE id = :id AND payment_id = :payment AND state = 'HELD' AND payment_source_version = 0
+                AND row_version = :expected AND payload_hash = :oldHash AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -153,10 +153,10 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 .addValue("version", patch.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE acquire_order SET payment_reserved_minor = :reserved, reserved_payment_count = :count,
-                    state = :state, row_version = :version, updated_at = :updated WHERE id = :id
-                    AND row_version = :expected AND state IN ('INIT', 'PENDING') AND deleted = FALSE
-                """, args);
+            UPDATE acquire_order SET payment_reserved_minor = :reserved, reserved_payment_count = :count,
+                state = :state, row_version = :version, updated_at = :updated WHERE id = :id
+                AND row_version = :expected AND state IN ('INIT', 'PENDING') AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -165,13 +165,13 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_payment_allocation (id, created_at, updated_at, deleted, order_id, payment_id,
-                    actor_scope, action_key, request_digest, caller_scope_hash, amount_minor, currency, state, payment_source_version,
-                    intent_payload, payload_hash, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :paymentId, :actorScope, :actionKey, :requestDigest,
-                    :callerScopeHash, :amountMinor, :currency, :state, :paymentSourceVersion, :intentPayload, :payloadHash, :rowVersion)
-                ON CONFLICT (order_id, actor_scope, action_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO order_payment_allocation (id, created_at, updated_at, deleted, order_id, payment_id,
+                actor_scope, action_key, request_digest, caller_scope_hash, amount_minor, currency, state, payment_source_version,
+                intent_payload, payload_hash, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :paymentId, :actorScope, :actionKey, :requestDigest,
+                :callerScopeHash, :amountMinor, :currency, :state, :paymentSourceVersion, :intentPayload, :payloadHash, :rowVersion)
+            ON CONFLICT (order_id, actor_scope, action_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Payment allocation action already exists");
         }

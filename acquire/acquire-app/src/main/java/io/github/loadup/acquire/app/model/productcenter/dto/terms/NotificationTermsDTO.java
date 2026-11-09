@@ -1,0 +1,57 @@
+package io.github.loadup.acquire.app.model.productcenter.dto.terms;
+
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+
+public record NotificationTermsDTO(
+        @Schema(description = "Enabled") boolean enabled,
+        @Schema(description = "Target ref") @Size(max = 128) String targetRef,
+
+        @Schema(description = "Signing identity ref") @Size(max = 128)
+        String signingIdentityRef,
+
+        @Schema(description = "Timeout millis") @Positive int timeoutMillis,
+
+        @Schema(description = "Retry initial seconds") @Positive
+        long retryInitialSeconds,
+
+        @Schema(description = "Retry multiplier") BigDecimal retryMultiplier,
+
+        @Schema(description = "Retry maximum seconds") @Positive
+        long retryMaximumSeconds,
+
+        @Schema(description = "Retry max attempts") @Positive
+        int retryMaxAttempts,
+
+        @Schema(description = "Retry window seconds") @Positive
+        long retryWindowSeconds) {
+    public NotificationTermsDTO {
+        DomainViolation.require(
+                timeoutMillis > 0
+                        && retryInitialSeconds > 0
+                        && retryMaximumSeconds >= retryInitialSeconds
+                        && retryMaxAttempts > 0
+                        && retryWindowSeconds > 0
+                        && retryMultiplier != null
+                        && retryMultiplier.compareTo(BigDecimal.ONE) >= 0,
+                DomainViolation.Reason.INVALID_ARGUMENT);
+        if (enabled) {
+            DomainChecks.text(targetRef, 128);
+            DomainChecks.text(signingIdentityRef, 128);
+            var normalized = retryMultiplier.stripTrailingZeros();
+            DomainViolation.require(
+                    (long) normalized.precision() - normalized.scale() <= 20 && normalized.scale() <= 18,
+                    DomainViolation.Reason.INVALID_ARGUMENT);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+}

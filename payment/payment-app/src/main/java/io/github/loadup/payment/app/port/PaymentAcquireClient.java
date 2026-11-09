@@ -15,13 +15,13 @@
  */
 package io.github.loadup.payment.app.port;
 
-import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
-import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
-import io.github.loadup.acquire.client.dto.RefundNotificationAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
-import io.github.loadup.contracts.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
+import io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO;
+import io.github.loadup.payment.app.model.acquire.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.payment.app.model.acquire.dto.RefundNotificationAckDTO;
 
 public interface PaymentAcquireClient {
     PaymentOutcomeAckDTO accept(EventEnvelope<PaymentOutcomeEventDTO> event);

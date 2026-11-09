@@ -23,15 +23,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationStatementState;
 import io.github.loadup.reconciliation.domain.model.ReconciliationFileSnapshot;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationImportState;
 import io.github.loadup.reconciliation.domain.model.ReconciliationOfficialReceipt;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSourceKind;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationStatementState;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 

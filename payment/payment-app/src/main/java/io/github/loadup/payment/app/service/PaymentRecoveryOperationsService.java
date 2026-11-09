@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.VERSION_CONFLICT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.VERSION_CONFLICT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -42,6 +42,7 @@ import io.github.loadup.payment.app.security.PaymentActorProvider;
 import io.github.loadup.payment.client.command.PaymentRecoveryRetryCommand;
 import io.github.loadup.payment.client.dto.PaymentRecoveryRetryDTO;
 import io.github.loadup.payment.client.dto.PaymentRecoveryTaskDTO;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.payment.client.facade.PaymentRecoveryOperationsFacade;
 import io.github.loadup.payment.client.query.PaymentRecoveryTaskQuery;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -50,7 +51,6 @@ import io.github.loadup.payment.domain.gateway.PaymentRecoveryRetryGateway;
 import io.github.loadup.payment.domain.gateway.RefundGateway;
 import io.github.loadup.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.payment.domain.model.PaymentRecoveryKey;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.payment.domain.model.RefundOrder;
 import io.github.loadup.payment.domain.model.RefundRecoveryKey;

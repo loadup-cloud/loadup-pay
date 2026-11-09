@@ -15,23 +15,23 @@
  */
 package io.github.loadup.acquire.app.converter;
 
+import io.github.loadup.acquire.app.model.payment.command.PaymentCloseCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentInputExpireCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentInputPrepareCommand;
+import io.github.loadup.acquire.app.model.payment.query.PaymentInputLookupQuery;
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.AdmittedOrderTermsDTO;
 import io.github.loadup.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.acquire.client.dto.PaymentStartDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentCloseCommand;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentInputExpireCommand;
-import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
-import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
-import io.github.loadup.contracts.payment.PaymentInteractionDTO;
-import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -98,25 +98,30 @@ public interface PaymentInitiationConverter {
     @Mapping(
             target = "requestKey",
             expression =
-                    "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
+                    "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX"
+                        + " + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
-            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+            expression =
+                    "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.FENCE_EPOCH)")
     @Mapping(
             target = "reasonCode",
-            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.REASON)")
+            expression = "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.REASON)")
     PaymentCloseCommand toInputExpiryClose(PaymentExecuteCommand command);
 
     @Mapping(
             target = "requestKey",
             expression =
-                    "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.PREPARATION_REQUEST_KEY_PREFIX + command.allocationId())")
+                    "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.PREPARATION_REQUEST_KEY_PREFIX"
+                        + " + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
-            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+            expression =
+                    "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.FENCE_EPOCH)")
     @Mapping(
             target = "reasonCode",
-            expression = "java(io.github.loadup.contracts.payment.PaymentInputExpiryPolicy.PREPARATION_REASON)")
+            expression =
+                    "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.PREPARATION_REASON)")
     PaymentCloseCommand toPreparationExpiryClose(PaymentExecuteCommand command);
 
     @Mapping(target = "preparedInputRef", source = "inputRef")

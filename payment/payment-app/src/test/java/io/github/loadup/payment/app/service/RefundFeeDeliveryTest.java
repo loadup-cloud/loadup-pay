@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,7 +26,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
@@ -35,7 +34,8 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
 import java.util.Optional;

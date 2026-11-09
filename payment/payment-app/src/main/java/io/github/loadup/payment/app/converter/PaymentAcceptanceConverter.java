@@ -17,10 +17,10 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.payment.PaymentActionDTO;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
-import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
+import io.github.loadup.payment.client.dto.PaymentActionDTO;
+import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import java.time.LocalDateTime;

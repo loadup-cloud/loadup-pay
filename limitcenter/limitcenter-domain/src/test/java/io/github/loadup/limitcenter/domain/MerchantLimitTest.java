@@ -20,14 +20,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.limitcenter.client.enums.LimitMetric;
+import io.github.loadup.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.limitcenter.client.enums.LimitWindowType;
 import io.github.loadup.limitcenter.domain.model.LimitBucket;
 import io.github.loadup.limitcenter.domain.model.LimitBucketChange;
 import io.github.loadup.limitcenter.domain.model.LimitBucketKey;
 import io.github.loadup.limitcenter.domain.model.LimitBucketSet;
-import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitReservation;
-import io.github.loadup.limitcenter.domain.model.LimitReservationState;
-import io.github.loadup.limitcenter.domain.model.LimitWindowType;
 import io.github.loadup.limitcenter.domain.model.WindowBounds;
 import io.github.loadup.limitcenter.domain.policy.LimitWindowPolicy;
 import java.time.DayOfWeek;

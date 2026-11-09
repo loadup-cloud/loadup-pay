@@ -57,7 +57,8 @@ loadup:
   flyway:
     enabled: true
     locations:
-      - classpath:db/migration
+      - classpath:db/migration/pay/notificationcenter
+      - classpath:db/migration/framework/notification
   security:
     resource-server:
       enabled: true

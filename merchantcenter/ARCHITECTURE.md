@@ -18,7 +18,7 @@
 
 - `merchant_profile` 及其迁移归框架 merchant；`global_unique` 归 GlobalUnique；ID 和序列分配归 database。
 - customer 仅新增 merchant_relationship、merchant_action_grant。实际迁移：
-  `customer-infrastructure/src/main/resources/db/migration/V20261021160000__create_customer_authorization.sql`
+  `customer-infrastructure/src/main/resources/db/migration/pay/merchantcenter/V20261021160000__create_customer_authorization.sql`
   ；设计草案同步更新，不能重复执行草案。
 - 创建、授权、撤销、资格判断均使用主库 READ_COMMITTED 事务。以收款商户主档行锁串行化该商户的授权变更和资格判断；撤销另校验原资源版本。数据库唯一索引作为最终约束。
 - 撤销保留原ID和版本历史。PostgreSQL 部分唯一索引限制每个业务键最多存在一个 INIT 或 ACTIVE

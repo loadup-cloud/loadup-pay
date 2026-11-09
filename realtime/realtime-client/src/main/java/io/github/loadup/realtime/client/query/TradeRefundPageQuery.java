@@ -18,7 +18,7 @@ package io.github.loadup.realtime.client.query;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.realtime.client.error.RealtimeResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -26,11 +26,13 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record TradeRefundPageQuery(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
+        String payeeMerchantId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Refund request id") @Size(max = 64) String refundRequestId,
+        @Schema(description = "Refund request id") @Size(max = 64)
+        String refundRequestId,
 
         @Schema(description = "State") RefundState state,
         @Schema(description = "Created from") OffsetDateTime createdFrom,

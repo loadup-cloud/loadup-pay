@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
@@ -53,12 +53,12 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
         var args =
                 new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
-                       request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts,
-                       expected_next_execute_at, reason, result, accepted_at
-                FROM payment_recovery_retry_receipt WHERE caller_scope_hash = :caller
-                    AND request_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentRecoveryRetryReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
+                   request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts,
+                   expected_next_execute_at, reason, result, accepted_at
+            FROM payment_recovery_retry_receipt WHERE caller_scope_hash = :caller
+                AND request_key = :key AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentRecoveryRetryReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -82,14 +82,14 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_recovery_retry_receipt (id, created_at, updated_at, deleted, request_key,
-                    caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id,
-                    native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId,
-                    :requestDigest, :kind, :subjectId, :generation, :orderId, :nativeTaskId, :expectedAttempts,
-                    :expectedNextExecuteAt, :reason, :result, :acceptedAt)
-                ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_recovery_retry_receipt (id, created_at, updated_at, deleted, request_key,
+                caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id,
+                native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId,
+                :requestDigest, :kind, :subjectId, :generation, :orderId, :nativeTaskId, :expectedAttempts,
+                :expectedNextExecuteAt, :reason, :result, :acceptedAt)
+            ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Recovery retry request key already exists");
         }

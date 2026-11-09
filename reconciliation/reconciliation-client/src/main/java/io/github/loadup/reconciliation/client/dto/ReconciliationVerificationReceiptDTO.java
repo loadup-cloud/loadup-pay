@@ -18,8 +18,8 @@ package io.github.loadup.reconciliation.client.dto;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.reconciliation.domain.model.ReconciliationVerificationDisposition;
-import io.github.loadup.reconciliation.domain.model.ReconciliationVerificationOutcome;
+import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationDisposition;
+import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationOutcome;
 import java.time.OffsetDateTime;
 
 public record ReconciliationVerificationReceiptDTO(

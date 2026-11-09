@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
@@ -42,10 +42,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Repository
 public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
-    private static final String PAYMENT_COLUMNS = "id, created_at, updated_at, order_id, allocation_id, admission_id, "
-            + "payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state, active_attempt_id, "
-            + "successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at, terminal_evidence_id, "
-            + "intent_payload, payload_hash, row_version";
+    private static final String PAYMENT_COLUMNS = "id, created_at, updated_at, order_id, allocation_id, admission_id,"
+            + " payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state, active_attempt_id,"
+            + " successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at,"
+            + " terminal_evidence_id, intent_payload, payload_hash, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final PaymentAcceptanceStorageConverter converter;
@@ -107,10 +107,10 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         gateTransaction();
         var args = new MapSqlParameterSource().addValue("orderId", orderId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, order_id, payee_merchant_id, caller_service_id,
-                       state, close_epoch, row_version FROM payment_parent_gate
-                WHERE order_id = :orderId AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentParentGateDO.class)).stream()
+            SELECT id, created_at, updated_at, order_id, payee_merchant_id, caller_service_id,
+                   state, close_epoch, row_version FROM payment_parent_gate
+            WHERE order_id = :orderId AND deleted = FALSE FOR UPDATE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentParentGateDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -126,10 +126,10 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         gateTransaction();
         var args = new MapSqlParameterSource().addValue("payment", paymentId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, order_id, payment_id, payee_merchant_id, caller_service_id,
-                       state, fence_epoch, reason_code, row_version FROM payment_gate
-                WHERE payment_id = :payment AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentGateDO.class)).stream()
+            SELECT id, created_at, updated_at, order_id, payment_id, payee_merchant_id, caller_service_id,
+                   state, fence_epoch, reason_code, row_version FROM payment_gate
+            WHERE payment_id = :payment AND deleted = FALSE FOR UPDATE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentGateDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -150,12 +150,12 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_parent_gate (id, created_at, updated_at, deleted, order_id,
-                    payee_merchant_id, caller_service_id, state, close_epoch, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId,
-                    :callerServiceId, :state, :closeEpoch, :rowVersion)
-                ON CONFLICT (order_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_parent_gate (id, created_at, updated_at, deleted, order_id,
+                payee_merchant_id, caller_service_id, state, close_epoch, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId,
+                :callerServiceId, :state, :closeEpoch, :rowVersion)
+            ON CONFLICT (order_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment parent gate already exists");
         }
@@ -175,12 +175,12 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_gate (id, created_at, updated_at, deleted, order_id, payment_id,
-                    payee_merchant_id, caller_service_id, state, fence_epoch, reason_code, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :paymentId, :payeeMerchantId,
-                    :callerServiceId, :state, :fenceEpoch, :reasonCode, :rowVersion)
-                ON CONFLICT (payment_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_gate (id, created_at, updated_at, deleted, order_id, payment_id,
+                payee_merchant_id, caller_service_id, state, fence_epoch, reason_code, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :paymentId, :payeeMerchantId,
+                :callerServiceId, :state, :fenceEpoch, :reasonCode, :rowVersion)
+            ON CONFLICT (payment_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment gate already exists");
         }
@@ -197,16 +197,16 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_order (id, created_at, updated_at, deleted, order_id, allocation_id,
-                    admission_id, payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state,
-                    active_attempt_id, successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at,
-                    terminal_evidence_id, intent_payload, payload_hash, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :allocationId, :admissionId,
-                    :payeeMerchantId, :amountMinor, :currency, :requestDigest, :callerServiceId, :state, :activeAttemptId,
-                    :successfulAttemptId, :limitOperationId, :initiatedAt, :firstUnknownAt, :succeededAt,
-                    :terminalEvidenceId, :intentPayload, :payloadHash, :rowVersion)
-                ON CONFLICT (allocation_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_order (id, created_at, updated_at, deleted, order_id, allocation_id,
+                admission_id, payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state,
+                active_attempt_id, successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at,
+                terminal_evidence_id, intent_payload, payload_hash, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :allocationId, :admissionId,
+                :payeeMerchantId, :amountMinor, :currency, :requestDigest, :callerServiceId, :state, :activeAttemptId,
+                :successfulAttemptId, :limitOperationId, :initiatedAt, :firstUnknownAt, :succeededAt,
+                :terminalEvidenceId, :intentPayload, :payloadHash, :rowVersion)
+            ON CONFLICT (allocation_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment allocation already exists");
         }

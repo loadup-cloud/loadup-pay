@@ -22,6 +22,8 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.productcenter.app.port;
 
-import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
-import io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO;
+import io.github.loadup.productcenter.app.model.limitcenter.command.LimitPolicyActivateCommand;
+import io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO;
 
 public interface PolicyActivationClient {
     LimitPolicyActivationDTO activate(LimitPolicyActivateCommand command);

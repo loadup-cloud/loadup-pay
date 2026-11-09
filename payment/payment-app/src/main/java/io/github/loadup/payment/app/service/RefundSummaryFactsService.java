@@ -15,15 +15,15 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
 import io.github.loadup.payment.client.facade.RefundSummaryFactsFacade;

@@ -16,7 +16,7 @@
 package io.github.loadup.acquire.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.github.loadup.acquire.domain.model.PaymentRecoveryState;
+import io.github.loadup.acquire.client.enums.PaymentRecoveryState;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -37,7 +37,8 @@ public record PaymentRecoveryDTO(
         @JsonInclude(JsonInclude.Include.ALWAYS)
         Boolean accepted,
 
-        @Schema(description = "Converged original payment and order; present only when resolved") @Valid PaymentProgressDTO progress) {
+        @Schema(description = "Converged original payment and order; present only when resolved") @Valid
+        PaymentProgressDTO progress) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

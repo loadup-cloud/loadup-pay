@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
@@ -123,12 +123,12 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int inserted = jdbc.update("""
-                INSERT INTO routing_profile (id, created_at, updated_at, deleted, profile_ref,
-                    payee_merchant_id, spec_payload, content_hash, caller_service_id, request_key, request_digest, published_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :profileRef, :payeeMerchantId, :specPayload,
-                    :contentHash, :callerServiceId, :requestKey, :requestDigest, :publishedAt)
-                ON CONFLICT (caller_service_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO routing_profile (id, created_at, updated_at, deleted, profile_ref,
+                payee_merchant_id, spec_payload, content_hash, caller_service_id, request_key, request_digest, published_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :profileRef, :payeeMerchantId, :specPayload,
+                :contentHash, :callerServiceId, :requestKey, :requestDigest, :publishedAt)
+            ON CONFLICT (caller_service_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (inserted == 0) {
             throw new PaymentWriteConflictException("Routing profile request key already exists");
         }

@@ -28,21 +28,23 @@ import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.payment.client.command.PaymentCaptureCreateCommand;
-import io.github.loadup.payment.client.command.PaymentCaptureRetryCommand;
-import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
-import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.payment.client.http.PaymentCaptureHttpService;
-import io.github.loadup.payment.client.query.PaymentCaptureLinesQuery;
-import io.github.loadup.payment.client.support.PaymentCaptureContracts;
+import io.github.loadup.reconciliation.app.model.payment.command.PaymentCaptureCreateCommand;
+import io.github.loadup.reconciliation.app.model.payment.command.PaymentCaptureRetryCommand;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentCaptureDTO;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentLedgerLineDTO;
+import io.github.loadup.reconciliation.app.model.payment.query.PaymentCaptureLinesQuery;
+import io.github.loadup.reconciliation.app.model.payment.support.PaymentCaptureContracts;
 import io.github.loadup.reconciliation.app.port.ReconciliationPaymentCaptures;
 import io.github.loadup.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
+import io.github.loadup.reconciliation.infrastructure.converter.RemoteContractConverter;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
+    private final RemoteContractConverter contracts;
     private final ReconciliationPaymentProperties properties;
     private final ServiceAccessTokens tokens;
     private final PaymentCaptureHttpService paymentCaptureHttp;
@@ -50,7 +52,9 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
     public PaymentCaptureHttpClient(
             PaymentCaptureHttpService paymentCaptureHttp,
             ReconciliationPaymentProperties properties,
-            ServiceAccessTokens tokens) {
+            ServiceAccessTokens tokens,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.paymentCaptureHttp = paymentCaptureHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -59,30 +63,34 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
     @Override
     public PaymentCaptureDTO create(PaymentCaptureCreateCommand command) {
         return call(authorization -> PaymentCaptureContracts.capture(
-                HttpServiceResponses.requiredData(paymentCaptureHttp.create(authorization, command))));
+                HttpServiceResponses.requiredData(contracts.fromPaymentPaymentCaptureDTOSuccessResponse(
+                        paymentCaptureHttp.create(authorization, contracts.toRemote(command))))));
     }
 
     @Override
     public PaymentCaptureDTO retry(PaymentCaptureRetryCommand command) {
         return call(authorization -> PaymentCaptureContracts.capture(
-                HttpServiceResponses.requiredData(paymentCaptureHttp.retry(authorization, command))));
+                HttpServiceResponses.requiredData(contracts.fromPaymentPaymentCaptureDTOSuccessResponse(
+                        paymentCaptureHttp.retry(authorization, contracts.toRemote(command))))));
     }
 
     @Override
     public PaymentCaptureDTO detail(String captureId) {
         return call(authorization -> PaymentCaptureContracts.capture(
-                HttpServiceResponses.requiredData(paymentCaptureHttp.detail(authorization, new IdQuery(captureId)))));
+                HttpServiceResponses.requiredData(contracts.fromPaymentPaymentCaptureDTOSuccessResponse(
+                        paymentCaptureHttp.detail(authorization, new IdQuery(captureId))))));
     }
 
     @Override
     public PageDTO<PaymentLedgerLineDTO> lines(PaymentCaptureLinesQuery query) {
         return call(authorization -> {
-            var response = paymentCaptureHttp.lines(authorization, query);
+            var response = paymentCaptureHttp.lines(authorization, contracts.toRemote(query));
             if (response == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
             var data = HttpServiceResponses.requiredData(new SuccessResponse<>(response.result(), response.data()));
-            return PaymentCaptureContracts.page(new PageDTO<>(data, response.pageInfo()), query);
+            return PaymentCaptureContracts.page(
+                    new PageDTO<>(contracts.toLocalLedgerLines(data), response.pageInfo()), query);
         });
     }
 

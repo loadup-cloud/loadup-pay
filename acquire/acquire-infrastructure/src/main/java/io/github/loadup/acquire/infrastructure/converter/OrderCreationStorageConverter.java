@@ -15,6 +15,7 @@
  */
 package io.github.loadup.acquire.infrastructure.converter;
 
+import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderAdmissionProof;
 import io.github.loadup.acquire.domain.model.OrderCreateIntent;
@@ -26,7 +27,6 @@ import io.github.loadup.acquire.infrastructure.dataobject.OrderContractSnapshotD
 import io.github.loadup.acquire.infrastructure.dataobject.OrderCreateIntentDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.contracts.product.UnpaidOrderAction;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -45,8 +45,8 @@ public interface OrderCreationStorageConverter {
 
     @Mapping(
             target = "amount",
-            expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),"
+                    + " row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "paymentPolicy", source = "policy")
     @Mapping(target = "unpaidAction", source = "action")

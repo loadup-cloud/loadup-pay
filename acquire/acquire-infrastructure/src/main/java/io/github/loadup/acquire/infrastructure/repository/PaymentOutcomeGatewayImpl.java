@@ -32,7 +32,7 @@ import io.github.loadup.acquire.infrastructure.converter.PaymentOutcomeStorageCo
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -80,10 +80,10 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
         var row = jdbc
                 .query(
                         """
-                        SELECT id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
-                               caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
-                        FROM order_payment_allocation WHERE order_id = :order AND payment_id = :payment AND deleted = FALSE
-                        """ + (lock ? " FOR UPDATE" : ""),
+                            SELECT id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
+                                   caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
+                            FROM order_payment_allocation WHERE order_id = :order AND payment_id = :payment AND deleted = FALSE
+                            """ + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class))
                 .stream()
@@ -105,10 +105,10 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     public Optional<PaymentOutcomeReceipt> findReceipt(String allocationId) {
         var args = new MapSqlParameterSource().addValue("allocation", allocationId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, allocation_id, order_id, payment_id, amount_minor, currency,
-                       outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at
-                FROM order_payment_outcome WHERE allocation_id = :allocation AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(OrderPaymentOutcomeDO.class)).stream()
+            SELECT id, created_at, updated_at, allocation_id, order_id, payment_id, amount_minor, currency,
+                   outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at
+            FROM order_payment_outcome WHERE allocation_id = :allocation AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(OrderPaymentOutcomeDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {
@@ -162,11 +162,11 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                 .addValue("paidAt", orderPatch.getPaidAt())
                 .addValue("updated", LocalDateTime.now(clock));
         int orderChanged = jdbc.update("""
-                UPDATE acquire_order SET paid_amount_minor = :paid, payment_reserved_minor = :reserved,
-                    successful_payment_count = :successCount, reserved_payment_count = :reservedCount, state = :state,
-                    row_version = :version, paid_at = COALESCE(:paidAt, paid_at), updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND state IN ('PENDING', 'CLOSING') AND deleted = FALSE
-                """, orderArgs);
+            UPDATE acquire_order SET paid_amount_minor = :paid, payment_reserved_minor = :reserved,
+                successful_payment_count = :successCount, reserved_payment_count = :reservedCount, state = :state,
+                row_version = :version, paid_at = COALESCE(:paidAt, paid_at), updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND state IN ('PENDING', 'CLOSING') AND deleted = FALSE
+            """, orderArgs);
         if (orderChanged != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -182,10 +182,10 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                 .addValue("version", patch.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int allocationChanged = jdbc.update("""
-                UPDATE order_payment_allocation SET state = :state, payment_source_version = :newSource,
-                    row_version = :version, updated_at = :updated WHERE id = :id AND order_id = :order
-                    AND payment_id = :payment AND state = 'HELD' AND row_version = :expected AND payment_source_version = :source AND deleted = FALSE
-                """, args);
+            UPDATE order_payment_allocation SET state = :state, payment_source_version = :newSource,
+                row_version = :version, updated_at = :updated WHERE id = :id AND order_id = :order
+                AND payment_id = :payment AND state = 'HELD' AND row_version = :expected AND payment_source_version = :source AND deleted = FALSE
+            """, args);
         if (allocationChanged != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -194,12 +194,12 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_payment_outcome (id, created_at, updated_at, deleted, allocation_id, order_id,
-                    payment_id, amount_minor, currency, outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :allocationId, :orderId, :paymentId, :amountMinor,
-                    :currency, :outcomeKind, :paymentSourceVersion, :evidenceId, :executionFenced, :observedAt)
-                ON CONFLICT (allocation_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO order_payment_outcome (id, created_at, updated_at, deleted, allocation_id, order_id,
+                payment_id, amount_minor, currency, outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :allocationId, :orderId, :paymentId, :amountMinor,
+                :currency, :outcomeKind, :paymentSourceVersion, :evidenceId, :executionFenced, :observedAt)
+            ON CONFLICT (allocation_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Payment outcome allocation already exists");
         }

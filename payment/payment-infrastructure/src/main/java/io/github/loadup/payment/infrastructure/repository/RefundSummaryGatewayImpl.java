@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -56,10 +56,10 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
         writable();
         var args = new MapSqlParameterSource().addValue("order", orderId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
-                       currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
-                WHERE order_id = :order AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream()
+            SELECT id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
+                   currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
+            WHERE order_id = :order AND deleted = FALSE FOR UPDATE
+            """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {
@@ -83,12 +83,12 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_refund_summary (id, created_at, updated_at, deleted, order_id,
-                    payee_merchant_id, order_amount_minor, currency, refunded_minor, reserved_minor, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :orderAmountMinor,
-                    :currency, :refundedMinor, :reservedMinor, :rowVersion)
-                ON CONFLICT (order_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO order_refund_summary (id, created_at, updated_at, deleted, order_id,
+                payee_merchant_id, order_amount_minor, currency, refunded_minor, reserved_minor, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :orderAmountMinor,
+                :currency, :refundedMinor, :reservedMinor, :rowVersion)
+            ON CONFLICT (order_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Refund summary business key already exists");
         }
@@ -117,11 +117,11 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
                 .addValue("expectedReserved", before.reservedMinor())
                 .addValue("updated", LocalDateTime.now(clock));
         if (jdbc.update("""
-                UPDATE order_refund_summary SET row_version = :version, refunded_minor = :refunded,
-                    reserved_minor = :reserved, updated_at = :updated WHERE order_id = :order
-                    AND row_version = :expectedVersion AND refunded_minor = :expectedRefunded
-                    AND reserved_minor = :expectedReserved AND deleted = FALSE
-                """, args) != 1) {
+            UPDATE order_refund_summary SET row_version = :version, refunded_minor = :refunded,
+                reserved_minor = :reserved, updated_at = :updated WHERE order_id = :order
+                AND row_version = :expectedVersion AND refunded_minor = :expectedRefunded
+                AND reserved_minor = :expectedReserved AND deleted = FALSE
+            """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
     }

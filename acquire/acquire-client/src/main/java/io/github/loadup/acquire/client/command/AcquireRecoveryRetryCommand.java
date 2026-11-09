@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.client.command;
 
-import io.github.loadup.acquire.domain.model.AcquireRecoveryKind;
+import io.github.loadup.acquire.client.enums.AcquireRecoveryKind;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
@@ -28,26 +28,36 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record AcquireRecoveryRetryCommand(
-        @Schema(description = "Allow-listed acquiring recovery task kind") @NotNull AcquireRecoveryKind kind,
+        @Schema(description = "Allow-listed acquiring recovery task kind") @NotNull
+        AcquireRecoveryKind kind,
 
         @Schema(description = "Original payment id for PAYMENT_ALLOCATION, otherwise original order id")
-        @NotBlank @Size(max = 64) String subjectId,
+        @NotBlank
+        @Size(max = 64)
+        String subjectId,
 
-        @Schema(description = "Observed business generation; deadline versions begin at one") @NotNull @PositiveOrZero Long generation,
+        @Schema(description = "Observed business generation; deadline versions begin at one") @NotNull @PositiveOrZero
+        Long generation,
 
         @Schema(description = "Observed native task id; replacement task ids are not accepted")
-        @NotBlank @Size(max = 64) String expectedTaskId,
+        @NotBlank
+        @Size(max = 64)
+        String expectedTaskId,
 
-        @Schema(description = "Observed native failed-task attempts") @NotNull @Positive Integer expectedAttempts,
+        @Schema(description = "Observed native failed-task attempts") @NotNull @Positive
+        Integer expectedAttempts,
 
         @Schema(
                 description = "Observed native nextExecuteAt with offset, microsecond precision",
                 type = "string",
                 format = "date-time")
-        @NotNull OffsetDateTime expectedNextExecuteAt,
+        @NotNull
+        OffsetDateTime expectedNextExecuteAt,
 
         @Schema(description = "Stable operation key; retries preserve all original parameters")
-        @NotBlank @Size(max = 128) String requestKey,
+        @NotBlank
+        @Size(max = 128)
+        String requestKey,
 
         @Schema(description = "Audited operational reason") @NotBlank @Size(max = 500) @DiagnosticHidden
         String reason) {

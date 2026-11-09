@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.client.dto;
 
-import io.github.loadup.acquire.domain.model.OrderCreationRecoveryState;
+import io.github.loadup.acquire.client.enums.OrderCreationRecoveryState;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -33,9 +33,11 @@ public record DirectPayRecoveryDTO(
         @Schema(description = "Validated original creation result code; absent before a decision")
         String resultCode,
 
-        @Schema(description = "Original materialized order; absent unless creation completed") @Valid AcquireOrderDTO order,
+        @Schema(description = "Original materialized order; absent unless creation completed") @Valid
+        AcquireOrderDTO order,
 
-        @Schema(description = "Original first payment recovery; absent unless creation completed") @Valid PaymentRecoveryDTO payment) {
+        @Schema(description = "Original first payment recovery; absent unless creation completed") @Valid
+        PaymentRecoveryDTO payment) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -26,11 +26,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
+import io.github.loadup.payment.client.enums.PaymentCaptureState;
 import io.github.loadup.payment.client.support.PaymentCaptureContentHash;
 import io.github.loadup.payment.domain.gateway.PaymentCaptureGateway;
 import io.github.loadup.payment.domain.model.PaymentCapture;
 import io.github.loadup.payment.domain.model.PaymentCaptureRead;
-import io.github.loadup.payment.domain.model.PaymentCaptureState;
 import io.github.loadup.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.payment.infrastructure.converter.PaymentCaptureStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentCaptureDO;
@@ -54,9 +54,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper, PaymentCaptureDO>
         implements PaymentCaptureGateway {
     private static final String CAPTURE_COLUMNS =
-            "id, created_at, updated_at, caller_service_id, request_key, request_digest, "
-                    + "channel, account_scope_hash, bill_date, statement_profile, system_zone, state, started_at, finished_at, payment_count, "
-                    + "payment_amount_minor, refund_count, refund_amount_minor, content_hash, blocker, blocker_subject_id, row_version";
+            "id, created_at, updated_at, caller_service_id, request_key, request_digest, channel, account_scope_hash,"
+                    + " bill_date, statement_profile, system_zone, state, started_at, finished_at, payment_count,"
+                    + " payment_amount_minor, refund_count, refund_amount_minor, content_hash, blocker,"
+                    + " blocker_subject_id, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentCaptureStorageConverter converter;
     private final PaymentCaptureConverter views;
@@ -107,15 +108,15 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_reconciliation_capture (id, created_at, updated_at, deleted, caller_service_id,
-                    request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, system_zone,
-                    state, started_at, finished_at, payment_count, payment_amount_minor, refund_count, refund_amount_minor,
-                    content_hash, blocker, blocker_subject_id, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :callerServiceId, :requestKey, :requestDigest,
-                    :channel, :accountScopeHash, :billDate, :statementProfile, :systemZone, :state, :startedAt, :finishedAt,
-                    :paymentCount, :paymentAmountMinor, :refundCount, :refundAmountMinor, :contentHash, :blocker, :blockerSubjectId, :rowVersion)
-                ON CONFLICT (caller_service_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_reconciliation_capture (id, created_at, updated_at, deleted, caller_service_id,
+                request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, system_zone,
+                state, started_at, finished_at, payment_count, payment_amount_minor, refund_count, refund_amount_minor,
+                content_hash, blocker, blocker_subject_id, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :callerServiceId, :requestKey, :requestDigest,
+                :channel, :accountScopeHash, :billDate, :statementProfile, :systemZone, :state, :startedAt, :finishedAt,
+                :paymentCount, :paymentAmountMinor, :refundCount, :refundAmountMinor, :contentHash, :blocker, :blockerSubjectId, :rowVersion)
+            ON CONFLICT (caller_service_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment capture request key already exists");
         }
@@ -165,13 +166,13 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                         })
                         .toArray(SqlParameterSource[]::new);
                 int[] counts = jdbc.batchUpdate("""
-                        INSERT INTO payment_reconciliation_line (id, created_at, updated_at, deleted, capture_id,
-                            ordinal, key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no,
-                            amount_minor, currency, status, source_at, source_id, evidence_id, source_version)
-                        VALUES (:id, :createdAt, :updatedAt, FALSE, :captureId, :ordinal, :keyHash, :kind,
-                            :channelTransactionNo, :channelRefundNo, :merchantPaymentNo, :amountMinor, :currency, :status,
-                            :sourceAt, :sourceId, :evidenceId, :sourceVersion)
-                        """, parameters);
+                    INSERT INTO payment_reconciliation_line (id, created_at, updated_at, deleted, capture_id,
+                        ordinal, key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no,
+                        amount_minor, currency, status, source_at, source_id, evidence_id, source_version)
+                    VALUES (:id, :createdAt, :updatedAt, FALSE, :captureId, :ordinal, :keyHash, :kind,
+                        :channelTransactionNo, :channelRefundNo, :merchantPaymentNo, :amountMinor, :currency, :status,
+                        :sourceAt, :sourceId, :evidenceId, :sourceVersion)
+                    """, parameters);
                 if (counts.length != parameters.length) {
                     throw new CommonException(CONCURRENT_UPDATE);
                 }
@@ -198,12 +199,12 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                 .addValue("version", row.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         if (jdbc.update("""
-                UPDATE payment_reconciliation_capture SET state = :state, started_at = :started, finished_at = :finished,
-                    payment_count = :paymentCount, payment_amount_minor = :paymentAmount, refund_count = :refundCount,
-                    refund_amount_minor = :refundAmount, content_hash = :hash, blocker = :blocker, blocker_subject_id = :subject,
-                    row_version = :version, updated_at = :updated
-                WHERE id = :id AND state = 'INIT' AND row_version = 0 AND deleted = FALSE
-                """, args) != 1) {
+            UPDATE payment_reconciliation_capture SET state = :state, started_at = :started, finished_at = :finished,
+                payment_count = :paymentCount, payment_amount_minor = :paymentAmount, refund_count = :refundCount,
+                refund_amount_minor = :refundAmount, content_hash = :hash, blocker = :blocker, blocker_subject_id = :subject,
+                row_version = :version, updated_at = :updated
+            WHERE id = :id AND state = 'INIT' AND row_version = 0 AND deleted = FALSE
+            """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
     }
@@ -230,11 +231,11 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                 .addValue("size", size)
                 .addValue("offset", offset);
         var rows = jdbc.query("""
-                SELECT id, created_at, updated_at, capture_id, ordinal, key_hash, kind, channel_transaction_no,
-                       channel_refund_no, merchant_payment_no, amount_minor, currency, status, source_at, source_id, evidence_id, source_version
-                FROM payment_reconciliation_line WHERE capture_id = :capture AND deleted = FALSE
-                ORDER BY ordinal ASC LIMIT :size OFFSET :offset
-                """, args, BeanPropertyRowMapper.newInstance(PaymentCaptureLineDO.class));
+            SELECT id, created_at, updated_at, capture_id, ordinal, key_hash, kind, channel_transaction_no,
+                   channel_refund_no, merchant_payment_no, amount_minor, currency, status, source_at, source_id, evidence_id, source_version
+            FROM payment_reconciliation_line WHERE capture_id = :capture AND deleted = FALSE
+            ORDER BY ordinal ASC LIMIT :size OFFSET :offset
+            """, args, BeanPropertyRowMapper.newInstance(PaymentCaptureLineDO.class));
         var result = new ArrayList<PaymentLedgerLine>();
         try {
             for (var row : rows) {

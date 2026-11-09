@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.IGNORED;
@@ -58,7 +58,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarge
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.config.RecoveryPollingConfiguration;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
@@ -82,6 +82,7 @@ import io.github.loadup.payment.app.service.PaymentRecoveryService;
 import io.github.loadup.payment.app.service.PaymentResultService;
 import io.github.loadup.payment.app.service.PaymentSubmissionPreparation;
 import io.github.loadup.payment.app.service.RecoveryExecutionMetrics;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
@@ -95,7 +96,6 @@ import io.github.loadup.payment.domain.model.PaymentChannelReceipt;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.PaymentRecoveryKey;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;

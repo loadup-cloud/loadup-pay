@@ -18,13 +18,13 @@ package io.github.loadup.limitcenter.infrastructure.converter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.limitcenter.client.enums.LimitMetric;
+import io.github.loadup.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.limitcenter.client.enums.LimitWindowType;
 import io.github.loadup.limitcenter.domain.model.LimitBucket;
 import io.github.loadup.limitcenter.domain.model.LimitBucketKey;
-import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitPolicyHead;
 import io.github.loadup.limitcenter.domain.model.LimitReservation;
-import io.github.loadup.limitcenter.domain.model.LimitReservationState;
-import io.github.loadup.limitcenter.domain.model.LimitWindowType;
 import io.github.loadup.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.limitcenter.domain.model.WindowBounds;
 import java.time.LocalDateTime;

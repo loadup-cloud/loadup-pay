@@ -18,6 +18,7 @@ package io.github.loadup.reconciliation.domain.model;
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import java.util.ArrayList;
 import java.util.Objects;
 

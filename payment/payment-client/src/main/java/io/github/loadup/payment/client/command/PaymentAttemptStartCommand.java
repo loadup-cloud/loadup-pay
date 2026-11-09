@@ -17,7 +17,7 @@ package io.github.loadup.payment.client.command;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -25,16 +25,19 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record PaymentAttemptStartCommand(
-        @Schema(description = "Payment id") @NotBlank @Size(max = 64) String paymentId,
+        @Schema(description = "Payment id") @NotBlank @Size(max = 64)
+        String paymentId,
 
-        @Schema(description = "Request key") @NotBlank @Size(max = 128) String requestKey,
+        @Schema(description = "Request key") @NotBlank @Size(max = 128)
+        String requestKey,
 
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
 
         @Schema(description = "Prepared input ref") @Size(max = 64) @DiagnosticHidden
         String preparedInputRef,
 
-        @Schema(description = "Verified previous attempt evidence id; absent for the first attempt") @Size(max = 64) String previousAttemptEvidenceId) {
+        @Schema(description = "Verified previous attempt evidence id; absent for the first attempt") @Size(max = 64)
+        String previousAttemptEvidenceId) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

@@ -22,6 +22,9 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;
 import java.util.Objects;
 
 /**

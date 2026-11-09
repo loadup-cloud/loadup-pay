@@ -15,18 +15,18 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;

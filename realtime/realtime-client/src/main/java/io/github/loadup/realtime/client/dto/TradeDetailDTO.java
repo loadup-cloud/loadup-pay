@@ -17,7 +17,7 @@ package io.github.loadup.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import java.time.OffsetDateTime;
@@ -25,7 +25,8 @@ import java.time.OffsetDateTime;
 public record TradeDetailDTO(
         @Schema(description = "Order") @Valid TradeOrderDTO order,
 
-        @Schema(description = "Independent complete refund summary") @Valid OrderRefundSummaryEventDTO refundSummary,
+        @Schema(description = "Independent complete refund summary") @Valid
+        OrderRefundSummaryEventDTO refundSummary,
 
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeDetailDTO {

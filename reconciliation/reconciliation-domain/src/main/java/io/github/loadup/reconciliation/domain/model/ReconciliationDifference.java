@@ -20,6 +20,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.reconciliation.client.enums.ReconciliationDifferenceReason;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;

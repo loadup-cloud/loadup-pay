@@ -15,8 +15,8 @@
  */
 package io.github.loadup.acquire.app.port;
 
-import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
+import io.github.loadup.acquire.app.model.productcenter.command.OrderAdmissionAuthorizeCommand;
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
 
 public interface OrderAdmissionClient {
     OrderAdmissionDTO authorize(OrderAdmissionAuthorizeCommand command);

@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.app.model;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
-import io.github.loadup.payment.domain.model.PaymentVerificationDisposition;
+import io.github.loadup.payment.client.enums.PaymentVerificationDisposition;
 
 /**
  * Local snapshot only. At most one target is present; missing coverage has no invented amounts or funds outcome.

@@ -15,20 +15,21 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
+import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.payment.infrastructure.config.PaymentRealtimeProperties;
-import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.payment.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
@@ -36,12 +37,17 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 public class PaymentRealtimeHttpClient implements PaymentRealtimeClient {
+    private final RemoteContractConverter contracts;
     private final PaymentRealtimeProperties properties;
     private final ServiceAccessTokens tokens;
     private final RealtimeHttpService realtimeHttp;
 
     public PaymentRealtimeHttpClient(
-            RealtimeHttpService realtimeHttp, ServiceAccessTokens tokens, PaymentRealtimeProperties properties) {
+            RealtimeHttpService realtimeHttp,
+            ServiceAccessTokens tokens,
+            PaymentRealtimeProperties properties,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.realtimeHttp = realtimeHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -49,17 +55,20 @@ public class PaymentRealtimeHttpClient implements PaymentRealtimeClient {
 
     @Override
     public ProjectionAckDTO apply(EventEnvelope<PaymentSnapshotEventDTO> event) {
-        return exchange(authorization -> realtimeHttp.payment(authorization, event));
+        return exchange(authorization ->
+                contracts.fromRealtimeProjectionAckDTOSuccessResponse(realtimeHttp.payment(authorization, event)));
     }
 
     @Override
     public ProjectionAckDTO applyRefund(EventEnvelope<RefundSnapshotEventDTO> event) {
-        return exchange(authorization -> realtimeHttp.refund(authorization, event));
+        return exchange(authorization ->
+                contracts.fromRealtimeProjectionAckDTOSuccessResponse(realtimeHttp.refund(authorization, event)));
     }
 
     @Override
     public ProjectionAckDTO applyRefundSummary(EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(authorization -> realtimeHttp.refundSummary(authorization, event));
+        return exchange(authorization -> contracts.fromRealtimeProjectionAckDTOSuccessResponse(
+                realtimeHttp.refundSummary(authorization, event)));
     }
 
     private ProjectionAckDTO exchange(Function<String, SuccessResponse<ProjectionAckDTO>> call) {

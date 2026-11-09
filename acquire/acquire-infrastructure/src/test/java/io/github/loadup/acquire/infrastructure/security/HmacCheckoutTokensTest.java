@@ -22,9 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.loadup.acquire.client.enums.CheckoutSessionState;
 import io.github.loadup.acquire.domain.model.CheckoutSession;
 import io.github.loadup.acquire.domain.model.CheckoutSessionScope;
-import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.acquire.infrastructure.client.CheckoutPresentationImpl;
 import io.github.loadup.acquire.infrastructure.config.CheckoutProperties;

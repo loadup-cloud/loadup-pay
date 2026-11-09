@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.client.dto;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;

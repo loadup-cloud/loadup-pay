@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,10 +39,10 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentInput
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRequest;
 import io.github.loadup.components.payment.channel.api.model.NoChannelInput;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.contracts.payment.NoInteractionDTO;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.model.PaymentAttempt;

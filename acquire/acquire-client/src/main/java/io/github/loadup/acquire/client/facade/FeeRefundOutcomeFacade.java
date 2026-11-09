@@ -17,7 +17,7 @@ package io.github.loadup.acquire.client.facade;
 
 import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 
 /**
  * Business use cases; identity and authorization come from a trusted invocation context.

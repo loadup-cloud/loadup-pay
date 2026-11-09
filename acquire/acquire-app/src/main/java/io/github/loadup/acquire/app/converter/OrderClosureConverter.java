@@ -15,16 +15,16 @@
  */
 package io.github.loadup.acquire.app.converter;
 
+import io.github.loadup.acquire.app.model.payment.command.ParentPaymentFenceCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentCloseCommand;
+import io.github.loadup.acquire.app.model.payment.dto.ParentFenceDTO;
+import io.github.loadup.acquire.app.model.payment.query.ParentFenceStatusQuery;
 import io.github.loadup.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.ParentCloseEvidence;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.contracts.payment.ParentFenceDTO;
-import io.github.loadup.contracts.payment.ParentFenceStatusQuery;
-import io.github.loadup.contracts.payment.ParentPaymentFenceCommand;
-import io.github.loadup.contracts.payment.PaymentCloseCommand;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

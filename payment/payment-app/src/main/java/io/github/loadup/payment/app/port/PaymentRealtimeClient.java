@@ -16,10 +16,10 @@
 package io.github.loadup.payment.app.port;
 
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
-import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
+import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 
 public interface PaymentRealtimeClient {
     ProjectionAckDTO apply(EventEnvelope<PaymentSnapshotEventDTO> event);

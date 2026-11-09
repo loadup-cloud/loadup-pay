@@ -18,11 +18,11 @@ package io.github.loadup.acquire.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.github.loadup.acquire.client.enums.FeeRefundPolicy;
 import io.github.loadup.acquire.domain.model.OrderFee;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.contracts.product.FeeRefundPolicy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.junit.jupiter.api.Test;

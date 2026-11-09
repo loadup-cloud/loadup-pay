@@ -6,7 +6,7 @@ spring:
 loadup:
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration/pay/productcenter
   security:
     resource-server:
       enabled: false

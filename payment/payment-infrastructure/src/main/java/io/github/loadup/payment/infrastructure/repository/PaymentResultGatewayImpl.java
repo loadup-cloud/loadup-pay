@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.payment.domain.model.ChannelTransactionClaim;
@@ -47,8 +47,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Repository
 public class PaymentResultGatewayImpl implements PaymentResultGateway {
-    private static final String CLAIM_COLUMNS = "id, created_at, updated_at, payment_id, attempt_id, channel, "
-            + "binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency, channel_transaction_no, succeeded_at, receipt_id";
+    private static final String CLAIM_COLUMNS = "id, created_at, updated_at, payment_id, attempt_id, channel,"
+            + " binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency,"
+            + " channel_transaction_no, succeeded_at, receipt_id";
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final PaymentResultStorageConverter converter;
@@ -67,12 +68,12 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
                 .addValue("source", source.name())
                 .addValue("key", key);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
-                       account_scope_hash, channel_request_no, source, receipt_key, facts_digest, source_digest,
-                       observation_payload, disposition, reason_code, received_at
-                FROM payment_channel_receipt WHERE attempt_id = :attempt AND source = :source
-                    AND receipt_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentChannelReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
+                   account_scope_hash, channel_request_no, source, receipt_key, facts_digest, source_digest,
+                   observation_payload, disposition, reason_code, received_at
+            FROM payment_channel_receipt WHERE attempt_id = :attempt AND source = :source
+                AND receipt_key = :key AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentChannelReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         return row == null
@@ -89,14 +90,14 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_channel_receipt (id, created_at, updated_at, deleted, payment_id, attempt_id,
-                    channel, binding_revision_id, account_scope_hash, channel_request_no, source, receipt_key, facts_digest,
-                    source_digest, observation_payload, disposition, reason_code, received_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
-                    :accountScopeHash, :channelRequestNo, :source, :receiptKey, :factsDigest, :sourceDigest, :observationPayload,
-                    :disposition, :reasonCode, :receivedAt)
-                ON CONFLICT (attempt_id, source, receipt_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_channel_receipt (id, created_at, updated_at, deleted, payment_id, attempt_id,
+                channel, binding_revision_id, account_scope_hash, channel_request_no, source, receipt_key, facts_digest,
+                source_digest, observation_payload, disposition, reason_code, received_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
+                :accountScopeHash, :channelRequestNo, :source, :receiptKey, :factsDigest, :sourceDigest, :observationPayload,
+                :disposition, :reasonCode, :receivedAt)
+            ON CONFLICT (attempt_id, source, receipt_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment channel receipt already exists");
         }
@@ -114,12 +115,12 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_result_anomaly (id, created_at, updated_at, deleted, payment_id,
-                    attempt_id, receipt_id, reason_code, facts_digest, observation_payload, received_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :receiptId,
-                    :reasonCode, :factsDigest, :observationPayload, :receivedAt)
-                ON CONFLICT (receipt_id, facts_digest, reason_code) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_result_anomaly (id, created_at, updated_at, deleted, payment_id,
+                attempt_id, receipt_id, reason_code, facts_digest, observation_payload, received_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :receiptId,
+                :reasonCode, :factsDigest, :observationPayload, :receivedAt)
+            ON CONFLICT (receipt_id, facts_digest, reason_code) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 0 && count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -134,8 +135,9 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
                 .addValue("number", number);
         var row = jdbc
                 .query(
-                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE channel = :channel "
-                                + "AND account_scope_hash = :scope AND channel_transaction_no = :number AND deleted = FALSE",
+                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE channel = :channel AND"
+                                + " account_scope_hash = :scope AND channel_transaction_no = :number"
+                                + " AND deleted = FALSE",
                         args,
                         BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class))
                 .stream()
@@ -174,12 +176,12 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO channel_transaction_claim (id, created_at, updated_at, deleted, payment_id,
-                    attempt_id, channel, binding_revision_id, account_scope_hash, channel_request_no, amount_minor,
-                    currency, channel_transaction_no, succeeded_at, receipt_id)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
-                    :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :channelTransactionNo, :succeededAt, :receiptId)
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO channel_transaction_claim (id, created_at, updated_at, deleted, payment_id,
+                attempt_id, channel, binding_revision_id, account_scope_hash, channel_request_no, amount_minor,
+                currency, channel_transaction_no, succeeded_at, receipt_id)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
+                :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :channelTransactionNo, :succeededAt, :receiptId)
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -204,11 +206,11 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
                 .addValue("succeeded", succeededAt)
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE payment_order SET state = 'SUCCEEDED', successful_attempt_id = :attempt,
-                    terminal_evidence_id = :evidence, succeeded_at = :succeeded, row_version = :version, updated_at = :updated
-                WHERE id = :id AND active_attempt_id = :attempt
-                    AND state IN ('PROCESSING', 'UNKNOWN', 'CLOSING') AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE payment_order SET state = 'SUCCEEDED', successful_attempt_id = :attempt,
+                terminal_evidence_id = :evidence, succeeded_at = :succeeded, row_version = :version, updated_at = :updated
+            WHERE id = :id AND active_attempt_id = :attempt
+                AND state IN ('PROCESSING', 'UNKNOWN', 'CLOSING') AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -218,10 +220,10 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     public Optional<PaymentRefundCapacity> capacity(String payment) {
         var args = new MapSqlParameterSource().addValue("payment", payment);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
-                       succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version
-                FROM payment_refund_capacity WHERE payment_id = :payment AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
+            SELECT id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
+                   succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version
+            FROM payment_refund_capacity WHERE payment_id = :payment AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         return row == null ? Optional.empty() : Optional.of(read(() -> converter.toCapacity(row)));
@@ -239,12 +241,12 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_refund_capacity (id, created_at, updated_at, deleted, payment_id, order_id,
-                    payee_merchant_id, succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :orderId, :payeeMerchantId, :succeededAt,
-                    :succeededMinor, :currency, :refundedMinor, :reservedMinor, :rowVersion)
-                ON CONFLICT (payment_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_refund_capacity (id, created_at, updated_at, deleted, payment_id, order_id,
+                payee_merchant_id, succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :orderId, :payeeMerchantId, :succeededAt,
+                :succeededMinor, :currency, :refundedMinor, :reservedMinor, :rowVersion)
+            ON CONFLICT (payment_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment refund capacity already exists");
         }

@@ -24,6 +24,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.limitcenter.client.enums.LimitReservationState;
 import java.time.LocalDateTime;
 import java.util.Objects;
 

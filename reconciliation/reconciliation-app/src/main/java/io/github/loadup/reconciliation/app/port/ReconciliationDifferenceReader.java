@@ -17,8 +17,8 @@ package io.github.loadup.reconciliation.app.port;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.reconciliation.app.model.StoredReconciliationDifference;
-import io.github.loadup.reconciliation.domain.model.ReconciliationDifferenceReason;
-import io.github.loadup.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationDifferenceReason;
+import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import java.util.Optional;
 
 /**

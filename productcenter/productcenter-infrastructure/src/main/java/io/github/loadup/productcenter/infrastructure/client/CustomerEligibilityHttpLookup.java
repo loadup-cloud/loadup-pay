@@ -21,23 +21,27 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
-import io.github.loadup.merchantcenter.client.command.MerchantActionAuthorizeCommand;
-import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
-import io.github.loadup.merchantcenter.client.enums.MerchantAction;
 import io.github.loadup.merchantcenter.client.error.CustomerResultCodeEnum;
 import io.github.loadup.merchantcenter.client.http.CustomerHttpService;
+import io.github.loadup.productcenter.app.model.merchantcenter.command.MerchantActionAuthorizeCommand;
+import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
+import io.github.loadup.productcenter.app.model.merchantcenter.enums.MerchantAction;
 import io.github.loadup.productcenter.app.port.CustomerEligibilityLookup;
 import io.github.loadup.productcenter.app.security.ProductActorProvider;
+import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup {
+    private final RemoteContractConverter contracts;
     private final ProductActorProvider actors;
     private final CustomerHttpService customerHttp;
 
-    public CustomerEligibilityHttpLookup(CustomerHttpService customerHttp, ProductActorProvider actors) {
+    public CustomerEligibilityHttpLookup(
+            CustomerHttpService customerHttp, ProductActorProvider actors, RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.customerHttp = customerHttp;
         this.actors = actors;
     }
@@ -54,7 +58,8 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
         try {
             var command = new MerchantActionAuthorizeCommand(payee, MerchantAction.CREATE_ORDER);
             MerchantEligibilityDTO data = HttpServiceResponses.requiredData(
-                    customerHttp.authorize("Bearer " + actor.customerAccessToken(), command));
+                    contracts.fromMerchantcenterMerchantEligibilityDTOSuccessResponse(customerHttp.authorize(
+                            "Bearer " + actor.customerAccessToken(), contracts.toRemote(command))));
             if (data.merchantFactVersion() < 0) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }

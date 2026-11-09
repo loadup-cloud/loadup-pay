@@ -15,12 +15,12 @@
  */
 package io.github.loadup.acquire.client.command;
 
+import io.github.loadup.acquire.client.dto.payment.NoInteractionDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.payment.NoInteractionDTO;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -35,30 +35,38 @@ import java.util.Locale;
  * Merchant API convenience entry; a hosted checkout session is not a prerequisite.
  */
 public record DirectPayCommand(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
+        String payeeMerchantId,
 
-        @Schema(description = "Merchant order no") @NotBlank @Size(max = 64) String merchantOrderNo,
+        @Schema(description = "Merchant order no") @NotBlank @Size(max = 64)
+        String merchantOrderNo,
 
-        @Schema(description = "Product scope key") @NotBlank @Size(max = 128) String productScopeKey,
+        @Schema(description = "Product scope key") @NotBlank @Size(max = 128)
+        String productScopeKey,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
+        String currency,
 
-        @Schema(description = "Subject") @NotBlank @Size(max = 200) String subject,
+        @Schema(description = "Subject") @NotBlank @Size(max = 200)
+        String subject,
 
         @Schema(description = "Requested due at") OffsetDateTime requestedDueAt,
 
-        @Schema(description = "Action key") @NotBlank @Size(max = 128) String actionKey,
+        @Schema(description = "Action key") @NotBlank @Size(max = 128)
+        String actionKey,
 
-        @Schema(description = "First payment amount minor") @Positive long firstPaymentAmountMinor,
+        @Schema(description = "First payment amount minor") @Positive
+        long firstPaymentAmountMinor,
 
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
 
         @Schema(
                 description = "Sensitive payer input for the chosen payment method",
                 accessMode = Schema.AccessMode.WRITE_ONLY)
-        @Valid @DiagnosticHidden
+        @Valid
+        @DiagnosticHidden
         PaymentInteractionDTO interaction) {
     public DirectPayCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);

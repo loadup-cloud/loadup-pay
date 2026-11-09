@@ -26,11 +26,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.app.port.CashierCapabilities;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.contracts.model.AcquireOrderState;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.product.UnpaidOrderAction;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 

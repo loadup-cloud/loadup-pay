@@ -17,7 +17,7 @@ package io.github.loadup.acquire.infrastructure.config;
 
 import io.github.loadup.acquire.app.converter.CashierPaymentConverter;
 import io.github.loadup.acquire.app.port.CashierCapabilities;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;

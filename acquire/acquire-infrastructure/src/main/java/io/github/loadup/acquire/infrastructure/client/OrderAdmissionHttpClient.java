@@ -19,22 +19,26 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
+import io.github.loadup.acquire.app.model.productcenter.command.OrderAdmissionAuthorizeCommand;
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
 import io.github.loadup.acquire.app.port.OrderAdmissionClient;
 import io.github.loadup.acquire.app.security.AcquireActorProvider;
+import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
-import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 import io.github.loadup.productcenter.client.http.ProductHttpService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class OrderAdmissionHttpClient implements OrderAdmissionClient {
+    private final RemoteContractConverter contracts;
     private final AcquireActorProvider actors;
     private final ProductHttpService productHttp;
 
-    public OrderAdmissionHttpClient(ProductHttpService productHttp, AcquireActorProvider actors) {
+    public OrderAdmissionHttpClient(
+            ProductHttpService productHttp, AcquireActorProvider actors, RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.productHttp = productHttp;
         this.actors = actors;
     }
@@ -49,8 +53,8 @@ public class OrderAdmissionHttpClient implements OrderAdmissionClient {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            return HttpServiceResponses.requiredData(
-                    productHttp.authorize("Bearer " + actor.productAccessToken(), command));
+            return HttpServiceResponses.requiredData(contracts.fromProductcenterOrderAdmissionDTOSuccessResponse(
+                    productHttp.authorize("Bearer " + actor.productAccessToken(), contracts.toRemote(command))));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

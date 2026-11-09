@@ -15,10 +15,10 @@
  */
 package io.github.loadup.acquire.client.dto;
 
-import io.github.loadup.acquire.domain.model.PaymentProgress;
+import io.github.loadup.acquire.client.enums.PaymentProgress;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -27,11 +27,14 @@ import java.time.OffsetDateTime;
 public record AcquireOrderDTO(
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Merchant order no") @Size(max = 64) String merchantOrderNo,
+        @Schema(description = "Merchant order no") @Size(max = 64)
+        String merchantOrderNo,
 
-        @Schema(description = "Payee merchant id") @Size(max = 64) String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @Size(max = 64)
+        String payeeMerchantId,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
+        String currency,
 
         @Schema(description = "Amount minor") long amountMinor,
         @Schema(description = "Paid amount minor") long paidAmountMinor,

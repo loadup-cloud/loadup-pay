@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.acquire.infrastructure.config.AcquireRealtimeProperties;
+import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
@@ -32,9 +33,8 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
-import io.github.loadup.contracts.model.AcquireOrderState;
-import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import java.time.Clock;
 import java.time.Instant;
@@ -45,13 +45,23 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = RemoteContractMapperTestConfiguration.class)
 class AcquireRealtimeHttpClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), BusinessTime.zone());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final RealtimeHttpService realtimeHttp = mock(RealtimeHttpService.class);
+
+    @Autowired
+    RemoteContractConverter contracts;
+
     final List<String> attachments = new ArrayList<>();
     final EventEnvelope<OrderSnapshotEventDTO> event = new EventEnvelope<>(
             "delivery",
@@ -105,11 +115,14 @@ class AcquireRealtimeHttpClientTest {
     void setup() throws Exception {
         credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
         client = new AcquireRealtimeHttpClient(
-                realtimeHttp, (service, audience) -> credential, new AcquireRealtimeProperties("acquire", "realtime"));
+                realtimeHttp,
+                (service, audience) -> credential,
+                new AcquireRealtimeProperties("acquire", "realtime"),
+                contracts);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(
-                            new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
+                    return SuccessResponse.of(new io.github.loadup.realtime.client.dto.ProjectionAckDTO(
+                            "delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
                 })
                 .when(realtimeHttp)
                 .order(anyString(), any());

@@ -16,7 +16,7 @@
 package io.github.loadup.acquire.app.port;
 
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 
 public interface OrderSnapshotEnvelopeCodec {
     EventEnvelope<OrderSnapshotEventDTO> decode(String payload);

@@ -18,13 +18,13 @@ package io.github.loadup.acquire.app.converter;
 import io.github.loadup.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.acquire.client.dto.CheckoutDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.domain.model.CheckoutSession;
 import io.github.loadup.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Set;
@@ -56,8 +56,8 @@ public interface CheckoutConverter {
     @Mapping(target = "allowExactRemainderBelowMin", source = "policy.allowExactRemainderBelowMin")
     @Mapping(
             target = "remainingPaymentCount",
-            expression =
-                    "java(policy.maxSuccessfulPayments() == null ? null : Integer.valueOf((int) Math.max(0L, policy.maxSuccessfulPayments().longValue() - occupiedCount)))")
+            expression = "java(policy.maxSuccessfulPayments() == null ? null : Integer.valueOf((int) Math.max(0L,"
+                    + " policy.maxSuccessfulPayments().longValue() - occupiedCount)))")
     CashierOrderDTO toSummary(
             AcquireOrderDTO order,
             String subject,

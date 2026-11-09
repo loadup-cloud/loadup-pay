@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.PaymentControlGateway;
@@ -50,10 +50,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Repository
 public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceiptMapper, PaymentControlReceiptDO>
         implements PaymentControlGateway {
-    private static final String PAYMENT_COLUMNS = "id, created_at, updated_at, order_id, allocation_id, admission_id, "
-            + "payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state, active_attempt_id, "
-            + "successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at, terminal_evidence_id, "
-            + "intent_payload, payload_hash, row_version";
+    private static final String PAYMENT_COLUMNS = "id, created_at, updated_at, order_id, allocation_id, admission_id,"
+            + " payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state, active_attempt_id,"
+            + " successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at,"
+            + " terminal_evidence_id, intent_payload, payload_hash, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock databaseClock;
     private final PaymentAcceptanceStorageConverter converter;
@@ -143,12 +143,12 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
                 .addValue("version", row.getRowVersion())
                 .addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
-                UPDATE payment_order SET state = :state, active_attempt_id = COALESCE(:active, active_attempt_id),
-                    successful_attempt_id = COALESCE(:success, successful_attempt_id),
-                    first_unknown_at = COALESCE(:unknown, first_unknown_at), terminal_evidence_id = COALESCE(:evidence, terminal_evidence_id),
-                    row_version = :version, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE payment_order SET state = :state, active_attempt_id = COALESCE(:active, active_attempt_id),
+                successful_attempt_id = COALESCE(:success, successful_attempt_id),
+                first_unknown_at = COALESCE(:unknown, first_unknown_at), terminal_evidence_id = COALESCE(:evidence, terminal_evidence_id),
+                row_version = :version, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -166,9 +166,9 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
                 .addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
-                UPDATE payment_parent_gate SET state = 'FENCED', close_epoch = :epoch, row_version = :version, updated_at = :updated
-                WHERE id = :id AND order_id = :orderId AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE payment_parent_gate SET state = 'FENCED', close_epoch = :epoch, row_version = :version, updated_at = :updated
+            WHERE id = :id AND order_id = :orderId AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -186,9 +186,9 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
                 .addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
-                UPDATE payment_gate SET state = 'FENCED', fence_epoch = :epoch, row_version = :version, updated_at = :updated
-                WHERE id = :id AND payment_id = :payment AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE payment_gate SET state = 'FENCED', fence_epoch = :epoch, row_version = :version, updated_at = :updated
+            WHERE id = :id AND payment_id = :payment AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -233,13 +233,13 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_control_receipt (id, created_at, updated_at, deleted, kind, target_id,
-                    order_id, payee_merchant_id, caller_service_id, request_key, request_digest, requested_epoch,
-                    reason_code, no_collection_evidence_id)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :kind, :targetId, :orderId, :payeeMerchantId,
-                    :callerServiceId, :requestKey, :requestDigest, :requestedEpoch, :reasonCode, :noCollectionEvidenceId)
-                ON CONFLICT (kind, target_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_control_receipt (id, created_at, updated_at, deleted, kind, target_id,
+                order_id, payee_merchant_id, caller_service_id, request_key, request_digest, requested_epoch,
+                reason_code, no_collection_evidence_id)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :kind, :targetId, :orderId, :payeeMerchantId,
+                :callerServiceId, :requestKey, :requestDigest, :requestedEpoch, :reasonCode, :noCollectionEvidenceId)
+            ON CONFLICT (kind, target_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment control request already exists");
         }

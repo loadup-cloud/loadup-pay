@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRequest;

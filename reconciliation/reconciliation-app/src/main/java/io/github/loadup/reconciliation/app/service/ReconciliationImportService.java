@@ -43,13 +43,13 @@ import io.github.loadup.reconciliation.client.command.ReconciliationChannelImpor
 import io.github.loadup.reconciliation.client.command.ReconciliationImportRetryCommand;
 import io.github.loadup.reconciliation.client.dto.ReconciliationImportDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationSourceFileDTO;
+import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
+import io.github.loadup.reconciliation.client.enums.ReconciliationState;
 import io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.reconciliation.client.facade.ReconciliationImportFacade;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationImportGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationImportState;
-import io.github.loadup.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validator;
 import java.io.InputStream;

@@ -18,7 +18,7 @@ package io.github.loadup.payment.app.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 
 /**
  * Bounded operational projection; contains neither native errors nor financial request payloads.

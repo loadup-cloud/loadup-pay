@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
@@ -24,12 +24,12 @@ import io.github.loadup.payment.app.model.PaymentVerificationTarget;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentVerificationTargetReader;
 import io.github.loadup.payment.app.service.PaymentExecutionBindings;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.payment.client.enums.PaymentVerificationDisposition;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentResultGateway;
-import io.github.loadup.payment.domain.model.PaymentLedgerKind;
-import io.github.loadup.payment.domain.model.PaymentVerificationDisposition;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.payment.infrastructure.converter.RefundCallbackStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
@@ -87,9 +87,9 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
                 .addValue("paymentNo", query.merchantPaymentNo());
         if (query.kind() == PaymentLedgerKind.PAYMENT) {
             var rows = jdbc.query("""
-                    SELECT id FROM payment_attempt WHERE deleted = FALSE AND channel = :channel
-                        AND account_scope_hash = :scope AND channel_request_no = :paymentNo LIMIT 2
-                    """, args, (rs, index) -> rs.getString("id"));
+                SELECT id FROM payment_attempt WHERE deleted = FALSE AND channel = :channel
+                    AND account_scope_hash = :scope AND channel_request_no = :paymentNo LIMIT 2
+                """, args, (rs, index) -> rs.getString("id"));
             if (rows.isEmpty()) {
                 return missing(PaymentVerificationDisposition.NO_LOCAL_TARGET);
             }
@@ -112,13 +112,13 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
         }
         args.addValue("refundNo", query.channelRefundNo());
         var rows = jdbc.query("""
-                SELECT id, payment_id, original_attempt_id, binding_revision_id, channel, account_scope_hash,
-                       original_channel_request_no, original_channel_transaction_no, original_succeeded_at,
-                       submission_started_at, channel_refund_no, amount_minor, currency, state, row_version
-                FROM refund_order WHERE deleted = FALSE AND channel = :channel
-                    AND account_scope_hash = :scope AND original_channel_request_no = :paymentNo
-                    AND channel_refund_no = :refundNo LIMIT 2
-                """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
+            SELECT id, payment_id, original_attempt_id, binding_revision_id, channel, account_scope_hash,
+                   original_channel_request_no, original_channel_transaction_no, original_succeeded_at,
+                   submission_started_at, channel_refund_no, amount_minor, currency, state, row_version
+            FROM refund_order WHERE deleted = FALSE AND channel = :channel
+                AND account_scope_hash = :scope AND original_channel_request_no = :paymentNo
+                AND channel_refund_no = :refundNo LIMIT 2
+            """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
         if (rows.isEmpty()) {
             return missing(PaymentVerificationDisposition.NO_LOCAL_TARGET);
         }
@@ -149,9 +149,9 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
         var capacityArgs = new MapSqlParameterSource().addValue("payment", row.getPaymentId());
         var capacity =
                 jdbc.query("""
-                SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
-                WHERE deleted = FALSE AND payment_id = :payment
-                """, capacityArgs, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
+                    SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
+                    WHERE deleted = FALSE AND payment_id = :payment
+                    """, capacityArgs, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
                         .findFirst()
                         .orElse(null);
         if (capacity == null

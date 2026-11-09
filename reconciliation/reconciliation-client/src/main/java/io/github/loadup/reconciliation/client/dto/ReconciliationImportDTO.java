@@ -16,8 +16,8 @@
 package io.github.loadup.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationImportState;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSourceKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationImportDTO(

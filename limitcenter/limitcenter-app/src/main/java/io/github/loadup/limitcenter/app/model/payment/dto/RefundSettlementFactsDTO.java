@@ -1,0 +1,52 @@
+package io.github.loadup.limitcenter.app.model.payment.dto;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.OffsetDateTime;
+import java.util.Objects;
+
+public record RefundSettlementFactsDTO(
+        @Schema(description = "Verified refund and latest successful refund cumulative for its payment")
+        RefundOutcomeEventDTO refund,
+
+        @Schema(description = "Original successful payment amount")
+        long paymentAmountMinor,
+
+        @Schema(description = "Original successful payment version")
+        long paymentVersion,
+
+        @Schema(description = "Original successful payment evidence")
+        String paymentEvidenceId,
+
+        @Schema(description = "Original successful payment attempt")
+        String paymentAttemptId,
+
+        @Schema(description = "Original payment acceptance time")
+        OffsetDateTime paymentInitiatedAt,
+
+        @Schema(description = "Latest payment refund-capacity source version")
+        long paymentRefundVersion) {
+    public RefundSettlementFactsDTO {
+        Objects.requireNonNull(refund);
+        Objects.requireNonNull(paymentInitiatedAt);
+        DomainChecks.id(paymentEvidenceId);
+        DomainChecks.id(paymentAttemptId);
+        require(
+                paymentAmountMinor > 0
+                        && paymentVersion > 0
+                        && paymentRefundVersion > 0
+                        && refund.amountMinor() <= paymentAmountMinor
+                        && refund.cumulativePaymentRefundedMinor() <= paymentAmountMinor,
+                INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+}

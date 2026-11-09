@@ -19,14 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.github.loadup.acquire.client.enums.FeeRefundPolicy;
+import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.contracts.product.FeeRefundPolicy;
-import io.github.loadup.contracts.product.UnpaidOrderAction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;

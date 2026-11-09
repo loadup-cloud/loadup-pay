@@ -19,8 +19,8 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
-import io.github.loadup.limitcenter.client.support.LimitPolicyHash;
+import io.github.loadup.productcenter.app.model.limitcenter.command.LimitPolicyActivateCommand;
+import io.github.loadup.productcenter.app.model.limitcenter.support.LimitPolicyHash;
 import io.github.loadup.productcenter.app.port.PolicyPublicationCodec;
 import io.github.loadup.productcenter.domain.model.PolicyPublication;
 import jakarta.validation.Validator;

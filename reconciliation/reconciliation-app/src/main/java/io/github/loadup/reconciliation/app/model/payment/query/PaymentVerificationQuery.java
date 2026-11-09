@@ -1,0 +1,50 @@
+package io.github.loadup.reconciliation.app.model.payment.query;
+
+import static io.github.loadup.reconciliation.app.model.payment.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.reconciliation.app.model.payment.enums.PaymentLedgerKind;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+/**
+ * Query hints only, never financial success evidence or another channel submission permit.
+ */
+public record PaymentVerificationQuery(
+        @NotBlank @Size(max = 64) String sourceRequestId,
+        @NotNull Channel channel,
+        @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String accountScopeHash,
+        @NotNull PaymentLedgerKind kind,
+        @DiagnosticHidden @NotBlank @Size(max = 64) String merchantPaymentNo,
+        @DiagnosticHidden @NotBlank @Size(max = 128) String channelTransactionNo,
+        @DiagnosticHidden @Size(max = 64) String channelRefundNo) {
+    public PaymentVerificationQuery {
+        if (!text(sourceRequestId, 64)
+                || channel == null
+                || accountScopeHash == null
+                || !accountScopeHash.matches("[0-9a-f]{64}")
+                || kind == null
+                || !text(merchantPaymentNo, 64)
+                || !text(channelTransactionNo, 128)
+                || (kind == PaymentLedgerKind.REFUND ? !text(channelRefundNo, 64) : channelRefundNo != null)) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+    }
+
+    private static boolean text(String value, int max) {
+        return value != null
+                && !value.isBlank()
+                && value.length() <= max
+                && value.chars().noneMatch(Character::isISOControl);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+}

@@ -24,6 +24,7 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.VERSIO
 
 import io.github.loadup.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.acquire.app.converter.OrderExtensionConverter;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.OrderTermsDTO;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.acquire.app.security.AcquireActor;
 import io.github.loadup.acquire.app.security.AcquireActorProvider;
@@ -39,7 +40,6 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.contracts.product.OrderTermsDTO;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;

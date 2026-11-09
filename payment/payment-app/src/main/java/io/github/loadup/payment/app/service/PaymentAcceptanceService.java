@@ -15,28 +15,28 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
+import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.client.facade.PaymentAcceptanceFacade;
 import io.github.loadup.payment.client.facade.PaymentOutcomeFacade;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;

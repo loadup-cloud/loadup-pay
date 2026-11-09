@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
@@ -55,13 +55,13 @@ public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGate
                 .addValue("orderNo", orderNo)
                 .addValue("refundNo", refundNo);
         var rows = jdbc.query("""
-                SELECT id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
-                       binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
-                       original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
-                       currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version FROM refund_order
-                WHERE deleted = FALSE AND binding_revision_id = :revision
-                    AND original_channel_request_no = :orderNo AND channel_refund_no = :refundNo LIMIT 2
-                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
+            SELECT id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
+                   binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
+                   original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
+                   currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version FROM refund_order
+            WHERE deleted = FALSE AND binding_revision_id = :revision
+                AND original_channel_request_no = :orderNo AND channel_refund_no = :refundNo LIMIT 2
+            """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
         if (rows.isEmpty()) {
             return Optional.empty();
         }
@@ -74,9 +74,9 @@ public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGate
         }
         var args = new MapSqlParameterSource().addValue("payment", row.getPaymentId());
         var capacity = jdbc.query("""
-                SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
-                WHERE payment_id = :payment AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
+            SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
+            WHERE payment_id = :payment AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (capacity == null

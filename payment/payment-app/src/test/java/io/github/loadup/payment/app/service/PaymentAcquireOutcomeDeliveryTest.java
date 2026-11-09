@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,10 +26,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.payment.app.model.acquire.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

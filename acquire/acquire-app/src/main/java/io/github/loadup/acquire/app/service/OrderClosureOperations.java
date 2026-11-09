@@ -22,6 +22,7 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 
 import io.github.loadup.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.acquire.app.converter.OrderClosureConverter;
+import io.github.loadup.acquire.app.model.payment.dto.ParentFenceDTO;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.acquire.app.port.PaymentClosureClient;
 import io.github.loadup.acquire.client.command.AcquireOrderCloseCommand;
@@ -35,8 +36,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.contracts.model.AcquireOrderState;
-import io.github.loadup.contracts.payment.ParentFenceDTO;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;

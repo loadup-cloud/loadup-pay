@@ -17,7 +17,7 @@ package io.github.loadup.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.payment.infrastructure.model.UnknownRecoveryProjection;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -27,7 +27,7 @@ public interface UnknownRecoveryStorageConverter {
     @Mapping(target = "kind", source = "kind")
     @Mapping(
             target = "amount",
-            expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),"
+                    + " row.getCurrency()))")
     UnknownRecoveryEntry toEntry(PaymentRecoveryKind kind, UnknownRecoveryProjection row);
 }

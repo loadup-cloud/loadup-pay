@@ -31,10 +31,19 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentInputExpireCommand;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentInputExpiryDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentInputLookupDTO;
+import io.github.loadup.acquire.app.model.payment.enums.PaymentInputExpiryDisposition;
+import io.github.loadup.acquire.app.model.payment.query.PaymentInputLookupQuery;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.infrastructure.config.PaymentTransportProperties;
+import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.Channel;
@@ -44,18 +53,9 @@ import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpCallException;
 import io.github.loadup.components.http.HttpServiceResponses;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.model.PaymentInputExpiryDisposition;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentInputExpireCommand;
-import io.github.loadup.contracts.payment.PaymentInputExpiryDTO;
-import io.github.loadup.contracts.payment.PaymentInputLookupDTO;
-import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
-import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.client.http.PaymentHttpService;
 import java.time.Clock;
 import java.time.Instant;
@@ -69,15 +69,38 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = RemoteContractMapperTestConfiguration.class)
 class PaymentAcceptanceHttpClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
-    final PaymentExecuteCommand command = mock(PaymentExecuteCommand.class);
+    final PaymentExecuteCommand command = new PaymentExecuteCommand(
+            "payment",
+            "order",
+            "allocation",
+            "admission",
+            "merchant",
+            100,
+            "CNY",
+            "a".repeat(64),
+            new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
+            null,
+            null,
+            "subject",
+            OffsetDateTime.now(Clock.systemUTC()));
     final PaymentHttpService paymentHttp = mock(PaymentHttpService.class);
     final List<String> attachments = new ArrayList<>();
+
+    @Autowired
+    RemoteContractConverter contracts;
 
     String credential;
     PaymentAcceptanceHttpClient client;
@@ -95,9 +118,12 @@ class PaymentAcceptanceHttpClientTest {
     @BeforeEach
     void setup() throws Exception {
         client = new PaymentAcceptanceHttpClient(
-                paymentHttp, (service, audience) -> credential, new PaymentTransportProperties("acquire", "payment"));
+                paymentHttp,
+                (service, audience) -> credential,
+                new PaymentTransportProperties("acquire", "payment"),
+                contracts);
         writeToken(claims());
-        var result = new PaymentExecutionDTO(
+        var result = new io.github.loadup.payment.client.dto.PaymentExecutionDTO(
                 "payment",
                 "order",
                 "allocation",
@@ -145,11 +171,15 @@ class PaymentAcceptanceHttpClientTest {
         String second = writeToken(next);
         client.accept(command);
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
+        var requests = ArgumentCaptor.forClass(io.github.loadup.payment.client.command.PaymentExecuteCommand.class);
+        verify(paymentHttp, times(2)).accept(anyString(), requests.capture());
+        assertEquals("payment", requests.getAllValues().get(0).paymentId());
+        assertEquals("order", requests.getAllValues().get(0).orderId());
     }
 
     @Test
     void detailAndOutcomeUseTheTypedIdQuery() {
-        var execution = new PaymentExecutionDTO(
+        var execution = new io.github.loadup.payment.client.dto.PaymentExecutionDTO(
                 "payment",
                 "order",
                 "allocation",
@@ -176,7 +206,7 @@ class PaymentAcceptanceHttpClientTest {
 
     @Test
     void eventAuthorityUsesTheRichFactsOperationInsteadOfDiscardingOperationAndPayee() {
-        var payment = new PaymentExecutionDTO(
+        var payment = new io.github.loadup.payment.client.dto.PaymentExecutionDTO(
                 "payment",
                 "order",
                 "allocation",
@@ -188,7 +218,8 @@ class PaymentAcceptanceHttpClientTest {
                 "proof",
                 2,
                 OffsetDateTime.now(clock));
-        doReturn(SuccessResponse.of(new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
+        doReturn(SuccessResponse.of(new io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO(
+                        payment, "operation", "merchant", false)))
                 .when(paymentHttp)
                 .facts(anyString(), any());
         var facts = client.facts("payment");
@@ -236,8 +267,14 @@ class PaymentAcceptanceHttpClientTest {
                 "action",
                 new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         var absent = new PaymentInputLookupDTO(false, null);
-        doReturn(SuccessResponse.of(absent)).when(paymentHttp).inputLookup(anyString(), any());
+        doReturn(SuccessResponse.of(new io.github.loadup.payment.client.dto.PaymentInputLookupDTO(false, null)))
+                .when(paymentHttp)
+                .inputLookup(anyString(), any());
         assertEquals(absent, client.lookupInput(query));
+        var remoteQuery = ArgumentCaptor.forClass(io.github.loadup.payment.client.query.PaymentInputLookupQuery.class);
+        verify(paymentHttp).inputLookup(anyString(), remoteQuery.capture());
+        assertEquals(query.paymentId(), remoteQuery.getValue().paymentId());
+        assertEquals(query.allocationId(), remoteQuery.getValue().allocationId());
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentHttp).inputLookup(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
@@ -252,10 +289,30 @@ class PaymentAcceptanceHttpClientTest {
 
     @Test
     void inputExpiryUsesItsTypedOperationAndFailureNeverFabricatesAClosure() {
-        var expire = mock(PaymentInputExpireCommand.class);
+        var expire = new PaymentInputExpireCommand(
+                "input-ref",
+                "payment",
+                "order",
+                "allocation",
+                "merchant",
+                100,
+                "CNY",
+                "action",
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         var active = new PaymentInputExpiryDTO("payment", "order", PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
-        doReturn(SuccessResponse.of(active)).when(paymentHttp).inputExpire(anyString(), any());
+        doReturn(SuccessResponse.of(new io.github.loadup.payment.client.dto.PaymentInputExpiryDTO(
+                        "payment",
+                        "order",
+                        io.github.loadup.payment.client.enums.PaymentInputExpiryDisposition.INPUT_ACTIVE,
+                        null)))
+                .when(paymentHttp)
+                .inputExpire(anyString(), any());
         assertEquals(active, client.expireInput(expire));
+        var remoteExpire =
+                ArgumentCaptor.forClass(io.github.loadup.payment.client.command.PaymentInputExpireCommand.class);
+        verify(paymentHttp).inputExpire(anyString(), remoteExpire.capture());
+        assertEquals("input-ref", remoteExpire.getValue().inputRef());
+        assertEquals("payment", remoteExpire.getValue().paymentId());
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentHttp).inputExpire(anyString(), any());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,

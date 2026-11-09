@@ -18,11 +18,11 @@ package io.github.loadup.productcenter.client.http;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.contracts.product.FeeRefundPolicy;
-import io.github.loadup.contracts.product.FeeTermsDTO;
 import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
+import io.github.loadup.productcenter.client.dto.terms.FeeTermsDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
+import io.github.loadup.productcenter.client.enums.FeeRefundPolicy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;

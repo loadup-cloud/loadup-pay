@@ -15,19 +15,19 @@
  */
 package io.github.loadup.acquire.infrastructure.converter;
 
+import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.AcquiringTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.AdmittedOrderTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.ChannelCapabilityDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.FeeTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.LimitPolicyRefDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.NotificationTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.OrderTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.PaymentTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.RefundTermsDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.product.AcquiringTermsDTO;
-import io.github.loadup.contracts.product.AdmittedOrderTermsDTO;
-import io.github.loadup.contracts.product.ChannelCapabilityDTO;
-import io.github.loadup.contracts.product.FeeTermsDTO;
-import io.github.loadup.contracts.product.LimitPolicyRefDTO;
-import io.github.loadup.contracts.product.NotificationTermsDTO;
-import io.github.loadup.contracts.product.OrderTermsDTO;
-import io.github.loadup.contracts.product.PaymentTermsDTO;
-import io.github.loadup.contracts.product.RefundTermsDTO;
 import java.time.OffsetDateTime;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;

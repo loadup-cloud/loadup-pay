@@ -22,6 +22,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.reconciliation.client.enums.ReconciliationEntryStatus;
 import java.util.Objects;
 
 /**

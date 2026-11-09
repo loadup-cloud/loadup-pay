@@ -15,7 +15,7 @@
  */
 package io.github.loadup.productcenter.app.port;
 
-import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
+import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
 
 /**
  * Implementations validate response scope and delegate only transport-verified caller credentials.

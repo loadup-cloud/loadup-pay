@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,8 +52,8 @@ import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefu
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
@@ -71,6 +71,10 @@ import io.github.loadup.payment.app.service.RefundExecutionService;
 import io.github.loadup.payment.app.service.RefundProjectionEvents;
 import io.github.loadup.payment.app.service.RefundRecoveryService;
 import io.github.loadup.payment.app.service.RefundResultService;
+import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
+import io.github.loadup.payment.client.enums.PaymentLedgerStatus;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.payment.client.enums.RefundRequestState;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
@@ -79,12 +83,9 @@ import io.github.loadup.payment.domain.gateway.RefundGateway;
 import io.github.loadup.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.payment.domain.gateway.RefundSummaryGateway;
-import io.github.loadup.payment.domain.model.PaymentCaptureBlocker;
 import io.github.loadup.payment.domain.model.PaymentCaptureRead;
 import io.github.loadup.payment.domain.model.PaymentCaptureScope;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;
-import io.github.loadup.payment.domain.model.PaymentLedgerStatus;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.payment.domain.model.RefundChannelReceipt;
@@ -93,7 +94,6 @@ import io.github.loadup.payment.domain.model.RefundProgressChange;
 import io.github.loadup.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.payment.domain.model.RefundRecoveryKey;
 import io.github.loadup.payment.domain.model.RefundRequest;
-import io.github.loadup.payment.domain.model.RefundRequestState;
 import io.github.loadup.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
@@ -593,7 +593,8 @@ class RefundRecoveryHandlerPersistenceIT {
             assertEquals(
                     1L,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM refund_result_anomaly WHERE refund_id = ? AND reason_code = ?",
+                                    "SELECT COUNT(*) FROM refund_result_anomaly WHERE refund_id = ? AND reason_code ="
+                                            + " ?",
                                     Long.class,
                                     fixture.refundId(),
                                     "REFUND_ACCEPTANCE_TIME_CONFLICT")

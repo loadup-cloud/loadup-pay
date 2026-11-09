@@ -15,9 +15,9 @@
  */
 package io.github.loadup.acquire.app.port;
 
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
-import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentOutcomeDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 
 public interface PaymentOutcomeClient {
     PaymentOutcomeDTO outcome(String paymentId);

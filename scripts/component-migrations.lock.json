@@ -1,0 +1,57 @@
+{
+  "files": {
+    "acquire/acquire-infrastructure/src/main/resources/db/migration/pay/acquire/V20260101000001__outbox.sql": {
+      "sha256": "93ffedd1838467f143e6b98ae6688d74d664f4f6e4a2b5e7fde25d91b041cfc5"
+    },
+    "acquire/acquire-infrastructure/src/main/resources/db/migration/pay/acquire/V20260101000002__delayed_task.sql": {
+      "sha256": "74bd150a01e86a3f775e57294605ac3e3476fe8fa7ff2aa573f3ff3b30f5b3bf"
+    },
+    "acquire/acquire-infrastructure/src/main/resources/db/migration/pay/acquire/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    },
+    "admin/admin-bootstrap/src/main/resources/db/migration/pay/admin/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879",
+      "source": "loadup-components/data/loadup-components-database/src/main/resources/db/schema/sequence_allocation.sql"
+    },
+    "limitcenter/limitcenter-infrastructure/src/main/resources/db/migration/pay/limitcenter/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    },
+    "merchantcenter/merchantcenter-service/src/main/resources/db/migration/pay/merchantcenter/V20260101000003__global_unique.sql": {
+      "sha256": "37258dd29fecca4264a5247f8acb4d6557799d7f39243f5e8e0d17df4b1c14cb"
+    },
+    "merchantcenter/merchantcenter-service/src/main/resources/db/migration/pay/merchantcenter/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    },
+    "notificationcenter/notificationcenter-bootstrap/src/main/resources/db/migration/pay/notificationcenter/V20260101000004__gotone_store.sql": {
+      "sha256": "374116fd1e321ae82105d68e6724304f99e9b28e5ad378ff3ba119fef001a556"
+    },
+    "payment/payment-infrastructure/src/main/resources/db/migration/pay/payment/V20260101000001__outbox.sql": {
+      "sha256": "93ffedd1838467f143e6b98ae6688d74d664f4f6e4a2b5e7fde25d91b041cfc5"
+    },
+    "payment/payment-infrastructure/src/main/resources/db/migration/pay/payment/V20260101000002__delayed_task.sql": {
+      "sha256": "74bd150a01e86a3f775e57294605ac3e3476fe8fa7ff2aa573f3ff3b30f5b3bf"
+    },
+    "payment/payment-infrastructure/src/main/resources/db/migration/pay/payment/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    },
+    "productcenter/productcenter-infrastructure/src/main/resources/db/migration/pay/productcenter/V20260101000001__outbox.sql": {
+      "sha256": "93ffedd1838467f143e6b98ae6688d74d664f4f6e4a2b5e7fde25d91b041cfc5"
+    },
+    "productcenter/productcenter-infrastructure/src/main/resources/db/migration/pay/productcenter/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    },
+    "realtime/realtime-service/src/main/resources/db/migration/pay/realtime/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    },
+    "reconciliation/reconciliation-infrastructure/src/main/resources/db/migration/pay/reconciliation/V20260101000001__outbox.sql": {
+      "sha256": "93ffedd1838467f143e6b98ae6688d74d664f4f6e4a2b5e7fde25d91b041cfc5"
+    },
+    "reconciliation/reconciliation-infrastructure/src/main/resources/db/migration/pay/reconciliation/V20260101000002__delayed_task.sql": {
+      "sha256": "74bd150a01e86a3f775e57294605ac3e3476fe8fa7ff2aa573f3ff3b30f5b3bf"
+    },
+    "reconciliation/reconciliation-infrastructure/src/main/resources/db/migration/pay/reconciliation/V20260101000005__sequence_allocation.sql": {
+      "sha256": "826ff9ff5a2144a3d84b2e9e2a04c141ef1fc4736deb0923639dd4e6b709f879"
+    }
+  },
+  "format": 1
+}

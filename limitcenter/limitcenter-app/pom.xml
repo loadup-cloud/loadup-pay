@@ -12,12 +12,16 @@
     <description>Durable merchant limit policy activation and reservation.</description>
     <dependencies>
         <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-contracts-events</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>payment-client</artifactId>
+            <artifactId>pay-contracts-events</artifactId>
         </dependency>
 
         <dependency>

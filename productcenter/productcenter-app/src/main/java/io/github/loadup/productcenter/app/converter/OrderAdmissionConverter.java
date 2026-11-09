@@ -17,9 +17,9 @@ package io.github.loadup.productcenter.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.product.AcquiringTermsDTO;
-import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
+import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
+import io.github.loadup.productcenter.client.dto.terms.AcquiringTermsDTO;
 import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 import io.github.loadup.productcenter.domain.model.OrderAdmission;
 import java.time.LocalDateTime;

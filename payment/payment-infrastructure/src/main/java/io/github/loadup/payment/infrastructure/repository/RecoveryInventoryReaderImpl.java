@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
@@ -55,13 +55,13 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
         var args = new MapSqlParameterSource();
         var mapper = BeanPropertyRowMapper.newInstance(RecoveryInventoryAggregate.class);
         var collection = jdbc.query("""
-                SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
-                FROM payment_order WHERE deleted = FALSE AND state = 'UNKNOWN'
-                """, args, mapper);
+            SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
+            FROM payment_order WHERE deleted = FALSE AND state = 'UNKNOWN'
+            """, args, mapper);
         var refund = jdbc.query("""
-                SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
-                FROM refund_order WHERE deleted = FALSE AND state = 'UNKNOWN'
-                """, args, mapper);
+            SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
+            FROM refund_order WHERE deleted = FALSE AND state = 'UNKNOWN'
+            """, args, mapper);
         return List.of(
                 cell(RecoveryInventoryCell.Kind.PAYMENT, collection), cell(RecoveryInventoryCell.Kind.REFUND, refund));
     }

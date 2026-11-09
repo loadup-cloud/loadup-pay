@@ -23,9 +23,9 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.reconciliation.app.port.ReconciliationWriteConflictException;
+import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationState;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationVerificationGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationVerificationRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationVerificationState;
 import io.github.loadup.reconciliation.infrastructure.converter.ReconciliationVerificationStorageConverter;
 import io.github.loadup.reconciliation.infrastructure.dataobject.ReconciliationVerificationDO;
 import java.time.Clock;
@@ -91,10 +91,10 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO reconciliation_verification_request (id, created_at, updated_at, deleted, difference_id, batch_id, run_id, result_hash, match_key_hash, proposal_id, approval_event_id, review_version, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, delivery_id, state, row_version, disposition, binding_revision_id, payment_id, attempt_id, refund_id, source_version, local_state, outcome, amount_minor, currency, observed_channel_transaction_no, observed_refund_transaction_no, succeeded_epoch_micros, source_digest, started_epoch_micros, finished_epoch_micros, accepted_epoch_micros)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash, :proposalId, :approvalEventId, :reviewVersion, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :kind, :channelTransactionNo, :channelRefundNo, :merchantPaymentNo, :deliveryId, :state, :rowVersion, :disposition, :bindingRevisionId, :paymentId, :attemptId, :refundId, :sourceVersion, :localState, :outcome, :amountMinor, :currency, :observedChannelTransactionNo, :observedRefundTransactionNo, :succeededEpochMicros, :sourceDigest, :startedEpochMicros, :finishedEpochMicros, :acceptedEpochMicros)
-                ON CONFLICT (caller_service_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO reconciliation_verification_request (id, created_at, updated_at, deleted, difference_id, batch_id, run_id, result_hash, match_key_hash, proposal_id, approval_event_id, review_version, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, delivery_id, state, row_version, disposition, binding_revision_id, payment_id, attempt_id, refund_id, source_version, local_state, outcome, amount_minor, currency, observed_channel_transaction_no, observed_refund_transaction_no, succeeded_epoch_micros, source_digest, started_epoch_micros, finished_epoch_micros, accepted_epoch_micros)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash, :proposalId, :approvalEventId, :reviewVersion, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :kind, :channelTransactionNo, :channelRefundNo, :merchantPaymentNo, :deliveryId, :state, :rowVersion, :disposition, :bindingRevisionId, :paymentId, :attemptId, :refundId, :sourceVersion, :localState, :outcome, :amountMinor, :currency, :observedChannelTransactionNo, :observedRefundTransactionNo, :succeededEpochMicros, :sourceDigest, :startedEpochMicros, :finishedEpochMicros, :acceptedEpochMicros)
+            ON CONFLICT (caller_service_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new ReconciliationWriteConflictException(
                     "reconciliation_verification_request business key already exists");
@@ -149,9 +149,9 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         args.addValue("finishedEpochMicros", row.getFinishedEpochMicros());
         args.addValue("acceptedEpochMicros", row.getAcceptedEpochMicros());
         if (jdbc.update("""
-                UPDATE reconciliation_verification_request SET state = :state, row_version = :rowVersion, disposition = :disposition, binding_revision_id = :bindingRevisionId, payment_id = :paymentId, attempt_id = :attemptId, refund_id = :refundId, source_version = :sourceVersion, local_state = :localState, outcome = :outcome, amount_minor = :amountMinor, currency = :currency, observed_channel_transaction_no = :observedChannelTransactionNo, observed_refund_transaction_no = :observedRefundTransactionNo, succeeded_epoch_micros = :succeededEpochMicros, source_digest = :sourceDigest, started_epoch_micros = :startedEpochMicros, finished_epoch_micros = :finishedEpochMicros, accepted_epoch_micros = :acceptedEpochMicros, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
-                """, args) != 1) {
+            UPDATE reconciliation_verification_request SET state = :state, row_version = :rowVersion, disposition = :disposition, binding_revision_id = :bindingRevisionId, payment_id = :paymentId, attempt_id = :attemptId, refund_id = :refundId, source_version = :sourceVersion, local_state = :localState, outcome = :outcome, amount_minor = :amountMinor, currency = :currency, observed_channel_transaction_no = :observedChannelTransactionNo, observed_refund_transaction_no = :observedRefundTransactionNo, succeeded_epoch_micros = :succeededEpochMicros, source_digest = :sourceDigest, started_epoch_micros = :startedEpochMicros, finished_epoch_micros = :finishedEpochMicros, accepted_epoch_micros = :acceptedEpochMicros, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
+            """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
     }
@@ -167,7 +167,16 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
     private ReconciliationVerificationDO row(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, proposal_id, approval_event_id, review_version, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, delivery_id, state, row_version, disposition, binding_revision_id, payment_id, attempt_id, refund_id, source_version, local_state, outcome, amount_minor, currency, observed_channel_transaction_no, observed_refund_transaction_no, succeeded_epoch_micros, source_digest, started_epoch_micros, finished_epoch_micros, accepted_epoch_micros FROM reconciliation_verification_request WHERE deleted = FALSE AND "
+                        "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash,"
+                            + " match_key_hash, proposal_id, approval_event_id, review_version, caller_service_id,"
+                            + " request_key, request_digest, channel, account_scope_hash, bill_date,"
+                            + " statement_profile, kind, channel_transaction_no, channel_refund_no,"
+                            + " merchant_payment_no, delivery_id, state, row_version, disposition,"
+                            + " binding_revision_id, payment_id, attempt_id, refund_id, source_version, local_state,"
+                            + " outcome, amount_minor, currency, observed_channel_transaction_no,"
+                            + " observed_refund_transaction_no, succeeded_epoch_micros, source_digest,"
+                            + " started_epoch_micros, finished_epoch_micros, accepted_epoch_micros FROM"
+                            + " reconciliation_verification_request WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationVerificationDO.class))

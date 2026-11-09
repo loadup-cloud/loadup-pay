@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -42,9 +42,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Repository
 public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, PaymentInputDO>
         implements PaymentInputGateway {
-    private static final String COLUMNS = "id, created_at, updated_at, payment_id, order_id, allocation_id, "
-            + "payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id, fingerprint_key_id, "
-            + "input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at, state, bound_attempt_id, row_version";
+    private static final String COLUMNS = "id, created_at, updated_at, payment_id, order_id, allocation_id,"
+        + " payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,"
+        + " fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,"
+        + " state, bound_attempt_id, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentInputStorageConverter converter;
     private final Clock clock;
@@ -110,16 +111,16 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_input (id, created_at, updated_at, deleted, payment_id, order_id,
-                    allocation_id, payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,
-                    fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,
-                    state, bound_attempt_id, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :orderId, :allocationId,
-                    :payeeMerchantId, :amountMinor, :currency, :inputKey, :channel, :method, :callerServiceId,
-                    :fingerprintKeyId, :inputDigest, :encryptionKey, :encryptionVersion, :ciphertext, :preparedAt, :expiresAt,
-                    :state, :boundAttemptId, :rowVersion)
-                ON CONFLICT (payment_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_input (id, created_at, updated_at, deleted, payment_id, order_id,
+                allocation_id, payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,
+                fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,
+                state, bound_attempt_id, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :orderId, :allocationId,
+                :payeeMerchantId, :amountMinor, :currency, :inputKey, :channel, :method, :callerServiceId,
+                :fingerprintKeyId, :inputDigest, :encryptionKey, :encryptionVersion, :ciphertext, :preparedAt, :expiresAt,
+                :state, :boundAttemptId, :rowVersion)
+            ON CONFLICT (payment_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment input business key already exists");
         }
@@ -141,10 +142,10 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
                 .addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE payment_input SET state = 'BOUND', bound_attempt_id = :attempt, row_version = 1, updated_at = :updated
-                WHERE id = :id AND payment_id = :payment AND state = 'INIT'
-                    AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE payment_input SET state = 'BOUND', bound_attempt_id = :attempt, row_version = 1, updated_at = :updated
+            WHERE id = :id AND payment_id = :payment AND state = 'INIT'
+                AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

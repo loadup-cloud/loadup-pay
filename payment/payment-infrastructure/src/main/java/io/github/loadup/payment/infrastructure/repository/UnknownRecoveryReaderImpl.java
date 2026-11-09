@@ -15,15 +15,15 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.payment.app.model.UnknownRecoveryWindow;
 import io.github.loadup.payment.app.port.UnknownRecoveryReader;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.payment.infrastructure.converter.UnknownRecoveryStorageConverter;
 import io.github.loadup.payment.infrastructure.model.UnknownRecoveryProjection;
 import java.util.List;
@@ -62,23 +62,23 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
         String base =
                 switch (kind) {
                     case COLLECTION -> """
-                    SELECT p.id AS record_id, p.id AS subject_id, p.order_id, p.payee_merchant_id,
-                           p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
-                           c.generation AS recovery_generation, c.completed AS recovery_completed
-                    FROM payment_order p LEFT JOIN payment_recovery_cursor c
-                      ON c.id = p.id AND c.deleted = FALSE
-                    WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
-                    """;
+                        SELECT p.id AS record_id, p.id AS subject_id, p.order_id, p.payee_merchant_id,
+                               p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
+                               c.generation AS recovery_generation, c.completed AS recovery_completed
+                        FROM payment_order p LEFT JOIN payment_recovery_cursor c
+                          ON c.id = p.id AND c.deleted = FALSE
+                        WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
+                        """;
                     case REFUND_REQUEST -> """
-                    SELECT p.id AS record_id, p.refund_request_id AS subject_id, r.order_id, r.payee_merchant_id,
-                           p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
-                           c.generation AS recovery_generation, c.completed AS recovery_completed
-                    FROM refund_order p LEFT JOIN refund_request r
-                      ON r.id = p.refund_request_id AND r.deleted = FALSE
-                    LEFT JOIN refund_recovery_cursor c
-                      ON c.id = p.refund_request_id AND c.deleted = FALSE
-                    WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
-                    """;
+                        SELECT p.id AS record_id, p.refund_request_id AS subject_id, r.order_id, r.payee_merchant_id,
+                               p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
+                               c.generation AS recovery_generation, c.completed AS recovery_completed
+                        FROM refund_order p LEFT JOIN refund_request r
+                          ON r.id = p.refund_request_id AND r.deleted = FALSE
+                        LEFT JOIN refund_recovery_cursor c
+                          ON c.id = p.refund_request_id AND c.deleted = FALSE
+                        WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
+                        """;
                 };
         var sql = new StringBuilder(base);
         if (window.cutoff() != null) {

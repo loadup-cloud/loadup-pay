@@ -15,9 +15,9 @@
  */
 package io.github.loadup.acquire.client.dto;
 
+import io.github.loadup.acquire.client.dto.payment.PaymentActionDTO;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.payment.PaymentActionDTO;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -26,7 +26,8 @@ public record PaymentStartDTO(
         @Schema(description = "Order id") @Size(max = 64) String orderId,
         @Schema(description = "Payment id") @Size(max = 64) String paymentId,
 
-        @Schema(description = "Allocation id") @Size(max = 64) String allocationId,
+        @Schema(description = "Allocation id") @Size(max = 64)
+        String allocationId,
 
         @Schema(description = "State") PaymentState state,
         @Schema(description = "Action") @Valid PaymentActionDTO action,

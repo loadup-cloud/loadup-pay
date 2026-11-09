@@ -20,7 +20,7 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 import io.github.loadup.acquire.app.port.OrderSnapshotEnvelopeCodec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;

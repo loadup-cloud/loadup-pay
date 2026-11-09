@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
@@ -127,13 +127,13 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_action (id, created_at, updated_at, deleted, payment_id, channel,
-                    binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency, execution_epoch,
-                    source, receipt_id, source_digest, issued_at, expires_at, action_kind, action_payload, payload_hash)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :channel, :bindingRevisionId,
-                    :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :executionEpoch, :source, :receiptId,
-                    :sourceDigest, :issuedAt, :expiresAt, :actionKind, :actionPayload, :payloadHash)
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_action (id, created_at, updated_at, deleted, payment_id, channel,
+                binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency, execution_epoch,
+                source, receipt_id, source_digest, issued_at, expires_at, action_kind, action_payload, payload_hash)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :channel, :bindingRevisionId,
+                :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :executionEpoch, :source, :receiptId,
+                :sourceDigest, :issuedAt, :expiresAt, :actionKind, :actionPayload, :payloadHash)
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

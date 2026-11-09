@@ -30,7 +30,7 @@ import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskHandler;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;

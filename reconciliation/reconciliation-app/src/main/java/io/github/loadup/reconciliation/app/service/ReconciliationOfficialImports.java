@@ -20,9 +20,9 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.reconciliation.app.port.ReconciliationSourceFiles;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationStatementGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSourceKind;
 import org.springframework.stereotype.Component;
 
 /**

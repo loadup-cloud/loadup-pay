@@ -16,11 +16,11 @@
 package io.github.loadup.reconciliation.app.port;
 
 import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.payment.client.command.PaymentCaptureCreateCommand;
-import io.github.loadup.payment.client.command.PaymentCaptureRetryCommand;
-import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
-import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
-import io.github.loadup.payment.client.query.PaymentCaptureLinesQuery;
+import io.github.loadup.reconciliation.app.model.payment.command.PaymentCaptureCreateCommand;
+import io.github.loadup.reconciliation.app.model.payment.command.PaymentCaptureRetryCommand;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentCaptureDTO;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentLedgerLineDTO;
+import io.github.loadup.reconciliation.app.model.payment.query.PaymentCaptureLinesQuery;
 
 /**
  * Network calls only, with a trusted tenant and the reconciliation service credential; no local transaction.

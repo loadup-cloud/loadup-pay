@@ -21,7 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import java.time.LocalDateTime;
 import java.util.Objects;
 

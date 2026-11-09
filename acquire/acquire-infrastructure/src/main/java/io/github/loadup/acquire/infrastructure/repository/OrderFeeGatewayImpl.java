@@ -31,7 +31,7 @@ import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -113,10 +113,10 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     private OrderFeeDO lock(String order) {
         var args = new MapSqlParameterSource().addValue("order", order);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
-                       fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
-                FROM order_fee WHERE order_id = :order AND fee_type = 'ORDER_AMOUNT' AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(OrderFeeDO.class)).stream()
+            SELECT id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
+                   fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
+            FROM order_fee WHERE order_id = :order AND fee_type = 'ORDER_AMOUNT' AND deleted = FALSE FOR UPDATE
+            """, args, BeanPropertyRowMapper.newInstance(OrderFeeDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {
@@ -154,11 +154,11 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
         record.setCreatedAt(now);
         record.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO fee_adjustment (id, created_at, updated_at, deleted, order_id, fee_id, trigger_key,
-                    source_event_id, source_version, adjustment_minor, currency, cumulative_refunded_minor, rule_snapshot, applied_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :feeId, :triggerKey, :sourceEventId,
-                    :sourceVersion, :adjustmentMinor, :currency, :cumulativeRefundedMinor, :ruleSnapshot, :appliedAt)
-                """, new BeanPropertySqlParameterSource(record));
+            INSERT INTO fee_adjustment (id, created_at, updated_at, deleted, order_id, fee_id, trigger_key,
+                source_event_id, source_version, adjustment_minor, currency, cumulative_refunded_minor, rule_snapshot, applied_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :feeId, :triggerKey, :sourceEventId,
+                :sourceVersion, :adjustmentMinor, :currency, :cumulativeRefundedMinor, :ruleSnapshot, :appliedAt)
+            """, new BeanPropertySqlParameterSource(record));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -178,10 +178,10 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
                 .addValue("confirmed", patch.getConfirmedAt())
                 .addValue("updated", LocalDateTime.now(clock));
         if (jdbc.update("""
-                UPDATE order_fee SET state = :state, refund_basis_version = :basisVersion, refund_basis_minor = :basis,
-                    adjusted_amount_minor = :adjusted, row_version = :version, confirmed_at = COALESCE(:confirmed, confirmed_at), updated_at = :updated
-                WHERE id = :id AND state = :oldState AND row_version = :expected AND deleted = FALSE
-                """, args) != 1) {
+            UPDATE order_fee SET state = :state, refund_basis_version = :basisVersion, refund_basis_minor = :basis,
+                adjusted_amount_minor = :adjusted, row_version = :version, confirmed_at = COALESCE(:confirmed, confirmed_at), updated_at = :updated
+            WHERE id = :id AND state = :oldState AND row_version = :expected AND deleted = FALSE
+            """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
     }

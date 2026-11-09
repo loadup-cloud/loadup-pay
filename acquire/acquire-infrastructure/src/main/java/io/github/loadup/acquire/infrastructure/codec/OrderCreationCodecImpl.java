@@ -17,6 +17,8 @@ package io.github.loadup.acquire.infrastructure.codec;
 
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
+import io.github.loadup.acquire.app.model.productcenter.enums.AdmissionDecision;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.acquire.client.command.CheckoutCreateCommand;
@@ -24,8 +26,6 @@ import io.github.loadup.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
-import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

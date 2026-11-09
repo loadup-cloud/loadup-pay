@@ -19,7 +19,7 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.payment.client.dto.PaymentUnknownRecoveryDTO;
-import io.github.loadup.payment.domain.model.PaymentRecoveryAttentionLevel;
+import io.github.loadup.payment.client.enums.PaymentRecoveryAttentionLevel;
 import io.github.loadup.payment.domain.policy.RecoveryEscalationPolicy;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;

@@ -23,9 +23,9 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.reconciliation.app.port.ReconciliationWriteConflictException;
+import io.github.loadup.reconciliation.client.enums.ReconciliationStatementState;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationStatementGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationStatementState;
 import io.github.loadup.reconciliation.infrastructure.converter.ReconciliationStatementStorageConverter;
 import io.github.loadup.reconciliation.infrastructure.dataobject.ReconciliationStatementDO;
 import java.time.Clock;
@@ -81,8 +81,13 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         DomainChecks.id(batchId);
         var args = new MapSqlParameterSource().addValue("batch", batchId);
         var rows = jdbc.query(
-                "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE deleted = FALSE "
-                        + "AND batch_id = :batch AND state = 'INIT' LIMIT 2",
+                "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel,"
+                        + " account_scope_hash, bill_date, statement_profile, statement_merchant_id,"
+                        + " statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version,"
+                        + " format, request_sha256, official_hash_type, official_hash, received_epoch_micros,"
+                        + " downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id,"
+                        + " proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE"
+                        + " deleted = FALSE AND batch_id = :batch AND state = 'INIT' LIMIT 2",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class));
         if (rows.size() > 1) {
@@ -103,10 +108,10 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO reconciliation_statement_request (id, created_at, updated_at, deleted, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :statementMerchantId, :statementSubMerchantId, :bindingRevisionId, :maxBytes, :taskId, :state, :rowVersion, :format, :requestSha256, :officialHashType, :officialHash, :receivedEpochMicros, :downloadedEpochMicros, :fileId, :storageId, :fileSize, :sourceSha256, :proofFileId, :proofStorageId, :proofFileSize, :proofSha256)
-                ON CONFLICT (caller_service_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO reconciliation_statement_request (id, created_at, updated_at, deleted, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :statementMerchantId, :statementSubMerchantId, :bindingRevisionId, :maxBytes, :taskId, :state, :rowVersion, :format, :requestSha256, :officialHashType, :officialHash, :receivedEpochMicros, :downloadedEpochMicros, :fileId, :storageId, :fileSize, :sourceSha256, :proofFileId, :proofStorageId, :proofFileSize, :proofSha256)
+            ON CONFLICT (caller_service_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new ReconciliationWriteConflictException(
                     "reconciliation_statement_request business key already exists");
@@ -157,9 +162,9 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         args.addValue("proofFileSize", row.getProofFileSize());
         args.addValue("proofSha256", row.getProofSha256());
         if (jdbc.update("""
-                UPDATE reconciliation_statement_request SET state = :state, row_version = :rowVersion, format = :format, request_sha256 = :requestSha256, official_hash_type = :officialHashType, official_hash = :officialHash, received_epoch_micros = :receivedEpochMicros, downloaded_epoch_micros = :downloadedEpochMicros, file_id = :fileId, storage_id = :storageId, file_size = :fileSize, source_sha256 = :sourceSha256, proof_file_id = :proofFileId, proof_storage_id = :proofStorageId, proof_file_size = :proofFileSize, proof_sha256 = :proofSha256, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
-                """, args) != 1) {
+            UPDATE reconciliation_statement_request SET state = :state, row_version = :rowVersion, format = :format, request_sha256 = :requestSha256, official_hash_type = :officialHashType, official_hash = :officialHash, received_epoch_micros = :receivedEpochMicros, downloaded_epoch_micros = :downloadedEpochMicros, file_id = :fileId, storage_id = :storageId, file_size = :fileSize, source_sha256 = :sourceSha256, proof_file_id = :proofFileId, proof_storage_id = :proofStorageId, proof_file_size = :proofFileSize, proof_sha256 = :proofSha256, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
+            """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
     }
@@ -175,7 +180,13 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     private ReconciliationStatementDO row(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE deleted = FALSE AND "
+                        "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest,"
+                                + " channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id,"
+                                + " statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state,"
+                                + " row_version, format, request_sha256, official_hash_type, official_hash,"
+                                + " received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size,"
+                                + " source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM"
+                                + " reconciliation_statement_request WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class))

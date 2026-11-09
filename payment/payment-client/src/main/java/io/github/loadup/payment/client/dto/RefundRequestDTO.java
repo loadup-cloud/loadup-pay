@@ -16,7 +16,7 @@
 package io.github.loadup.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.domain.model.RefundRequestState;
+import io.github.loadup.payment.client.enums.RefundRequestState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -24,13 +24,16 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record RefundRequestDTO(
-        @Schema(description = "Refund request id") @Size(max = 64) String refundRequestId,
+        @Schema(description = "Refund request id") @Size(max = 64)
+        String refundRequestId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Merchant refund no") @Size(max = 64) String merchantRefundNo,
+        @Schema(description = "Merchant refund no") @Size(max = 64)
+        String merchantRefundNo,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
+        String currency,
 
         @Schema(description = "Amount minor") long amountMinor,
         @Schema(description = "State") RefundRequestState state,

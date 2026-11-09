@@ -16,7 +16,7 @@
 package io.github.loadup.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.RefundState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 

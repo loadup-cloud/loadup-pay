@@ -18,26 +18,32 @@ package io.github.loadup.acquire.infrastructure.client;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
+import io.github.loadup.acquire.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.acquire.app.port.AcquireRealtimeClient;
 import io.github.loadup.acquire.infrastructure.config.AcquireRealtimeProperties;
+import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
-import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class AcquireRealtimeHttpClient implements AcquireRealtimeClient {
+    private final RemoteContractConverter contracts;
     private final AcquireRealtimeProperties properties;
     private final ServiceAccessTokens tokens;
     private final RealtimeHttpService realtimeHttp;
 
     public AcquireRealtimeHttpClient(
-            RealtimeHttpService realtimeHttp, ServiceAccessTokens tokens, AcquireRealtimeProperties properties) {
+            RealtimeHttpService realtimeHttp,
+            ServiceAccessTokens tokens,
+            AcquireRealtimeProperties properties,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.realtimeHttp = realtimeHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -50,7 +56,8 @@ public class AcquireRealtimeHttpClient implements AcquireRealtimeClient {
         }
         try {
             var token = tokens.token(properties.serviceId(), properties.audience());
-            return HttpServiceResponses.requiredData(realtimeHttp.order("Bearer " + token, event));
+            return HttpServiceResponses.requiredData(contracts.fromRealtimeProjectionAckDTOSuccessResponse(
+                    realtimeHttp.order("Bearer " + token, event)));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

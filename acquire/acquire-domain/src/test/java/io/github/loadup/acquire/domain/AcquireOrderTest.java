@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderPaymentChange;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
@@ -29,8 +30,7 @@ import io.github.loadup.acquire.domain.model.PaymentIntent;
 import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.contracts.model.AcquireOrderState;
-import io.github.loadup.contracts.product.UnpaidOrderAction;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 

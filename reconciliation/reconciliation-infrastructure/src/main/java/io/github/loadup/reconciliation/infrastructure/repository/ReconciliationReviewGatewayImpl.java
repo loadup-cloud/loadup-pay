@@ -23,10 +23,10 @@ import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.reconciliation.app.port.ReconciliationWriteConflictException;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewOperation;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationReviewGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationReview;
 import io.github.loadup.reconciliation.domain.model.ReconciliationReviewEvent;
-import io.github.loadup.reconciliation.domain.model.ReconciliationReviewOperation;
 import io.github.loadup.reconciliation.domain.model.ReconciliationReviewProposal;
 import io.github.loadup.reconciliation.infrastructure.converter.ReconciliationReviewStorageConverter;
 import io.github.loadup.reconciliation.infrastructure.dataobject.ReconciliationReviewDO;
@@ -90,7 +90,10 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         var args = new MapSqlParameterSource().addValue("id", id);
         var row = jdbc
                 .query(
-                        "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id, evidence_size, evidence_sha256, proposed_at FROM reconciliation_review_proposal WHERE id = :id AND deleted = FALSE",
+                        "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash,"
+                                + " match_key_hash, proposer_service_id, conclusion, note, evidence_file_id,"
+                                + " evidence_storage_id, evidence_size, evidence_sha256, proposed_at FROM"
+                                + " reconciliation_review_proposal WHERE id = :id AND deleted = FALSE",
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationReviewProposalDO.class))
                 .stream()
@@ -118,12 +121,15 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                 .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
         long total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM reconciliation_review_event WHERE difference_id = :difference AND deleted = FALSE",
+                "SELECT COUNT(*) FROM reconciliation_review_event WHERE difference_id = :difference AND deleted ="
+                        + " FALSE",
                 args,
                 Long.class);
         var rows = jdbc.query(
-                "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE difference_id = :difference AND deleted = FALSE "
-                        + "ORDER BY source_version ASC LIMIT :limit OFFSET :offset",
+                "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash,"
+                    + " caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version,"
+                    + " note, occurred_at FROM reconciliation_review_event WHERE difference_id = :difference AND"
+                    + " deleted = FALSE ORDER BY source_version ASC LIMIT :limit OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class));
         return PageResult.of(
@@ -190,12 +196,12 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             row.setCreatedAt(now);
             row.setUpdatedAt(now);
             int count = jdbc.update("""
-                    INSERT INTO reconciliation_review_proposal (id, created_at, updated_at, deleted, difference_id, batch_id,
-                        run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id,
-                        evidence_size, evidence_sha256, proposed_at)
-                    VALUES (:id, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash,
-                        :proposerServiceId, :conclusion, :note, :evidenceFileId, :evidenceStorageId, :evidenceSize, :evidenceSha256, :proposedAt)
-                    """, new BeanPropertySqlParameterSource(row));
+                INSERT INTO reconciliation_review_proposal (id, created_at, updated_at, deleted, difference_id, batch_id,
+                    run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id,
+                    evidence_size, evidence_sha256, proposed_at)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash,
+                    :proposerServiceId, :conclusion, :note, :evidenceFileId, :evidenceStorageId, :evidenceSize, :evidenceSha256, :proposedAt)
+                """, new BeanPropertySqlParameterSource(row));
             if (count != 1) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
@@ -210,12 +216,12 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         eventRow.setCreatedAt(now);
         eventRow.setUpdatedAt(now);
         int eventCount = jdbc.update("""
-                INSERT INTO reconciliation_review_event (id, created_at, updated_at, deleted, difference_id, batch_id, run_id,
-                    result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash,
-                    :callerServiceId, :requestKey, :requestDigest, :operation, :proposalId, :state, :sourceVersion, :note, :occurredAt)
-                ON CONFLICT (caller_service_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(eventRow));
+            INSERT INTO reconciliation_review_event (id, created_at, updated_at, deleted, difference_id, batch_id, run_id,
+                result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash,
+                :callerServiceId, :requestKey, :requestDigest, :operation, :proposalId, :state, :sourceVersion, :note, :occurredAt)
+            ON CONFLICT (caller_service_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(eventRow));
         if (eventCount == 0) {
             throw new ReconciliationWriteConflictException("Review request already exists");
         }
@@ -227,12 +233,12 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             row.setCreatedAt(now);
             row.setUpdatedAt(now);
             int headCount = jdbc.update("""
-                    INSERT INTO reconciliation_review (id, created_at, updated_at, deleted, batch_id, run_id,
-                        result_hash, match_key_hash, state, proposal_id, last_event_id, row_version)
-                    VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :runId, :resultHash, :matchKeyHash,
-                        :state, :proposalId, :lastEventId, :rowVersion)
-                    ON CONFLICT (id) DO NOTHING
-                    """, new BeanPropertySqlParameterSource(row));
+                INSERT INTO reconciliation_review (id, created_at, updated_at, deleted, batch_id, run_id,
+                    result_hash, match_key_hash, state, proposal_id, last_event_id, row_version)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :runId, :resultHash, :matchKeyHash,
+                    :state, :proposalId, :lastEventId, :rowVersion)
+                ON CONFLICT (id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
             if (headCount == 0) {
                 throw new ReconciliationWriteConflictException("Review head already exists");
             }
@@ -249,10 +255,10 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                     .addValue("version", row.getRowVersion())
                     .addValue("updated", now);
             if (jdbc.update("""
-                    UPDATE reconciliation_review SET state = :state, proposal_id = :proposal, last_event_id = :event,
-                        row_version = :version, updated_at = :updated
-                    WHERE id = :id AND row_version = :expected AND deleted = FALSE
-                    """, args) != 1) {
+                UPDATE reconciliation_review SET state = :state, proposal_id = :proposal, last_event_id = :event,
+                    row_version = :version, updated_at = :updated
+                WHERE id = :id AND row_version = :expected AND deleted = FALSE
+                """, args) != 1) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
         }
@@ -261,7 +267,8 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     private Optional<ReconciliationReview> headOrInitial(String id, ReconciliationReviewDO row) {
         if (row == null
                 && jdbc.queryForObject(
-                                "SELECT COUNT(*) FROM reconciliation_review_event WHERE difference_id = :id AND deleted = FALSE",
+                                "SELECT COUNT(*) FROM reconciliation_review_event WHERE difference_id = :id AND"
+                                        + " deleted = FALSE",
                                 new MapSqlParameterSource().addValue("id", id),
                                 Long.class)
                         != 0) {
@@ -309,7 +316,9 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query(
-                        "SELECT id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state, proposal_id, last_event_id, row_version FROM reconciliation_review WHERE id = :id AND deleted = FALSE"
+                        "SELECT id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state,"
+                            + " proposal_id, last_event_id, row_version FROM reconciliation_review WHERE id = :id AND"
+                            + " deleted = FALSE"
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationReviewDO.class))
@@ -321,7 +330,10 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     private ReconciliationReviewEventDO eventRow(String predicate, MapSqlParameterSource args) {
         return jdbc
                 .query(
-                        "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE deleted = FALSE AND "
+                        "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash,"
+                            + " match_key_hash, caller_service_id, request_key, request_digest, operation,"
+                            + " proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event"
+                            + " WHERE deleted = FALSE AND "
                                 + predicate,
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class))

@@ -15,35 +15,41 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
-import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
-import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
-import io.github.loadup.acquire.client.dto.RefundNotificationAckDTO;
 import io.github.loadup.acquire.client.http.AcquireHttpService;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
-import io.github.loadup.contracts.event.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
+import io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO;
+import io.github.loadup.payment.app.model.acquire.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.payment.app.model.acquire.dto.RefundNotificationAckDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.payment.infrastructure.config.PaymentAcquireProperties;
+import io.github.loadup.payment.infrastructure.converter.RemoteContractConverter;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class PaymentAcquireHttpClient implements PaymentAcquireClient {
+    private final RemoteContractConverter contracts;
     private final PaymentAcquireProperties properties;
     private final ServiceAccessTokens tokens;
     private final AcquireHttpService acquireHttp;
 
     public PaymentAcquireHttpClient(
-            AcquireHttpService acquireHttp, ServiceAccessTokens tokens, PaymentAcquireProperties properties) {
+            AcquireHttpService acquireHttp,
+            ServiceAccessTokens tokens,
+            PaymentAcquireProperties properties,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.acquireHttp = acquireHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -51,17 +57,20 @@ public class PaymentAcquireHttpClient implements PaymentAcquireClient {
 
     @Override
     public PaymentOutcomeAckDTO accept(EventEnvelope<PaymentOutcomeEventDTO> event) {
-        return exchange(authorization -> acquireHttp.paymentOutcome(authorization, event));
+        return exchange(authorization -> contracts.fromAcquirePaymentOutcomeAckDTOSuccessResponse(
+                acquireHttp.paymentOutcome(authorization, event)));
     }
 
     @Override
     public FeeRefundAckDTO acceptFeeRefund(EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(authorization -> acquireHttp.feeRefund(authorization, event));
+        return exchange(authorization ->
+                contracts.fromAcquireFeeRefundAckDTOSuccessResponse(acquireHttp.feeRefund(authorization, event)));
     }
 
     @Override
     public RefundNotificationAckDTO acceptRefundNotification(EventEnvelope<RefundMerchantEventDTO> event) {
-        return exchange(authorization -> acquireHttp.refundNotification(authorization, event));
+        return exchange(authorization -> contracts.fromAcquireRefundNotificationAckDTOSuccessResponse(
+                acquireHttp.refundNotification(authorization, event)));
     }
 
     private <R> R exchange(Function<String, SuccessResponse<R>> call) {

@@ -17,7 +17,7 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
-import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.payment.domain.model.PaymentChannelReceipt;
 import io.github.loadup.payment.domain.model.PaymentReceiptDisposition;

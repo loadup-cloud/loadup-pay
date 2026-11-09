@@ -17,7 +17,7 @@ package io.github.loadup.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationReviewConclusion;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewConclusion;
 import java.time.OffsetDateTime;
 
 public record ReconciliationReviewProposalDTO(

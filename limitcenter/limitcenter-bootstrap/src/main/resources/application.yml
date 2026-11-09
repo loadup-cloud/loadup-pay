@@ -66,7 +66,7 @@ loadup:
   flyway:
     enabled: true
     locations:
-      - classpath:db/migration
+      - classpath:db/migration/pay/limitcenter
   security:
     service-auth:
       token-uri: ${SERVICE_AUTH_TOKEN_URI:http://oauth2-server:8080/oauth2/token}

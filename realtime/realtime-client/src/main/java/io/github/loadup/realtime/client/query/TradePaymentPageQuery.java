@@ -18,7 +18,7 @@ package io.github.loadup.realtime.client.query;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.realtime.client.error.RealtimeResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -26,7 +26,8 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record TradePaymentPageQuery(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
+        String payeeMerchantId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
         @Schema(description = "State") PaymentState state,

@@ -16,7 +16,7 @@
 package io.github.loadup.limitcenter.domain.policy;
 
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.limitcenter.domain.model.LimitWindowType;
+import io.github.loadup.limitcenter.client.enums.LimitWindowType;
 import io.github.loadup.limitcenter.domain.model.WindowBounds;
 import java.time.DayOfWeek;
 import java.time.LocalDate;

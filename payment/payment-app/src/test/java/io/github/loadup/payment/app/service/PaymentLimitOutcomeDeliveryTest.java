@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -33,11 +33,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.limitcenter.client.dto.LimitReleaseDTO;
-import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitReleaseDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
+import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentLimitClient;
 import org.junit.jupiter.api.AfterEach;

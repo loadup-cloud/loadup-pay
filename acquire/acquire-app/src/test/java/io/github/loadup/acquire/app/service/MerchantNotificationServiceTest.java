@@ -31,10 +31,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.app.port.MerchantNotificationTransport;
+import io.github.loadup.acquire.client.enums.MerchantNotificationState;
 import io.github.loadup.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.acquire.domain.model.MerchantNotificationPolicy;
-import io.github.loadup.acquire.domain.model.MerchantNotificationState;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;

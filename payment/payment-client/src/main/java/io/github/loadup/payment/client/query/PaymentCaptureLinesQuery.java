@@ -17,13 +17,14 @@ package io.github.loadup.payment.client.query;
 
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record PaymentCaptureLinesQuery(
-        @Schema(description = "Original sealed capture") @NotBlank @Size(max = 64) String captureId,
+        @Schema(description = "Original sealed capture") @NotBlank @Size(max = 64)
+        String captureId,
 
         @Schema(description = "One-based immutable page") Integer page,
         @Schema(description = "Page size, at most 100") Integer size) {

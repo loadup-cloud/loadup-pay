@@ -17,15 +17,16 @@ package io.github.loadup.reconciliation.client.query;
 
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.reconciliation.client.enums.ReconciliationDifferenceReason;
+import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum;
-import io.github.loadup.reconciliation.domain.model.ReconciliationDifferenceReason;
-import io.github.loadup.reconciliation.domain.model.ReconciliationRecordKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ReconciliationDifferenceQuery(
-        @Schema(description = "Owning batch id") @NotBlank @Size(max = 64) String batchId,
+        @Schema(description = "Owning batch id") @NotBlank @Size(max = 64)
+        String batchId,
 
         @Schema(description = "Optional payment/refund filter")
         ReconciliationRecordKind kind,

@@ -16,7 +16,7 @@
 package io.github.loadup.payment.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 
 /**
  * Internal authority query; only the original acquiring SERVICE may read an order's monetary facts.

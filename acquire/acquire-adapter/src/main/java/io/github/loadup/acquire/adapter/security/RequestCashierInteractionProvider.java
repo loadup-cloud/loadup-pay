@@ -21,13 +21,13 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.UNSUPP
 import io.github.loadup.acquire.app.converter.CashierPaymentConverter;
 import io.github.loadup.acquire.app.port.CashierInteractionProvider;
 import io.github.loadup.acquire.app.security.CashierActor;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 

@@ -17,10 +17,10 @@ package io.github.loadup.realtime.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
-import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
 import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.client.dto.TradeOrderDTO;
 import io.github.loadup.realtime.client.dto.TradePaymentDTO;
@@ -43,22 +43,22 @@ public interface TradeProjectionConverter {
     @Mapping(target = "reservedMinor", source = "value.paymentReservedMinor")
     @Mapping(
             target = "amount",
-            expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(), value.currency()))")
+            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(),"
+                    + " value.currency()))")
     @Mapping(target = "source", source = "source")
     TradeOrderProjection toOrder(OrderSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 
     @Mapping(
             target = "amount",
-            expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(), value.currency()))")
+            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(),"
+                    + " value.currency()))")
     @Mapping(target = "source", source = "source")
     TradePaymentProjection toPayment(PaymentSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 
     @Mapping(
             target = "amount",
-            expression =
-                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(), value.currency()))")
+            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(),"
+                    + " value.currency()))")
     @Mapping(target = "source", source = "source")
     TradeRefundProjection toRefund(RefundSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 

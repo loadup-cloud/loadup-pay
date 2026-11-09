@@ -15,17 +15,17 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.payment.domain.model.RefundChannelReceipt;
@@ -60,10 +60,11 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
             + "channel, binding_revision_id, account_scope_hash, channel_request_no, original_channel_transaction_no, "
             + "channel_refund_no, amount_minor, currency, channel_refund_transaction_no, succeeded_at, receipt_id";
     private static final String CHILD_COLUMNS =
-            "id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id, "
-                    + "binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no, "
-                    + "original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor, currency, "
-                    + "state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version";
+            "id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id, binding_revision_id,"
+                    + " channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,"
+                    + " original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no,"
+                    + " amount_minor, currency, state, first_unknown_at, terminal_evidence_id, next_query_at,"
+                    + " query_sequence, succeeded_at, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock databaseClock;
     private final RefundResultStorageConverter converter;
@@ -105,10 +106,10 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         }
         var args = new MapSqlParameterSource().addValue("refund", refundId);
         var plan = jdbc.query("""
-                SELECT id, created_at, updated_at, refund_request_id, plan_version, sequence_no,
-                       payment_id, refund_id, amount_minor FROM refund_allocation_plan
-                WHERE refund_id = :refund AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(RefundAllocationPlanDO.class)).stream()
+            SELECT id, created_at, updated_at, refund_request_id, plan_version, sequence_no,
+                   payment_id, refund_id, amount_minor FROM refund_allocation_plan
+            WHERE refund_id = :refund AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(RefundAllocationPlanDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         return read(() -> {
@@ -131,10 +132,10 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
                 .addValue("source", source.name())
                 .addValue("key", key);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, refund_id, source, receipt_key, facts_digest,
-                       source_digest, observation_payload, disposition, reason_code, received_at FROM refund_channel_receipt
-                WHERE refund_id = :refund AND source = :source AND receipt_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(RefundChannelReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, refund_id, source, receipt_key, facts_digest,
+                   source_digest, observation_payload, disposition, reason_code, received_at FROM refund_channel_receipt
+            WHERE refund_id = :refund AND source = :source AND receipt_key = :key AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(RefundChannelReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         return row == null ? Optional.empty() : Optional.of(read(() -> converter.toReceipt(row)));
@@ -153,12 +154,12 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO refund_channel_receipt (id, created_at, updated_at, deleted, refund_id, source,
-                    receipt_key, facts_digest, source_digest, observation_payload, disposition, reason_code, received_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :refundId, :source, :receiptKey, :factsDigest,
-                    :sourceDigest, :observationPayload, :disposition, :reasonCode, :receivedAt)
-                ON CONFLICT (refund_id, source, receipt_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO refund_channel_receipt (id, created_at, updated_at, deleted, refund_id, source,
+                receipt_key, facts_digest, source_digest, observation_payload, disposition, reason_code, received_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :refundId, :source, :receiptKey, :factsDigest,
+                :sourceDigest, :observationPayload, :disposition, :reasonCode, :receivedAt)
+            ON CONFLICT (refund_id, source, receipt_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Refund channel receipt already exists");
         }
@@ -180,12 +181,12 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO refund_result_anomaly (id, created_at, updated_at, deleted, refund_id,
-                    receipt_id, reason_code, facts_digest, observation_payload, received_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :refundId, :receiptId, :reasonCode,
-                    :factsDigest, :observationPayload, :receivedAt)
-                ON CONFLICT (receipt_id, facts_digest, reason_code) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO refund_result_anomaly (id, created_at, updated_at, deleted, refund_id,
+                receipt_id, reason_code, facts_digest, observation_payload, received_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :refundId, :receiptId, :reasonCode,
+                :factsDigest, :observationPayload, :receivedAt)
+            ON CONFLICT (receipt_id, facts_digest, reason_code) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 0 && count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -227,13 +228,13 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO refund_transaction_claim (id, created_at, updated_at, deleted, refund_id, payment_id,
-                    attempt_id, channel, binding_revision_id, account_scope_hash, channel_request_no, original_channel_transaction_no,
-                    channel_refund_no, amount_minor, currency, channel_refund_transaction_no, succeeded_at, receipt_id)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :refundId, :paymentId, :attemptId, :channel,
-                    :bindingRevisionId, :accountScopeHash, :channelRequestNo, :originalChannelTransactionNo, :channelRefundNo,
-                    :amountMinor, :currency, :channelRefundTransactionNo, :succeededAt, :receiptId)
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO refund_transaction_claim (id, created_at, updated_at, deleted, refund_id, payment_id,
+                attempt_id, channel, binding_revision_id, account_scope_hash, channel_request_no, original_channel_transaction_no,
+                channel_refund_no, amount_minor, currency, channel_refund_transaction_no, succeeded_at, receipt_id)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :refundId, :paymentId, :attemptId, :channel,
+                :bindingRevisionId, :accountScopeHash, :channelRequestNo, :originalChannelTransactionNo, :channelRefundNo,
+                :amountMinor, :currency, :channelRefundTransactionNo, :succeededAt, :receiptId)
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -276,15 +277,15 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
                 .addValue("firstUnknown", patch.getFirstUnknownAt())
                 .addValue("updated", LocalDateTime.now(databaseClock));
         if (jdbc.update("""
-                UPDATE refund_order SET state = :state, terminal_evidence_id = COALESCE(:evidence, terminal_evidence_id),
-                    row_version = :version, submission_started_at = COALESCE(:started, submission_started_at),
-                    channel_refund_transaction_no = COALESCE(:transaction, channel_refund_transaction_no),
-                    succeeded_at = COALESCE(:succeeded, succeeded_at), first_unknown_at = COALESCE(:firstUnknown, first_unknown_at),
-                    updated_at = :updated
-                WHERE id = :id AND refund_request_id = :request AND payment_id = :payment
-                    AND state = :oldState AND row_version = :oldVersion
-                    AND submission_started_at IS NOT DISTINCT FROM :oldStarted AND deleted = FALSE
-                """, childArgs) != 1) {
+            UPDATE refund_order SET state = :state, terminal_evidence_id = COALESCE(:evidence, terminal_evidence_id),
+                row_version = :version, submission_started_at = COALESCE(:started, submission_started_at),
+                channel_refund_transaction_no = COALESCE(:transaction, channel_refund_transaction_no),
+                succeeded_at = COALESCE(:succeeded, succeeded_at), first_unknown_at = COALESCE(:firstUnknown, first_unknown_at),
+                updated_at = :updated
+            WHERE id = :id AND refund_request_id = :request AND payment_id = :payment
+                AND state = :oldState AND row_version = :oldVersion
+                AND submission_started_at IS NOT DISTINCT FROM :oldStarted AND deleted = FALSE
+            """, childArgs) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
         var request = converter.toRequestPatch(change.request());
@@ -299,10 +300,10 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
                 .addValue("unknown", request.getUnknownCount())
                 .addValue("updated", LocalDateTime.now(databaseClock));
         if (jdbc.update("""
-                UPDATE refund_request SET state = :state, row_version = :version, succeeded_minor = :succeeded,
-                    failed_minor = :failed, unknown_count = :unknown, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND state = :priorState AND deleted = FALSE
-                """, requestArgs) != 1) {
+            UPDATE refund_request SET state = :state, row_version = :version, succeeded_minor = :succeeded,
+                failed_minor = :failed, unknown_count = :unknown, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND state = :priorState AND deleted = FALSE
+            """, requestArgs) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
         if (!change.capacity().equals(change.beforeCapacity())) {
@@ -325,11 +326,11 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
                     .addValue("version", next.version())
                     .addValue("updated", LocalDateTime.now(databaseClock));
             if (jdbc.update("""
-                    UPDATE payment_refund_capacity SET reserved_minor = :reserved, refunded_minor = :refunded,
-                        row_version = :version, updated_at = :updated WHERE payment_id = :payment
-                        AND order_id = :order AND payee_merchant_id = :payee AND row_version = :expectedVersion
-                        AND reserved_minor = :expectedReserved AND refunded_minor = :expectedRefunded AND deleted = FALSE
-                    """, args) != 1) {
+                UPDATE payment_refund_capacity SET reserved_minor = :reserved, refunded_minor = :refunded,
+                    row_version = :version, updated_at = :updated WHERE payment_id = :payment
+                    AND order_id = :order AND payee_merchant_id = :payee AND row_version = :expectedVersion
+                    AND reserved_minor = :expectedReserved AND refunded_minor = :expectedRefunded AND deleted = FALSE
+                """, args) != 1) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
         }

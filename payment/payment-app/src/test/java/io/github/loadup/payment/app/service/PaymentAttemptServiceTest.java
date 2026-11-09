@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -39,7 +39,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
@@ -47,6 +46,7 @@ import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentLimitClient;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.command.PaymentAttemptStartCommand;
+import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.payment.domain.model.PaymentAttemptState;

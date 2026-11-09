@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,18 +34,17 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
-import io.github.loadup.limitcenter.client.command.LimitConfirmCommand;
-import io.github.loadup.limitcenter.client.command.LimitRefundRestoreCommand;
-import io.github.loadup.limitcenter.client.command.LimitReleaseCommand;
-import io.github.loadup.limitcenter.client.dto.LimitReleaseDTO;
-import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.limitcenter.client.http.LimitCenterHttpService;
-import io.github.loadup.limitcenter.domain.model.LimitReservationState;
-import io.github.loadup.limitcenter.domain.model.LimitRestoreResult;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitConfirmCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitRefundRestoreCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitReleaseCommand;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO;
+import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
+import io.github.loadup.payment.app.model.limitcenter.enums.LimitRestoreResult;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.infrastructure.config.PaymentLimitProperties;
+import io.github.loadup.payment.infrastructure.converter.RemoteContractConverter;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -55,8 +54,12 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -99,12 +102,12 @@ class PaymentLimitHttpClientTest {
         return token;
     }
 
-    LimitReservationDTO confirmed() {
-        return new LimitReservationDTO(
+    io.github.loadup.limitcenter.client.dto.LimitReservationDTO confirmed() {
+        return new io.github.loadup.limitcenter.client.dto.LimitReservationDTO(
                 "reservation",
                 "operation",
                 "payment",
-                LimitReservationState.CONFIRMED,
+                io.github.loadup.limitcenter.client.enums.LimitReservationState.CONFIRMED,
                 "policy",
                 1,
                 OffsetDateTime.now(clock),
@@ -114,10 +117,12 @@ class PaymentLimitHttpClientTest {
     @BeforeEach
     void setup() throws Exception {
         token(claims());
+        var contracts = remoteContracts();
         client = new PaymentLimitHttpClient(
                 limitCenterHttp,
                 (service, audience) -> credential,
-                new PaymentLimitProperties("payment", "limitcenter"));
+                new PaymentLimitProperties("payment", "limitcenter"),
+                contracts);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(confirmed());
@@ -126,16 +131,49 @@ class PaymentLimitHttpClientTest {
                 .confirm(anyString(), any());
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
+                    return SuccessResponse.of(new io.github.loadup.limitcenter.client.dto.LimitReleaseDTO(
+                            "operation", "payment", true, null, 2, "evidence"));
                 })
                 .when(limitCenterHttp)
                 .release(anyString(), any());
     }
 
+    private RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
+    }
+
     @Test
     void confirmUsesTheConfiguredOperationAndOriginalTypedCommand() {
         assertEquals(LimitReservationState.CONFIRMED, client.confirm(confirm).state());
-        verify(limitCenterHttp).confirm(anyString(), eq(confirm));
+        verify(limitCenterHttp)
+                .confirm(
+                        anyString(),
+                        eq(new io.github.loadup.limitcenter.client.command.LimitConfirmCommand(
+                                "operation",
+                                "payment",
+                                2,
+                                "evidence",
+                                "evidence",
+                                1000,
+                                "CNY",
+                                OffsetDateTime.now(clock))));
         assertEquals(1, attachments.size());
         assertTrue(attachments.getFirst().startsWith("Bearer "));
     }
@@ -146,7 +184,11 @@ class PaymentLimitHttpClientTest {
         assertTrue(ack.fenced());
         assertNull(ack.reservation());
         assertEquals(2, ack.paymentVersion());
-        verify(limitCenterHttp).release(anyString(), eq(release));
+        verify(limitCenterHttp)
+                .release(
+                        anyString(),
+                        eq(new io.github.loadup.limitcenter.client.command.LimitReleaseCommand(
+                                "operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED")));
     }
 
     @Test
@@ -166,12 +208,36 @@ class PaymentLimitHttpClientTest {
                 true);
         doAnswer(invocation -> {
                     assertEquals("Bearer " + credential, invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(ack);
+                    return SuccessResponse.of(new io.github.loadup.limitcenter.client.dto.LimitRestoreDTO(
+                            "operation",
+                            "payment",
+                            "refund",
+                            3,
+                            "refund-event",
+                            "refund-evidence",
+                            1500,
+                            1500,
+                            4,
+                            io.github.loadup.limitcenter.client.enums.LimitRestoreResult.RESTORED,
+                            1000,
+                            true));
                 })
                 .when(limitCenterHttp)
                 .restoreRefund(anyString(), any());
         assertEquals(ack, client.restoreRefund(refundRestore));
-        verify(limitCenterHttp).restoreRefund(anyString(), eq(refundRestore));
+        verify(limitCenterHttp)
+                .restoreRefund(
+                        anyString(),
+                        eq(new io.github.loadup.limitcenter.client.command.LimitRefundRestoreCommand(
+                                "operation",
+                                "payment",
+                                "refund",
+                                3,
+                                "refund-event",
+                                1000,
+                                1500,
+                                "CNY",
+                                "refund-evidence")));
     }
 
     @Test

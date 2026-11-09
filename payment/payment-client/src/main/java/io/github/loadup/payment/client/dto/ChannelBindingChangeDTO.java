@@ -16,7 +16,7 @@
 package io.github.loadup.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.domain.model.ChannelBindingState;
+import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**

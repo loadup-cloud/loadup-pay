@@ -27,7 +27,7 @@ import io.github.loadup.acquire.infrastructure.converter.OrderExtensionStorageCo
 import io.github.loadup.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.acquire.infrastructure.dataobject.OrderExtensionReceiptDO;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -55,10 +55,10 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     public Optional<OrderExtensionReceipt> findReceipt(String orderId, String requestKey) {
         var args = new MapSqlParameterSource().addValue("order", orderId).addValue("key", requestKey);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
-                       original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
-                FROM order_extension_receipt WHERE order_id = :order AND request_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(OrderExtensionReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
+                   original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
+            FROM order_extension_receipt WHERE order_id = :order AND request_key = :key AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(OrderExtensionReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {
@@ -76,9 +76,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         requireTransaction();
         var args = new MapSqlParameterSource().addValue("id", order.id());
         var row = jdbc.query("""
-                SELECT id, deadline_version, row_version, order_due_at FROM acquire_order
-                WHERE id = :id AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
+            SELECT id, deadline_version, row_version, order_due_at FROM acquire_order
+            WHERE id = :id AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null
@@ -112,10 +112,10 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 .addValue("deadlineVersion", patch.getDeadlineVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE acquire_order SET order_due_at = :due, row_version = :version, deadline_version = :deadlineVersion, updated_at = :updated
-                WHERE id = :id AND deleted = FALSE AND row_version = :expectedVersion
-                    AND deadline_version = :previousDeadlineVersion AND order_due_at = :previousDue AND state IN ('INIT', 'PENDING')
-                """, args);
+            UPDATE acquire_order SET order_due_at = :due, row_version = :version, deadline_version = :deadlineVersion, updated_at = :updated
+            WHERE id = :id AND deleted = FALSE AND row_version = :expectedVersion
+                AND deadline_version = :previousDeadlineVersion AND order_due_at = :previousDue AND state IN ('INIT', 'PENDING')
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -124,12 +124,12 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_extension_receipt (id, created_at, updated_at, deleted, order_id, caller_scope_hash,
-                    request_key, request_digest, original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :callerScopeHash, :requestKey, :requestDigest,
-                    :originalDueAt, :previousDueAt, :requestedDueAt, :expectedOrderVersion, :deadlineVersion, :appliedAt)
-                ON CONFLICT (order_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO order_extension_receipt (id, created_at, updated_at, deleted, order_id, caller_scope_hash,
+                request_key, request_digest, original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :callerScopeHash, :requestKey, :requestDigest,
+                :originalDueAt, :previousDueAt, :requestedDueAt, :expectedOrderVersion, :deadlineVersion, :appliedAt)
+            ON CONFLICT (order_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Order extension request already exists");
         }

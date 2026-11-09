@@ -20,7 +20,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.Objects;

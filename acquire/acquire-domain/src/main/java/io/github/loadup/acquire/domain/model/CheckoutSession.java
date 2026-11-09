@@ -19,9 +19,10 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.acquire.client.enums.CheckoutSessionState;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.contracts.model.AcquireOrderState;
+import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.LocalDateTime;
 import java.util.Objects;
 

@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.IGNORED;
@@ -33,7 +33,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecov
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;

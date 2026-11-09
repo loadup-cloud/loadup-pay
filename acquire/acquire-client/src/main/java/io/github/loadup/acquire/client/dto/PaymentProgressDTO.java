@@ -15,14 +15,15 @@
  */
 package io.github.loadup.acquire.client.dto;
 
+import io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
 public record PaymentProgressDTO(
         @Schema(description = "Persisted payment; null when a trusted close receipt proves it was never accepted")
-        @Valid PaymentExecutionDTO payment,
+        @Valid
+        PaymentExecutionDTO payment,
 
         @Schema(description = "Order") @Valid AcquireOrderDTO order) {
     @Override

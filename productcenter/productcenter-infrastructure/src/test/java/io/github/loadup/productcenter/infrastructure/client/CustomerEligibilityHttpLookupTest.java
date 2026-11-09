@@ -33,39 +33,65 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
-import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.merchantcenter.client.error.CustomerResultCodeEnum;
 import io.github.loadup.merchantcenter.client.http.CustomerHttpService;
 import io.github.loadup.productcenter.app.security.ProductActor;
 import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
+import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class CustomerEligibilityHttpLookupTest {
     private static final String TOKEN = "synthetic-customer-token";
     private final CustomerHttpService http = mock(CustomerHttpService.class);
     private final ProductActor actor = new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", TOKEN, Set.of());
-    private final CustomerEligibilityHttpLookup lookup = new CustomerEligibilityHttpLookup(http, () -> actor);
+    private final CustomerEligibilityHttpLookup lookup =
+            new CustomerEligibilityHttpLookup(http, () -> actor, remoteContracts());
 
     @AfterEach
     void clearTransaction() {
         TransactionSynchronizationManager.clear();
     }
 
-    private MerchantEligibilityDTO allowed(String payee) {
-        return new MerchantEligibilityDTO(
+    private static RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
+    }
+
+    private io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO allowed(String payee) {
+        return new io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO(
                 true,
                 "ALLOWED",
-                new MerchantProfileDTO(payee, "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
+                new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
+                        payee, "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
                 1,
                 "grant",
                 1L);
     }
 
-    private void respond(MerchantEligibilityDTO value) {
+    private void respond(io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO value) {
         when(http.authorize(anyString(), any())).thenReturn(SuccessResponse.of(value));
     }
 
@@ -84,7 +110,9 @@ class CustomerEligibilityHttpLookupTest {
     @Test
     void missingAudienceAndActiveTransactionsPreventNetworkAccess() {
         var missingAudience = new CustomerEligibilityHttpLookup(
-                http, () -> new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()));
+                http,
+                () -> new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()),
+                remoteContracts());
         assertThrows(CommonException.class, () -> missingAudience.authorizeNewOrder("merchant"));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
@@ -102,7 +130,7 @@ class CustomerEligibilityHttpLookupTest {
                 .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.ACTION_FORBIDDEN), null));
         var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         assertSame(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
-        respond(new MerchantEligibilityDTO(
+        respond(new io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO(
                 false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null));
         assertFalse(lookup.authorizeNewOrder("merchant").allowed());
     }
@@ -111,7 +139,8 @@ class CustomerEligibilityHttpLookupTest {
     void malformedRepliesAndTransportFailuresStayDependencyFailures() {
         respond(null);
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
-        respond(new MerchantEligibilityDTO(true, "ALLOWED", allowed("merchant").merchant(), 0, "grant", 1L));
+        respond(new io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO(
+                true, "ALLOWED", allowed("merchant").merchant(), 0, "grant", 1L));
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         when(http.authorize(anyString(), any())).thenThrow(new IllegalStateException("sensitive remote detail"));
         var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));

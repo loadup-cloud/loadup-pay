@@ -23,14 +23,14 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.reconciliation.client.enums.ReconciliationEntryStatus;
+import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import io.github.loadup.reconciliation.domain.model.ReconciliationDataset;
-import io.github.loadup.reconciliation.domain.model.ReconciliationEntryStatus;
 import io.github.loadup.reconciliation.domain.model.ReconciliationKey;
 import io.github.loadup.reconciliation.domain.model.ReconciliationLine;
 import io.github.loadup.reconciliation.domain.model.ReconciliationManifest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationRecordKind;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.reconciliation.domain.model.ReconciliationTotals;
 import java.io.BufferedReader;

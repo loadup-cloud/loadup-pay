@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,19 +41,14 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentCodeInteractionDTO;
-import io.github.loadup.contracts.payment.PaymentInputDTO;
-import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
-import io.github.loadup.limitcenter.client.command.LimitBeginExecutionCommand;
-import io.github.loadup.limitcenter.client.command.LimitReserveCommand;
-import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
-import io.github.loadup.limitcenter.client.dto.LimitExecutionVerificationDTO;
-import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.payment.app.model.PaymentSubmissionTicket;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitBeginExecutionCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitReserveCommand;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionPermitDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionVerificationDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
+import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
@@ -67,6 +62,12 @@ import io.github.loadup.payment.app.service.PaymentInputAccess;
 import io.github.loadup.payment.app.service.PaymentInputPublication;
 import io.github.loadup.payment.app.service.PaymentInputService;
 import io.github.loadup.payment.app.service.PaymentSubmissionPreparation;
+import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.payment.client.enums.RefundRequestState;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
@@ -83,7 +84,6 @@ import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.payment.domain.model.RefundOrder;
 import io.github.loadup.payment.domain.model.RefundRequest;
-import io.github.loadup.payment.domain.model.RefundRequestState;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.payment.domain.model.StoredRefundChild;
@@ -563,10 +563,10 @@ class FinancialPersistenceIT {
     private PaymentRefundCapacity capacity(FinancialPersistenceFixtures.Fixture fixture) {
         var row = jdbc.queryForObject(
                 """
-                        SELECT id, payment_id, order_id, payee_merchant_id, succeeded_at, succeeded_minor,
-                               currency, refunded_minor, reserved_minor, row_version FROM payment_refund_capacity
-                        WHERE payment_id = ? AND deleted = FALSE
-                        """,
+                SELECT id, payment_id, order_id, payee_merchant_id, succeeded_at, succeeded_minor,
+                       currency, refunded_minor, reserved_minor, row_version FROM payment_refund_capacity
+                WHERE payment_id = ? AND deleted = FALSE
+                """,
                 BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class),
                 fixture.command().paymentId());
         return capacityConverter.toCapacity(row);

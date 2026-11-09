@@ -37,12 +37,16 @@ realtime 和 reconciliation 不裁定支付结果，不直接修改交易资金�
 
 ## 分层与入口
 
+跨服务契约按提供方归属，详细规则见 [契约架构](pay-contracts/ARCHITECTURE.md)。client 不依赖 domain 或其他 Pay 服务 client；
+消费方 app/domain 使用本地模型，远端 client 仅由 infrastructure 依赖，通过 Spring 管理的 MapStruct Converter 转换。
+`pay-contracts-events` 只保留按发布方分包的事件及公开事件生命周期枚举，不再承载付款请求响应或产品条款树。
+
 merchantcenter、realtime 等小型服务按 `client/service/bootstrap` 拆分：client 保存 Facade、DTO、错误码及传输契约；service 在同一 JAR 内保留 domain/app/infrastructure 包边界，实现领域模型、用例编排和持久化；bootstrap 承载启动类与 HTTP adapter。payment、acquire 等复杂服务继续按 `client/domain/app/infrastructure/adapter/bootstrap` 分层发布。所有 client 不依赖 service 实现，service 是可复用的普通 JAR。
 
 渠道组件按 Framework 的 `loadup-components-payment-channel-api/core/alipay/wechat` 拆分，Pay 不再包含
 `channel/` reactor。payment 的 client/domain/app/infrastructure 只编译依赖 channel API，bootstrap 以 runtime 依赖装配 core
 和厂商 binder。各服务的配置以 `*-bootstrap/src/main/resources/application.yml` 及其附属配置为准，数据库迁移位于各
-service（保留完整分层的服务为 infrastructure）的 `src/main/resources/db/migration`。
+service（保留完整分层的服务为 infrastructure）的 `src/main/resources/db/migration/pay/<app>`。
 
 ## 金额、状态与执行边界
 
@@ -129,12 +133,12 @@ HTTP NetworkPolicy 与 Envoy Gateway 配置已补，CNI/控制器/流量验收�
 
 acquire、payment、customer、product、limitcenter、realtime、reconciliation 各自使用独立数据库或隔离
 schema；一个服务不得依赖另一个服务的表或事务。各服务使用对应的 `<SERVICE>_JDBC_URL`、
-`<SERVICE>_JDBC_USERNAME` 和 `<SERVICE>_JDBC_PASSWORD`，URL 应为 PostgreSQL JDBC URL。启动时 `classpath:db/migration`
-同时加载该服务 infrastructure 和其实际依赖 JAR 的共享组件迁移。只在新建的可丢弃开发库上执行初次验证，不对已有库自动执行
+`<SERVICE>_JDBC_USERNAME` 和 `<SERVICE>_JDBC_PASSWORD`，URL 应为 PostgreSQL JDBC URL。启动时显式选择 `classpath:db/migration/pay/<app>` 及获准的 `classpath:db/migration/framework/<module>`；
+共享根 `classpath:db/migration` 会递归扫描 classpath，不能用于隔离应用与依赖 JAR。只在新建的可丢弃开发库上执行初次验证，不对已有库自动执行
 Flyway clean、repair 或数据搬迁。
 
-每个支付服务的 infrastructure 只有一份初始 Flyway 文件。sequence、Outbox、DelayedTask、GlobalUnique，以及该服务实际引入的
-merchant、contract、File 和 Transfer 迁移由各自模块拥有。安装 JAR 时应先 clean：旧构建输出可能仍含已删除的 MySQL
+支付应用保留自己的业务迁移和冻结的组件初始快照；Framework 的 File、Transfer、UPMS、Notification 等业务模块保留各自命名空间的自动迁移，
+由应用显式选择，统一纳入该应用的一个迁移历史。组件模板变化通过新的增量版本升级，生成器不会覆盖或删除已登记快照。安装 JAR 时应先 clean：旧构建输出可能仍含已删除的 MySQL
 或增量迁移，即使源码目录已经干净也会被 Flyway 扫描。
 
 单数据源装配使用 Spring JDBC 事务管理器，让业务写入、Outbox 和本地 JDBC 使用同一数据源；Outbox 会拒绝不匹配的事务管理器。

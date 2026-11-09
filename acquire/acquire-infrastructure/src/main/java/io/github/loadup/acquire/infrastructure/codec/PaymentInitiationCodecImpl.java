@@ -17,6 +17,7 @@ package io.github.loadup.acquire.infrastructure.codec;
 
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
+import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
@@ -24,7 +25,6 @@ import io.github.loadup.acquire.infrastructure.converter.PaymentIntentSnapshotCo
 import io.github.loadup.acquire.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Component;

@@ -31,24 +31,53 @@ import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.limitcenter.client.http.LimitCenterHttpService;
+import io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO;
 import io.github.loadup.productcenter.infrastructure.config.PolicyPublicationTransportProperties;
+import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
 import java.time.OffsetDateTime;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class LimitPolicyActivationHttpClientTest {
     final LimitCenterHttpService remote = mock(LimitCenterHttpService.class);
     final ServiceAccessTokens tokens = mock(ServiceAccessTokens.class);
+    final RemoteContractConverter contracts = remoteContracts();
     final LimitPolicyActivationHttpClient client = new LimitPolicyActivationHttpClient(
-            remote, new PolicyPublicationTransportProperties("product", "limitcenter"), tokens);
+            remote, new PolicyPublicationTransportProperties("product", "limitcenter"), tokens, contracts);
+
+    private static RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
+    }
 
     @Test
     void eachAttemptUsesTheSharedCredentialSource() {
         when(tokens.token("product", "limitcenter")).thenReturn("first", "second");
         var ack = new LimitPolicyActivationDTO("policy", 1, "a".repeat(64), OffsetDateTime.now());
-        when(remote.activate(anyString(), isNull())).thenReturn(SuccessResponse.of(ack));
+        when(remote.activate(anyString(), isNull()))
+                .thenReturn(SuccessResponse.of(new io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO(
+                        "policy", 1, "a".repeat(64), ack.activatedAt())));
         assertEquals(ack, TenantUtil.callWithTenant("tenant", () -> client.activate(null)));
         assertEquals(ack, TenantUtil.callWithTenant("tenant", () -> client.activate(null)));
         verify(remote).activate("Bearer first", null);

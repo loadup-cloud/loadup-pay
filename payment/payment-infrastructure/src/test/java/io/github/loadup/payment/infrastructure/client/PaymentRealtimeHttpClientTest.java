@@ -34,13 +34,14 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.RefundState;
+import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.payment.infrastructure.config.PaymentRealtimeProperties;
-import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.payment.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import java.time.Clock;
 import java.time.Instant;
@@ -49,8 +50,12 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -106,15 +111,40 @@ class PaymentRealtimeHttpClientTest {
     @BeforeEach
     void setup() throws Exception {
         credential("realtime");
+        var contracts = remoteContracts();
         client = new PaymentRealtimeHttpClient(
-                realtimeHttp, (service, audience) -> credential, new PaymentRealtimeProperties("payment", "realtime"));
+                realtimeHttp,
+                (service, audience) -> credential,
+                new PaymentRealtimeProperties("payment", "realtime"),
+                contracts);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(
-                            new ProjectionAckDTO("delivery", "proof", "payment", "payment", 2, 2, "APPLIED", true));
+                    return SuccessResponse.of(new io.github.loadup.realtime.client.dto.ProjectionAckDTO(
+                            "delivery", "proof", "payment", "payment", 2, 2, "APPLIED", true));
                 })
                 .when(realtimeHttp)
                 .payment(anyString(), any());
+    }
+
+    private RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
     }
 
     @Test
@@ -163,8 +193,12 @@ class PaymentRealtimeHttpClientTest {
                 new ProjectionAckDTO("refund-delivery", "refund-change", "payment", "refund", 0, 0, "APPLIED", true);
         var summaryAck =
                 new ProjectionAckDTO("summary-delivery", "summary-change", "payment", "order", 1, 1, "APPLIED", true);
-        doAnswer(invocation -> SuccessResponse.of(refundAck)).when(realtimeHttp).refund(anyString(), any());
-        doAnswer(invocation -> SuccessResponse.of(summaryAck))
+        doAnswer(invocation -> SuccessResponse.of(new io.github.loadup.realtime.client.dto.ProjectionAckDTO(
+                        "refund-delivery", "refund-change", "payment", "refund", 0, 0, "APPLIED", true)))
+                .when(realtimeHttp)
+                .refund(anyString(), any());
+        doAnswer(invocation -> SuccessResponse.of(new io.github.loadup.realtime.client.dto.ProjectionAckDTO(
+                        "summary-delivery", "summary-change", "payment", "order", 1, 1, "APPLIED", true)))
                 .when(realtimeHttp)
                 .refundSummary(anyString(), any());
         assertEquals(refundAck, client.applyRefund(refund));

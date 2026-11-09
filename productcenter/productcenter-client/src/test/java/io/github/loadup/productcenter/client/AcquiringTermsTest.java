@@ -19,12 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.contracts.product.FeeRefundPolicy;
-import io.github.loadup.contracts.product.FeeTermsDTO;
-import io.github.loadup.contracts.product.NotificationTermsDTO;
-import io.github.loadup.contracts.product.OrderTermsDTO;
-import io.github.loadup.contracts.product.PaymentTermsDTO;
-import io.github.loadup.contracts.product.UnpaidOrderAction;
+import io.github.loadup.productcenter.client.dto.terms.FeeTermsDTO;
+import io.github.loadup.productcenter.client.dto.terms.NotificationTermsDTO;
+import io.github.loadup.productcenter.client.dto.terms.OrderTermsDTO;
+import io.github.loadup.productcenter.client.dto.terms.PaymentTermsDTO;
+import io.github.loadup.productcenter.client.enums.FeeRefundPolicy;
+import io.github.loadup.productcenter.client.enums.UnpaidOrderAction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.junit.jupiter.api.Test;

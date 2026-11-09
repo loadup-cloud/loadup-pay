@@ -71,7 +71,7 @@ java \
 active-key-id；保留旧键直至所有在途执行与响应重放不再需要它。不得在同一keyId下换密钥，重放时摘要不匹配会拒绝。移除旧键不会使已存许可通过假签名重发；旧许可的数据库摘要校验可继续工作，但Begin重放会明确报
 LIMIT_PERMIT_UNAVAILABLE。不要复用JWT/商户通知密钥。
 
-业务启动启用 Flyway，扫描本服务和所依赖框架的 db/migration；会执行未应用的迁移。数据库会话 +08:00、JVM/业务 Clock
+业务启动启用 Flyway，只扫描本服务的 `db/migration/pay/limitcenter`；会执行未应用的迁移。数据库会话 +08:00、JVM/业务 Clock
 上海本地时区，DATETIME (6) 不使用 UTC。部署时还需按框架数据库约定稳定分配 ID sequence site。现有 deploy/pay.yml
 没有这些配置，不直接用于业务上线；需外部覆盖层注入 Secret/ConfigMap 和 SPRING_PROFILES_ACTIVE。
 

@@ -15,9 +15,9 @@
  */
 package io.github.loadup.acquire.app.service;
 
+import io.github.loadup.acquire.app.model.payment.dto.PaymentCloseDTO;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.payment.PaymentCloseDTO;
 import java.util.Objects;
 
 /**

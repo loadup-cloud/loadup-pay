@@ -17,8 +17,8 @@ package io.github.loadup.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationDifferenceReason;
-import io.github.loadup.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationDifferenceReason;
+import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
 

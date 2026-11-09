@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.infrastructure.codec;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -69,9 +69,9 @@ class RoutingProfileCodecImplTest {
     void whitespaceAndObjectKeyOrderingDoNotChangeTheDefinitionHash() {
         var spec = spec(List.of(rule("first")));
         String reordered = """
-                { "rules": [{"method":"H5","accessMode":"DIRECT","channel":"WECHAT","bindingCode":"first"}],
-                  "payeeMerchantId":"merchant", "profileRef":"routing-v1" }
-                """;
+            { "rules": [{"method":"H5","accessMode":"DIRECT","channel":"WECHAT","bindingCode":"first"}],
+              "payeeMerchantId":"merchant", "profileRef":"routing-v1" }
+            """;
         assertEquals(spec, codec.decode(reordered, codec.checksum(codec.encode(spec))));
     }
 

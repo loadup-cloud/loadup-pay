@@ -26,12 +26,12 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.app.converter.CashierPaymentConverter;
 import io.github.loadup.acquire.app.security.CashierActor;
+import io.github.loadup.acquire.client.dto.payment.H5SceneInteractionDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelH5Input;
-import io.github.loadup.contracts.payment.H5SceneInteractionDTO;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;

@@ -23,10 +23,10 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.reconciliation.app.port.ReconciliationWriteConflictException;
+import io.github.loadup.reconciliation.client.enums.ReconciliationState;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationResultSummary;
-import io.github.loadup.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.reconciliation.domain.model.StoredReconciliationBatch;
 import io.github.loadup.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
 import io.github.loadup.reconciliation.infrastructure.dataobject.ReconciliationBatchDO;
@@ -104,14 +104,14 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO reconciliation_batch (id, created_at, updated_at, deleted, caller_service_id, request_key,
-                    request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state,
-                    channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :callerServiceId, :requestKey, :requestDigest, :channelAccountCode,
-                    :channel, :accountScopeHash, :billDate, :statementProfile, :state, :channelInputId, :ledgerInputId, :runId,
-                    :matchedCount, :differenceCount, :resultHash, :rowVersion)
-                ON CONFLICT (caller_service_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO reconciliation_batch (id, created_at, updated_at, deleted, caller_service_id, request_key,
+                request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state,
+                channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :callerServiceId, :requestKey, :requestDigest, :channelAccountCode,
+                :channel, :accountScopeHash, :billDate, :statementProfile, :state, :channelInputId, :ledgerInputId, :runId,
+                :matchedCount, :differenceCount, :resultHash, :rowVersion)
+            ON CONFLICT (caller_service_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new ReconciliationWriteConflictException("reconciliation_batch business key already exists");
         }
@@ -184,12 +184,12 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
                 .addValue("version", row.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         if (jdbc.update("""
-                UPDATE reconciliation_batch SET state = :state, channel_input_id = COALESCE(:channelInput, channel_input_id),
-                    ledger_input_id = COALESCE(:ledgerInput, ledger_input_id), run_id = COALESCE(:run, run_id),
-                    matched_count = COALESCE(:matched, matched_count), difference_count = COALESCE(:differences, difference_count),
-                    result_hash = COALESCE(:hash, result_hash), row_version = :version, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND deleted = FALSE
-                """, args) != 1) {
+            UPDATE reconciliation_batch SET state = :state, channel_input_id = COALESCE(:channelInput, channel_input_id),
+                ledger_input_id = COALESCE(:ledgerInput, ledger_input_id), run_id = COALESCE(:run, run_id),
+                matched_count = COALESCE(:matched, matched_count), difference_count = COALESCE(:differences, difference_count),
+                result_hash = COALESCE(:hash, result_hash), row_version = :version, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND deleted = FALSE
+            """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
     }
@@ -203,7 +203,10 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         }
         return jdbc
                 .query(
-                        "SELECT id, created_at, updated_at, caller_service_id, request_key, request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version FROM reconciliation_batch WHERE deleted = FALSE AND "
+                        "SELECT id, created_at, updated_at, caller_service_id, request_key, request_digest,"
+                                + " channel_account_code, channel, account_scope_hash, bill_date, statement_profile,"
+                                + " state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count,"
+                                + " result_hash, row_version FROM reconciliation_batch WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationBatchDO.class))

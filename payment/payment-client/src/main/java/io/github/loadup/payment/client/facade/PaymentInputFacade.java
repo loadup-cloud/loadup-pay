@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.client.facade;
 
-import io.github.loadup.contracts.payment.PaymentInputDTO;
-import io.github.loadup.contracts.payment.PaymentInputLookupDTO;
-import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
-import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
+import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.payment.client.dto.PaymentInputLookupDTO;
+import io.github.loadup.payment.client.query.PaymentInputLookupQuery;
 
 /**
  * Business use cases; identity and authorization come from a trusted invocation context.

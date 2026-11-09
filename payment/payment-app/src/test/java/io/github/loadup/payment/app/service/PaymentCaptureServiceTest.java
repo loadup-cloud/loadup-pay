@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,15 +47,15 @@ import io.github.loadup.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.command.PaymentCaptureCreateCommand;
 import io.github.loadup.payment.client.command.PaymentCaptureRetryCommand;
+import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
+import io.github.loadup.payment.client.enums.PaymentCaptureState;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.payment.client.enums.PaymentLedgerStatus;
 import io.github.loadup.payment.domain.gateway.PaymentCaptureGateway;
 import io.github.loadup.payment.domain.model.PaymentCapture;
-import io.github.loadup.payment.domain.model.PaymentCaptureBlocker;
 import io.github.loadup.payment.domain.model.PaymentCaptureRead;
 import io.github.loadup.payment.domain.model.PaymentCaptureScope;
-import io.github.loadup.payment.domain.model.PaymentCaptureState;
-import io.github.loadup.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.payment.domain.model.PaymentLedgerLine;
-import io.github.loadup.payment.domain.model.PaymentLedgerStatus;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.time.Clock;

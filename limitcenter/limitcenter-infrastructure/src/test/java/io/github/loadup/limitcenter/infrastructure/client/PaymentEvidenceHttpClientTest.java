@@ -31,10 +31,10 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.limitcenter.infrastructure.config.PaymentEvidenceProperties;
-import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;
+import io.github.loadup.limitcenter.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.payment.client.http.PaymentHttpService;
 import java.time.Clock;
 import java.time.Instant;
@@ -45,36 +45,46 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = RemoteContractMapperTestConfiguration.class)
 class PaymentEvidenceHttpClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final PaymentHttpService paymentHttp = mock(PaymentHttpService.class);
-    final RefundSettlementFactsDTO facts = new RefundSettlementFactsDTO(
-            new RefundOutcomeEventDTO(
-                    "refund",
-                    "request",
-                    "payment",
-                    "order",
-                    "operation",
-                    "merchant",
-                    1000,
-                    "CNY",
-                    RefundState.SUCCEEDED,
-                    3,
-                    1000,
-                    "refund-evidence"),
-            2000,
-            4,
-            "payment-evidence",
-            "attempt",
-            OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
-            5);
+    final io.github.loadup.payment.client.dto.RefundSettlementFactsDTO remoteFacts =
+            new io.github.loadup.payment.client.dto.RefundSettlementFactsDTO(
+                    new RefundOutcomeEventDTO(
+                            "refund",
+                            "request",
+                            "payment",
+                            "order",
+                            "operation",
+                            "merchant",
+                            1000,
+                            "CNY",
+                            RefundState.SUCCEEDED,
+                            3,
+                            1000,
+                            "refund-evidence"),
+                    2000,
+                    4,
+                    "payment-evidence",
+                    "attempt",
+                    OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
+                    5);
 
     PaymentEvidenceHttpClient client;
     String credential;
+
+    @Autowired
+    RemoteContractConverter contracts;
 
     String token() throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
@@ -103,10 +113,11 @@ class PaymentEvidenceHttpClientTest {
         client = new PaymentEvidenceHttpClient(
                 paymentHttp,
                 (service, audience) -> credential,
-                new PaymentEvidenceProperties("limitcenter", "payment"));
+                new PaymentEvidenceProperties("limitcenter", "payment"),
+                contracts);
         doAnswer(invocation -> {
                     assertEquals("Bearer " + credential, invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(facts);
+                    return SuccessResponse.of(remoteFacts);
                 })
                 .when(paymentHttp)
                 .refundFacts(anyString(), any());
@@ -114,7 +125,8 @@ class PaymentEvidenceHttpClientTest {
 
     @Test
     void refundFactsUsesItsNamedOperationTypedQueryAndServiceCredential() {
-        assertEquals(facts, client.refundFacts("refund"));
+        var expected = contracts.toLocal(remoteFacts);
+        assertEquals(expected, client.refundFacts("refund"));
         verify(paymentHttp).refundFacts(anyString(), eq(new IdQuery("refund")));
     }
 

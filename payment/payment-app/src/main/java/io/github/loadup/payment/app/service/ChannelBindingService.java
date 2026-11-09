@@ -15,13 +15,13 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -35,11 +35,11 @@ import io.github.loadup.payment.client.command.ChannelBindingRevokeCommand;
 import io.github.loadup.payment.client.command.ChannelBindingSuspendCommand;
 import io.github.loadup.payment.client.dto.ChannelBindingChangeDTO;
 import io.github.loadup.payment.client.dto.ChannelBindingDTO;
+import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.github.loadup.payment.client.facade.ChannelBindingFacade;
 import io.github.loadup.payment.client.query.ChannelBindingDetailQuery;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.model.ChannelBindingChangeReceipt;
-import io.github.loadup.payment.domain.model.ChannelBindingState;
 import io.github.loadup.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.payment.domain.model.StoredChannelBindingRevision;
 import jakarta.validation.Validator;

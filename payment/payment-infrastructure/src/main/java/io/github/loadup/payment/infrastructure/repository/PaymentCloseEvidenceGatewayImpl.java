@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
@@ -90,13 +90,13 @@ public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvi
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_close_evidence (id, created_at, updated_at, deleted, payment_id, attempt_id,
-                    channel, binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency,
-                    channel_transaction_no, receipt_key, source_digest, execution_epoch, recorded_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
-                    :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :channelTransactionNo, :receiptKey,
-                    :sourceDigest, :executionEpoch, :recordedAt)
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_close_evidence (id, created_at, updated_at, deleted, payment_id, attempt_id,
+                channel, binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency,
+                channel_transaction_no, receipt_key, source_digest, execution_epoch, recorded_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
+                :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :channelTransactionNo, :receiptKey,
+                :sourceDigest, :executionEpoch, :recordedAt)
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

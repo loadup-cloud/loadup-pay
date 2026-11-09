@@ -16,8 +16,8 @@
 package io.github.loadup.payment.client.query;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.payment.domain.model.PaymentRecoveryAttentionLevel;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
+import io.github.loadup.payment.client.enums.PaymentRecoveryAttentionLevel;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -31,7 +31,8 @@ import java.time.OffsetDateTime;
 public record PaymentUnknownRecoveryQuery(
         @NotNull PaymentRecoveryKind kind,
 
-        @Schema(description = "Minimum operational attention band, inclusive") @NotNull PaymentRecoveryAttentionLevel minimumLevel,
+        @Schema(description = "Minimum operational attention band, inclusive") @NotNull
+        PaymentRecoveryAttentionLevel minimumLevel,
 
         @Schema(description = "Previous page cursor time; supplied together with afterRecordId")
         OffsetDateTime afterFirstUnknownAt,

@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
@@ -26,10 +26,10 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
+import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.model.ChannelBindingChangeReceipt;
-import io.github.loadup.payment.domain.model.ChannelBindingState;
 import io.github.loadup.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.payment.domain.model.RoutableChannelBinding;
 import io.github.loadup.payment.domain.model.StoredChannelBindingRevision;
@@ -75,11 +75,11 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         return jdbc
                 .query(
                         """
-                        SELECT id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
-                               state, current_revision_id, current_revision, priority, row_version
-                        FROM channel_merchant_binding WHERE payee_merchant_id = :payee
-                            AND binding_code = :code AND deleted = FALSE
-                        """ + (lock ? " FOR UPDATE" : ""),
+                            SELECT id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
+                                   state, current_revision_id, current_revision, priority, row_version
+                            FROM channel_merchant_binding WHERE payee_merchant_id = :payee
+                                AND binding_code = :code AND deleted = FALSE
+                            """ + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ChannelMerchantBindingDO.class))
                 .stream()
@@ -113,11 +113,11 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         }
         var args = new MapSqlParameterSource().addValue("id", revisionId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, binding_id, revision, payee_merchant_id, channel, access_mode,
-                       account_scope_hash, credential_reference, credential_version, identity_payload, identity_hash,
-                       payment_code_enabled, jsapi_enabled, h5_enabled, caller_service_id, published_at
-                FROM channel_binding_revision WHERE id = :id AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(ChannelBindingRevisionDO.class)).stream()
+            SELECT id, created_at, updated_at, binding_id, revision, payee_merchant_id, channel, access_mode,
+                   account_scope_hash, credential_reference, credential_version, identity_payload, identity_hash,
+                   payment_code_enabled, jsapi_enabled, h5_enabled, caller_service_id, published_at
+            FROM channel_binding_revision WHERE id = :id AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(ChannelBindingRevisionDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {
@@ -165,12 +165,12 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
                 .addValue("channel", channel.name())
                 .addValue("modes", allowedModes.stream().map(Enum::name).toList());
         var rows = jdbc.query("""
-                SELECT id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
-                       state, current_revision_id, current_revision, priority, row_version
-                FROM channel_merchant_binding WHERE payee_merchant_id = :payee
-                    AND channel = :channel AND access_mode IN (:modes) AND state = 'ACTIVE' AND deleted = FALSE
-                ORDER BY id ASC FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(ChannelMerchantBindingDO.class));
+            SELECT id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
+                   state, current_revision_id, current_revision, priority, row_version
+            FROM channel_merchant_binding WHERE payee_merchant_id = :payee
+                AND channel = :channel AND access_mode IN (:modes) AND state = 'ACTIVE' AND deleted = FALSE
+            ORDER BY id ASC FOR UPDATE
+            """, args, BeanPropertyRowMapper.newInstance(ChannelMerchantBindingDO.class));
         var candidates = new ArrayList<RoutableChannelBinding>();
         for (var row : rows) {
             var head = head(row).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -195,11 +195,11 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     public Optional<ChannelBindingChangeReceipt> receipt(String bindingId, String key) {
         var args = new MapSqlParameterSource().addValue("binding", bindingId).addValue("key", key);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, binding_id, kind, request_key, request_digest, caller_service_id,
-                       binding_revision_id, revision, state, applied_version, applied_at
-                FROM channel_binding_change_receipt WHERE binding_id = :binding
-                    AND request_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(ChannelBindingChangeReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, binding_id, kind, request_key, request_digest, caller_service_id,
+                   binding_revision_id, revision, state, applied_version, applied_at
+            FROM channel_binding_change_receipt WHERE binding_id = :binding
+                AND request_key = :key AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(ChannelBindingChangeReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -220,12 +220,12 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO channel_merchant_binding (id, created_at, updated_at, deleted, payee_merchant_id,
-                    binding_code, channel, access_mode, state, current_revision_id, current_revision, priority, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :bindingCode, :channel,
-                    :accessMode, :state, :currentRevisionId, :currentRevision, :priority, :rowVersion)
-                ON CONFLICT (payee_merchant_id, binding_code) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO channel_merchant_binding (id, created_at, updated_at, deleted, payee_merchant_id,
+                binding_code, channel, access_mode, state, current_revision_id, current_revision, priority, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :bindingCode, :channel,
+                :accessMode, :state, :currentRevisionId, :currentRevision, :priority, :rowVersion)
+            ON CONFLICT (payee_merchant_id, binding_code) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Channel binding business key already exists");
         }
@@ -255,11 +255,11 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
                 .addValue("version", patch.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE channel_merchant_binding SET state = :state, current_revision_id = :revisionId,
-                    current_revision = :revision, priority = :priority, row_version = :version, updated_at = :updated
-                WHERE payee_merchant_id = :payee AND binding_code = :code AND id = :id
-                    AND channel = :channel AND access_mode = :mode AND row_version = :expectedVersion AND deleted = FALSE
-                """, args);
+            UPDATE channel_merchant_binding SET state = :state, current_revision_id = :revisionId,
+                current_revision = :revision, priority = :priority, row_version = :version, updated_at = :updated
+            WHERE payee_merchant_id = :payee AND binding_code = :code AND id = :id
+                AND channel = :channel AND access_mode = :mode AND row_version = :expectedVersion AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -277,14 +277,14 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO channel_binding_revision (id, created_at, updated_at, deleted, binding_id, revision,
-                    payee_merchant_id, channel, access_mode, account_scope_hash, credential_reference, credential_version,
-                    identity_payload, identity_hash, payment_code_enabled, jsapi_enabled, h5_enabled, caller_service_id, published_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :bindingId, :revision, :payeeMerchantId, :channel,
-                    :accessMode, :accountScopeHash, :credentialReference, :credentialVersion, :identityPayload, :identityHash,
-                    :paymentCodeEnabled, :jsapiEnabled, :h5Enabled, :callerServiceId, :publishedAt)
-                ON CONFLICT (binding_id, revision) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO channel_binding_revision (id, created_at, updated_at, deleted, binding_id, revision,
+                payee_merchant_id, channel, access_mode, account_scope_hash, credential_reference, credential_version,
+                identity_payload, identity_hash, payment_code_enabled, jsapi_enabled, h5_enabled, caller_service_id, published_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :bindingId, :revision, :payeeMerchantId, :channel,
+                :accessMode, :accountScopeHash, :credentialReference, :credentialVersion, :identityPayload, :identityHash,
+                :paymentCodeEnabled, :jsapiEnabled, :h5Enabled, :callerServiceId, :publishedAt)
+            ON CONFLICT (binding_id, revision) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Channel binding revision already exists");
         }
@@ -301,12 +301,12 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO channel_binding_change_receipt (id, created_at, updated_at, deleted, binding_id, kind,
-                    request_key, request_digest, caller_service_id, binding_revision_id, revision, state, applied_version, applied_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :bindingId, :kind, :requestKey, :requestDigest,
-                    :callerServiceId, :bindingRevisionId, :revision, :state, :appliedVersion, :appliedAt)
-                ON CONFLICT (binding_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO channel_binding_change_receipt (id, created_at, updated_at, deleted, binding_id, kind,
+                request_key, request_digest, caller_service_id, binding_revision_id, revision, state, applied_version, applied_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :bindingId, :kind, :requestKey, :requestDigest,
+                :callerServiceId, :bindingRevisionId, :revision, :state, :appliedVersion, :appliedAt)
+            ON CONFLICT (binding_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Channel binding change already exists");
         }

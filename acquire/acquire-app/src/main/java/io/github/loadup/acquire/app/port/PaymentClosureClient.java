@@ -15,11 +15,11 @@
  */
 package io.github.loadup.acquire.app.port;
 
-import io.github.loadup.contracts.payment.ParentFenceDTO;
-import io.github.loadup.contracts.payment.ParentFenceStatusQuery;
-import io.github.loadup.contracts.payment.ParentPaymentFenceCommand;
-import io.github.loadup.contracts.payment.PaymentCloseCommand;
-import io.github.loadup.contracts.payment.PaymentCloseDTO;
+import io.github.loadup.acquire.app.model.payment.command.ParentPaymentFenceCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentCloseCommand;
+import io.github.loadup.acquire.app.model.payment.dto.ParentFenceDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentCloseDTO;
+import io.github.loadup.acquire.app.model.payment.query.ParentFenceStatusQuery;
 
 public interface PaymentClosureClient {
     ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);

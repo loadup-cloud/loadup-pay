@@ -31,8 +31,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.acquire.app.port.CheckoutTokens;
+import io.github.loadup.acquire.client.enums.CheckoutSessionState;
 import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.commons.error.CommonException;
 import java.util.List;
 import java.util.Optional;

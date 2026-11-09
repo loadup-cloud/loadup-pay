@@ -15,25 +15,25 @@
  */
 package io.github.loadup.acquire.app.converter;
 
+import io.github.loadup.acquire.app.model.productcenter.command.OrderAdmissionAuthorizeCommand;
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.FeeTermsDTO;
+import io.github.loadup.acquire.app.model.productcenter.dto.terms.PaymentTermsDTO;
 import io.github.loadup.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.acquire.client.command.CheckoutCreateCommand;
 import io.github.loadup.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.acquire.client.dto.AcquireOrderDTO;
+import io.github.loadup.acquire.client.enums.PaymentProgress;
+import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderAdmissionProof;
 import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.acquire.domain.model.OrderPaymentPolicy;
-import io.github.loadup.acquire.domain.model.PaymentProgress;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.product.FeeTermsDTO;
-import io.github.loadup.contracts.product.PaymentTermsDTO;
-import io.github.loadup.contracts.product.UnpaidOrderAction;
-import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;

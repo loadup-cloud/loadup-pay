@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.IGNORED;
@@ -58,15 +58,15 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecov
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.contracts.model.PaymentActionType;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.payment.PaymentActionDTO;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.payment.app.port.PaymentResultCodec;
+import io.github.loadup.payment.client.dto.PaymentActionDTO;
+import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.payment.client.enums.PaymentActionType;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentControlGateway;

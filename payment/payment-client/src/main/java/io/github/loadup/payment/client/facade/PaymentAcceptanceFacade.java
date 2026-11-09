@@ -16,8 +16,8 @@
 package io.github.loadup.payment.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
+import io.github.loadup.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
 
 /**
  * Durable acceptance only; accepted INIT does not imply a channel submission.

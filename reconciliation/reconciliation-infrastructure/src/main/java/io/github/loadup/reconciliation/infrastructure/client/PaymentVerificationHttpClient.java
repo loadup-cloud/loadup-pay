@@ -21,17 +21,19 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
 import io.github.loadup.payment.client.http.PaymentVerificationHttpService;
-import io.github.loadup.payment.client.query.PaymentVerificationQuery;
-import io.github.loadup.payment.client.support.PaymentEvidenceContracts;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;
+import io.github.loadup.reconciliation.app.model.payment.query.PaymentVerificationQuery;
+import io.github.loadup.reconciliation.app.model.payment.support.PaymentEvidenceContracts;
 import io.github.loadup.reconciliation.app.port.ReconciliationPaymentVerification;
 import io.github.loadup.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
+import io.github.loadup.reconciliation.infrastructure.converter.RemoteContractConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class PaymentVerificationHttpClient implements ReconciliationPaymentVerification {
+    private final RemoteContractConverter contracts;
     private final ReconciliationPaymentProperties properties;
     private final ServiceAccessTokens tokens;
     private final PaymentVerificationHttpService paymentVerificationHttp;
@@ -39,7 +41,9 @@ public class PaymentVerificationHttpClient implements ReconciliationPaymentVerif
     public PaymentVerificationHttpClient(
             PaymentVerificationHttpService paymentVerificationHttp,
             ReconciliationPaymentProperties properties,
-            ServiceAccessTokens tokens) {
+            ServiceAccessTokens tokens,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.paymentVerificationHttp = paymentVerificationHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -51,8 +55,10 @@ public class PaymentVerificationHttpClient implements ReconciliationPaymentVerif
             throw new CommonException(INVALID_STATE);
         }
         try {
-            var value = HttpServiceResponses.requiredData(paymentVerificationHttp.verify(
-                    "Bearer " + tokens.token(properties.serviceId(), properties.audience()), query));
+            var value = HttpServiceResponses.requiredData(
+                    contracts.fromPaymentPaymentVerificationDTOSuccessResponse(paymentVerificationHttp.verify(
+                            "Bearer " + tokens.token(properties.serviceId(), properties.audience()),
+                            contracts.toRemote(query))));
             return PaymentEvidenceContracts.verification(value);
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

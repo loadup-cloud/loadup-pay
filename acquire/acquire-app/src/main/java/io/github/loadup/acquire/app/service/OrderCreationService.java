@@ -26,6 +26,8 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ORDER_
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
+import io.github.loadup.acquire.app.model.productcenter.enums.AdmissionDecision;
 import io.github.loadup.acquire.app.port.OrderAdmissionClient;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.acquire.app.security.AcquireActor;
@@ -49,8 +51,6 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
-import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;

@@ -24,17 +24,19 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.payment.client.dto.PaymentStatementDTO;
 import io.github.loadup.payment.client.http.PaymentStatementHttpService;
-import io.github.loadup.payment.client.query.PaymentStatementQuery;
-import io.github.loadup.payment.client.support.PaymentEvidenceContracts;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentStatementDTO;
+import io.github.loadup.reconciliation.app.model.payment.query.PaymentStatementQuery;
+import io.github.loadup.reconciliation.app.model.payment.support.PaymentEvidenceContracts;
 import io.github.loadup.reconciliation.app.port.ReconciliationPaymentStatements;
 import io.github.loadup.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
+import io.github.loadup.reconciliation.infrastructure.converter.RemoteContractConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class PaymentStatementHttpClient implements ReconciliationPaymentStatements {
+    private final RemoteContractConverter contracts;
     private final ReconciliationPaymentProperties properties;
     private final ServiceAccessTokens tokens;
     private final PaymentStatementHttpService paymentStatementHttp;
@@ -42,7 +44,9 @@ public class PaymentStatementHttpClient implements ReconciliationPaymentStatemen
     public PaymentStatementHttpClient(
             PaymentStatementHttpService paymentStatementHttp,
             ReconciliationPaymentProperties properties,
-            ServiceAccessTokens tokens) {
+            ServiceAccessTokens tokens,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.paymentStatementHttp = paymentStatementHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -54,8 +58,10 @@ public class PaymentStatementHttpClient implements ReconciliationPaymentStatemen
             throw new CommonException(INVALID_STATE);
         }
         try {
-            var value = HttpServiceResponses.requiredData(paymentStatementHttp.download(
-                    "Bearer " + tokens.token(properties.serviceId(), properties.audience()), query));
+            var value = HttpServiceResponses.requiredData(
+                    contracts.fromPaymentPaymentStatementDTOSuccessResponse(paymentStatementHttp.download(
+                            "Bearer " + tokens.token(properties.serviceId(), properties.audience()),
+                            contracts.toRemote(query))));
             return PaymentEvidenceContracts.statement(value);
         } catch (RuntimeException failure) {
             throw new CommonException(

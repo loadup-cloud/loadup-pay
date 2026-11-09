@@ -17,10 +17,10 @@ package io.github.loadup.realtime.client.http;
 
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.OrderSnapshotEventDTO;
-import io.github.loadup.contracts.event.PaymentSnapshotEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
 import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.RequestBody;

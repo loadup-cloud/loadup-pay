@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.client.dto;
 
-import io.github.loadup.acquire.domain.model.PaymentRecoveryState;
+import io.github.loadup.acquire.client.enums.PaymentRecoveryState;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 

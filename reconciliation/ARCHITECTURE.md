@@ -11,4 +11,4 @@ create/attach/start 是独立本地写事务；start 的原 runId 与原生任�
 同一批次不能换源重跑；更正文件/profile 应新建输入和批次。查询与计数处于同一次只读 RR 快照。
 
 `deploy/pay.yml` 读取服务的 ConfigMap 和 Secret；健康检查或 DNS 就绪不代表真实对账通过。
-本轮没有执行构建、脚本、数据库或外部金融调用。详见 [对账设计](../ARCHITECTURE.md)、[当前迁移](reconciliation-infrastructure/src/main/resources/db/migration/V20261027000000__reconciliation_core.sql)。
+本轮没有执行构建、脚本、数据库或外部金融调用。详见 [对账设计](../ARCHITECTURE.md)、[当前迁移](reconciliation-infrastructure/src/main/resources/db/migration/pay/reconciliation/V20261027000000__reconciliation_core.sql)。

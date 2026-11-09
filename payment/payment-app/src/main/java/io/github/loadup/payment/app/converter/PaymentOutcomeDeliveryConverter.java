@@ -17,9 +17,9 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.limitcenter.client.command.LimitConfirmCommand;
-import io.github.loadup.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitConfirmCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitReleaseCommand;
 import io.github.loadup.payment.domain.model.RiskConsultation;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.RiskOutcome;

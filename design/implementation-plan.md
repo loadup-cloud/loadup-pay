@@ -55,37 +55,21 @@
 
 ---
 
-### D2 · 契约耦合：契约隔离 + 兼容性策略，而不是“所有 DTO 放一块”
+### D2 · 契约归提供方，消费方持有本地模型
 
-**先回答“放一块是不是还得改所有应用”**：改一处要改所有应用的根因不是“DTO 放在哪”，而是三件事叠加：
+**结论**：本轮直接全量重构，不保留兼容包名、转发类或历史格式适配。继续使用同一 reactor 发布版本。
 
-1. **传递依赖**：现在 `realtime-client → acquire-client → payment-client → productcenter-client`，且 client 还携带本服务 `domain`，所以改 payment 一个类，会连锁重编译 realtime/acquire。
-2. **破坏性变更**：重命名/删除/改变字段语义，任何共享都会要求所有消费方改逻辑。
-3. **锁步发布**：`up.py all` 整组发布，改一处就必须全体重新构建。
+1. Payment 的命令、查询、响应和错误码归 `payment-client`；Product Center 的条款和准入契约归 `productcenter-client`。
+   Payment 接受请求使用本服务的冻结条款表示，不能通过 DTO 字段传递依赖 Product Center client。
+2. 所有 client 移除 domain 和其他 Pay 服务 client 依赖；公开参数、恢复及执行枚举归本服务 `client.enums`，domain 可以依赖这些纯类型。
+3. 消费方公开表示放在本服务 client，应用端口使用本地 `app.model.<provider>` 模型。其他 Pay 服务 client 仅由 infrastructure 依赖，
+   HTTP 适配器通过 Spring 管理的 MapStruct `RemoteContractConverter` 转换请求、响应、分页及 sealed 子类型。
+4. `pay-contracts-events` 收缩为按发布方分包的七个集成事件和三个公开事件状态枚举；不包含付款请求响应、产品条款或渠道 API 依赖。
+5. 一次性更新生产源码、测试及 Maven 依赖。CI 结构门禁检查 client/app/domain 依赖方向、事件工件职责及 reactor 无环。
 
-所以“放一块”只解决“重复定义”，不解决“传播”。真正解法是下面的四条。
-
-**目标模块结构**：
-
-```text
-loadup-pay/
-├── pay-contracts/                  # 中性契约模块：无 Spring、无 domain、无其它服务依赖
-│   ├── pay-contracts-events/       # 跨服务事件 DTO（payment/refund/order/…快照与结果事件）
-│   └── pay-contracts-common/       # 可选：EventEnvelope 之外的跨服务信封/错误码（或留在 commons）
-├── acquire/acquire-client/         # 只含 acquire 自己的 HTTP 入参/DTO/Facade
-├── payment/payment-client/         # 只含 payment 自己的 HTTP DTO；事件 DTO 移到 pay-contracts-events
-└── …其余服务同理
-```
-
-**四条规则**：
-
-1. **契约隔离**：`*-client` 只依赖 `pay-contracts-*` 与 `commons`，禁止依赖其它服务的 `*-client`，也禁止依赖本服务 `-domain`。谁消费某事件就依赖 `pay-contracts-events`，不经过生产方 client 转手。
-2. **兼容性优先**：跨服务事件与公开 API 一律 **additive/compatible** 演进——新增可选字段允许；重命名/删除/改变类型或语义不允许；破坏性变更必须 `schemaVersion+1` 并显式迁移。把“快速开发、直接迁移调用方”限定在纯内部实现，**契约边界不做破坏性变更**。
-3. **未知字段宽容、类型严格**：事件边界放开 `unknown=true`（明确 allowlist），但金额/时间/枚举/哈希仍严格（现有 JSON 契约测试保留）。这样生产方先加字段，消费方无需任何改动即可滚动共存。
-4. **契约即工件**：`pay-contracts-events` 独立 Maven 版本号；每个消费方锁定构建时的版本；滚动发布让新旧版本共存。加一个 wire-compat 测试（JSON golden file）在 CI 里拦截破坏性变更。
-
-**验收**：`payment-client` 不再被 `realtime-client`/`acquire-client` 传递引入；给某个事件 DTO 加一个可选字段，能证明只重编 `pay-contracts-events` 与其直接消费方，不需要动其它服务逻辑。
-
+**验收**：没有旧 `contracts.payment/product/model` 包或兼容别名；client 无 domain/其他服务 client 依赖；
+消费方 app/domain 不导入远端 client；HTTP 请求响应通过适配层转换，金额、状态、时间、摘要及错误处理不变。
+静态检查与编译、测试、真实调用分别记录，不把已更新源码视为运行验收通过。
 ---
 
 ### D3 · 身份：三平面分开，管理台收敛为 UPMS 单体
@@ -136,20 +120,29 @@ KMS 组件已经有 `local` 和 `openbao` 两个 binder（[README](../../loadup-
 
 ---
 
-### D5 · 数据库迁移：Flyway 归集到应用，组件不再 ship 迁移脚本
+### D5 · 数据库迁移：应用选择迁移命名空间，历史只追加
 
-现状 6 个组件在 JAR 里带 `db/migration`（database、dfs-binder-database、gotone-store-jdbc、delayedtask、globalunique、outbox），升级框架就可能静默改业务库、且版本号跨模块冲突。
+组件 schema 已移到非 Flyway 的 `db/schema`。框架业务模块仍保留正式自动迁移；
+`classpath:db/migration` 会扫描依赖 JAR 中同名位置，不能用它表达“只扫描应用自身”。
 
-**目标**：每个应用拥有**唯一一份有序迁移历史**，落在自己的 `src/main/resources/db/migration`；框架组件只提供 schema 模板，不提供 Flyway 脚本。
+**目标**：每个应用使用一个 Flyway 实例和一份有序迁移历史，显式选择应用自己的目录及获准的框架业务模块目录。
+组件初始快照、Framework 完整初始化文件、后续增量升级分别管理。
 
 **落地**：
 
-1. 框架把组件 DDL 从 `db/migration/` 移到 `src/main/resources/db/schema/<component>.sql`（非 Flyway 目录，Flyway 不会扫）。
-2. 新增 `scripts/gen-migrations.py`：读取应用依赖清单，把所需的 `<component>.sql` 以 `V<timestamp>__<component>.sql` 落进该应用的 `db/migration`（时间戳排序稳定、只包含该应用真正用到的组件）。
-3. 应用 `flyway.locations` 只指向本应用 `classpath:db/migration`，不再隐式扫描依赖 JAR。
-4. CI 加一条 gate（复用 framework 的 `ArchitectureTest` 思路）：断言组件 JAR 不包含 `db/migration` 资源；`gen-migrations.py` 输出与仓库一致（幂等）。
+1. 组件继续提供 `db/schema/<component>.sql`；框架业务迁移使用 `db/migration/framework/<module>/V*.sql`，保留自动执行能力。
+2. Pay 自有迁移及组件快照放在 `db/migration/pay/<app>/`。应用通过 `loadup.flyway.locations` 显式选择这些目录：
+   admin 额外选择 `framework/upms`；notificationcenter 选择 `framework/notification`；reconciliation 选择 `framework/file`、`framework/transfer`。
+   oauth2-server 保留已有独立的 `db/migration/oauth2-server`，由 Spring Boot 管理。禁止配置共享根 `classpath:db/migration`。
+3. `scripts/gen-migrations.py` 仅创建尚未登记的初始组件快照，并以 `scripts/component-migrations.lock.json` 冻结已有快照哈希。
+   修改模板不会覆盖旧版本，移除组件依赖不会删除历史，已登记文件修改或丢失会报错；`--check` 不创建目录、不写文件，也不依赖最新 Framework checkout。
+4. 组件结构升级编写新的 `V<timestamp>__<change>.sql`（包括必要的 ALTER），版本高于当前应用历史；不重新生成或改写已应用版本。
+   新增组件的首次快照须审核版本顺序，已有环境需要升级时直接追加新版本，不把初始模板当作升级脚本。
+5. CI 检查应用 locations 白名单、框架模块目录隔离和冻结快照校验。完整 `framework-schema.sql` 仅用于空 schema 一次性手动初始化，
+   不登记 Flyway 历史；手动导入与自动迁移的基线由部署方明确选择，不自动 repair/baseline。
 
-**验收**：删除本地所有旧构建产物后，`mvnd clean` 下每个应用只执行自己 `db/migration` 里的脚本，无重复 Flyway 版本、无依赖 JAR 带来的脚本；`gen-migrations.py` 可重复运行且结果不变。
+**验收**：新构建的应用只发现自己的命名空间及显式允许的框架模块，无重复版本；已有迁移移动目录后文件名、版本及内容保持不变。
+修改模板或移除依赖不会改写历史，冻结快照变动会被检查拦截。实际 Flyway 空库初始化和已有库升级需分别运行验收，静态检查不代表已通过数据库验证。
 
 ---
 
@@ -225,14 +218,14 @@ KMS 组件已经有 `local` 和 `openbao` 两个 binder（[README](../../loadup-
 
 ---
 
-### Phase 3 · 契约解耦（D2）
+### Phase 3 · 契约所有权重构（D2）
 
-1. 抽 `pay-contracts-events`，把 payment/acquire/… 的跨服务事件 DTO 移入，去掉 `domain` 与其它 client 依赖。
-2. 拆断 client 链：`realtime-client`、`acquire-client` 只依赖 `pay-contracts-events`。
-3. 引入兼容性规则 + wire-compat JSON golden 测试 + `schemaVersion` 演进策略（修复 `requireSource` 硬编码 `==1`）。
-4. 独立版本号 + 滚动发布演练（先加一个可选字段，证明无需动消费方）。
+1. 将公共包里的付款、产品请求响应归还提供方 client，公共事件工件只保留事件和事件状态。
+2. 将对外使用的 domain 枚举移到本服务 client，清除 client 对 domain 的反向依赖。
+3. 消费方使用本地模型，由基础设施 MapStruct Converter 转换；移除 app/domain 对其他 Pay 服务 client 的依赖。
+4. 更新全部调用方和测试，不提供兼容层，不引入独立契约版本发布或历史消息格式分支。
 
-**验收**：依赖图上无 client 链式传递；一次 additive 事件变更无需改动任何消费方即可滚动上线。
+**验收**：结构门禁通过，模块无依赖环，远端类型只出现在适配层；编译、测试和真实运行按独立证据验收。
 
 ---
 
@@ -240,7 +233,7 @@ KMS 组件已经有 `local` 和 `openbao` 两个 binder（[README](../../loadup-
 
 按 D5 四步执行；与 Phase 1 可并行。
 
-**验收**：`gen-migrations.py` 幂等；组件 JAR 无 `db/migration`；每应用单一迁移历史。
+**验收**：`gen-migrations.py --check` 验证冻结历史；组件不携带 Flyway 迁移，业务模块保留独立命名空间的自动迁移；每应用显式选择 locations 并使用单一历史。
 
 ---
 
@@ -272,8 +265,8 @@ KMS 组件已经有 `local` 和 `openbao` 两个 binder（[README](../../loadup-
 | D3a oauth2-server | ✅ 完成 | 目录/包/artifactId/类改名；商户 `MERCHANT_APP`/`MERCHANT` 令牌；`/auth/login` 增加 `principal_type=OPERATOR`；内部服务令牌改为单 scope `internal`（catalog、app 配置、校验规则同步） |
 | D3b admin | ✅ 骨架完成 | 新建 `loadup-pay/admin`，内嵌 UPMS（web+authserver+SAS+KMS）+ merchant/product 管理控制器；删除 merchantmng/productmng；audit/dictionary/file/transfer 工作台模块待接入 |
 | D3c 部署层 | 🟡 部分完成 | scripts/config 改名（oauth2-server/admin）、common.env issuer/token URI、pay.yml Deployment/Service/NetworkPolicy 已更新；真实渲染/部署未验收 |
-| D2 contracts | ✅ 完成 | `pay-contracts-events` 收纳事件、状态枚举、付款动作/交互结果、payment command/query/DTO、product 条款 DTO 树；`acquire-client` 不再依赖 `payment-client`，`payment-client` 不再依赖 `productcenter-client`；仅 `acquire-infrastructure` 保留 `payment-client` 作为 HTTP 传输适配器依赖 |
-| D5 migrations | ✅ 完成 | 6 个组件 DDL 从 `db/migration` 移到 `db/schema`；新增 `scripts/gen-migrations.py`（幂等 + `--check`），已生成 acquire/payment/reconciliation/merchantcenter/productcenter/notificationcenter 的迁移文件 |
+| D2 contracts | 🟡 全量重构源码，运行待验收 | 提供方拥有请求响应，消费方使用本地模型及基础设施 MapStruct 转换；公开枚举归 client；公共事件包只保留事件及事件状态；无兼容层。构建与测试尚未执行 |
+| D5 migrations | 🟡 源码修正，运行待验收 | 应用与框架业务模块按命名空间隔离，自动迁移保留；16 份旧组件快照保持内容，admin 补 Sequence 初始快照；生成器只创建缺失快照，锁文件校验历史，不覆盖或删除；静态检查与实际数据库验收分开记录 |
 | 编译 | ✅ 全量通过 | `mvnd clean test-compile -DskipTests`（pay 52 模块）BUILD SUCCESS；framework 相关模块 BUILD SUCCESS |
 | 测试 | ✅ 全绿 | 全仓 `mvnd test -fae -DskipITs` BUILD SUCCESS；framework `loadup-commons-json` 39/39；覆盖单租户语义、Mockito 重打桩、冻结 digest、微秒时间序列化与持久化拒绝语义 |
 
@@ -283,5 +276,7 @@ KMS 组件已经有 `local` 和 `openbao` 两个 binder（[README](../../loadup-
 
 - **Phase 2 是单体化回摆**：合并 mng 不是“违背微服务”，而是把“无数据库的纯 BFF”从独立进程改回模块，符合“默认模块化单体”原则；center 数据所有权不变，随时可再拆。
 - **契约迁移是一次性批量改动**：涉及多个 client 模块的 import 调整，用 CI + 契约测试兜底，分批提交。
-- **迁移归集会重写历史**：开发库可重建（项目处于快速开发阶段，符合既有约定）；已有环境用一次性手写迁移合并，不做 Flyway repair。
+- **迁移目录调整**：只移动资源位置，保留 SQL 文件名、版本和内容；发布前必须 clean，避免旧路径残留。已有数据库不自动 clean、repair 或 baseline。
+  先发布或安装包含新目录的 Framework 制品，再构建 Pay，避免应用配置与依赖资源版本不匹配。
+  保留数据的环境一律追加升级脚本；回退应用需使用匹配的迁移资源，不能删除已应用历史。
 - **内部鉴权瘦身保留**：本次不彻底去掉 service-auth，避免内部接口裸奔；后续若仍觉过重再评估彻底去掉（届时回退需重新引入令牌链路）。

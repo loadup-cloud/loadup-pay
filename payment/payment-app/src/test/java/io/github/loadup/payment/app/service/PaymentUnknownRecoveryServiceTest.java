@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.payment.domain.model.PaymentRecoveryAttentionLevel.NORMAL;
-import static io.github.loadup.payment.domain.model.PaymentRecoveryAttentionLevel.REVIEW;
-import static io.github.loadup.payment.domain.model.PaymentRecoveryAttentionLevel.URGENT;
-import static io.github.loadup.payment.domain.model.PaymentRecoveryKind.COLLECTION;
-import static io.github.loadup.payment.domain.model.PaymentRecoveryKind.REFUND_REQUEST;
+import static io.github.loadup.payment.client.enums.PaymentRecoveryAttentionLevel.NORMAL;
+import static io.github.loadup.payment.client.enums.PaymentRecoveryAttentionLevel.REVIEW;
+import static io.github.loadup.payment.client.enums.PaymentRecoveryAttentionLevel.URGENT;
+import static io.github.loadup.payment.client.enums.PaymentRecoveryKind.COLLECTION;
+import static io.github.loadup.payment.client.enums.PaymentRecoveryKind.REFUND_REQUEST;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -44,8 +44,8 @@ import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.payment.app.model.UnknownRecoveryWindow;
 import io.github.loadup.payment.app.port.UnknownRecoveryReader;
 import io.github.loadup.payment.app.security.PaymentActor;
+import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.payment.client.query.PaymentUnknownRecoveryQuery;
-import io.github.loadup.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.payment.domain.policy.RecoveryEscalationPolicy;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;

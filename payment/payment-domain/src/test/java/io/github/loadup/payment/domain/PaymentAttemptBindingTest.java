@@ -33,7 +33,7 @@ import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdenti
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentAttemptBinding;
 import io.github.loadup.payment.domain.model.PaymentOrder;

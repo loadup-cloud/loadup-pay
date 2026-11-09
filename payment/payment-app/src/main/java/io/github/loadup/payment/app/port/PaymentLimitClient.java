@@ -15,17 +15,17 @@
  */
 package io.github.loadup.payment.app.port;
 
-import io.github.loadup.limitcenter.client.command.LimitBeginExecutionCommand;
-import io.github.loadup.limitcenter.client.command.LimitConfirmCommand;
-import io.github.loadup.limitcenter.client.command.LimitExecutionVerifyCommand;
-import io.github.loadup.limitcenter.client.command.LimitRefundRestoreCommand;
-import io.github.loadup.limitcenter.client.command.LimitReleaseCommand;
-import io.github.loadup.limitcenter.client.command.LimitReserveCommand;
-import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
-import io.github.loadup.limitcenter.client.dto.LimitExecutionVerificationDTO;
-import io.github.loadup.limitcenter.client.dto.LimitReleaseDTO;
-import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.limitcenter.client.dto.LimitRestoreDTO;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitBeginExecutionCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitConfirmCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitExecutionVerifyCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitRefundRestoreCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitReleaseCommand;
+import io.github.loadup.payment.app.model.limitcenter.command.LimitReserveCommand;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionPermitDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionVerificationDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitReleaseDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
+import io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO;
 
 public interface PaymentLimitClient {
     LimitReservationDTO reserve(LimitReserveCommand command);

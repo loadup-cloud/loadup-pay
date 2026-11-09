@@ -21,31 +21,32 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALI
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.PAYMENT_INPUT_EXPIRED;
 
+import io.github.loadup.acquire.app.model.payment.command.ParentPaymentFenceCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentCloseCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentInputExpireCommand;
+import io.github.loadup.acquire.app.model.payment.command.PaymentInputPrepareCommand;
+import io.github.loadup.acquire.app.model.payment.dto.ParentFenceDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentCloseDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentInputDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentInputExpiryDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentInputLookupDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentOutcomeDTO;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.acquire.app.model.payment.query.ParentFenceStatusQuery;
+import io.github.loadup.acquire.app.model.payment.query.PaymentInputLookupQuery;
 import io.github.loadup.acquire.app.port.PaymentAcceptanceClient;
 import io.github.loadup.acquire.app.port.PaymentClosureClient;
 import io.github.loadup.acquire.app.port.PaymentOutcomeClient;
+import io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO;
 import io.github.loadup.acquire.infrastructure.config.PaymentTransportProperties;
+import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.payment.ParentFenceDTO;
-import io.github.loadup.contracts.payment.ParentFenceStatusQuery;
-import io.github.loadup.contracts.payment.ParentPaymentFenceCommand;
-import io.github.loadup.contracts.payment.PaymentCloseCommand;
-import io.github.loadup.contracts.payment.PaymentCloseDTO;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentInputDTO;
-import io.github.loadup.contracts.payment.PaymentInputExpireCommand;
-import io.github.loadup.contracts.payment.PaymentInputExpiryDTO;
-import io.github.loadup.contracts.payment.PaymentInputLookupDTO;
-import io.github.loadup.contracts.payment.PaymentInputLookupQuery;
-import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
-import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
-import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.payment.client.http.PaymentHttpService;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
@@ -54,12 +55,17 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 public class PaymentAcceptanceHttpClient
         implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
+    private final RemoteContractConverter contracts;
     private final PaymentTransportProperties properties;
     private final ServiceAccessTokens tokens;
     private final PaymentHttpService paymentHttp;
 
     public PaymentAcceptanceHttpClient(
-            PaymentHttpService paymentHttp, ServiceAccessTokens tokens, PaymentTransportProperties properties) {
+            PaymentHttpService paymentHttp,
+            ServiceAccessTokens tokens,
+            PaymentTransportProperties properties,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.paymentHttp = paymentHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -67,37 +73,58 @@ public class PaymentAcceptanceHttpClient
 
     @Override
     public PaymentInputDTO prepareInput(PaymentInputPrepareCommand command) {
-        return exchange(authorization -> paymentHttp.inputPrepare(authorization, command), true);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentInputDTOSuccessResponse(
+                        paymentHttp.inputPrepare(authorization, contracts.toRemote(command))),
+                true);
     }
 
     @Override
     public PaymentInputLookupDTO lookupInput(PaymentInputLookupQuery query) {
-        return exchange(authorization -> paymentHttp.inputLookup(authorization, query), true);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentInputLookupDTOSuccessResponse(
+                        paymentHttp.inputLookup(authorization, contracts.toRemote(query))),
+                true);
     }
 
     @Override
     public PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command) {
-        return exchange(authorization -> paymentHttp.inputExpire(authorization, command), true);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentInputExpiryDTOSuccessResponse(
+                        paymentHttp.inputExpire(authorization, contracts.toRemote(command))),
+                true);
     }
 
     @Override
     public PaymentExecutionDTO accept(PaymentExecuteCommand command) {
-        return exchange(authorization -> paymentHttp.accept(authorization, command), true);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentExecutionDTOSuccessResponse(
+                        paymentHttp.accept(authorization, contracts.toRemote(command))),
+                true);
     }
 
     @Override
     public PaymentExecutionDTO detail(String paymentId) {
-        return exchange(authorization -> paymentHttp.detail(authorization, new IdQuery(paymentId)), false);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentExecutionDTOSuccessResponse(
+                        paymentHttp.detail(authorization, new IdQuery(paymentId))),
+                false);
     }
 
     @Override
     public PaymentOutcomeDTO outcome(String paymentId) {
-        return exchange(authorization -> paymentHttp.outcome(authorization, new IdQuery(paymentId)), false);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentOutcomeDTOSuccessResponse(
+                        paymentHttp.outcome(authorization, new IdQuery(paymentId))),
+                false);
     }
 
     @Override
     public PaymentSettlementFactsDTO facts(String paymentId) {
-        return exchange(authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)), false);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentSettlementFactsDTOSuccessResponse(
+                        paymentHttp.facts(authorization, new IdQuery(paymentId))),
+                false);
     }
 
     @Override
@@ -107,17 +134,26 @@ public class PaymentAcceptanceHttpClient
 
     @Override
     public ParentFenceDTO fenceParent(ParentPaymentFenceCommand command) {
-        return exchange(authorization -> paymentHttp.fenceParent(authorization, command), false);
+        return exchange(
+                authorization -> contracts.fromPaymentParentFenceDTOSuccessResponse(
+                        paymentHttp.fenceParent(authorization, contracts.toRemote(command))),
+                false);
     }
 
     @Override
     public PaymentCloseDTO close(PaymentCloseCommand command) {
-        return exchange(authorization -> paymentHttp.close(authorization, command), false);
+        return exchange(
+                authorization -> contracts.fromPaymentPaymentCloseDTOSuccessResponse(
+                        paymentHttp.close(authorization, contracts.toRemote(command))),
+                false);
     }
 
     @Override
     public ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query) {
-        return exchange(authorization -> paymentHttp.parentFenceStatus(authorization, query), false);
+        return exchange(
+                authorization -> contracts.fromPaymentParentFenceDTOSuccessResponse(
+                        paymentHttp.parentFenceStatus(authorization, contracts.toRemote(query))),
+                false);
     }
 
     private <R> R exchange(Function<String, SuccessResponse<R>> call, boolean guarded) {

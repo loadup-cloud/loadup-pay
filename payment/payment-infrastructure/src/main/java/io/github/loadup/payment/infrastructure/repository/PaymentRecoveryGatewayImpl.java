@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.domain.gateway.PaymentRecoveryGateway;
@@ -76,9 +76,9 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_recovery_cursor (id, created_at, updated_at, deleted, generation, due_at, completed)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :generation, :dueAt, :completed)
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_recovery_cursor (id, created_at, updated_at, deleted, generation, due_at, completed)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :generation, :dueAt, :completed)
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -108,10 +108,10 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
                 .addValue("completed", after.completed())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE payment_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed,
-                    updated_at = :updated WHERE id = :id AND generation = :expected
-                    AND completed = FALSE AND deleted = FALSE
-                """, args);
+            UPDATE payment_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed,
+                updated_at = :updated WHERE id = :id AND generation = :expected
+                AND completed = FALSE AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

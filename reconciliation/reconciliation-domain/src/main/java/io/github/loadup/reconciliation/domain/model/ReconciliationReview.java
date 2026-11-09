@@ -21,6 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewState;
 import java.util.Objects;
 
 /**

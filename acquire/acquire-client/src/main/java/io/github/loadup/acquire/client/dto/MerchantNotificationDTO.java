@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.client.dto;
 
-import io.github.loadup.acquire.domain.model.MerchantNotificationState;
+import io.github.loadup.acquire.client.enums.MerchantNotificationState;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;

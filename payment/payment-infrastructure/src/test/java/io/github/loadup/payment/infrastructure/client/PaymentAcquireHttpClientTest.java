@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.infrastructure.client;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,8 +28,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import io.github.loadup.acquire.client.dto.FeeRefundAckDTO;
-import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.acquire.client.http.AcquireHttpService;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
@@ -37,10 +35,12 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO;
 import io.github.loadup.payment.infrastructure.config.PaymentAcquireProperties;
+import io.github.loadup.payment.infrastructure.converter.RemoteContractConverter;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -50,8 +50,12 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -112,15 +116,40 @@ class PaymentAcquireHttpClientTest {
     @BeforeEach
     void setup() throws Exception {
         token(claims());
+        var contracts = remoteContracts();
         client = new PaymentAcquireHttpClient(
-                acquireHttp, (service, audience) -> credential, new PaymentAcquireProperties("payment", "acquire"));
+                acquireHttp,
+                (service, audience) -> credential,
+                new PaymentAcquireProperties("payment", "acquire"),
+                contracts);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(
-                            new PaymentOutcomeAckDTO("delivery", "proof", "payment", 2, "proof", 3, true));
+                    return SuccessResponse.of(new io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO(
+                            "delivery", "proof", "payment", 2, "proof", 3, true));
                 })
                 .when(acquireHttp)
                 .paymentOutcome(anyString(), any());
+    }
+
+    private RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
     }
 
     @Test
@@ -144,7 +173,10 @@ class PaymentAcquireHttpClientTest {
                 OffsetDateTime.now(clock),
                 new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
         var ack = new FeeRefundAckDTO("fee-delivery", "fee-business", "order", 3, 4, true);
-        doAnswer(invocation -> SuccessResponse.of(ack)).when(acquireHttp).feeRefund(anyString(), any());
+        doAnswer(invocation -> SuccessResponse.of(new io.github.loadup.acquire.client.dto.FeeRefundAckDTO(
+                        "fee-delivery", "fee-business", "order", 3, 4, true)))
+                .when(acquireHttp)
+                .feeRefund(anyString(), any());
         assertEquals(ack, client.acceptFeeRefund(fee));
         verify(acquireHttp).feeRefund(anyString(), any());
     }

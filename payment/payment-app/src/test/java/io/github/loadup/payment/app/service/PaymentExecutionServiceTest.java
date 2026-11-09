@@ -15,7 +15,7 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -45,12 +45,12 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentRecov
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.payment.app.model.PaymentResultApplication;
 import io.github.loadup.payment.app.model.PaymentSubmissionTicket;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;

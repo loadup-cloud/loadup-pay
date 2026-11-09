@@ -16,9 +16,9 @@
 package io.github.loadup.acquire.client.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.github.loadup.acquire.client.dto.payment.PaymentActionDTO;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.payment.PaymentActionDTO;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
@@ -36,12 +36,14 @@ public record CashierPaymentDTO(
         @Schema(description = "Payment state; null only for proven non-acceptance")
         PaymentState state,
 
-        @Schema(description = "Verified launch action, if ready") @Valid PaymentActionDTO action,
+        @Schema(description = "Verified launch action, if ready") @Valid
+        PaymentActionDTO action,
 
         @Schema(description = "Payment source version, absent for proven non-acceptance")
         Long version,
 
-        @Schema(description = "Current safe order summary") @Valid CashierOrderDTO order) {
+        @Schema(description = "Current safe order summary") @Valid
+        CashierOrderDTO order) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

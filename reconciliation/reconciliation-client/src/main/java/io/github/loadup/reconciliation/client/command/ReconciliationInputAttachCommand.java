@@ -16,7 +16,7 @@
 package io.github.loadup.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,12 +26,16 @@ import jakarta.validation.constraints.Size;
  * Artifact identity must resolve to approved complete import/export evidence, not an arbitrary uploaded file.
  */
 public record ReconciliationInputAttachCommand(
-        @Schema(description = "Reconciliation batch id") @NotBlank @Size(max = 64) String batchId,
+        @Schema(description = "Reconciliation batch id") @NotBlank @Size(max = 64)
+        String batchId,
 
-        @Schema(description = "Channel statement or authoritative local export") @NotNull ReconciliationSide side,
+        @Schema(description = "Channel statement or authoritative local export") @NotNull
+        ReconciliationSide side,
 
         @Schema(description = "Sealed artifact id issued by the trusted ingestion/export adapter")
-        @NotBlank @Size(max = 64) String artifactId) {
+        @NotBlank
+        @Size(max = 64)
+        String artifactId) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

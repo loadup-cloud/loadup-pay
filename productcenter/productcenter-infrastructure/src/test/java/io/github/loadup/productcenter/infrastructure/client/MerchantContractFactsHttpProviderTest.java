@@ -28,17 +28,43 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.merchantcenter.client.http.MerchantProfileHttpService;
+import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class MerchantContractFactsHttpProviderTest {
     private final MerchantProfileHttpService remote = mock(MerchantProfileHttpService.class);
     private final ServiceAccessTokens tokens = mock(ServiceAccessTokens.class);
+    private final RemoteContractConverter contracts = remoteContracts();
     private final MerchantContractFactsHttpProvider provider =
-            new MerchantContractFactsHttpProvider(remote, tokens, "merchantcenter");
+            new MerchantContractFactsHttpProvider(remote, tokens, "merchantcenter", contracts);
+
+    private static RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
+    }
 
     @AfterEach
     void clear() {
@@ -49,8 +75,8 @@ class MerchantContractFactsHttpProviderTest {
     void usesDedicatedServiceCredentialAndOnlyReturnsVerifiedFacts() {
         when(tokens.token("productcenter", "merchantcenter")).thenReturn("service-token");
         when(remote.profile("Bearer service-token", new IdQuery("merchant")))
-                .thenReturn(SuccessResponse.of(
-                        new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, "", true)));
+                .thenReturn(SuccessResponse.of(new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
+                        "merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, "", true)));
         var facts = provider.load("merchant");
         assertThat(facts.active()).isTrue();
         assertThat(facts.facts())
@@ -62,12 +88,12 @@ class MerchantContractFactsHttpProviderTest {
     void rejectsMismatchedMerchantAndNeverPromotesInactiveMerchant() {
         when(tokens.token("productcenter", "merchantcenter")).thenReturn("service-token");
         when(remote.profile(anyString(), any()))
-                .thenReturn(SuccessResponse.of(
-                        new MerchantProfileDTO("other", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true)));
+                .thenReturn(SuccessResponse.of(new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
+                        "other", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true)));
         assertThatThrownBy(() -> provider.load("merchant")).isInstanceOf(CommonException.class);
         when(remote.profile(anyString(), any()))
-                .thenReturn(SuccessResponse.of(
-                        new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, false)));
+                .thenReturn(SuccessResponse.of(new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
+                        "merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, false)));
         assertThat(provider.load("merchant").active()).isFalse();
     }
 

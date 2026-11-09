@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
@@ -42,10 +42,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Repository
 public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper, PaymentAttemptDO>
         implements PaymentAttemptGateway {
-    private static final String COLUMNS = "id, created_at, updated_at, payment_id, attempt_no, amount_minor, currency, "
-            + "binding_revision_id, channel, access_mode, account_scope_hash, method, channel_request_no, state, execution_epoch, "
-            + "no_collection_evidence_id, limit_operation_id, caller_service_id, request_key, request_digest, payment_request_digest, "
-            + "prepared_input_ref, risk_decision, risk_reason, risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version";
+    private static final String COLUMNS = "id, created_at, updated_at, payment_id, attempt_no, amount_minor, currency,"
+            + " binding_revision_id, channel, access_mode, account_scope_hash, method, channel_request_no, state,"
+            + " execution_epoch, no_collection_evidence_id, limit_operation_id, caller_service_id, request_key,"
+            + " request_digest, payment_request_digest, prepared_input_ref, risk_decision, risk_reason,"
+            + " risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final ChannelBindingGateway bindings;
     private final PaymentAttemptStorageConverter converter;
@@ -144,18 +145,18 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_attempt (id, created_at, updated_at, deleted, payment_id, attempt_no,
-                    amount_minor, currency, binding_revision_id, channel, access_mode, account_scope_hash, method,
-                    channel_request_no, state, execution_epoch, no_collection_evidence_id, limit_operation_id,
-                    caller_service_id, request_key, request_digest, payment_request_digest, prepared_input_ref,
-                    risk_decision, risk_reason, risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptNo, :amountMinor, :currency,
-                    :bindingRevisionId, :channel, :accessMode, :accountScopeHash, :method, :channelRequestNo, :state,
-                    :executionEpoch, :noCollectionEvidenceId, :limitOperationId, :callerServiceId, :requestKey, :requestDigest,
-                    :paymentRequestDigest, :preparedInputRef, :riskDecision, :riskReason, :riskConsultationRef,
-                    :executionPermitHash, :preparedAt, :submissionStartedAt, :rowVersion)
-                ON CONFLICT (payment_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO payment_attempt (id, created_at, updated_at, deleted, payment_id, attempt_no,
+                amount_minor, currency, binding_revision_id, channel, access_mode, account_scope_hash, method,
+                channel_request_no, state, execution_epoch, no_collection_evidence_id, limit_operation_id,
+                caller_service_id, request_key, request_digest, payment_request_digest, prepared_input_ref,
+                risk_decision, risk_reason, risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptNo, :amountMinor, :currency,
+                :bindingRevisionId, :channel, :accessMode, :accountScopeHash, :method, :channelRequestNo, :state,
+                :executionEpoch, :noCollectionEvidenceId, :limitOperationId, :callerServiceId, :requestKey, :requestDigest,
+                :paymentRequestDigest, :preparedInputRef, :riskDecision, :riskReason, :riskConsultationRef,
+                :executionPermitHash, :preparedAt, :submissionStartedAt, :rowVersion)
+            ON CONFLICT (payment_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new PaymentWriteConflictException("Payment attempt request key already exists");
         }
@@ -186,11 +187,11 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
                 .addValue("version", row.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE payment_attempt SET state = :state, execution_epoch = :epoch, no_collection_evidence_id = :evidence,
-                    risk_decision = :decision, risk_reason = :reason, risk_consultation_ref = :consultation,
-                    execution_permit_hash = :permit, submission_started_at = :started, row_version = :version, updated_at = :updated
-                WHERE id = :id AND payment_id = :payment AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE payment_attempt SET state = :state, execution_epoch = :epoch, no_collection_evidence_id = :evidence,
+                risk_decision = :decision, risk_reason = :reason, risk_consultation_ref = :consultation,
+                execution_permit_hash = :permit, submission_started_at = :started, row_version = :version, updated_at = :updated
+            WHERE id = :id AND payment_id = :payment AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.client.support;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
-import io.github.loadup.payment.domain.model.PaymentCaptureState;
-import io.github.loadup.payment.domain.model.PaymentLedgerKind;
+import io.github.loadup.payment.client.enums.PaymentCaptureState;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

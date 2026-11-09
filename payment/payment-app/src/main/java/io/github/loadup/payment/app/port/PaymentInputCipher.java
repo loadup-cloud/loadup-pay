@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.port;
 
-import io.github.loadup.contracts.payment.PaymentInputPrepareCommand;
-import io.github.loadup.contracts.payment.PaymentInteractionDTO;
+import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.payment.client.dto.PaymentInteractionDTO;
 import io.github.loadup.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.payment.domain.model.PaymentInput;
 import java.time.Duration;

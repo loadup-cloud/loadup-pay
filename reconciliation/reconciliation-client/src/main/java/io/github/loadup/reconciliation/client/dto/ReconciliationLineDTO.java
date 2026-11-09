@@ -17,7 +17,7 @@ package io.github.loadup.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationEntryStatus;
+import io.github.loadup.reconciliation.client.enums.ReconciliationEntryStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationLineDTO(

@@ -30,23 +30,25 @@ import io.github.loadup.commons.result.PageInfo;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.contracts.payment.PaymentResultCodeEnum;
-import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.payment.client.http.PaymentCaptureHttpService;
 import io.github.loadup.payment.client.http.PaymentCapturePageResponse;
 import io.github.loadup.payment.client.http.PaymentStatementHttpService;
-import io.github.loadup.payment.client.query.PaymentCaptureLinesQuery;
-import io.github.loadup.payment.domain.model.PaymentLedgerKind;
-import io.github.loadup.payment.domain.model.PaymentLedgerStatus;
+import io.github.loadup.reconciliation.app.model.payment.error.PaymentResultCodeEnum;
+import io.github.loadup.reconciliation.app.model.payment.query.PaymentCaptureLinesQuery;
 import io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
+import io.github.loadup.reconciliation.infrastructure.converter.RemoteContractConverter;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -55,6 +57,7 @@ class PaymentEvidenceHttpClientTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-02T04:00:00Z"), ZoneOffset.UTC);
     private final PaymentCaptureHttpService captures = mock(PaymentCaptureHttpService.class);
     private final PaymentStatementHttpService statements = mock(PaymentStatementHttpService.class);
+    private RemoteContractConverter contracts;
 
     private PaymentCaptureHttpClient captureClient;
     private PaymentStatementHttpClient statementClient;
@@ -63,8 +66,30 @@ class PaymentEvidenceHttpClientTest {
     void start() throws Exception {
         ServiceAccessTokens tokens = (service, audience) -> "header.payload.signature";
         var properties = new ReconciliationPaymentProperties("reconciliation", "payment");
-        captureClient = new PaymentCaptureHttpClient(captures, properties, tokens);
-        statementClient = new PaymentStatementHttpClient(statements, properties, tokens);
+        contracts = remoteContracts();
+        captureClient = new PaymentCaptureHttpClient(captures, properties, tokens, contracts);
+        statementClient = new PaymentStatementHttpClient(statements, properties, tokens, contracts);
+    }
+
+    private RemoteContractConverter remoteContracts() {
+        var reference = new AtomicReference<RemoteContractConverter>();
+        new ApplicationContextRunner()
+                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
+                        .registerBeanDefinition(
+                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
+                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+        return reference.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends RemoteContractConverter> remoteContractConverterType() {
+        try {
+            return (Class<? extends RemoteContractConverter>)
+                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+        } catch (ClassNotFoundException missingGeneratedMapper) {
+            throw new IllegalStateException(
+                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+        }
     }
 
     @Test
@@ -77,15 +102,15 @@ class PaymentEvidenceHttpClientTest {
                 ReconciliationResultCodeEnum.INPUT_NOT_SEALED,
                 assertThrows(CommonException.class, () -> captureClient.lines(query))
                         .getResultCode());
-        var row = new PaymentLedgerLineDTO(
+        var row = new io.github.loadup.payment.client.dto.PaymentLedgerLineDTO(
                 1,
-                PaymentLedgerKind.PAYMENT,
+                io.github.loadup.payment.client.enums.PaymentLedgerKind.PAYMENT,
                 "channel",
                 null,
                 "merchant-payment",
                 100,
                 "CNY",
-                PaymentLedgerStatus.SUCCEEDED,
+                io.github.loadup.payment.client.enums.PaymentLedgerStatus.SUCCEEDED,
                 OffsetDateTime.now(clock),
                 "payment",
                 "receipt",

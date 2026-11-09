@@ -51,8 +51,8 @@ import io.github.loadup.reconciliation.client.command.ReconciliationChannelImpor
 import io.github.loadup.reconciliation.client.command.ReconciliationImportRetryCommand;
 import io.github.loadup.reconciliation.client.dto.ReconciliationImportDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationSourceFileDTO;
+import io.github.loadup.reconciliation.client.enums.ReconciliationImportState;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
-import io.github.loadup.reconciliation.domain.model.ReconciliationImportState;
 import io.github.loadup.reconciliation.domain.model.ReconciliationMatcher;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;

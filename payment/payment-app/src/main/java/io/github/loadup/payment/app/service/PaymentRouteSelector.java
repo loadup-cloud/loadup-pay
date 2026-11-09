@@ -15,16 +15,16 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
+import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.payment.domain.gateway.RoutingProfileGateway;
 import io.github.loadup.payment.domain.model.RoutingRule;

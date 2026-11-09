@@ -16,10 +16,10 @@
 package io.github.loadup.payment.app.port;
 
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.RefundMerchantEventDTO;
-import io.github.loadup.contracts.event.RefundOutcomeEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
+import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
 
 public interface RefundProjectionEnvelopeCodec {
     EventEnvelope<RefundSnapshotEventDTO> child(String payload);

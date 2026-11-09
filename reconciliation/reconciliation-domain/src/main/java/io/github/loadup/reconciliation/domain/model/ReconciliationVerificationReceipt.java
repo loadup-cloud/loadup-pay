@@ -21,6 +21,9 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
+import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationDisposition;
+import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationOutcome;
 import java.util.Set;
 
 /**

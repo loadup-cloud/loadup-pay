@@ -15,7 +15,7 @@
  */
 package io.github.loadup.acquire.app.port;
 
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import java.util.Set;
 
 /**

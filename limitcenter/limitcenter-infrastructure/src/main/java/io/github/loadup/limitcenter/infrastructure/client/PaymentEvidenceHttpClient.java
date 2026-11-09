@@ -23,10 +23,11 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.contracts.payment.PaymentSettlementFactsDTO;
+import io.github.loadup.limitcenter.app.model.payment.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.limitcenter.app.model.payment.dto.RefundSettlementFactsDTO;
 import io.github.loadup.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.limitcenter.infrastructure.config.PaymentEvidenceProperties;
-import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;
+import io.github.loadup.limitcenter.infrastructure.converter.RemoteContractConverter;
 import io.github.loadup.payment.client.http.PaymentHttpService;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
@@ -34,12 +35,17 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
+    private final RemoteContractConverter contracts;
     private final ServiceAccessTokens tokens;
     private final PaymentEvidenceProperties properties;
     private final PaymentHttpService paymentHttp;
 
     public PaymentEvidenceHttpClient(
-            PaymentHttpService paymentHttp, ServiceAccessTokens tokens, PaymentEvidenceProperties properties) {
+            PaymentHttpService paymentHttp,
+            ServiceAccessTokens tokens,
+            PaymentEvidenceProperties properties,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.paymentHttp = paymentHttp;
         this.tokens = tokens;
         this.properties = properties;
@@ -47,12 +53,14 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
 
     @Override
     public PaymentSettlementFactsDTO paymentFacts(String paymentId) {
-        return exchange(authorization -> paymentHttp.facts(authorization, new IdQuery(paymentId)));
+        return exchange(authorization -> contracts.fromPaymentPaymentSettlementFactsDTOSuccessResponse(
+                paymentHttp.facts(authorization, new IdQuery(paymentId))));
     }
 
     @Override
     public RefundSettlementFactsDTO refundFacts(String refundId) {
-        return exchange(authorization -> paymentHttp.refundFacts(authorization, new IdQuery(refundId)));
+        return exchange(authorization -> contracts.fromPaymentRefundSettlementFactsDTOSuccessResponse(
+                paymentHttp.refundFacts(authorization, new IdQuery(refundId))));
     }
 
     private <R> R exchange(Function<String, SuccessResponse<R>> call) {

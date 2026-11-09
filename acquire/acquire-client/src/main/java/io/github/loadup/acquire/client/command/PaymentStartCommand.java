@@ -15,11 +15,11 @@
  */
 package io.github.loadup.acquire.client.command;
 
+import io.github.loadup.acquire.client.dto.payment.NoInteractionDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.payment.NoInteractionDTO;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
-import io.github.loadup.contracts.payment.PaymentInteractionDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -28,18 +28,22 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record PaymentStartCommand(
-        @Schema(description = "Order id") @NotBlank @Size(max = 64) String orderId,
+        @Schema(description = "Order id") @NotBlank @Size(max = 64)
+        String orderId,
 
-        @Schema(description = "Action key") @NotBlank @Size(max = 128) String actionKey,
+        @Schema(description = "Action key") @NotBlank @Size(max = 128)
+        String actionKey,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
 
         @Schema(
                 description =
-                        "Payer input: scanner code for PAYMENT_CODE, resolved channel identity for JSAPI, H5_SCENE with actual terminal IP and scene for WeChat H5",
+                        "Payer input: scanner code for PAYMENT_CODE, resolved channel identity for JSAPI, H5_SCENE"
+                                + " with actual terminal IP and scene for WeChat H5",
                 accessMode = Schema.AccessMode.WRITE_ONLY)
-        @Valid @DiagnosticHidden
+        @Valid
+        @DiagnosticHidden
         PaymentInteractionDTO interaction) {
     public PaymentStartCommand {
         if (interaction == null) {

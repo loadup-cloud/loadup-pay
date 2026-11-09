@@ -37,7 +37,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.realtime.app.port.TradeProjectionCodec;
 import io.github.loadup.realtime.app.security.RealtimeActor;

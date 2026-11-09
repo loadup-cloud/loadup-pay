@@ -15,17 +15,17 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentCaptureReader;
-import io.github.loadup.payment.domain.model.PaymentCaptureBlocker;
+import io.github.loadup.payment.client.enums.PaymentCaptureBlocker;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
 import io.github.loadup.payment.domain.model.PaymentCaptureRead;
 import io.github.loadup.payment.domain.model.PaymentCaptureScope;
-import io.github.loadup.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.payment.infrastructure.converter.PaymentCaptureSourceConverter;
 import io.github.loadup.payment.infrastructure.dataobject.ChannelBindingRevisionDO;
@@ -60,8 +60,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Repository
 public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
-    private static final String CLAIM_COLUMNS = "id, created_at, updated_at, payment_id, attempt_id, channel, "
-            + "binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency, channel_transaction_no, succeeded_at, receipt_id";
+    private static final String CLAIM_COLUMNS = "id, created_at, updated_at, payment_id, attempt_id, channel,"
+            + " binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency,"
+            + " channel_transaction_no, succeeded_at, receipt_id";
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentCaptureSourceConverter converter;
     private final Clock clock;
@@ -99,9 +100,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash());
         if (jdbc.query("""
-                SELECT id FROM channel_binding_revision WHERE deleted = FALSE
-                    AND channel = :channel AND account_scope_hash = :scope LIMIT 1
-                """, scopeArgs, (rs, index) -> rs.getString("id")).isEmpty()) {
+            SELECT id FROM channel_binding_revision WHERE deleted = FALSE
+                AND channel = :channel AND account_scope_hash = :scope LIMIT 1
+            """, scopeArgs, (rs, index) -> rs.getString("id")).isEmpty()) {
             return blocked(scope, started, PaymentCaptureBlocker.ACCOUNT_SCOPE_UNKNOWN, scope.accountScopeHash());
         }
         var unresolved = unresolvedCollection(scope);
@@ -123,9 +124,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("end", scope.windowEnd())
                 .addValue("limit", maxRecords + 1);
         var collectionRows = jdbc.query(
-                "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim "
-                        + "WHERE deleted = FALSE AND channel = :channel AND account_scope_hash = :scope "
-                        + "AND succeeded_at >= :start AND succeeded_at < :end ORDER BY succeeded_at ASC, id ASC LIMIT :limit",
+                "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE deleted = FALSE AND channel ="
+                        + " :channel AND account_scope_hash = :scope AND succeeded_at >= :start AND"
+                        + " succeeded_at < :end ORDER BY succeeded_at ASC, id ASC LIMIT :limit",
                 collectionArgs,
                 BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class));
         if (collectionRows.size() > maxRecords) {
@@ -142,12 +143,12 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("end", scope.windowEnd())
                 .addValue("limit", maxRecords - collectionRows.size() + 1);
         var refundRows = jdbc.query("""
-                SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
-                       account_scope_hash, channel_request_no, original_channel_transaction_no, channel_refund_no,
-                       amount_minor, currency, accepted_at, receipt_id FROM refund_acceptance_evidence
-                WHERE deleted = FALSE AND channel = :channel AND account_scope_hash = :scope
-                    AND accepted_at >= :start AND accepted_at < :end ORDER BY accepted_at ASC, id ASC LIMIT :limit
-                """, refundArgs, BeanPropertyRowMapper.newInstance(RefundAcceptanceDO.class));
+            SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
+                   account_scope_hash, channel_request_no, original_channel_transaction_no, channel_refund_no,
+                   amount_minor, currency, accepted_at, receipt_id FROM refund_acceptance_evidence
+            WHERE deleted = FALSE AND channel = :channel AND account_scope_hash = :scope
+                AND accepted_at >= :start AND accepted_at < :end ORDER BY accepted_at ASC, id ASC LIMIT :limit
+            """, refundArgs, BeanPropertyRowMapper.newInstance(RefundAcceptanceDO.class));
         if (collectionRows.size() + refundRows.size() > maxRecords) {
             return blocked(
                     scope,
@@ -187,13 +188,13 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("scope", scope.accountScopeHash())
                 .addValue("end", scope.windowEnd());
         return jdbc.query("""
-                SELECT p.id FROM payment_attempt p LEFT JOIN channel_transaction_claim c
-                    ON c.attempt_id = p.id AND c.deleted = FALSE
-                WHERE p.deleted = FALSE AND p.channel = :channel
-                    AND p.account_scope_hash = :scope AND p.submission_started_at IS NOT NULL
-                    AND p.submission_started_at < :end AND p.no_collection_evidence_id IS NULL AND c.id IS NULL
-                ORDER BY p.submission_started_at ASC, p.id ASC LIMIT 1
-                """, args, BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class)).stream()
+            SELECT p.id FROM payment_attempt p LEFT JOIN channel_transaction_claim c
+                ON c.attempt_id = p.id AND c.deleted = FALSE
+            WHERE p.deleted = FALSE AND p.channel = :channel
+                AND p.account_scope_hash = :scope AND p.submission_started_at IS NOT NULL
+                AND p.submission_started_at < :end AND p.no_collection_evidence_id IS NULL AND c.id IS NULL
+            ORDER BY p.submission_started_at ASC, p.id ASC LIMIT 1
+            """, args, BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
     }
@@ -204,12 +205,12 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("scope", scope.accountScopeHash())
                 .addValue("end", scope.windowEnd());
         return jdbc.query("""
-                SELECT r.id FROM refund_order r LEFT JOIN refund_acceptance_evidence a
-                    ON a.id = r.id AND a.deleted = FALSE
-                WHERE r.deleted = FALSE AND r.channel = :channel AND r.account_scope_hash = :scope
-                    AND r.submission_started_at IS NOT NULL AND r.submission_started_at < :end AND a.id IS NULL
-                ORDER BY r.submission_started_at ASC, r.id ASC LIMIT 1
-                """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
+            SELECT r.id FROM refund_order r LEFT JOIN refund_acceptance_evidence a
+                ON a.id = r.id AND a.deleted = FALSE
+            WHERE r.deleted = FALSE AND r.channel = :channel AND r.account_scope_hash = :scope
+                AND r.submission_started_at IS NOT NULL AND r.submission_started_at < :end AND a.id IS NULL
+            ORDER BY r.submission_started_at ASC, r.id ASC LIMIT 1
+            """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);
     }
@@ -220,12 +221,12 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("scope", scope.accountScopeHash())
                 .addValue("end", scope.windowEnd());
         return jdbc.query("""
-                SELECT r.id FROM refund_order r JOIN refund_result_anomaly a
-                    ON a.refund_id = r.id AND a.deleted = FALSE
-                WHERE r.deleted = FALSE AND r.channel = :channel AND r.account_scope_hash = :scope
-                    AND r.submission_started_at IS NOT NULL AND r.submission_started_at < :end
-                    AND a.reason_code = 'REFUND_ACCEPTANCE_TIME_CONFLICT' LIMIT 1
-                """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
+            SELECT r.id FROM refund_order r JOIN refund_result_anomaly a
+                ON a.refund_id = r.id AND a.deleted = FALSE
+            WHERE r.deleted = FALSE AND r.channel = :channel AND r.account_scope_hash = :scope
+                AND r.submission_started_at IS NOT NULL AND r.submission_started_at < :end
+                AND a.reason_code = 'REFUND_ACCEPTANCE_TIME_CONFLICT' LIMIT 1
+            """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);
     }
@@ -243,9 +244,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                                 .map(ChannelTransactionClaimDO::getAttemptId)
                                 .toList());
         var attemptRows = index(jdbc.query("""
-                SELECT id, payment_id, state, binding_revision_id, channel, account_scope_hash, channel_request_no,
-                       amount_minor, currency FROM payment_attempt WHERE deleted = FALSE AND id IN (:ids)
-                """, args, BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class)));
+            SELECT id, payment_id, state, binding_revision_id, channel, account_scope_hash, channel_request_no,
+                   amount_minor, currency FROM payment_attempt WHERE deleted = FALSE AND id IN (:ids)
+            """, args, BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class)));
         var bindingArgs = new MapSqlParameterSource()
                 .addValue(
                         "ids",
@@ -254,9 +255,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                                 .toList());
         var bindings =
                 index(jdbc.query("""
-                SELECT id, channel, account_scope_hash, payee_merchant_id FROM channel_binding_revision
-                WHERE deleted = FALSE AND id IN (:ids)
-                """, bindingArgs, BeanPropertyRowMapper.newInstance(ChannelBindingRevisionDO.class)));
+                    SELECT id, channel, account_scope_hash, payee_merchant_id FROM channel_binding_revision
+                    WHERE deleted = FALSE AND id IN (:ids)
+                    """, bindingArgs, BeanPropertyRowMapper.newInstance(ChannelBindingRevisionDO.class)));
         var receiptArgs = new MapSqlParameterSource()
                 .addValue(
                         "ids",
@@ -265,9 +266,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                                 .toList());
         var proof =
                 index(jdbc.query("""
-                SELECT id, payment_id, attempt_id, channel, account_scope_hash, binding_revision_id, channel_request_no, disposition
-                FROM payment_channel_receipt WHERE deleted = FALSE AND id IN (:ids)
-                """, receiptArgs, BeanPropertyRowMapper.newInstance(PaymentChannelReceiptDO.class)));
+                    SELECT id, payment_id, attempt_id, channel, account_scope_hash, binding_revision_id, channel_request_no, disposition
+                    FROM payment_channel_receipt WHERE deleted = FALSE AND id IN (:ids)
+                    """, receiptArgs, BeanPropertyRowMapper.newInstance(PaymentChannelReceiptDO.class)));
         for (var claim : group) {
             var root = required(roots, claim.getPaymentId());
             var attempt = required(attemptRows, claim.getAttemptId());
@@ -312,11 +313,11 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         var childArgs = new MapSqlParameterSource()
                 .addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
         var children = index(jdbc.query("""
-                SELECT id, payment_id, original_attempt_id, channel, binding_revision_id, account_scope_hash,
-                       original_channel_request_no, original_channel_transaction_no, original_succeeded_at, channel_refund_no,
-                       amount_minor, currency, state, row_version, terminal_evidence_id, channel_refund_transaction_no, succeeded_at
-                FROM refund_order WHERE deleted = FALSE AND id IN (:ids)
-                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)));
+            SELECT id, payment_id, original_attempt_id, channel, binding_revision_id, account_scope_hash,
+                   original_channel_request_no, original_channel_transaction_no, original_succeeded_at, channel_refund_no,
+                   amount_minor, currency, state, row_version, terminal_evidence_id, channel_refund_transaction_no, succeeded_at
+            FROM refund_order WHERE deleted = FALSE AND id IN (:ids)
+            """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)));
         var roots =
                 paymentMap(group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
         var originalArgs = new MapSqlParameterSource()
@@ -337,11 +338,11 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
         var terminalClaims = unique(
                 jdbc.query("""
-                SELECT id, refund_id, payment_id, attempt_id, channel, binding_revision_id, account_scope_hash,
-                       channel_request_no, original_channel_transaction_no, channel_refund_no, amount_minor, currency,
-                       channel_refund_transaction_no, succeeded_at, receipt_id FROM refund_transaction_claim
-                WHERE deleted = FALSE AND refund_id IN (:ids)
-                """, terminalArgs, BeanPropertyRowMapper.newInstance(RefundTransactionClaimDO.class)),
+                    SELECT id, refund_id, payment_id, attempt_id, channel, binding_revision_id, account_scope_hash,
+                           channel_request_no, original_channel_transaction_no, channel_refund_no, amount_minor, currency,
+                           channel_refund_transaction_no, succeeded_at, receipt_id FROM refund_transaction_claim
+                    WHERE deleted = FALSE AND refund_id IN (:ids)
+                    """, terminalArgs, BeanPropertyRowMapper.newInstance(RefundTransactionClaimDO.class)),
                 RefundTransactionClaimDO::getRefundId);
         var receiptIds = new HashSet<String>();
         group.forEach(row -> receiptIds.add(row.getReceiptId()));
@@ -353,9 +354,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         var receiptArgs = new MapSqlParameterSource().addValue("ids", receiptIds);
         var proof =
                 index(jdbc.query("""
-                SELECT id, refund_id, disposition FROM refund_channel_receipt
-                WHERE deleted = FALSE AND id IN (:ids)
-                """, receiptArgs, BeanPropertyRowMapper.newInstance(RefundChannelReceiptDO.class)));
+                    SELECT id, refund_id, disposition FROM refund_channel_receipt
+                    WHERE deleted = FALSE AND id IN (:ids)
+                    """, receiptArgs, BeanPropertyRowMapper.newInstance(RefundChannelReceiptDO.class)));
         for (var date : group) {
             var child = required(children, date.getId());
             var root = required(roots, date.getPaymentId());
@@ -435,10 +436,10 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         }
         var args = new MapSqlParameterSource().addValue("ids", ids);
         return index(jdbc.query("""
-                SELECT id, state, row_version, successful_attempt_id, terminal_evidence_id, succeeded_at,
-                       amount_minor, currency, payee_merchant_id FROM payment_order
-                WHERE deleted = FALSE AND id IN (:ids)
-                """, args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class)));
+            SELECT id, state, row_version, successful_attempt_id, terminal_evidence_id, succeeded_at,
+                   amount_minor, currency, payee_merchant_id FROM payment_order
+            WHERE deleted = FALSE AND id IN (:ids)
+            """, args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class)));
     }
 
     private boolean acceptedReceipt(RefundChannelReceiptDO row) {

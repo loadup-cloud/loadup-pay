@@ -21,11 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.contracts.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.contracts.event.PaymentOutcomeEventDTO;
-import io.github.loadup.contracts.event.RefundSnapshotEventDTO;
-import io.github.loadup.contracts.model.PaymentState;
-import io.github.loadup.contracts.model.RefundState;
+import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
+import io.github.loadup.contracts.event.payment.RefundState;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;

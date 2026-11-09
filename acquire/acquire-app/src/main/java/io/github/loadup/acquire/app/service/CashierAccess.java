@@ -18,8 +18,8 @@ package io.github.loadup.acquire.app.service;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
 
 import io.github.loadup.acquire.app.security.CashierActor;
+import io.github.loadup.acquire.client.enums.CheckoutSessionState;
 import io.github.loadup.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.commons.error.CommonException;

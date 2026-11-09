@@ -17,8 +17,8 @@ package io.github.loadup.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationReviewOperation;
-import io.github.loadup.reconciliation.domain.model.ReconciliationReviewState;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewOperation;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewState;
 import java.time.OffsetDateTime;
 
 /**

@@ -43,13 +43,13 @@ import io.github.loadup.reconciliation.client.command.ReconciliationInputAttachC
 import io.github.loadup.reconciliation.client.dto.ReconciliationBatchDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationBatchTaskDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationDifferenceDTO;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
+import io.github.loadup.reconciliation.client.enums.ReconciliationState;
 import io.github.loadup.reconciliation.client.facade.ReconciliationFacade;
 import io.github.loadup.reconciliation.client.query.ReconciliationDifferenceQuery;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationBatch;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSide;
-import io.github.loadup.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;

@@ -18,11 +18,11 @@ package io.github.loadup.productcenter.infrastructure.codec;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.product.ChannelCapabilityDTO;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
 import io.github.loadup.productcenter.app.model.EncodedAcquiringTerms;
 import io.github.loadup.productcenter.app.port.CompiledTermsCodec;
 import io.github.loadup.productcenter.app.support.ContractCodec;
+import io.github.loadup.productcenter.client.dto.terms.ChannelCapabilityDTO;
 import io.github.loadup.productcenter.domain.model.StoredOrderAdmission;
 import jakarta.validation.Validator;
 import java.util.Comparator;

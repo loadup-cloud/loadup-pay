@@ -32,12 +32,18 @@ payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，boo
 
 ## 本地准备
 
+跨服务请求响应由提供方 client 拥有，消费方基础设施负责转换为本地模型；公共事件包只包含事件和事件状态。
+模块位置与依赖约束见 [Pay 契约说明](pay-contracts/README.md)。
+
 1. 准备 Java 25、Maven Daemon，以及 LoadUp Framework 对应版本的制品。
 2. 两个 mng 后管不使用数据库；为其余核心应用准备独立 PostgreSQL 数据库或隔离 schema。配置对应 `<SERVICE>_JDBC_URL`、`<SERVICE>_JDBC_USERNAME`、`<SERVICE>_JDBC_PASSWORD`；不要直接复用旧 MySQL 库。
 3. 按各 bootstrap 的 `application.yml` 配置 JWT issuer/audience/JWK、受信租户、服务令牌挂载及所用渠道/KMS/存储参数。内部与业务入口均为 HTTP，默认 8080；本地 profile 按核心服务配置独立端口及出站基础地址。
 4. 选择所需模块的 build/start 脚本。编译必须使用 `clean`，避免旧生成代码或已删除迁移留在构建产物中。数据库初始化、启动和真实渠道验收由开发者执行。
 
 当前迁移由每个服务的 infrastructure 初始文件及实际依赖组件的迁移共同组成。初次初始化使用可丢弃开发库，不自动对既有库 clean/repair 或搬迁数据。
+
+Framework 组件及业务模块 SQL 同时提供可手动导入的完整初始化整合版，保留现有应用级 Flyway 自动迁移路径。
+生成、复制到 Pay 及 psql 执行命令见 [Framework 初始化 SQL 手动导入](scripts/README.md#framework-初始化-sql-手动导入)。
 
 ## CI 与 Framework 制品
 
@@ -50,8 +56,8 @@ Pay CI 通过 [.github/maven-settings.xml](.github/maven-settings.xml) 从
 凭证仅注入 Formatting 与 Build and Test 两个 Maven job；缺失时立即报错。来自 fork 的 PR 无法使用仓库 secrets，需由有凭证的可信分支运行这些检查。
 Maven 命令统一传入 `-s "$MAVEN_SETTINGS"` 和 `-U`，并按 settings 中的配置刷新 SNAPSHOT。普通 release 依赖优先从 Maven Central 下载。
 
-CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 的 Framework checkout 仅用于检查迁移模板，引用由
-`FRAMEWORK_REF` 仓库变量指定（默认 `main`）。本地使用同一制品库时，先设置上述两个环境变量，再为 `mvnd` 命令添加
+CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 根据仓库内的锁文件校验已冻结组件迁移，不拉取最新模板重写历史。
+本地使用同一制品库时，先设置上述两个环境变量，再为 `mvnd` 命令添加
 `-s .github/maven-settings.xml -U`。
 
 ## 本地数据库配置
@@ -78,7 +84,9 @@ CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 的
 docker --context orbstack exec -i postgres psql -U admin -d loadup -v ON_ERROR_STOP=1 < scripts/init-local-databases.sql
 ```
 
-本地配置沿用 PostgreSQL 和框架的默认 `public` schema，业务 SQL 与 Flyway 迁移均使用该 schema。Outbox 等组件的通用迁移由依赖 JAR 提供，各服务在自己的数据库中执行并维护独立的迁移历史，无需复制或添加服务专用的组件脚本。启用 local profile 后，其他 JWT、服务令牌、渠道及存储配置仍按各服务要求提供。
+本地配置沿用 PostgreSQL 和框架的默认 `public` schema，业务 SQL 与 Flyway 迁移均使用该 schema。
+Outbox 等组件使用已冻结的应用级初始快照；框架业务模块的自动迁移通过显式命名空间选择。
+各应用维护自己的迁移历史，模板升级通过新增版本处理，不能覆盖旧快照。启用 local profile 后，其他 JWT、服务令牌、渠道及存储配置仍按各服务要求提供。
 
 ## 实现与验证边界
 

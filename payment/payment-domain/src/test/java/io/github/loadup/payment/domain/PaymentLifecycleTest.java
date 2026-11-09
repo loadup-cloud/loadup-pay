@@ -28,7 +28,7 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.contracts.model.PaymentState;
+import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.payment.domain.model.PaymentAttempt;
 import io.github.loadup.payment.domain.model.PaymentExecutionGate;

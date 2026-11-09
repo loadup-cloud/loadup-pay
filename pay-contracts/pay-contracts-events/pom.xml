@@ -9,16 +9,8 @@
     </parent>
     <artifactId>pay-contracts-events</artifactId>
     <name>LoadUp Pay Contracts Events</name>
-    <description>Cross-service integration events and their state enums; no Spring, domain or transport dependency.</description>
+    <description>Producer-owned integration events and public lifecycle states, without service client or domain dependencies.</description>
     <dependencies>
-        <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-payment-channel-api</artifactId>
-        </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-dto</artifactId>

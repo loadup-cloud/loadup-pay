@@ -19,9 +19,9 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSH
 
 import io.github.loadup.acquire.app.port.CashierCapabilities;
 import io.github.loadup.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.stream.Collectors;

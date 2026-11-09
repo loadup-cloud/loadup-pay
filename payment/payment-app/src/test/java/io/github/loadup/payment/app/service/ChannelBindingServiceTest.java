@@ -15,11 +15,11 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -50,10 +50,10 @@ import io.github.loadup.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.payment.client.command.ChannelBindingRevokeCommand;
 import io.github.loadup.payment.client.command.ChannelBindingSuspendCommand;
 import io.github.loadup.payment.client.dto.AlipayAccountIdentityDTO;
+import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.github.loadup.payment.client.query.ChannelBindingDetailQuery;
 import io.github.loadup.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.payment.domain.model.ChannelBindingChangeReceipt;
-import io.github.loadup.payment.domain.model.ChannelBindingState;
 import io.github.loadup.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.payment.domain.model.StoredChannelBindingRevision;
 import jakarta.validation.Validation;

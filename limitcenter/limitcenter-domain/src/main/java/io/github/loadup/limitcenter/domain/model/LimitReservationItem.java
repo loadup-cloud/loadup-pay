@@ -22,8 +22,10 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
-import io.github.loadup.contracts.product.RefundCountRestorePolicy;
+import io.github.loadup.limitcenter.client.enums.LimitMetric;
+import io.github.loadup.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.limitcenter.client.enums.RefundAmountRestorePolicy;
+import io.github.loadup.limitcenter.client.enums.RefundCountRestorePolicy;
 import java.util.Objects;
 
 public record LimitReservationItem(

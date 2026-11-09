@@ -15,16 +15,16 @@
  */
 package io.github.loadup.acquire.app.converter;
 
+import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentOutcomeDTO;
 import io.github.loadup.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.acquire.client.dto.PaymentProgressDTO;
+import io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.PaymentOutcomeReceipt;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.contracts.payment.PaymentExecuteCommand;
-import io.github.loadup.contracts.payment.PaymentExecutionDTO;
-import io.github.loadup.contracts.payment.PaymentOutcomeDTO;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

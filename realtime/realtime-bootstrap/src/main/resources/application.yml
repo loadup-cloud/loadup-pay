@@ -60,7 +60,7 @@ loadup:
   flyway:
     enabled: true
     locations:
-      - classpath:db/migration
+      - classpath:db/migration/pay/realtime
   security:
     resource-server:
       enabled: true

@@ -22,16 +22,18 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
-import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
-import io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.limitcenter.client.http.LimitCenterHttpService;
+import io.github.loadup.productcenter.app.model.limitcenter.command.LimitPolicyActivateCommand;
+import io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO;
 import io.github.loadup.productcenter.app.port.PolicyActivationClient;
 import io.github.loadup.productcenter.infrastructure.config.PolicyPublicationTransportProperties;
+import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
+    private final RemoteContractConverter contracts;
     private final ServiceAccessTokens tokens;
     private final PolicyPublicationTransportProperties properties;
     private final LimitCenterHttpService limitCenterHttp;
@@ -39,7 +41,9 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
     public LimitPolicyActivationHttpClient(
             LimitCenterHttpService limitCenterHttp,
             PolicyPublicationTransportProperties properties,
-            ServiceAccessTokens tokens) {
+            ServiceAccessTokens tokens,
+            RemoteContractConverter contracts) {
+        this.contracts = contracts;
         this.limitCenterHttp = limitCenterHttp;
         this.properties = properties;
         this.tokens = tokens;
@@ -54,7 +58,8 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            return HttpServiceResponses.requiredData(limitCenterHttp.activate("Bearer " + credential(), command));
+            return HttpServiceResponses.requiredData(contracts.fromLimitcenterLimitPolicyActivationDTOSuccessResponse(
+                    limitCenterHttp.activate("Bearer " + credential(), contracts.toRemote(command))));
         } catch (RuntimeException invalid) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

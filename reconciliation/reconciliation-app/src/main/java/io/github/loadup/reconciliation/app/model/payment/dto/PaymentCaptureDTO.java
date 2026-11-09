@@ -1,0 +1,82 @@
+package io.github.loadup.reconciliation.app.model.payment.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.reconciliation.app.model.payment.enums.PaymentCaptureBlocker;
+import io.github.loadup.reconciliation.app.model.payment.enums.PaymentCaptureState;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
+/**
+ * Frozen source result only; blocked captures have no exportable lines, totals or content hash.
+ */
+@Schema(description = "Immutable reconciliation source capture; unrelated to a payment authorization/capture flow")
+public record PaymentCaptureDTO(
+        @Schema(description = "Original source capture id") String captureId,
+
+        @Schema(description = "Statement channel; WECHAT in the current source profile")
+        Channel channel,
+
+        @Schema(description = "Actual collecting-account SHA-256")
+        String accountScopeHash,
+
+        @Schema(description = "Channel statement date", format = "date")
+        LocalDate billDate,
+
+        @Schema(description = "Fixed provider-owned statement profile revision")
+        String statementProfile,
+
+        @Schema(description = "System zone frozen at source registration")
+        String systemZone,
+
+        @Schema(description = "INIT, SEALED or BLOCKED") PaymentCaptureState state,
+
+        @Schema(description = "Source RR read start; null while INIT", format = "date-time")
+        OffsetDateTime startedAt,
+
+        @Schema(description = "Source RR read finish; null while INIT", format = "date-time")
+        OffsetDateTime finishedAt,
+
+        @Schema(description = "Payment count; explicit zero only when SEALED")
+        Long paymentCount,
+
+        @Schema(description = "Gross payment amount in CNY minor units; null unless SEALED")
+        Long paymentAmountMinor,
+
+        @Schema(description = "Accepted refund count, including unresolved statuses; null unless SEALED")
+        Long refundCount,
+
+        @Schema(description = "Gross requested refund amount in CNY minor units; null unless SEALED")
+        Long refundAmountMinor,
+
+        @Schema(description = "SHA-256 of the complete versioned source archive; null unless SEALED")
+        String contentHash,
+
+        @Schema(description = "Coverage blocker; present only when BLOCKED")
+        PaymentCaptureBlocker blocker,
+
+        @Schema(description = "One blocker sample id; not an exhaustive difference list")
+        String blockerSubjectId,
+
+        @Schema(description = "Logical capture version, INIT=0 and terminal=1")
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
+        long version,
+
+        @Schema(description = "Original native task identity")
+        String nativeTaskId,
+
+        @Schema(description = "Independent task state; a sealed capture remains immutable after a lost task ACK")
+        String nativeStatus,
+
+        @Schema(description = "Current claimed attempts") Integer attempts,
+        @Schema(description = "Configured maximum attempts") Integer maxAttempts) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+}

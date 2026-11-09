@@ -19,12 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.contracts.product.RefundAmountRestorePolicy;
-import io.github.loadup.contracts.product.RefundCountRestorePolicy;
+import io.github.loadup.limitcenter.client.enums.LimitMetric;
+import io.github.loadup.limitcenter.client.enums.LimitWindowType;
+import io.github.loadup.limitcenter.client.enums.RefundAmountRestorePolicy;
+import io.github.loadup.limitcenter.client.enums.RefundCountRestorePolicy;
 import io.github.loadup.limitcenter.domain.model.ActivatedLimitPolicy;
-import io.github.loadup.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.limitcenter.domain.model.LimitRule;
-import io.github.loadup.limitcenter.domain.model.LimitWindowType;
 import io.github.loadup.limitcenter.domain.model.RuntimeLimitRule;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;

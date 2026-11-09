@@ -26,7 +26,6 @@ defaults:
 env:
   MAVEN_OPTS: -Xmx3072m -Djava.awt.headless=true
   TZ: Asia/Shanghai
-  FRAMEWORK_REPOSITORY: loadup-cloud/loadup-framework
   MAVEN_SETTINGS: .github/maven-settings.xml
 
 jobs:
@@ -59,19 +58,9 @@ jobs:
           cache-dependency-path: scripts/tests/requirements.txt
       - name: Install test dependencies
         run: python3 -m pip install --disable-pip-version-check -r scripts/tests/requirements.txt
-      - name: Check out the framework schema templates
-        uses: actions/checkout@v7 # v7
-        with:
-          repository: ${{ env.FRAMEWORK_REPOSITORY }}
-          ref: ${{ vars.FRAMEWORK_REF || 'main' }}
-          path: framework
-          fetch-depth: 1
-          persist-credentials: false
       - name: Test build, migration and deployment scripts
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
-      - name: Check component migrations are regenerated
-        env:
-          LOADUP_FRAMEWORK_ROOT: ${{ github.workspace }}/framework
+      - name: Verify frozen component migration history
         run: python3 scripts/gen-migrations.py --check
 
   lint:

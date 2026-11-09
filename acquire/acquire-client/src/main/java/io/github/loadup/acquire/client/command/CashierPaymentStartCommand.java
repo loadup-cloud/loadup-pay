@@ -15,8 +15,8 @@
  */
 package io.github.loadup.acquire.client.command;
 
+import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.contracts.payment.PaymentChoiceDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -25,14 +25,18 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record CashierPaymentStartCommand(
-        @Schema(description = "Order id") @NotBlank @Size(max = 64) String orderId,
+        @Schema(description = "Order id") @NotBlank @Size(max = 64)
+        String orderId,
 
-        @Schema(description = "Action key") @NotBlank @Size(max = 128) String actionKey,
+        @Schema(description = "Action key") @NotBlank @Size(max = 128)
+        String actionKey,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
 
         @Schema(description = "Hosted payment choice; payer interaction is produced by the trusted server adapter")
-        @NotNull @Valid PaymentChoiceDTO choice) {
+        @NotNull
+        @Valid
+        PaymentChoiceDTO choice) {
 
     @Override
     public String toString() {

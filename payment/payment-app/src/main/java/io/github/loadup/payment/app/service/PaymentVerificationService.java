@@ -15,11 +15,11 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -30,11 +30,11 @@ import io.github.loadup.payment.app.converter.PaymentVerificationConverter;
 import io.github.loadup.payment.app.port.PaymentVerificationTargetReader;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
 import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.payment.client.enums.PaymentVerificationDisposition;
 import io.github.loadup.payment.client.facade.PaymentVerificationFacade;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.payment.domain.gateway.PaymentChannelGateway;
-import io.github.loadup.payment.domain.model.PaymentLedgerKind;
-import io.github.loadup.payment.domain.model.PaymentVerificationDisposition;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.OffsetDateTime;

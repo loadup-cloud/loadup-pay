@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.repository;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -65,12 +65,12 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
         }
         var childArgs = new MapSqlParameterSource().addValue("id", value.refundId());
         var child = jdbc.query("""
-                SELECT id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
-                       binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
-                       original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
-                       currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version FROM refund_order
-                WHERE id = :id AND deleted = FALSE FOR UPDATE
-                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
+            SELECT id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
+                   binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
+                   original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
+                   currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version FROM refund_order
+            WHERE id = :id AND deleted = FALSE FOR UPDATE
+            """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (child == null
@@ -101,13 +101,13 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
         created.setCreatedAt(now);
         created.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO refund_acceptance_evidence (id, created_at, updated_at, deleted, payment_id, attempt_id,
-                    channel, binding_revision_id, account_scope_hash, channel_request_no, original_channel_transaction_no,
-                    channel_refund_no, amount_minor, currency, accepted_at, receipt_id)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
-                    :accountScopeHash, :channelRequestNo, :originalChannelTransactionNo, :channelRefundNo, :amountMinor,
-                    :currency, :acceptedAt, :receiptId)
-                """, new BeanPropertySqlParameterSource(created));
+            INSERT INTO refund_acceptance_evidence (id, created_at, updated_at, deleted, payment_id, attempt_id,
+                channel, binding_revision_id, account_scope_hash, channel_request_no, original_channel_transaction_no,
+                channel_refund_no, amount_minor, currency, accepted_at, receipt_id)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
+                :accountScopeHash, :channelRequestNo, :originalChannelTransactionNo, :channelRefundNo, :amountMinor,
+                :currency, :acceptedAt, :receiptId)
+            """, new BeanPropertySqlParameterSource(created));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -145,9 +145,9 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     private void proof(String refundId, String receiptId) {
         var args = new MapSqlParameterSource().addValue("id", receiptId).addValue("refund", refundId);
         var dispositions = jdbc.query("""
-                SELECT disposition FROM refund_channel_receipt WHERE id = :id
-                    AND refund_id = :refund AND deleted = FALSE
-                """, args, (rs, index) -> rs.getString("disposition"));
+            SELECT disposition FROM refund_channel_receipt WHERE id = :id
+                AND refund_id = :refund AND deleted = FALSE
+            """, args, (rs, index) -> rs.getString("disposition"));
         if (dispositions.size() != 1
                 || !"APPLIED".equals(dispositions.getFirst()) && !"IGNORED".equals(dispositions.getFirst())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -160,11 +160,11 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
         return jdbc
                 .query(
                         """
-                        SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
-                               account_scope_hash, channel_request_no, original_channel_transaction_no, channel_refund_no,
-                               amount_minor, currency, accepted_at, receipt_id FROM refund_acceptance_evidence
-                        WHERE id = :id AND deleted = FALSE
-                        """ + (lock ? " FOR UPDATE" : ""),
+                            SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
+                                   account_scope_hash, channel_request_no, original_channel_transaction_no, channel_refund_no,
+                                   amount_minor, currency, accepted_at, receipt_id FROM refund_acceptance_evidence
+                            WHERE id = :id AND deleted = FALSE
+                            """ + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(RefundAcceptanceDO.class))
                 .stream()

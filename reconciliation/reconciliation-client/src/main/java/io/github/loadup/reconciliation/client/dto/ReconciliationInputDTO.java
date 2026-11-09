@@ -23,7 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.Nulls;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationInputDTO(

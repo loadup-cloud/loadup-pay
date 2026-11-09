@@ -20,9 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.limitcenter.client.support.LimitPolicyHash;
-import io.github.loadup.limitcenter.domain.model.LimitMetric;
-import io.github.loadup.limitcenter.domain.model.LimitWindowType;
+import io.github.loadup.productcenter.app.model.limitcenter.enums.LimitMetric;
+import io.github.loadup.productcenter.app.model.limitcenter.enums.LimitWindowType;
+import io.github.loadup.productcenter.app.model.limitcenter.support.LimitPolicyHash;
 import io.github.loadup.productcenter.domain.model.TypedValue;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;

@@ -12,12 +12,12 @@
     <description>Authenticated reconciliation batch orchestration and durable comparison execution.</description>
     <dependencies>
         <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-outbox</artifactId>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>payment-client</artifactId>
+            <artifactId>loadup-components-outbox</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

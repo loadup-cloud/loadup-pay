@@ -15,10 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
-import static io.github.loadup.contracts.payment.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,9 +36,9 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.payment.domain.gateway.RoutingProfileGateway;
-import io.github.loadup.payment.domain.model.ChannelBindingState;
 import io.github.loadup.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.payment.domain.model.RoutableChannelBinding;
 import io.github.loadup.payment.domain.model.RoutingProfile;

@@ -16,7 +16,7 @@
 package io.github.loadup.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.reconciliation.domain.model.ReconciliationReviewState;
+import io.github.loadup.reconciliation.client.enums.ReconciliationReviewState;
 
 public record ReconciliationReviewDTO(
         String batchId,

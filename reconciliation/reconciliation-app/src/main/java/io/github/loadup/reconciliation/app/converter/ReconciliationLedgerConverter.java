@@ -17,9 +17,9 @@ package io.github.loadup.reconciliation.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.payment.client.command.PaymentCaptureCreateCommand;
-import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
-import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
+import io.github.loadup.reconciliation.app.model.payment.command.PaymentCaptureCreateCommand;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentCaptureDTO;
+import io.github.loadup.reconciliation.app.model.payment.dto.PaymentLedgerLineDTO;
 import io.github.loadup.reconciliation.client.dto.ReconciliationLedgerSourceDTO;
 import io.github.loadup.reconciliation.domain.model.ReconciliationKey;
 import io.github.loadup.reconciliation.domain.model.ReconciliationLine;

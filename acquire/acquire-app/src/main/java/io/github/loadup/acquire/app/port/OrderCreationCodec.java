@@ -15,12 +15,12 @@
  */
 package io.github.loadup.acquire.app.port;
 
+import io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO;
 import io.github.loadup.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.acquire.client.command.CheckoutCreateCommand;
 import io.github.loadup.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.acquire.domain.model.OrderFeePolicy;
-import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 
 public interface OrderCreationCodec {
     String encodeIntent(AcquireOrderCreateCommand command);
