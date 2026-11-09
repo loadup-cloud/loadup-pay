@@ -110,17 +110,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                        </path>
-                    </annotationProcessorPaths>
-                    <annotationProcessors>
-                        <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
-                    </annotationProcessors>
-                </configuration>
             </plugin>
         </plugins>
     </build>

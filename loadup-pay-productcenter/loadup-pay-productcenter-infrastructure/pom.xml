@@ -144,23 +144,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>com.mybatis-flex</groupId>
-                            <artifactId>mybatis-flex-processor</artifactId>
-                        </path>
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                        </path>
-
-                    </annotationProcessorPaths>
-                    <annotationProcessors>
-                        <annotationProcessor>com.mybatisflex.processor.MybatisFlexProcessor</annotationProcessor>
-                        <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
-                    </annotationProcessors>
-                </configuration>
             </plugin>
         </plugins>
     </build>

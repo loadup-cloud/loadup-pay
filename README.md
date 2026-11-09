@@ -154,3 +154,8 @@ K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，仅 AuthServer 挂载其�
 平台入口配置见 [Gateway API / Envoy Gateway](deploy/gateway/README.md)，HTTP 入站选择器见 [网络策略](deploy/NETWORK_POLICY.md)。
 
 线程模型使用显式 virtual-threads 候选 profile，默认平台线程；正确性、A/B 容量及七服务收口见 [最终验收](deploy/ACCEPTANCE.md)。
+
+## Database 编译期处理器
+
+编译期配置由 database processor 内置维护，模块无需同步配置；处理器版本由 framework BOM 管理。详见
+[framework database processor 文档](../loadup-framework/loadup-components/data/loadup-components-database-processor/README.md)。
