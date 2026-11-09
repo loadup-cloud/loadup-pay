@@ -3,6 +3,13 @@ description: Set up Temurin 25 and the Maven dependency cache.
 runs:
   using: composite
   steps:
+    - name: Require registry credentials and Maven settings
+      shell: bash
+      run: |
+        : "${OSSRH_USERNAME:?Set OSSRH_USERNAME to the GitHub username that owns the token}"
+        : "${OSSRH_TOKEN:?Set OSSRH_TOKEN to a classic PAT with read:packages and access to loadup-cloud/loadup-packages}"
+        : "${MAVEN_SETTINGS:?Set MAVEN_SETTINGS to the registry settings file}"
+        test -r "$MAVEN_SETTINGS"
     - name: Set up Java and Maven dependency cache
       uses: actions/setup-java@v6 # v6
       with:

@@ -39,6 +39,21 @@ payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，boo
 
 当前迁移由每个服务的 infrastructure 初始文件及实际依赖组件的迁移共同组成。初次初始化使用可丢弃开发库，不自动对既有库 clean/repair 或搬迁数据。
 
+## CI 与 Framework 制品
+
+Pay CI 通过 [.github/maven-settings.xml](.github/maven-settings.xml) 从
+`https://maven.pkg.github.com/loadup-cloud/loadup-packages` 下载 `loadup-dependencies` BOM 及框架模块，版本由根 POM 的
+`loadup.framework.version` 指定（当前 `0.0.1-SNAPSHOT`）。先在 Framework CI 完成该版本的发布，再运行 Pay CI。
+
+在 Pay 仓库的 Actions secrets 中配置 `OSSRH_USERNAME`（GitHub 用户名）和 `OSSRH_TOKEN`（该用户的 classic PAT，具备
+`read:packages` 和 `loadup-cloud/loadup-packages` 访问权）。名称沿用现有配置，实际使用 GitHub 凭证。
+凭证仅注入 Formatting 与 Build and Test 两个 Maven job；缺失时立即报错。来自 fork 的 PR 无法使用仓库 secrets，需由有凭证的可信分支运行这些检查。
+Maven 命令统一传入 `-s "$MAVEN_SETTINGS"` 和 `-U`，并按 settings 中的配置刷新 SNAPSHOT。普通 release 依赖优先从 Maven Central 下载。
+
+CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 的 Framework checkout 仅用于检查迁移模板，引用由
+`FRAMEWORK_REF` 仓库变量指定（默认 `main`）。本地使用同一制品库时，先设置上述两个环境变量，再为 `mvnd` 命令添加
+`-s .github/maven-settings.xml -U`。
+
 ## 本地数据库配置
 
 八个 bootstrap 提供 `application-local.yml`（authserver、payment、acquire、merchantcenter、productcenter、limitcenter、realtime、reconciliation）；notificationcenter 通过环境变量配置。启动时启用 `local` profile，例如在 IDEA 的 Active profiles 中填写 `local`，或传入 `--spring.profiles.active=local`。

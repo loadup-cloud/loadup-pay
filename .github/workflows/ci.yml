@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,10 +27,6 @@ env:
   MAVEN_OPTS: -Xmx3072m -Djava.awt.headless=true
   TZ: Asia/Shanghai
   FRAMEWORK_REPOSITORY: loadup-cloud/loadup-framework
-  # GitHub Packages requires authenticated reads even for public packages; the framework
-  # publish job uploads every snapshot to loadup-cloud/loadup-packages.
-  LOADUP_PACKAGES_USERNAME: ${{ vars.PACKAGES_USERNAME || github.actor }}
-  LOADUP_PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
   MAVEN_SETTINGS: .github/maven-settings.xml
 
 jobs:
@@ -81,17 +78,14 @@ jobs:
     name: Formatting
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
     steps:
       - uses: actions/checkout@v7 # v7
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-build
-      - name: Require registry credentials
-        run: |
-          if [[ -z "OSSRH_TOKEN" ]]; then
-            echo 'Set PACKAGES_TOKEN with read:packages for loadup-cloud/loadup-packages.' >&2
-            exit 1
-          fi
       - name: Check Java and POM formatting
         run: mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" spotless:check -Dskip.spotless=false
 
@@ -100,6 +94,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
+      OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
       TESTCONTAINERS_RYUK_DISABLED: 'false'
       TESTCONTAINERS_CHECKS_DISABLE: 'false'
     steps:
@@ -107,12 +103,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-build
-      - name: Require registry credentials
-        run: |
-          if [[ -z "OSSRH_TOKEN" ]]; then
-            echo 'Set PACKAGES_TOKEN with read:packages for loadup-cloud/loadup-packages.' >&2
-            exit 1
-          fi
       - name: Select the Maven test scope
         run: |
           if [[ "${{ inputs.integration-tests }}" == "true" ]]; then
