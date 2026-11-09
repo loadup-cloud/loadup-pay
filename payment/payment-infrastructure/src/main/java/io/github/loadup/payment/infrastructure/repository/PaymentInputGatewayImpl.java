@@ -43,9 +43,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, PaymentInputDO>
         implements PaymentInputGateway {
     private static final String COLUMNS = "id, created_at, updated_at, payment_id, order_id, allocation_id,"
-        + " payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,"
-        + " fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,"
-        + " state, bound_attempt_id, row_version";
+            + " payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,"
+            + " fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,"
+            + " state, bound_attempt_id, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentInputStorageConverter converter;
     private final Clock clock;

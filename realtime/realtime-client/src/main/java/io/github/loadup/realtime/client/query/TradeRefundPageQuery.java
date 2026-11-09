@@ -26,13 +26,11 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record TradeRefundPageQuery(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Refund request id") @Size(max = 64)
-        String refundRequestId,
+        @Schema(description = "Refund request id") @Size(max = 64) String refundRequestId,
 
         @Schema(description = "State") RefundState state,
         @Schema(description = "Created from") OffsetDateTime createdFrom,

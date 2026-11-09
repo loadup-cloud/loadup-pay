@@ -25,8 +25,7 @@ import java.time.OffsetDateTime;
 public record TradeDetailDTO(
         @Schema(description = "Order") @Valid TradeOrderDTO order,
 
-        @Schema(description = "Independent complete refund summary") @Valid
-        OrderRefundSummaryEventDTO refundSummary,
+        @Schema(description = "Independent complete refund summary") @Valid OrderRefundSummaryEventDTO refundSummary,
 
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeDetailDTO {

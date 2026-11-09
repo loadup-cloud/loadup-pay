@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.payment.channel.api.model.H5SceneType;
@@ -31,13 +30,10 @@ public record H5SceneInteractionDTO(
                                 + " a forwarding-header chain",
                 accessMode = Schema.AccessMode.WRITE_ONLY,
                 example = "203.0.113.10")
-        @NotBlank
-        @Size(max = 45)
-        @DiagnosticHidden
+        @NotBlank @Size(max = 45) @DiagnosticHidden
         String payerClientIp,
 
-        @Schema(description = "Payer environment", example = "WAP") @NotNull
-        H5SceneType sceneType)
+        @Schema(description = "Payer environment", example = "WAP") @NotNull H5SceneType sceneType)
         implements PaymentInteractionDTO {
     @Override
     public String toString() {

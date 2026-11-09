@@ -99,7 +99,7 @@ public interface PaymentInitiationConverter {
             target = "requestKey",
             expression =
                     "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX"
-                        + " + command.allocationId())")
+                            + " + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
             expression =
@@ -113,7 +113,7 @@ public interface PaymentInitiationConverter {
             target = "requestKey",
             expression =
                     "java(io.github.loadup.acquire.app.model.payment.support.PaymentInputExpiryPolicy.PREPARATION_REQUEST_KEY_PREFIX"
-                        + " + command.allocationId())")
+                            + " + command.allocationId())")
     @Mapping(
             target = "fenceEpoch",
             expression =

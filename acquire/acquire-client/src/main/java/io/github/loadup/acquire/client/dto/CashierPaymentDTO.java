@@ -36,14 +36,12 @@ public record CashierPaymentDTO(
         @Schema(description = "Payment state; null only for proven non-acceptance")
         PaymentState state,
 
-        @Schema(description = "Verified launch action, if ready") @Valid
-        PaymentActionDTO action,
+        @Schema(description = "Verified launch action, if ready") @Valid PaymentActionDTO action,
 
         @Schema(description = "Payment source version, absent for proven non-acceptance")
         Long version,
 
-        @Schema(description = "Current safe order summary") @Valid
-        CashierOrderDTO order) {
+        @Schema(description = "Current safe order summary") @Valid CashierOrderDTO order) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

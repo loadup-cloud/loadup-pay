@@ -26,14 +26,11 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record MerchantNotificationPageQuery(
-        @Schema(description = "Collecting merchant; must match merchant JWT scope") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Collecting merchant; must match merchant JWT scope") @NotBlank @Size(max = 64) String payeeMerchantId,
 
-        @Schema(description = "Original order filter") @Size(max = 64)
-        String orderId,
+        @Schema(description = "Original order filter") @Size(max = 64) String orderId,
 
-        @Schema(description = "Stable merchant event identity filter") @Size(max = 64)
-        String eventId,
+        @Schema(description = "Stable merchant event identity filter") @Size(max = 64) String eventId,
 
         @Schema(description = "Delivery state filter") MerchantNotificationState state,
         @Schema(description = "Inclusive source event time") OffsetDateTime occurredFrom,

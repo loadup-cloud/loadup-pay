@@ -28,6 +28,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
+import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.merchantcenter.client.http.MerchantProfileHttpService;
 import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,8 +76,8 @@ class MerchantContractFactsHttpProviderTest {
     void usesDedicatedServiceCredentialAndOnlyReturnsVerifiedFacts() {
         when(tokens.token("productcenter", "merchantcenter")).thenReturn("service-token");
         when(remote.profile("Bearer service-token", new IdQuery("merchant")))
-                .thenReturn(SuccessResponse.of(new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
-                        "merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, "", true)));
+                .thenReturn(SuccessResponse.of(
+                        new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, "", true)));
         var facts = provider.load("merchant");
         assertThat(facts.active()).isTrue();
         assertThat(facts.facts())
@@ -88,12 +89,12 @@ class MerchantContractFactsHttpProviderTest {
     void rejectsMismatchedMerchantAndNeverPromotesInactiveMerchant() {
         when(tokens.token("productcenter", "merchantcenter")).thenReturn("service-token");
         when(remote.profile(anyString(), any()))
-                .thenReturn(SuccessResponse.of(new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
-                        "other", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true)));
+                .thenReturn(SuccessResponse.of(
+                        new MerchantProfileDTO("other", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true)));
         assertThatThrownBy(() -> provider.load("merchant")).isInstanceOf(CommonException.class);
         when(remote.profile(anyString(), any()))
-                .thenReturn(SuccessResponse.of(new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
-                        "merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, false)));
+                .thenReturn(SuccessResponse.of(
+                        new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, false)));
         assertThat(provider.load("merchant").active()).isFalse();
     }
 

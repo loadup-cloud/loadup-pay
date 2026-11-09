@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;

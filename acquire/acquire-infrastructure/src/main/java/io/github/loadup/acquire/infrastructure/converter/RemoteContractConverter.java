@@ -1,6 +1,22 @@
+/*
+ * Copyright (C) 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.github.loadup.acquire.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.commons.result.SuccessResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.SubclassExhaustiveStrategy;
 import org.mapstruct.SubclassMapping;
@@ -433,110 +449,63 @@ public interface RemoteContractConverter {
     io.github.loadup.acquire.app.model.realtime.dto.ProjectionAckDTO toLocal(
             io.github.loadup.realtime.client.dto.ProjectionAckDTO value);
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.ParentFenceDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.ParentFenceDTO>
             fromPaymentParentFenceDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<io.github.loadup.payment.client.dto.ParentFenceDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.ParentFenceDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.PaymentCloseDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.PaymentCloseDTO>
             fromPaymentPaymentCloseDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<io.github.loadup.payment.client.dto.PaymentCloseDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentCloseDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO>
+    default SuccessResponse<io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO>
             fromPaymentPaymentExecutionDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.payment.client.dto.PaymentExecutionDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentExecutionDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.PaymentInputDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.PaymentInputDTO>
             fromPaymentPaymentInputDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<io.github.loadup.payment.client.dto.PaymentInputDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentInputDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.PaymentInputExpiryDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.PaymentInputExpiryDTO>
             fromPaymentPaymentInputExpiryDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.payment.client.dto.PaymentInputExpiryDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentInputExpiryDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.PaymentInputLookupDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.PaymentInputLookupDTO>
             fromPaymentPaymentInputLookupDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.payment.client.dto.PaymentInputLookupDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentInputLookupDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.PaymentOutcomeDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.PaymentOutcomeDTO>
             fromPaymentPaymentOutcomeDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.payment.client.dto.PaymentOutcomeDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentOutcomeDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.payment.dto.PaymentSettlementFactsDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.payment.dto.PaymentSettlementFactsDTO>
             fromPaymentPaymentSettlementFactsDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.productcenter.dto.OrderAdmissionDTO>
             fromProductcenterOrderAdmissionDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.productcenter.client.dto.OrderAdmissionDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.productcenter.client.dto.OrderAdmissionDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.acquire.app.model.realtime.dto.ProjectionAckDTO>
+    default SuccessResponse<io.github.loadup.acquire.app.model.realtime.dto.ProjectionAckDTO>
             fromRealtimeProjectionAckDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.realtime.client.dto.ProjectionAckDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.realtime.client.dto.ProjectionAckDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 }

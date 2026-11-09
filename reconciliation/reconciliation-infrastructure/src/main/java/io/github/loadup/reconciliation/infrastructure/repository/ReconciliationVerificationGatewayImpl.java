@@ -168,15 +168,15 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         return jdbc
                 .query(
                         "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash,"
-                            + " match_key_hash, proposal_id, approval_event_id, review_version, caller_service_id,"
-                            + " request_key, request_digest, channel, account_scope_hash, bill_date,"
-                            + " statement_profile, kind, channel_transaction_no, channel_refund_no,"
-                            + " merchant_payment_no, delivery_id, state, row_version, disposition,"
-                            + " binding_revision_id, payment_id, attempt_id, refund_id, source_version, local_state,"
-                            + " outcome, amount_minor, currency, observed_channel_transaction_no,"
-                            + " observed_refund_transaction_no, succeeded_epoch_micros, source_digest,"
-                            + " started_epoch_micros, finished_epoch_micros, accepted_epoch_micros FROM"
-                            + " reconciliation_verification_request WHERE deleted = FALSE AND "
+                                + " match_key_hash, proposal_id, approval_event_id, review_version, caller_service_id,"
+                                + " request_key, request_digest, channel, account_scope_hash, bill_date,"
+                                + " statement_profile, kind, channel_transaction_no, channel_refund_no,"
+                                + " merchant_payment_no, delivery_id, state, row_version, disposition,"
+                                + " binding_revision_id, payment_id, attempt_id, refund_id, source_version, local_state,"
+                                + " outcome, amount_minor, currency, observed_channel_transaction_no,"
+                                + " observed_refund_transaction_no, succeeded_epoch_micros, source_digest,"
+                                + " started_epoch_micros, finished_epoch_micros, accepted_epoch_micros FROM"
+                                + " reconciliation_verification_request WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationVerificationDO.class))

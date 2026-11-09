@@ -35,6 +35,7 @@ import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
+import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.client.http.RealtimeHttpService;
 import java.time.Clock;
 import java.time.Instant;
@@ -121,8 +122,8 @@ class AcquireRealtimeHttpClientTest {
                 contracts);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(new io.github.loadup.realtime.client.dto.ProjectionAckDTO(
-                            "delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
+                    return SuccessResponse.of(
+                            new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
                 })
                 .when(realtimeHttp)
                 .order(anyString(), any());

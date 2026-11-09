@@ -37,8 +37,7 @@ public record PaymentRecoveryDTO(
         @JsonInclude(JsonInclude.Include.ALWAYS)
         Boolean accepted,
 
-        @Schema(description = "Converged original payment and order; present only when resolved") @Valid
-        PaymentProgressDTO progress) {
+        @Schema(description = "Converged original payment and order; present only when resolved") @Valid PaymentProgressDTO progress) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

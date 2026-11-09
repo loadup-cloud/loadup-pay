@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 

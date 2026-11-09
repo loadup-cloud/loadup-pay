@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -29,9 +28,7 @@ public record PaymentCodeInteractionDTO(
         @Schema(
                 description = "Payer payment code captured by the merchant; never returned in responses",
                 accessMode = Schema.AccessMode.WRITE_ONLY)
-        @NotBlank
-        @Size(max = 4096)
-        @DiagnosticHidden
+        @NotBlank @Size(max = 4096) @DiagnosticHidden
         String paymentCode)
         implements PaymentInteractionDTO {
     @Override

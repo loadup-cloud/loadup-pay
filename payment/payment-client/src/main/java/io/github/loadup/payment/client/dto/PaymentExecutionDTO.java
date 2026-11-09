@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.contracts.event.payment.PaymentState;
@@ -29,23 +28,19 @@ public record PaymentExecutionDTO(
         @Schema(description = "Payment id") @Size(max = 64) String paymentId,
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Allocation id") @Size(max = 64)
-        String allocationId,
+        @Schema(description = "Allocation id") @Size(max = 64) String allocationId,
 
         @Schema(description = "Amount minor") long amountMinor,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
         @Schema(description = "State") PaymentState state,
 
-        @Schema(description = "Active attempt id") @Size(max = 64)
-        String activeAttemptId,
+        @Schema(description = "Active attempt id") @Size(max = 64) String activeAttemptId,
 
         @Schema(description = "Action") @Valid PaymentActionDTO action,
 
-        @Schema(description = "Terminal evidence id") @Size(max = 64)
-        String terminalEvidenceId,
+        @Schema(description = "Terminal evidence id") @Size(max = 64) String terminalEvidenceId,
 
         @Schema(description = "Version") long version,
         @Schema(description = "Initiated at") OffsetDateTime initiatedAt) {

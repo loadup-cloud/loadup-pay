@@ -23,8 +23,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record PaymentCaptureLinesQuery(
-        @Schema(description = "Original sealed capture") @NotBlank @Size(max = 64)
-        String captureId,
+        @Schema(description = "Original sealed capture") @NotBlank @Size(max = 64) String captureId,
 
         @Schema(description = "One-based immutable page") Integer page,
         @Schema(description = "Page size, at most 100") Integer size) {

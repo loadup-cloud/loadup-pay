@@ -15,7 +15,6 @@
  */
 package io.github.loadup.productcenter.client.dto.terms;
 
-
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -33,19 +32,15 @@ public record AcquiringTermsDTO(
         @Schema(description = "Fee") @Valid @NotNull FeeTermsDTO fee,
         @Schema(description = "Refund") @Valid @NotNull RefundTermsDTO refund,
 
-        @Schema(description = "Notification") @Valid @NotNull
-        NotificationTermsDTO notification,
+        @Schema(description = "Notification") @Valid @NotNull NotificationTermsDTO notification,
 
         @Schema(description = "Limits") @Valid @NotNull LimitPolicyRefDTO limits,
 
-        @Schema(description = "Capabilities") @Valid @NotEmpty
-        List<ChannelCapabilityDTO> capabilities,
+        @Schema(description = "Capabilities") @Valid @NotEmpty List<ChannelCapabilityDTO> capabilities,
 
-        @Schema(description = "Versioned routing profile reference") @NotBlank @Size(max = 128)
-        String routingProfileRef,
+        @Schema(description = "Versioned routing profile reference") @NotBlank @Size(max = 128) String routingProfileRef,
 
-        @Schema(description = "Approved cashier return target code") @NotBlank @Size(max = 128)
-        String returnTargetCode) {
+        @Schema(description = "Approved cashier return target code") @NotBlank @Size(max = 128) String returnTargetCode) {
     public AcquiringTermsDTO {
         capabilities = capabilities == null ? List.of() : List.copyOf(capabilities);
     }

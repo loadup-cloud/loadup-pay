@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
@@ -31,16 +30,12 @@ public record ChannelIdentityInteractionDTO(
         @Schema(
                 description = "Resolved channel payer identifier; never an OAuth authorization code",
                 accessMode = Schema.AccessMode.WRITE_ONLY)
-        @NotBlank
-        @Size(max = 128)
-        @DiagnosticHidden
+        @NotBlank @Size(max = 128) @DiagnosticHidden
         String identifier,
 
-        @Schema(description = "App scope") @NotBlank @Size(max = 64)
-        String appScope,
+        @Schema(description = "App scope") @NotBlank @Size(max = 64) String appScope,
 
-        @Schema(description = "Resolved payer identifier type") @NotNull
-        PayerIdentityType identityType)
+        @Schema(description = "Resolved payer identifier type") @NotNull PayerIdentityType identityType)
         implements PaymentInteractionDTO {
     @Override
     public String toString() {

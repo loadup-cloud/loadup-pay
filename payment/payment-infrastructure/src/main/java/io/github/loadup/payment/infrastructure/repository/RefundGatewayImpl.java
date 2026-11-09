@@ -62,8 +62,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRequestDO> implements RefundGateway {
     private static final String REQUEST_COLUMNS =
             "id, created_at, updated_at, order_id, payee_merchant_id, merchant_refund_no, reason_code, request_digest,"
-                + " caller_subject_hash, admission_id, amount_minor, currency, allocation_policy, plan_version, state,"
-                + " succeeded_minor, failed_minor, unknown_count, refund_terms, terms_hash, planned_at, row_version";
+                    + " caller_subject_hash, admission_id, amount_minor, currency, allocation_policy, plan_version, state,"
+                    + " succeeded_minor, failed_minor, unknown_count, refund_terms, terms_hash, planned_at, row_version";
     private static final String CHILD_COLUMNS =
             "id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id, binding_revision_id,"
                     + " channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,"

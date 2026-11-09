@@ -31,8 +31,7 @@ import java.time.OffsetDateTime;
 public record PaymentUnknownRecoveryQuery(
         @NotNull PaymentRecoveryKind kind,
 
-        @Schema(description = "Minimum operational attention band, inclusive") @NotNull
-        PaymentRecoveryAttentionLevel minimumLevel,
+        @Schema(description = "Minimum operational attention band, inclusive") @NotNull PaymentRecoveryAttentionLevel minimumLevel,
 
         @Schema(description = "Previous page cursor time; supplied together with afterRecordId")
         OffsetDateTime afterFirstUnknownAt,

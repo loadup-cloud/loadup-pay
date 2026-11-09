@@ -36,11 +36,14 @@ import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
+import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import io.github.loadup.productcenter.client.http.ProductHttpService;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -69,11 +72,11 @@ class OrderAdmissionHttpClientTest {
     void propagatesTheDelegatedTokenPerHttpRequest() {
         doAnswer(invocation -> {
                     assertEquals("Bearer " + TOKEN, invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(new io.github.loadup.productcenter.client.dto.OrderAdmissionDTO(
+                    return SuccessResponse.of(new OrderAdmissionDTO(
                             "admission",
                             "order",
                             "merchant",
-                            io.github.loadup.productcenter.client.enums.AdmissionDecision.DENIED,
+                            AdmissionDecision.DENIED,
                             "PRODUCT_CONTRACT_UNAVAILABLE",
                             "b".repeat(64),
                             null,
@@ -92,7 +95,7 @@ class OrderAdmissionHttpClientTest {
         assertEquals("PRODUCT_CONTRACT_UNAVAILABLE", result.reasonCode());
         var request = ArgumentCaptor.forClass(
                 io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand.class);
-        org.mockito.Mockito.verify(productHttp).authorize("Bearer " + TOKEN, request.capture());
+        Mockito.verify(productHttp).authorize("Bearer " + TOKEN, request.capture());
         assertEquals("order", request.getValue().orderId());
         assertEquals("merchant", request.getValue().payeeMerchantId());
         assertEquals("scope", request.getValue().productScopeKey());

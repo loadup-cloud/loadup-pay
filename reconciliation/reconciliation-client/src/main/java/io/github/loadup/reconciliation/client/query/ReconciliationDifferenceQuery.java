@@ -25,8 +25,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record ReconciliationDifferenceQuery(
-        @Schema(description = "Owning batch id") @NotBlank @Size(max = 64)
-        String batchId,
+        @Schema(description = "Owning batch id") @NotBlank @Size(max = 64) String batchId,
 
         @Schema(description = "Optional payment/refund filter")
         ReconciliationRecordKind kind,

@@ -55,6 +55,8 @@ import io.github.loadup.components.http.HttpCallException;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.client.http.PaymentHttpService;
 import java.time.Clock;
@@ -123,7 +125,7 @@ class PaymentAcceptanceHttpClientTest {
                 new PaymentTransportProperties("acquire", "payment"),
                 contracts);
         writeToken(claims());
-        var result = new io.github.loadup.payment.client.dto.PaymentExecutionDTO(
+        var result = new PaymentExecutionDTO(
                 "payment",
                 "order",
                 "allocation",
@@ -179,7 +181,7 @@ class PaymentAcceptanceHttpClientTest {
 
     @Test
     void detailAndOutcomeUseTheTypedIdQuery() {
-        var execution = new io.github.loadup.payment.client.dto.PaymentExecutionDTO(
+        var execution = new PaymentExecutionDTO(
                 "payment",
                 "order",
                 "allocation",
@@ -206,7 +208,7 @@ class PaymentAcceptanceHttpClientTest {
 
     @Test
     void eventAuthorityUsesTheRichFactsOperationInsteadOfDiscardingOperationAndPayee() {
-        var payment = new io.github.loadup.payment.client.dto.PaymentExecutionDTO(
+        var payment = new PaymentExecutionDTO(
                 "payment",
                 "order",
                 "allocation",
@@ -218,8 +220,7 @@ class PaymentAcceptanceHttpClientTest {
                 "proof",
                 2,
                 OffsetDateTime.now(clock));
-        doReturn(SuccessResponse.of(new io.github.loadup.payment.client.dto.PaymentSettlementFactsDTO(
-                        payment, "operation", "merchant", false)))
+        doReturn(SuccessResponse.of(new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
                 .when(paymentHttp)
                 .facts(anyString(), any());
         var facts = client.facts("payment");

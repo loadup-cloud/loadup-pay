@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -25,8 +24,7 @@ import jakarta.validation.constraints.NotNull;
  * A consistent authoritative payment and its persistent execution gate.
  */
 public record PaymentOutcomeDTO(
-        @Schema(description = "Authoritative persisted payment") @NotNull @Valid
-        PaymentExecutionDTO payment,
+        @Schema(description = "Authoritative persisted payment") @NotNull @Valid PaymentExecutionDTO payment,
 
         @Schema(description = "The payment execution gate is persistently fenced")
         boolean executionFenced) {

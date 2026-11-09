@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.github.loadup.acquire.app.model.payment.command;
 
 import io.github.loadup.acquire.app.model.productcenter.dto.terms.AdmittedOrderTermsDTO;
@@ -15,42 +30,32 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record PaymentExecuteCommand(
-        @Schema(description = "Payment id") @NotBlank @Size(max = 64)
-        String paymentId,
+        @Schema(description = "Payment id") @NotBlank @Size(max = 64) String paymentId,
 
-        @Schema(description = "Order id") @NotBlank @Size(max = 64)
-        String orderId,
+        @Schema(description = "Order id") @NotBlank @Size(max = 64) String orderId,
 
-        @Schema(description = "Allocation id") @NotBlank @Size(max = 64)
-        String allocationId,
+        @Schema(description = "Allocation id") @NotBlank @Size(max = 64) String allocationId,
 
-        @Schema(description = "Admission id") @NotBlank @Size(max = 64)
-        String admissionId,
+        @Schema(description = "Admission id") @NotBlank @Size(max = 64) String admissionId,
 
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
 
-        @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
-        @Schema(description = "Acquiring action SHA-256 digest") @NotBlank @Pattern(regexp = "[0-9a-f]{64}")
-        String requestDigest,
+        @Schema(description = "Acquiring action SHA-256 digest") @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String requestDigest,
 
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
 
         @Schema(description = "Prepared input ref") @Size(max = 64) @DiagnosticHidden
         String preparedInputRef,
 
-        @Schema(description = "Admitted terms") @NotNull @Valid
-        AdmittedOrderTermsDTO admittedTerms,
+        @Schema(description = "Admitted terms") @NotNull @Valid AdmittedOrderTermsDTO admittedTerms,
 
-        @Schema(description = "Original order subject") @NotBlank @Size(max = 256)
-        String subject,
+        @Schema(description = "Original order subject") @NotBlank @Size(max = 256) String subject,
 
-        @Schema(description = "Frozen order payment deadline") @NotNull
-        OffsetDateTime payableUntil) {
+        @Schema(description = "Frozen order payment deadline") @NotNull OffsetDateTime payableUntil) {
     public PaymentExecuteCommand {
         if (payableUntil != null) {
             payableUntil = payableUntil.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();

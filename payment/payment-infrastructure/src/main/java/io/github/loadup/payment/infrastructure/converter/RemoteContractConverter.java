@@ -1,6 +1,22 @@
+/*
+ * Copyright (C) 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.github.loadup.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.commons.result.SuccessResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.SubclassExhaustiveStrategy;
 
@@ -108,101 +124,57 @@ public interface RemoteContractConverter {
     io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO toLocal(
             io.github.loadup.realtime.client.dto.ProjectionAckDTO value);
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO>
             fromAcquireFeeRefundAckDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<io.github.loadup.acquire.client.dto.FeeRefundAckDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.acquire.client.dto.FeeRefundAckDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.acquire.dto.PaymentOutcomeAckDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.acquire.dto.PaymentOutcomeAckDTO>
             fromAcquirePaymentOutcomeAckDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.acquire.dto.RefundNotificationAckDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.acquire.dto.RefundNotificationAckDTO>
             fromAcquireRefundNotificationAckDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.acquire.client.dto.RefundNotificationAckDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.acquire.client.dto.RefundNotificationAckDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionPermitDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionPermitDTO>
             fromLimitcenterLimitExecutionPermitDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionVerificationDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionVerificationDTO>
             fromLimitcenterLimitExecutionVerificationDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.limitcenter.client.dto.LimitExecutionVerificationDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitExecutionVerificationDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.limitcenter.dto.LimitReleaseDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.limitcenter.dto.LimitReleaseDTO>
             fromLimitcenterLimitReleaseDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.limitcenter.client.dto.LimitReleaseDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitReleaseDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO>
             fromLimitcenterLimitReservationDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.limitcenter.client.dto.LimitReservationDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitReservationDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO>
             fromLimitcenterLimitRestoreDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.limitcenter.client.dto.LimitRestoreDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitRestoreDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO>
+    default SuccessResponse<io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO>
             fromRealtimeProjectionAckDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.realtime.client.dto.ProjectionAckDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.realtime.client.dto.ProjectionAckDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 }

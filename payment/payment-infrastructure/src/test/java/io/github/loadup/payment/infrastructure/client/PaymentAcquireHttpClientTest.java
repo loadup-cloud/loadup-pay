@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.acquire.client.http.AcquireHttpService;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
@@ -124,8 +125,8 @@ class PaymentAcquireHttpClientTest {
                 contracts);
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(new io.github.loadup.acquire.client.dto.PaymentOutcomeAckDTO(
-                            "delivery", "proof", "payment", 2, "proof", 3, true));
+                    return SuccessResponse.of(
+                            new PaymentOutcomeAckDTO("delivery", "proof", "payment", 2, "proof", 3, true));
                 })
                 .when(acquireHttp)
                 .paymentOutcome(anyString(), any());

@@ -30,6 +30,9 @@ import io.github.loadup.commons.result.PageInfo;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
+import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
+import io.github.loadup.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.payment.client.enums.PaymentLedgerStatus;
 import io.github.loadup.payment.client.http.PaymentCaptureHttpService;
 import io.github.loadup.payment.client.http.PaymentCapturePageResponse;
 import io.github.loadup.payment.client.http.PaymentStatementHttpService;
@@ -102,15 +105,15 @@ class PaymentEvidenceHttpClientTest {
                 ReconciliationResultCodeEnum.INPUT_NOT_SEALED,
                 assertThrows(CommonException.class, () -> captureClient.lines(query))
                         .getResultCode());
-        var row = new io.github.loadup.payment.client.dto.PaymentLedgerLineDTO(
+        var row = new PaymentLedgerLineDTO(
                 1,
-                io.github.loadup.payment.client.enums.PaymentLedgerKind.PAYMENT,
+                PaymentLedgerKind.PAYMENT,
                 "channel",
                 null,
                 "merchant-payment",
                 100,
                 "CNY",
-                io.github.loadup.payment.client.enums.PaymentLedgerStatus.SUCCEEDED,
+                PaymentLedgerStatus.SUCCEEDED,
                 OffsetDateTime.now(clock),
                 "payment",
                 "receipt",

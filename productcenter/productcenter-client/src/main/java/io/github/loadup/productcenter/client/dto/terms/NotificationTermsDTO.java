@@ -27,24 +27,19 @@ public record NotificationTermsDTO(
         @Schema(description = "Enabled") boolean enabled,
         @Schema(description = "Target ref") @Size(max = 128) String targetRef,
 
-        @Schema(description = "Signing identity ref") @Size(max = 128)
-        String signingIdentityRef,
+        @Schema(description = "Signing identity ref") @Size(max = 128) String signingIdentityRef,
 
         @Schema(description = "Timeout millis") @Positive int timeoutMillis,
 
-        @Schema(description = "Retry initial seconds") @Positive
-        long retryInitialSeconds,
+        @Schema(description = "Retry initial seconds") @Positive long retryInitialSeconds,
 
         @Schema(description = "Retry multiplier") BigDecimal retryMultiplier,
 
-        @Schema(description = "Retry maximum seconds") @Positive
-        long retryMaximumSeconds,
+        @Schema(description = "Retry maximum seconds") @Positive long retryMaximumSeconds,
 
-        @Schema(description = "Retry max attempts") @Positive
-        int retryMaxAttempts,
+        @Schema(description = "Retry max attempts") @Positive int retryMaxAttempts,
 
-        @Schema(description = "Retry window seconds") @Positive
-        long retryWindowSeconds) {
+        @Schema(description = "Retry window seconds") @Positive long retryWindowSeconds) {
     public NotificationTermsDTO {
         DomainViolation.require(
                 timeoutMillis > 0

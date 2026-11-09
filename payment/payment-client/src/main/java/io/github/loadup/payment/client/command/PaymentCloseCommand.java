@@ -22,22 +22,17 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record PaymentCloseCommand(
-        @Schema(description = "Payment id") @NotBlank @Size(max = 64)
-        String paymentId,
+        @Schema(description = "Payment id") @NotBlank @Size(max = 64) String paymentId,
 
-        @Schema(description = "Order id") @NotBlank @Size(max = 64)
-        String orderId,
+        @Schema(description = "Order id") @NotBlank @Size(max = 64) String orderId,
 
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
-        @Schema(description = "Request key") @NotBlank @Size(max = 128)
-        String requestKey,
+        @Schema(description = "Request key") @NotBlank @Size(max = 128) String requestKey,
 
         @Schema(description = "Fence epoch") @Positive long fenceEpoch,
 
-        @Schema(description = "Reason code") @NotBlank @Size(max = 64)
-        String reasonCode) {
+        @Schema(description = "Reason code") @NotBlank @Size(max = 64) String reasonCode) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

@@ -26,14 +26,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 public record FeeTermsDTO(
-        @Schema(description = "Rate") @DecimalMin("0") @NotNull
-        BigDecimal rate,
+        @Schema(description = "Rate") @DecimalMin("0") @NotNull BigDecimal rate,
 
         @Schema(description = "Fixed minor") @PositiveOrZero long fixedMinor,
         @Schema(description = "Rounding") @NotNull RoundingMode rounding,
 
-        @Schema(description = "Minimum minor") @PositiveOrZero
-        long minimumMinor,
+        @Schema(description = "Minimum minor") @PositiveOrZero long minimumMinor,
 
         @Schema(description = "Maximum minor") Long maximumMinor,
         @Schema(description = "Refund policy") @NotNull FeeRefundPolicy refundPolicy) {

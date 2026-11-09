@@ -35,38 +35,30 @@ import java.util.Locale;
  * Merchant API convenience entry; a hosted checkout session is not a prerequisite.
  */
 public record DirectPayCommand(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
-        @Schema(description = "Merchant order no") @NotBlank @Size(max = 64)
-        String merchantOrderNo,
+        @Schema(description = "Merchant order no") @NotBlank @Size(max = 64) String merchantOrderNo,
 
-        @Schema(description = "Product scope key") @NotBlank @Size(max = 128)
-        String productScopeKey,
+        @Schema(description = "Product scope key") @NotBlank @Size(max = 128) String productScopeKey,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
-        @Schema(description = "Subject") @NotBlank @Size(max = 200)
-        String subject,
+        @Schema(description = "Subject") @NotBlank @Size(max = 200) String subject,
 
         @Schema(description = "Requested due at") OffsetDateTime requestedDueAt,
 
-        @Schema(description = "Action key") @NotBlank @Size(max = 128)
-        String actionKey,
+        @Schema(description = "Action key") @NotBlank @Size(max = 128) String actionKey,
 
-        @Schema(description = "First payment amount minor") @Positive
-        long firstPaymentAmountMinor,
+        @Schema(description = "First payment amount minor") @Positive long firstPaymentAmountMinor,
 
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
 
         @Schema(
                 description = "Sensitive payer input for the chosen payment method",
                 accessMode = Schema.AccessMode.WRITE_ONLY)
-        @Valid
-        @DiagnosticHidden
+        @Valid @DiagnosticHidden
         PaymentInteractionDTO interaction) {
     public DirectPayCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);

@@ -29,13 +29,11 @@ public record TradePaymentDTO(
         @Schema(description = "Payment id") @Size(max = 64) String paymentId,
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Payee merchant id") @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Amount minor") long amountMinor,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
         @Schema(description = "State") PaymentState state,
         @Schema(description = "Channel") Channel channel,

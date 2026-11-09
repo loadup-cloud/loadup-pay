@@ -22,8 +22,7 @@ import jakarta.validation.Valid;
 
 public record PaymentProgressDTO(
         @Schema(description = "Persisted payment; null when a trusted close receipt proves it was never accepted")
-        @Valid
-        PaymentExecutionDTO payment,
+        @Valid PaymentExecutionDTO payment,
 
         @Schema(description = "Order") @Valid AcquireOrderDTO order) {
     @Override

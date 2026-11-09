@@ -26,8 +26,7 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record TradePaymentPageQuery(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
         @Schema(description = "State") PaymentState state,

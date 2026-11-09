@@ -34,6 +34,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitConfirmCommand;
@@ -102,8 +104,8 @@ class PaymentLimitHttpClientTest {
         return token;
     }
 
-    io.github.loadup.limitcenter.client.dto.LimitReservationDTO confirmed() {
-        return new io.github.loadup.limitcenter.client.dto.LimitReservationDTO(
+    LimitReservationDTO confirmed() {
+        return new LimitReservationDTO(
                 "reservation",
                 "operation",
                 "payment",
@@ -131,8 +133,7 @@ class PaymentLimitHttpClientTest {
                 .confirm(anyString(), any());
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(new io.github.loadup.limitcenter.client.dto.LimitReleaseDTO(
-                            "operation", "payment", true, null, 2, "evidence"));
+                    return SuccessResponse.of(new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
                 })
                 .when(limitCenterHttp)
                 .release(anyString(), any());

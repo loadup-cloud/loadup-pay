@@ -25,29 +25,24 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record OrderAdmissionDTO(
-        @Schema(description = "Admission id") @Size(max = 64)
-        String admissionId,
+        @Schema(description = "Admission id") @Size(max = 64) String admissionId,
 
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Payee merchant id") @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Decision") AdmissionDecision decision,
         @Schema(description = "Reason code") @Size(max = 64) String reasonCode,
 
-        @Schema(description = "Request digest") @Size(max = 64)
-        String requestDigest,
+        @Schema(description = "Request digest") @Size(max = 64) String requestDigest,
 
         @Schema(description = "Contract id") @Size(max = 64) String contractId,
         @Schema(description = "Revision") Integer revision,
         @Schema(description = "Generation") Long generation,
 
-        @Schema(description = "Snapshot hash") @Size(max = 128)
-        String snapshotHash,
+        @Schema(description = "Snapshot hash") @Size(max = 128) String snapshotHash,
 
-        @Schema(description = "Compiled terms hash") @Size(max = 64)
-        String compiledTermsHash,
+        @Schema(description = "Compiled terms hash") @Size(max = 64) String compiledTermsHash,
 
         @Schema(description = "Admitted at") OffsetDateTime admittedAt,
         @Schema(description = "Materialize before") OffsetDateTime materializeBefore,

@@ -29,8 +29,7 @@ public record OrderTermsDTO(
         @Schema(description = "Unpaid action") @NotNull UnpaidOrderAction unpaidAction,
         @Schema(description = "Extension allowed") boolean extensionAllowed,
 
-        @Schema(description = "Extension max seconds") @PositiveOrZero
-        long extensionMaxSeconds,
+        @Schema(description = "Extension max seconds") @PositiveOrZero long extensionMaxSeconds,
 
         @Schema(description = "Session seconds") @Positive long sessionSeconds) {
     public OrderTermsDTO {

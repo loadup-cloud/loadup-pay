@@ -24,8 +24,7 @@ public record PaymentTermsDTO(
         @Schema(description = "Min amount minor") @Positive long minAmountMinor,
         @Schema(description = "Max amount minor") @Positive long maxAmountMinor,
 
-        @Schema(description = "Max successful payments") @Positive
-        Integer maxSuccessfulPayments,
+        @Schema(description = "Max successful payments") @Positive Integer maxSuccessfulPayments,
 
         @Schema(description = "Allow exact remainder below min")
         boolean allowExactRemainderBelowMin) {

@@ -24,16 +24,12 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 public record AcquireRecoveryTaskQuery(
-        @Schema(description = "Allow-listed acquiring recovery task kind") @NotNull
-        AcquireRecoveryKind kind,
+        @Schema(description = "Allow-listed acquiring recovery task kind") @NotNull AcquireRecoveryKind kind,
 
         @Schema(description = "Original payment id for PAYMENT_ALLOCATION, otherwise original order id")
-        @NotBlank
-        @Size(max = 64)
-        String subjectId,
+        @NotBlank @Size(max = 64) String subjectId,
 
-        @Schema(description = "Original task generation; deadline versions begin at one") @NotNull @PositiveOrZero
-        Long generation) {
+        @Schema(description = "Original task generation; deadline versions begin at one") @NotNull @PositiveOrZero Long generation) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

@@ -166,10 +166,10 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         return jdbc
                 .query(
                         "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest,"
-                            + " channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id,"
-                            + " statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind,"
-                            + " task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import"
-                            + " WHERE deleted = FALSE AND "
+                                + " channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id,"
+                                + " statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind,"
+                                + " task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import"
+                                + " WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class))

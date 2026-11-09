@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -29,8 +28,7 @@ public record PaymentInputLookupDTO(
         boolean found,
 
         @Schema(description = "Original opaque reference, fingerprint and expiry; absent only when found is false")
-        @Valid
-        PaymentInputDTO input) {
+        @Valid PaymentInputDTO input) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.client.dto;
 
-
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 

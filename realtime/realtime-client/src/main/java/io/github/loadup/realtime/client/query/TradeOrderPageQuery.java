@@ -26,11 +26,9 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record TradeOrderPageQuery(
-        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
 
-        @Schema(description = "Merchant order no") @Size(max = 64)
-        String merchantOrderNo,
+        @Schema(description = "Merchant order no") @Size(max = 64) String merchantOrderNo,
 
         @Schema(description = "Created from") OffsetDateTime createdFrom,
         @Schema(description = "Created to") OffsetDateTime createdTo,

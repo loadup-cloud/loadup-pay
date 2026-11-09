@@ -30,13 +30,11 @@ import java.util.Set;
 public record CashierOrderDTO(
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Merchant display name") @Size(max = 64)
-        String merchantDisplayName,
+        @Schema(description = "Merchant display name") @Size(max = 64) String merchantDisplayName,
 
         @Schema(description = "Subject") @Size(max = 200) String subject,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
         @Schema(description = "Amount minor") long amountMinor,
         @Schema(description = "Paid amount minor") long paidAmountMinor,

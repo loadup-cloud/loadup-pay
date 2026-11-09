@@ -127,9 +127,9 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                 Long.class);
         var rows = jdbc.query(
                 "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash,"
-                    + " caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version,"
-                    + " note, occurred_at FROM reconciliation_review_event WHERE difference_id = :difference AND"
-                    + " deleted = FALSE ORDER BY source_version ASC LIMIT :limit OFFSET :offset",
+                        + " caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version,"
+                        + " note, occurred_at FROM reconciliation_review_event WHERE difference_id = :difference AND"
+                        + " deleted = FALSE ORDER BY source_version ASC LIMIT :limit OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class));
         return PageResult.of(
@@ -317,8 +317,8 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         return jdbc
                 .query(
                         "SELECT id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state,"
-                            + " proposal_id, last_event_id, row_version FROM reconciliation_review WHERE id = :id AND"
-                            + " deleted = FALSE"
+                                + " proposal_id, last_event_id, row_version FROM reconciliation_review WHERE id = :id AND"
+                                + " deleted = FALSE"
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationReviewDO.class))
@@ -331,9 +331,9 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         return jdbc
                 .query(
                         "SELECT id, created_at, updated_at, difference_id, batch_id, run_id, result_hash,"
-                            + " match_key_hash, caller_service_id, request_key, request_digest, operation,"
-                            + " proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event"
-                            + " WHERE deleted = FALSE AND "
+                                + " match_key_hash, caller_service_id, request_key, request_digest, operation,"
+                                + " proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event"
+                                + " WHERE deleted = FALSE AND "
                                 + predicate,
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class))

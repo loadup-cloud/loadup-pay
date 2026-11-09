@@ -33,6 +33,8 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
+import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.merchantcenter.client.error.CustomerResultCodeEnum;
 import io.github.loadup.merchantcenter.client.http.CustomerHttpService;
 import io.github.loadup.productcenter.app.security.ProductActor;
@@ -80,18 +82,17 @@ class CustomerEligibilityHttpLookupTest {
         }
     }
 
-    private io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO allowed(String payee) {
-        return new io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO(
+    private MerchantEligibilityDTO allowed(String payee) {
+        return new MerchantEligibilityDTO(
                 true,
                 "ALLOWED",
-                new io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO(
-                        payee, "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
+                new MerchantProfileDTO(payee, "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
                 1,
                 "grant",
                 1L);
     }
 
-    private void respond(io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO value) {
+    private void respond(MerchantEligibilityDTO value) {
         when(http.authorize(anyString(), any())).thenReturn(SuccessResponse.of(value));
     }
 
@@ -130,7 +131,7 @@ class CustomerEligibilityHttpLookupTest {
                 .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.ACTION_FORBIDDEN), null));
         var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         assertSame(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
-        respond(new io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO(
+        respond(new MerchantEligibilityDTO(
                 false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null));
         assertFalse(lookup.authorizeNewOrder("merchant").allowed());
     }
@@ -139,8 +140,7 @@ class CustomerEligibilityHttpLookupTest {
     void malformedRepliesAndTransportFailuresStayDependencyFailures() {
         respond(null);
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
-        respond(new io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO(
-                true, "ALLOWED", allowed("merchant").merchant(), 0, "grant", 1L));
+        respond(new MerchantEligibilityDTO(true, "ALLOWED", allowed("merchant").merchant(), 0, "grant", 1L));
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         when(http.authorize(anyString(), any())).thenThrow(new IllegalStateException("sensitive remote detail"));
         var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));

@@ -22,8 +22,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record ParentFenceStatusQuery(
-        @Schema(description = "Order id") @NotBlank @Size(max = 64)
-        String orderId,
+        @Schema(description = "Order id") @NotBlank @Size(max = 64) String orderId,
 
         @Schema(description = "Close epoch") @Positive long closeEpoch) {
     @Override

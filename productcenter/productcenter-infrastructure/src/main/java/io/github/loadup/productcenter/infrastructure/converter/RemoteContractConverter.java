@@ -1,6 +1,22 @@
+/*
+ * Copyright (C) 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.github.loadup.productcenter.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.commons.result.SuccessResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.SubclassExhaustiveStrategy;
 
@@ -72,36 +88,21 @@ public interface RemoteContractConverter {
     io.github.loadup.productcenter.app.model.merchantcenter.enums.MerchantAction toLocal(
             io.github.loadup.merchantcenter.client.enums.MerchantAction value);
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO>
+    default SuccessResponse<io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO>
             fromLimitcenterLimitPolicyActivationDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO>
+    default SuccessResponse<io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO>
             fromMerchantcenterMerchantEligibilityDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default io.github.loadup.commons.result.SuccessResponse<
-                    io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO>
+    default SuccessResponse<io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO>
             fromMerchantcenterMerchantProfileDTOSuccessResponse(
-                    io.github.loadup.commons.result.SuccessResponse<
-                                    io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO>
-                            response) {
-        return response == null
-                ? null
-                : new io.github.loadup.commons.result.SuccessResponse<>(response.result(), toLocal(response.data()));
+                    SuccessResponse<io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO> response) {
+        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 }

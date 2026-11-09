@@ -35,6 +35,7 @@ import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.limitcenter.infrastructure.converter.RemoteContractConverter;
+import io.github.loadup.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.payment.client.http.PaymentHttpService;
 import java.time.Clock;
 import java.time.Instant;
@@ -58,27 +59,26 @@ class PaymentEvidenceHttpClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final PaymentHttpService paymentHttp = mock(PaymentHttpService.class);
-    final io.github.loadup.payment.client.dto.RefundSettlementFactsDTO remoteFacts =
-            new io.github.loadup.payment.client.dto.RefundSettlementFactsDTO(
-                    new RefundOutcomeEventDTO(
-                            "refund",
-                            "request",
-                            "payment",
-                            "order",
-                            "operation",
-                            "merchant",
-                            1000,
-                            "CNY",
-                            RefundState.SUCCEEDED,
-                            3,
-                            1000,
-                            "refund-evidence"),
-                    2000,
-                    4,
-                    "payment-evidence",
-                    "attempt",
-                    OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
-                    5);
+    final RefundSettlementFactsDTO remoteFacts = new RefundSettlementFactsDTO(
+            new RefundOutcomeEventDTO(
+                    "refund",
+                    "request",
+                    "payment",
+                    "order",
+                    "operation",
+                    "merchant",
+                    1000,
+                    "CNY",
+                    RefundState.SUCCEEDED,
+                    3,
+                    1000,
+                    "refund-evidence"),
+            2000,
+            4,
+            "payment-evidence",
+            "attempt",
+            OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
+            5);
 
     PaymentEvidenceHttpClient client;
     String credential;

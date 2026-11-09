@@ -26,19 +26,16 @@ import java.time.OffsetDateTime;
 public record TradeRefundDTO(
         @Schema(description = "Refund id") @Size(max = 64) String refundId,
 
-        @Schema(description = "Refund request id") @Size(max = 64)
-        String refundRequestId,
+        @Schema(description = "Refund request id") @Size(max = 64) String refundRequestId,
 
         @Schema(description = "Payment id") @Size(max = 64) String paymentId,
         @Schema(description = "Order id") @Size(max = 64) String orderId,
 
-        @Schema(description = "Payee merchant id") @Size(max = 64)
-        String payeeMerchantId,
+        @Schema(description = "Payee merchant id") @Size(max = 64) String payeeMerchantId,
 
         @Schema(description = "Amount minor") long amountMinor,
 
-        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY")
-        String currency,
+        @Schema(description = "Currency") @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
         @Schema(description = "State") RefundState state,
 

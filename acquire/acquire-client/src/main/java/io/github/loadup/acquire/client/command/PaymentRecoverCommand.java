@@ -25,18 +25,14 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record PaymentRecoverCommand(
-        @Schema(description = "Order id") @NotBlank @Size(max = 64)
-        String orderId,
+        @Schema(description = "Order id") @NotBlank @Size(max = 64) String orderId,
 
-        @Schema(description = "Action key") @NotBlank @Size(max = 128)
-        String actionKey,
+        @Schema(description = "Action key") @NotBlank @Size(max = 128) String actionKey,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
 
         @Schema(description = "Original merchant payment choice; recovery never supplies or replaces payer interaction")
-        @NotNull
-        @Valid
-        PaymentChoiceDTO choice) {
+        @NotNull @Valid PaymentChoiceDTO choice) {
 
     @Override
     public String toString() {

@@ -26,8 +26,7 @@ public record PaymentStartDTO(
         @Schema(description = "Order id") @Size(max = 64) String orderId,
         @Schema(description = "Payment id") @Size(max = 64) String paymentId,
 
-        @Schema(description = "Allocation id") @Size(max = 64)
-        String allocationId,
+        @Schema(description = "Allocation id") @Size(max = 64) String allocationId,
 
         @Schema(description = "State") PaymentState state,
         @Schema(description = "Action") @Valid PaymentActionDTO action,

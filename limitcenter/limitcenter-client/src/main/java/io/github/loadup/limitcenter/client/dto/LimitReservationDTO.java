@@ -23,11 +23,9 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record LimitReservationDTO(
-        @Schema(description = "Reservation id") @Size(max = 64)
-        String reservationId,
+        @Schema(description = "Reservation id") @Size(max = 64) String reservationId,
 
-        @Schema(description = "Operation id") @Size(max = 64)
-        String operationId,
+        @Schema(description = "Operation id") @Size(max = 64) String operationId,
 
         @Schema(description = "Payment id") @Size(max = 64) String paymentId,
         @Schema(description = "State") LimitReservationState state,
