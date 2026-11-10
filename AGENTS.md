@@ -37,7 +37,7 @@
 
 ## 项目定位
 
-LoadUp 是一个 **被消费的框架/SDK**，通过 `loadup-dependencies` BOM 对外提供能力。
+LoadUp 是一个 **被消费的框架/SDK**，通过 `loadup-framework-bom` BOM 对外提供能力。
 集成方在自有 Spring Boot / Spring Cloud 项目中引入 BOM，按需使用组件和业务模块。
 
 - `loadup-application` 仅为集成测试验证器和本地开发启动器， **不是生产部署单元**
@@ -67,7 +67,7 @@ LoadUp 是一个 **被消费的框架/SDK**，通过 `loadup-dependencies` BOM �
 
 ```
 loadup-cloud/
-├── loadup-dependencies/        # BOM，统一依赖版本
+├── loadup-framework-bom/        # BOM，统一依赖版本
 ├── loadup-commons/             # 最底层通用基础
 │   ├── loadup-commons-context/ # JDK 25 ScopedValue 只读执行链上下文
 │   ├── loadup-commons-dto/     # 通用响应、分页与共享值
@@ -99,7 +99,7 @@ loadup-cloud/
 ## 模块依赖方向（严格单向）
 
 ```
-loadup-dependencies (BOM)
+loadup-framework-bom (BOM)
         ↑
    loadup-commons/*
         ↑
@@ -208,14 +208,14 @@ payment、acquire 等业务代码量大的服务保留
 | 5  | 字符串拼接 SQL                                          | 参数化 Spring JDBC SQL                                                                                                                                                        |
 | 6  | `@Table` 放在 domain 层                                 | DO（`XxxDO extends BaseDO`）只放在 `infrastructure.dataobject`                                                                                                                |
 | 7  | 子模块 `<parent>` 指向模块自身 pom                      | 所有子模块 `<parent>` 统一指向根 `loadup-parent`                                                                                                                              |
-| 8  | 子模块内写 `<version>` 引用同项目模块                   | 版本由 `loadup-dependencies` BOM 统一管理                                                                                                                                     |
+| 8  | 子模块内写 `<version>` 引用同项目模块                   | 版本由 `loadup-framework-bom` BOM 统一管理                                                                                                                                     |
 | 9  | 表主键 `BIGINT AUTO_INCREMENT`                          | 主键 `VARCHAR(64)`，默认由 database 的 `IdGenerator` 生成业务 ID；序列表元数据显式使用 UUID 防止递归                                                                          |
 | 10 | 无必要的业务模块横向依赖                                | 保持清晰依赖方向，跨模块能力优先通过公开接口集成                                                                                                                              |
 | 11 | Java 文件中写中文注释或 Javadoc                         | 注释/Javadoc 统一使用英文；中文只允许出现在 `*.md` 文档文件中                                                                                                                 |
 | 12 | `BOOLEAN`/`BOOL` 类型                                   | 统一使用 `SMALLINT`（0/1），并加 CHECK                                                                                                                                        |
 | 13 | DO 中重复定义 id/createdAt/updatedAt/deleted            | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
 | 14 | Mapper 中写额外 SQL 方法                                | 用 `QueryWrapper` 在 GatewayImpl 中操作                                                                                                                                       |
-| 15 | 新增三方依赖不在 BOM 中声明                             | 版本管理集中在 `loadup-dependencies/pom.xml`                                                                                                                                  |
+| 15 | 新增三方依赖不在 BOM 中声明                             | 版本管理集中在 `loadup-framework-bom/pom.xml`                                                                                                                                  |
 | 16 | 使用 Lombok（`@Data`/`@Getter`/`@Slf4j`/`@Builder` 等） | 写显式 Java 代码；DTO/Command/Query 优先使用 Java `record`；日志打印使用 `LogUtil.info/warn/error(Source.class, ...)`；仅第三方日志适配需要 Logger 时使用 `LogUtil.getLogger` |
 | 17 | 使用 a.equals(b)                                        | 使用StringUtils.equals() 或者Objects.equals()                                                                                                                                 |
 
@@ -363,7 +363,7 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 
 - Java **25** | Spring Boot **4.1.1** | Spring Data JDBC（版本由 Spring Boot 管理）
 - PostgreSQL | Caffeine（本地）| Redis/Redisson（分布式）
-- Resilience4j **2.3.0**（容错；版本由 loadup-dependencies BOM 统一，跟随 Spring Cloud 2025.1.x）
+- Resilience4j **2.3.0**（容错；版本由 loadup-framework-bom BOM 统一，跟随 Spring Cloud 2025.1.x）
 - JUnit **6.0.3**（由 Spring Boot BOM 管理）+ `loadup-testify-spring-boot-starter` + Testcontainers
 - SpringDoc + Scalar | Spotless (Palantir Java Format) | Maven
 - License: **Apache-2.0**

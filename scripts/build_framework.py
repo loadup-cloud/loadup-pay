@@ -11,7 +11,7 @@ import common
 
 TARGETED_PROJECTS = ",".join(
     [
-        "loadup-dependencies",
+        "loadup-framework-bom",
         "loadup-components/integration/loadup-components-http",
         "loadup-components/security/loadup-components-resource-server",
         "loadup-components/security/loadup-components-service-auth",

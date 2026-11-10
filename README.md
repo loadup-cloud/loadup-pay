@@ -50,7 +50,7 @@ Framework 组件及业务模块 SQL 同时提供可手动导入的完整初始�
 Pay CI 通过 [.github/maven-settings.xml](.github/maven-settings.xml) 从
 `https://maven.pkg.github.com/loadup-cloud/loadup-packages` 下载两个 BOM 及对应制品：
 
-- `loadup-dependencies`：framework 版本由 `loadup.framework.version` 指定。
+- `loadup-framework-bom`：framework 版本由 `loadup.framework.version` 指定。
 - `loadup-modules-bom`：通用业务模块版本由 `loadup.modules.version` 指定。
 
 两项当前均为 `0.0.1-SNAPSHOT`，可以独立升级。Pay 子模块引用 UPMS、通知、文件和 Transfer 的 JAR 时省略 version；
