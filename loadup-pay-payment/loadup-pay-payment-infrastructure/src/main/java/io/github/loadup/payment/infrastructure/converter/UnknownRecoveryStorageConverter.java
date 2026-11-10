@@ -27,7 +27,8 @@ public interface UnknownRecoveryStorageConverter {
     @Mapping(target = "kind", source = "kind")
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
-                    + " row.getCurrency()))")
+            expression =
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     UnknownRecoveryEntry toEntry(PaymentRecoveryKind kind, UnknownRecoveryProjection row);
 }

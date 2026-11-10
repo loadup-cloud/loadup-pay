@@ -250,7 +250,9 @@ public class RefundPlanningService implements RefundFacade {
                     children);
             refunds.insertPlan(stored, reservations);
             projections.planned(
-                    actor.tenantId(), stored, ChannelAmounts.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
+                    actor.tenantId(),
+                    stored,
+                    ChannelAmounts.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
             recovery.register(actor.tenantId(), stored);
             return dto(stored);
         });

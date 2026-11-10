@@ -43,22 +43,25 @@ public interface TradeProjectionConverter {
     @Mapping(target = "reservedMinor", source = "value.paymentReservedMinor")
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(value.amountMinor(),"
-                    + " value.currency()))")
+            expression =
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(value.amountMinor(),"
+                            + " value.currency()))")
     @Mapping(target = "source", source = "source")
     TradeOrderProjection toOrder(OrderSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(value.amountMinor(),"
-                    + " value.currency()))")
+            expression =
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(value.amountMinor(),"
+                            + " value.currency()))")
     @Mapping(target = "source", source = "source")
     TradePaymentProjection toPayment(PaymentSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(value.amountMinor(),"
-                    + " value.currency()))")
+            expression =
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(value.amountMinor(),"
+                            + " value.currency()))")
     @Mapping(target = "source", source = "source")
     TradeRefundProjection toRefund(RefundSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 

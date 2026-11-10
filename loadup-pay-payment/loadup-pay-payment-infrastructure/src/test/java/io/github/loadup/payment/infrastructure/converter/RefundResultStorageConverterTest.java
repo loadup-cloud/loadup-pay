@@ -67,8 +67,8 @@ class RefundResultStorageConverterTest {
 
     @Test
     void aStartPatchOnlyWritesProgressAndTheOneWaySubmissionMarker() {
-        var child =
-                RefundOrder.init("refund", "request", "payment", ChannelAmounts.cnyAmount(300, "CNY"), "refund-request");
+        var child = RefundOrder.init(
+                "refund", "request", "payment", ChannelAmounts.cnyAmount(300, "CNY"), "refund-request");
         var request = RefundRequest.init("request", "order", "merchant", "R001", child.amount(), List.of(child));
         var capacity = new PaymentRefundCapacity(
                 "payment", "order", "merchant", now.minusHours(1), ChannelAmounts.cnyAmount(1000, "CNY"), 0, 300, 1);

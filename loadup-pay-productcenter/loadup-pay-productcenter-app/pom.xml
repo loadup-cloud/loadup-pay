@@ -38,11 +38,11 @@
 
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-client</artifactId>
+            <artifactId>loadup-pay-productcenter-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-domain</artifactId>
+            <artifactId>loadup-pay-productcenter-domain</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

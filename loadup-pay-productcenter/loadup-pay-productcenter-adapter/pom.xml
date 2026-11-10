@@ -17,7 +17,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-client</artifactId>
+            <artifactId>loadup-pay-productcenter-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -26,7 +26,7 @@
 
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-app</artifactId>
+            <artifactId>loadup-pay-productcenter-app</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

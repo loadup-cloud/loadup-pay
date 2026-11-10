@@ -112,7 +112,13 @@ class CompiledTermsCodecImplTest {
     private StoredOrderAdmission stored(EncodedAcquiringTerms encoded, String contract) {
         var at = LocalDateTime.of(2026, 10, 21, 10, 0);
         var intent = new AdmissionIntent(
-                "order", "merchant", "scope", "a".repeat(64), ChannelAmounts.cnyAmount(100, "CNY"), null, "b".repeat(64));
+                "order",
+                "merchant",
+                "scope",
+                "a".repeat(64),
+                ChannelAmounts.cnyAmount(100, "CNY"),
+                null,
+                "b".repeat(64));
         var admission = new OrderAdmission(
                 "admission",
                 "order",

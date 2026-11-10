@@ -411,7 +411,9 @@ class RefundProjectionEventsTest {
                 assertThrows(
                                 CommonException.class,
                                 () -> events.planned(
-                                        "tenant", RefundResultFixtures.initial(), ChannelAmounts.cnyAmount(10000, "CNY")))
+                                        "tenant",
+                                        RefundResultFixtures.initial(),
+                                        ChannelAmounts.cnyAmount(10000, "CNY")))
                         .getResultCode());
         assertSame(
                 ACTION_FORBIDDEN,

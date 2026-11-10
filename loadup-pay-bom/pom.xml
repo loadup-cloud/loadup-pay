@@ -29,6 +29,18 @@
         <developerConnection>scm:git:ssh://git@github.com/loadup-cloud/loadup-pay.git</developerConnection>
         <url>https://github.com/loadup-cloud/loadup-pay</url>
     </scm>
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>LoadUp Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/loadup-cloud/loadup-packages</url>
+        </repository>
+        <snapshotRepository>
+            <id>github</id>
+            <name>LoadUp Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/loadup-cloud/loadup-packages</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <dependencyManagement>
         <dependencies>
@@ -231,22 +243,31 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>3.11.0</version>
+                <inherited>false</inherited>
+                <configuration>
+                    <pom>
+                        <includes>
+                            <include>pom.xml</include>
+                        </includes>
+                        <sortPom>
+                            <encoding>UTF-8</encoding>
+                            <expandEmptyElements>false</expandEmptyElements>
+                            <keepBlankLines>true</keepBlankLines>
+                            <nrOfIndentSpace>4</nrOfIndentSpace>
+                        </sortPom>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </pom>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <version>3.2.0</version>
             </plugin>
         </plugins>
     </build>
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>LoadUp Apache Maven Packages</name>
-            <url>https://maven.pkg.github.com/loadup-cloud/loadup-packages</url>
-        </repository>
-        <snapshotRepository>
-            <id>github</id>
-            <name>LoadUp Apache Maven Packages</name>
-            <url>https://maven.pkg.github.com/loadup-cloud/loadup-packages</url>
-        </snapshotRepository>
-    </distributionManagement>
 </project>

@@ -32,8 +32,8 @@ final class RefundResultFixtures {
     static final LocalDateTime NOW = AttemptFixtures.NOW;
 
     static StoredRefundRequest initial() {
-        var first =
-                RefundOrder.init("refund", "request", "payment", ChannelAmounts.cnyAmount(1000, "CNY"), "refund-request");
+        var first = RefundOrder.init(
+                "refund", "request", "payment", ChannelAmounts.cnyAmount(1000, "CNY"), "refund-request");
         var second = RefundOrder.init(
                 "refund2", "request", "payment2", ChannelAmounts.cnyAmount(500, "CNY"), "refund-request2");
         var a = new StoredRefundChild(

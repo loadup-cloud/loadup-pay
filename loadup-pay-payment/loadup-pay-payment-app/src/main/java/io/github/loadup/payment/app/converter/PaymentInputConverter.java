@@ -36,8 +36,9 @@ public interface PaymentInputConverter {
     @Mapping(target = "id", source = "inputRef")
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(),"
-                    + " command.currency()))")
+            expression =
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(),"
+                            + " command.currency()))")
     @Mapping(target = "channel", source = "command.choice.channel")
     @Mapping(target = "method", source = "command.choice.method")
     @Mapping(target = "state", constant = "INIT")

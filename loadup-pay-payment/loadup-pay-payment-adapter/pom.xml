@@ -12,11 +12,11 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-payment-client</artifactId>
+            <artifactId>loadup-pay-payment-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-payment-app</artifactId>
+            <artifactId>loadup-pay-payment-app</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

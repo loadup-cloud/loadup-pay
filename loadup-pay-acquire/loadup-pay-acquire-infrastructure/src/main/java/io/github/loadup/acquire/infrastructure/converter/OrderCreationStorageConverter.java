@@ -45,8 +45,9 @@ public interface OrderCreationStorageConverter {
 
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
-                    + " row.getCurrency()))")
+            expression =
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "paymentPolicy", source = "policy")
     @Mapping(target = "unpaidAction", source = "action")

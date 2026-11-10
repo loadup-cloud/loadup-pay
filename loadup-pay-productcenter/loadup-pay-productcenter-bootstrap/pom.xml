@@ -17,11 +17,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-client</artifactId>
+            <artifactId>loadup-pay-productcenter-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-domain</artifactId>
+            <artifactId>loadup-pay-productcenter-domain</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -46,7 +46,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-             <artifactId>loadup-pay-productcenter-infrastructure</artifactId>
+            <artifactId>loadup-pay-productcenter-infrastructure</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
