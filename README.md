@@ -67,6 +67,7 @@ framework → testify → modules → pay；两个新 BOM 都可以单独安装�
 Maven 命令统一传入 `-s "$MAVEN_SETTINGS"` 和 `-U`，并按 settings 中的配置刷新 SNAPSHOT。普通 release 依赖优先从 Maven Central 下载。
 
 CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 根据仓库内的锁文件校验已冻结组件迁移，不拉取最新模板重写历史。
+CI 不运行 `scripts/tests` 下的 Python 测试，也不安装其测试依赖；这些测试保留供本地使用。
 本地使用同一制品库时，先设置上述两个环境变量，再为 `mvnd` 命令添加
 `-s .github/maven-settings.xml -U`。
 

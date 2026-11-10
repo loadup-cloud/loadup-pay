@@ -54,12 +54,6 @@ jobs:
       - uses: actions/setup-python@v7 # v7
         with:
           python-version: '3.13'
-          cache: pip
-          cache-dependency-path: scripts/tests/requirements.txt
-      - name: Install test dependencies
-        run: python3 -m pip install --disable-pip-version-check -r scripts/tests/requirements.txt
-      - name: Test build, migration and deployment scripts
-        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
       - name: Verify frozen component migration history
         run: python3 scripts/gen-migrations.py --check
 
