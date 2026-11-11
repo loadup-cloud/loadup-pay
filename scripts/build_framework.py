@@ -24,8 +24,8 @@ MVND_FLAGS = [
     "clean",
     "install",
     "-Dmaven.test.skip=true",
-    "-Dskip.spotless=true",
-    "-Dskip.spotbugs=true",
+    "-Dspotless.skip=true",
+    "-Dspotbugs.skip=true",
 ]
 
 

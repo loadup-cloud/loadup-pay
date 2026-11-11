@@ -65,7 +65,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-build
       - name: Check Java and POM formatting
-        run: mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" spotless:check -Dskip.spotless=false
+        run: mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" spotless:check
 
   verify:
     name: Build and Test

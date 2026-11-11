@@ -56,9 +56,6 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.compiler.release>${java.version}</maven.compiler.release>
-        <loadup.framework.version>0.0.1-SNAPSHOT</loadup.framework.version>
-        <loadup.modules.version>0.0.1-SNAPSHOT</loadup.modules.version>
-        <loadup.pay.version>0.0.1-SNAPSHOT</loadup.pay.version>
         <loadup.testify.version>0.0.1-SNAPSHOT</loadup.testify.version>
 
         <!-- Manual quality and maintenance tools, aligned with LoadUp Framework. -->
@@ -74,23 +71,16 @@
 
         <palantir-java-format.version>2.98.0</palantir-java-format.version>
 
-        <skip.spotless>false</skip.spotless>
+        <spotless.skip>false</spotless.skip>
 
-        <skip.enforcer>false</skip.enforcer>
+        <enforcer.skip>false</enforcer.skip>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>loadup-framework-bom</artifactId>
-                <version>${loadup.framework.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>loadup-modules-bom</artifactId>
+                <artifactId>loadup-pay-bom</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
@@ -99,13 +89,6 @@
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>loadup-testify-bom</artifactId>
                 <version>${loadup.testify.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>loadup-pay-bom</artifactId>
-                <version>${loadup.pay.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -167,7 +150,7 @@
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>${spotless-plugin.version}</version>
                 <configuration>
-                    <skip>${skip.spotless}</skip>
+                    <skip>${spotless.skip}</skip>
                     <java>
                         <includes>
                             <include>src/main/java/**/*.java</include>
@@ -222,7 +205,7 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>${enforcer-plugin.version}</version>
                 <configuration>
-                    <skip>${skip.enforcer}</skip>
+                    <skip>${enforcer.skip}</skip>
                     <fail>true</fail>
                     <rules>
                         <bannedDependencies>

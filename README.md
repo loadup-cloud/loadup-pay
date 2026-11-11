@@ -48,18 +48,19 @@ Framework 组件及业务模块 SQL 同时提供可手动导入的完整初始�
 ## CI 与 Framework 制品
 
 Pay CI 通过 [.github/maven-settings.xml](.github/maven-settings.xml) 从
-`https://maven.pkg.github.com/loadup-cloud/loadup-packages` 下载两个 BOM 及对应制品：
+`https://maven.pkg.github.com/loadup-cloud/loadup-packages` 下载 BOM 及对应制品：
 
-- `loadup-framework-bom`：framework 版本由 `loadup.framework.version` 指定。
-- `loadup-modules-bom`：通用业务模块版本由 `loadup.modules.version` 指定。
+- Pay parent 导入与自身 `${project.version}` 一致的 `loadup-pay-bom`。
+- Pay BOM 导入 `loadup-framework-bom` 和 `loadup-modules-bom`，分别由 BOM 内的 `loadup.framework.version`、
+  `loadup.modules.version` 指定配套版本。
+- Testify 仅供内部测试使用，其 BOM 由 Pay parent 通过 `loadup.testify.version` 单独导入，实际依赖保持 `test` scope。
 
-两项当前均为 `0.0.1-SNAPSHOT`，可以独立升级。Pay 子模块引用 UPMS、通知、文件和 Transfer 的 JAR 时省略 version；
-不要用 Pay 的 `${project.version}` 管理这些外部业务模块。当前 Pay 没有 Testify Maven 依赖，未额外导入其 BOM；需要时再导入
-`loadup-testify-bom` 并以 test scope 引入工具。
+当前均为 `0.0.1-SNAPSHOT`。Framework、Modules 的配套版本与 Pay 自身版本分别维护；消费方只需导入 Pay BOM，即可获得运行时版本组合。
+Pay 子模块引用 UPMS、通知、文件和 Transfer 的 JAR 时省略 version。BOM 分工与导入示例见 [Pay BOM](loadup-pay-bom/README.md)。
 
 本地先安装相应 BOM 和 JAR，再重新加载 Pay Maven 项目；CI 则需先发布相应版本，再运行 Pay CI。BOM 必须和所属仓库的 JAR
 一起安装或发布，只有 JAR 而没有 BOM 无法完成版本解析。Modules 自身测试还使用 Testify，完整仓库安装顺序为
-framework → testify → modules → pay；两个新 BOM 都可以单独安装而不编译 Java。
+framework → testify → modules → pay；各独立 BOM 可以单独安装而不编译 Java。修改 BOM 导入关系后，先安装或发布更新后的 BOM，避免本地仓库继续使用旧 SNAPSHOT 模型。
 
 在 Pay 仓库的 Actions secrets 中配置 `OSSRH_USERNAME`（GitHub 用户名）和 `OSSRH_TOKEN`（该用户的 classic PAT，具备
 `read:packages` 和 `loadup-cloud/loadup-packages` 访问权）。名称沿用现有配置，实际使用 GitHub 凭证。
@@ -68,6 +69,7 @@ Maven 命令统一传入 `-s "$MAVEN_SETTINGS"` 和 `-U`，并按 settings 中�
 
 CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 根据仓库内的锁文件校验已冻结组件迁移，不拉取最新模板重写历史。
 CI 不运行 `scripts/tests` 下的 Python 测试，也不安装其测试依赖；这些测试保留供本地使用。
+独立 Pay BOM 只显式声明 Maven Deploy 插件，通过原生属性 `spotless.skip=true`、`enforcer.skip=true` 跳过自身质量检查；业务模块继续检查。
 本地使用同一制品库时，先设置上述两个环境变量，再为 `mvnd` 命令添加
 `-s .github/maven-settings.xml -U`。
 

@@ -199,11 +199,11 @@ Gateway API + Envoy Gateway v1.9.3 是默认入口参考，见 [网关配置](de
 
 ## 外部制品版本
 
-Pay 根 POM 同时导入 framework 的 loadup-framework-bom 和 modules 的 loadup-modules-bom，分别使用
-loadup.framework.version 与 loadup.modules.version。子模块继承这两个导入，外部 modules JAR 不逐个声明版本。
-业务模块 JAR 的普通传递依赖不会把 modules 父 POM 的版本清单提供给 Pay，因此必须显式 import modules BOM。
+Pay BOM 导入 Framework 和 Modules BOM，在 BOM 内通过 `loadup.framework.version` 与 `loadup.modules.version` 固定配套运行时版本。
+Pay parent 只导入本仓库同版本的 Pay BOM 和内部测试所需的 Testify BOM；子模块继承依赖管理，实际 Testify 依赖保持 `test` scope。
+公开 Pay BOM 不导入 Testify。各 BOM 不继承所属仓库 parent，避免模型循环；构建插件及处理器路径留在 parent。
 
 ## Database 编译期处理器
 
-编译期配置由 database processor 内置维护，模块无需同步配置；处理器版本由 framework BOM 管理。详见
+编译期配置由 database processor 内置维护，模块无需同步配置；处理器路径与 MapStruct 一样不单独声明版本，统一通过 Pay BOM → Framework BOM 解析。详见
 [framework database processor 文档](../loadup-framework/loadup-components/data/loadup-components-database-processor/README.md)。

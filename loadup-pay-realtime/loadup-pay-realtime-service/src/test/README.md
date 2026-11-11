@@ -26,7 +26,7 @@ ACK 丢失用调用方丢弃返回值建模，不声称已验证实际 HTTP 网�
 显式 `postgresql-it` Failsafe profile；默认单测不会启动这些 IT。需要 Docker 和当前依赖，以下命令尚未执行：
 
 ```bash
-mvnd clean verify -pl realtime/realtime-service -Ppostgresql-it -Dit.test=ProjectionPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl realtime/realtime-service -Ppostgresql-it -Dit.test=ProjectionPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 当前只有测试源码，未运行 IDEA、编译、单测、Docker 或 PostgreSQL。R1 仍无本轮通过证据。

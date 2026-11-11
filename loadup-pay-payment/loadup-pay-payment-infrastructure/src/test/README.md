@@ -22,7 +22,7 @@ IT。
 需要 Docker 可用，并已具备当前 loadup-framework 和本项目依赖。以下命令尚未执行，遵守用户当前暂停验证要求：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RecoveryPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RecoveryPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 这是单模块命令，不自行扩大为 full reactor。test/ci 配置均使用容器注入的数据源，不连接业务数据库；系统本地时区沿项目契约处理。
@@ -51,7 +51,7 @@ RefundPlanningService 的全部鉴权/准入或退款渠道执行。用例中容
 可选择两组 IT（命令尚未执行）：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RecoveryPersistenceIT,FinancialPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RecoveryPersistenceIT,FinancialPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 当前仍是源码状态：未编译、未运行 Docker/测试。该组只覆盖上述边界，其他 R1 用例分别记录在后续章节、acquire 和 realtime
@@ -88,7 +88,7 @@ Outbox worker 在 test/ci 配置中关闭，保留实际入库而避免后台发
 选择此组的命令（尚未执行）：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=PaymentResultPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=PaymentResultPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 仍未运行 IDEA、编译、单测、Docker 或 PostgreSQL；R1 尚无本轮通过证据。后续仍需真实付款/退款恢复 handler 的租约、旧新
@@ -151,7 +151,7 @@ canRefund 仅作为本地能力检查，断言位于持锁事务内；不会载�
 选择此组的命令（尚未执行）：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RefundRecoveryHandlerPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RefundRecoveryHandlerPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 当前只有源码，未运行 IDEA、编译、单测、Docker、PostgreSQL、DDL 或 IT。R1 的真实运行证据仍未满足。

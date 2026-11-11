@@ -24,7 +24,7 @@ Outbox 后台 worker 在测试配置关闭，避免投递影响原子性观察�
 显式 `postgresql-it` Failsafe profile，默认单测不启动容器。需 Docker 及当前已安装依赖；以下命令尚未执行：
 
 ```bash
-mvnd clean verify -pl acquire/acquire-infrastructure -Ppostgresql-it -Dit.test=AcquiringFinancialPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl acquire/acquire-infrastructure -Ppostgresql-it -Dit.test=AcquiringFinancialPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 当前仅有源码，未进行 IDEA、编译、单测、Docker 或 PostgreSQL 运行。R1 尚无本轮通过证据。

@@ -112,7 +112,7 @@ OrderCreationStorageConverter 显式双向映射 entryMode/initialSessionId，�
 
 ```bash
 mvnd clean compile -pl acquire/acquire-infrastructure -am \
-  -DskipTests -Dskip.spotless=true -Dskip.spotbugs=true
+  -DskipTests -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 此命令供本地执行，本轮未运行构建或 JUnit。IDE 检查不等于注解处理成功。

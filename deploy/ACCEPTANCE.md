@@ -72,7 +72,7 @@ Boot 自动调度器与任务执行器可能随全局虚拟线程开关改变；
 mvnd clean test \
   -pl loadup-components/web/loadup-components-webmvc,loadup-components/platform/loadup-components-observability,loadup-components/execution/loadup-components-scheduler/loadup-components-scheduler-binder-local \
   -am -Dmaven.test.skip=false -DskipTests=false -Dskip.unit.tests=false -Dtest=MvcThreadModelTest,ProtocolResponseTest,RequestBodyLimitAdviceTest,LoadUpContextPropagationTest,LocalSchedulerTest \
-  -Dsurefire.failIfNoSpecifiedTests=false -Dskip.spotless=true -Dskip.spotbugs=true
+  -Dsurefire.failIfNoSpecifiedTests=false -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 该命令只覆盖线程与 MVC 边界。HTTP 组件的池观测、声明式调用、协议信封、地址策略与配置约束，按
@@ -83,7 +83,7 @@ JSON 的数值与枚举边界另有窄模块入口，同样待恢复测试时再
 ```bash
 mvnd clean test -pl loadup-commons/loadup-commons-json -am \
   -Dmaven.test.skip=false -DskipTests=false -Dskip.unit.tests=false -Dtest=IntegerJsonContractTest \
-  -Dsurefire.failIfNoSpecifiedTests=false -Dskip.spotless=true -Dskip.spotbugs=true
+  -Dsurefire.failIfNoSpecifiedTests=false -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
 这些命令均不覆盖全部七服务、业务协议或 PostgreSQL，业务迁移仍按 [逐操作清单](../HTTP_MIGRATION.md) 与各模块测试完成。

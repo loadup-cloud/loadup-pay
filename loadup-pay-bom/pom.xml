@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.loadup-cloud</groupId>
     <artifactId>loadup-pay-bom</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>LoadUp Pay BOM</name>
-    <description>Dependency versions for published loadup-pay artifacts.</description>
+    <description>BOM for Pay artifacts and their framework and business module dependency versions.</description>
     <url>https://github.com/loadup-cloud</url>
     <inceptionYear>2025</inceptionYear>
     <organization>
@@ -29,6 +30,13 @@
         <developerConnection>scm:git:ssh://git@github.com/loadup-cloud/loadup-pay.git</developerConnection>
         <url>https://github.com/loadup-cloud/loadup-pay</url>
     </scm>
+    <properties>
+        <loadup.framework.version>0.0.1-SNAPSHOT</loadup.framework.version>
+        <loadup.modules.version>0.0.1-SNAPSHOT</loadup.modules.version>
+        <spotless.skip>true</spotless.skip>
+        <enforcer.skip>true</enforcer.skip>
+    </properties>
+
     <distributionManagement>
         <repository>
             <id>github</id>
@@ -44,7 +52,20 @@
 
     <dependencyManagement>
         <dependencies>
-
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-framework-bom</artifactId>
+                <version>${loadup.framework.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-modules-bom</artifactId>
+                <version>${loadup.modules.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>loadup-pay-contracts-commercial</artifactId>
@@ -242,37 +263,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>3.11.0</version>
-                <inherited>false</inherited>
-                <configuration>
-                    <pom>
-                        <includes>
-                            <include>pom.xml</include>
-                        </includes>
-                        <sortPom>
-                            <encoding>UTF-8</encoding>
-                            <expandEmptyElements>false</expandEmptyElements>
-                            <keepBlankLines>true</keepBlankLines>
-                            <nrOfIndentSpace>4</nrOfIndentSpace>
-                        </sortPom>
-                        <trimTrailingWhitespace/>
-                        <endWithNewline/>
-                    </pom>
-                </configuration>
-            </plugin>
-            <!-- This standalone BOM does not inherit the Pay parent's Enforcer rules. -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.3</version>
-                <inherited>false</inherited>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
