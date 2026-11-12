@@ -65,7 +65,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-build
       - name: Check Java and POM formatting
-        run: mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" spotless:check
+        run: |
+          spotless_version=$(python3 -c 'import xml.etree.ElementTree as E; p=E.parse("pom.xml").find("{*}properties"); print(p.findtext("{*}spotless-plugin.version"))')
+          mvn -B -ntp -U -T 1 -s "$MAVEN_SETTINGS" \
+            "com.diffplug.spotless:spotless-maven-plugin:$spotless_version:check"
 
   verify:
     name: Build and Test

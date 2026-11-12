@@ -70,6 +70,7 @@ Maven 命令统一传入 `-s "$MAVEN_SETTINGS"` 和 `-U`，并按 settings 中�
 CI 不从 Framework 源码构建或安装 Maven 包。Repository Tooling job 根据仓库内的锁文件校验已冻结组件迁移，不拉取最新模板重写历史。
 CI 不运行 `scripts/tests` 下的 Python 测试，也不安装其测试依赖；这些测试保留供本地使用。
 独立 Pay BOM 只显式声明 Maven Deploy 插件，通过原生属性 `spotless.skip=true`、`enforcer.skip=true` 跳过自身质量检查；业务模块继续检查。
+CI 格式检查使用 Spotless 完整插件坐标，版本读取根 POM 的 `spotless-plugin.version`，避免独立 BOM 缺少插件声明时短前缀解析失败。
 本地使用同一制品库时，先设置上述两个环境变量，再为 `mvnd` 命令添加
 `-s .github/maven-settings.xml -U`。
 
