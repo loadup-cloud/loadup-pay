@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -95,7 +96,7 @@ class OrderAdmissionHttpClientTest {
         assertEquals("PRODUCT_CONTRACT_UNAVAILABLE", result.reasonCode());
         var request = ArgumentCaptor.forClass(
                 io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand.class);
-        Mockito.verify(productHttp).authorize("Bearer " + TOKEN, request.capture());
+        Mockito.verify(productHttp).authorize(eq("Bearer " + TOKEN), request.capture());
         assertEquals("order", request.getValue().orderId());
         assertEquals("merchant", request.getValue().payeeMerchantId());
         assertEquals("scope", request.getValue().productScopeKey());
