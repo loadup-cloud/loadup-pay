@@ -149,4 +149,6 @@ def image_prefix() -> str:
 
 
 def bootstrap_project(app: str) -> str:
+    if app == "oauth2-server":
+        return "loadup-pay-oauth2-server"
     return f"{app}/{app}-bootstrap"

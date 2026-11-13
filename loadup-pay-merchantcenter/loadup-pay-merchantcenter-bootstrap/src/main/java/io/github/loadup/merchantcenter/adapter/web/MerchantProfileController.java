@@ -18,14 +18,12 @@ package io.github.loadup.merchantcenter.adapter.web;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.merchantcenter.adapter.security.AuthenticatedTenant;
 import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.merchantcenter.client.error.MerchantResultCodeEnum;
 import io.github.loadup.merchantcenter.client.facade.MerchantQueryFacade;
 import io.github.loadup.merchantcenter.client.http.MerchantProfileHttpService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,11 +38,8 @@ public class MerchantProfileController {
 
     @PostMapping(MerchantProfileHttpService.PROFILE_PATH)
     @PreAuthorize("hasAuthority('pay:merchant:profile:read')")
-    public SuccessResponse<MerchantProfileDTO> profile(@Valid @RequestBody IdQuery query, Authentication actor) {
-        return AuthenticatedTenant.call(
-                actor,
-                () -> SuccessResponse.of(merchants
-                        .find(query.id())
-                        .orElseThrow(() -> new CommonException(MerchantResultCodeEnum.NOT_FOUND))));
+    public SuccessResponse<MerchantProfileDTO> profile(@Valid @RequestBody IdQuery query) {
+        return SuccessResponse.of(
+                merchants.find(query.id()).orElseThrow(() -> new CommonException(MerchantResultCodeEnum.NOT_FOUND)));
     }
 }

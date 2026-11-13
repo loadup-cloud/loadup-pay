@@ -45,8 +45,7 @@ public class NotificationCenterTenantFilter {
                     var authentication = SecurityContextHolder.getContext().getAuthentication();
                     if (authentication == null
                             || !authentication.isAuthenticated()
-                            || !(authentication.getCredentials() instanceof Jwt jwt)
-                            || !tenant.equals(jwt.getClaimAsString("tenant_id"))) {
+                            || !(authentication.getCredentials() instanceof Jwt)) {
                         response.sendError(HttpServletResponse.SC_FORBIDDEN);
                         return;
                     }

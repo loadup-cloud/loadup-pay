@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -31,16 +33,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtRefundActorProviderTest {
-    final JwtRefundActorProvider provider = new JwtRefundActorProvider();
+    final JwtRefundActorProvider provider = new JwtRefundActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
-    void authenticate(String type, String subject, String merchant, String tenant) {
+    void authenticate(String type, String subject, String merchant) {
         var jwt = Jwt.withTokenValue("synthetic")
                 .header("alg", "RS256")
                 .issuer("https://issuer.example")
                 .subject(subject)
                 .claim("principal_type", type)
                 .claim("merchant_id", merchant)
-                .claim("tenant_id", tenant)
                 .build();
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
@@ -54,10 +55,10 @@ class JwtRefundActorProviderTest {
 
     @Test
     void merchantAppUsesOnlyItsSignedMerchantClaimAndGrantedAuthorities() {
-        authenticate("MERCHANT_APP", "app", "merchant", "tenant");
+        authenticate("MERCHANT_APP", "app", "merchant");
         var actor = provider.current();
         assertEquals("merchant", actor.merchantId());
-        assertEquals("tenant", actor.tenantId());
+        assertEquals("__default__", actor.tenantId());
         assertTrue(actor.subjectHash().matches("[0-9a-f]{64}"));
         assertTrue(actor.permissions().contains("pay:payment:refund:create"));
         assertFalse(actor.permissions().contains("pay:payment:refund:read"));
@@ -65,19 +66,17 @@ class JwtRefundActorProviderTest {
 
     @Test
     void merchantSubjectMustMatchItsMerchantWhileServiceAndOperatorCannotRefund() {
-        authenticate("MERCHANT", "other", "merchant", "tenant");
+        authenticate("MERCHANT", "other", "merchant");
         assertThrows(CommonException.class, provider::current);
-        authenticate("SERVICE", "merchant", "merchant", "tenant");
+        authenticate("SERVICE", "merchant", "merchant");
         assertThrows(CommonException.class, provider::current);
-        authenticate("OPERATOR", "merchant", "merchant", "tenant");
+        authenticate("OPERATOR", "merchant", "merchant");
         assertThrows(CommonException.class, provider::current);
     }
 
     @Test
-    void missingMerchantOrUnnormalizedTenantCannotChooseAnOwnerFromRequestBody() {
-        authenticate("MERCHANT_APP", "app", null, "tenant");
-        assertThrows(CommonException.class, provider::current);
-        authenticate("MERCHANT_APP", "app", "merchant", " tenant");
+    void missingMerchantCannotChooseAnOwnerFromRequestBody() {
+        authenticate("MERCHANT_APP", "app", null);
         assertThrows(CommonException.class, provider::current);
     }
 
@@ -91,11 +90,11 @@ class JwtRefundActorProviderTest {
 
     @Test
     void credentialRotationKeepsTheSameInitiatingSubjectAuditHash() {
-        authenticate("MERCHANT_APP", "app", "merchant", "tenant");
+        authenticate("MERCHANT_APP", "app", "merchant");
         var first = provider.current().subjectHash();
-        authenticate("MERCHANT_APP", "app", "merchant", "tenant");
+        authenticate("MERCHANT_APP", "app", "merchant");
         assertEquals(first, provider.current().subjectHash());
-        authenticate("MERCHANT_APP", "other-app", "merchant", "tenant");
+        authenticate("MERCHANT_APP", "other-app", "merchant");
         assertNotEquals(first, provider.current().subjectHash());
     }
 }

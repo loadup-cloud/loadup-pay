@@ -18,7 +18,6 @@ package io.github.loadup.productcenter.adapter.web;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageResponse;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.productcenter.adapter.security.AuthenticatedTenant;
 import io.github.loadup.productcenter.client.command.CatalogActionCommand;
 import io.github.loadup.productcenter.client.command.CatalogSaveCommand;
 import io.github.loadup.productcenter.client.command.ContractSignCommand;
@@ -58,100 +57,102 @@ public class ContractController {
 
     @PostMapping("/catalog/save")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:write') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:catalog:write') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     @Operation(summary = "Create or update a validated draft version")
     public SuccessResponse<CatalogVersionDTO> save(
             @Valid @RequestBody CatalogSaveCommand command, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(catalog.save(command, actor.getName())));
+        return SuccessResponse.of(catalog.save(command, actor.getName()));
     }
 
     @PostMapping("/catalog/page")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
-    @Operation(summary = "Page catalog versions in the current tenant")
-    public PageResponse<CatalogVersionDTO> catalogPage(
-            @Valid @RequestBody CatalogPageQuery query, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> PageResponse.of(catalog.page(query)));
+            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
+    @Operation(summary = "Page catalog versions")
+    public PageResponse<CatalogVersionDTO> catalogPage(@Valid @RequestBody CatalogPageQuery query) {
+        return PageResponse.of(catalog.page(query));
     }
 
     @PostMapping("/catalog/detail")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     @Operation(summary = "Read a fixed catalog version")
-    public SuccessResponse<CatalogVersionDTO> catalogDetail(@Valid @RequestBody IdQuery query, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(catalog.detail(query.id())));
+    public SuccessResponse<CatalogVersionDTO> catalogDetail(@Valid @RequestBody IdQuery query) {
+        return SuccessResponse.of(catalog.detail(query.id()));
     }
 
     @PostMapping("/catalog/publish")
-    @PreAuthorize(
-            "hasAuthority('contract:catalog:publish') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:catalog:publish') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     @Operation(summary = "Publish an immutable version after server validation")
     public SuccessResponse<CatalogVersionDTO> publish(
             @Valid @RequestBody CatalogActionCommand command, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(catalog.publish(command, actor.getName())));
+        return SuccessResponse.of(catalog.publish(command, actor.getName()));
     }
 
     @PostMapping("/catalog/retire")
-    @PreAuthorize(
-            "hasAuthority('contract:catalog:publish') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:catalog:publish') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     @Operation(summary = "Retire a catalog version without rewriting signed contracts")
     public SuccessResponse<CatalogVersionDTO> retire(
             @Valid @RequestBody CatalogActionCommand command, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(catalog.retire(command, actor.getName())));
+        return SuccessResponse.of(catalog.retire(command, actor.getName()));
     }
 
     @PostMapping("/merchant-contracts/preview")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     @Operation(summary = "Preview merchant terms using verified merchant facts")
     public SuccessResponse<MerchantContractDTO> preview(
             @Valid @RequestBody ContractSignCommand command, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(contracts.preview(command, actor.getName())));
+        return SuccessResponse.of(contracts.preview(command, actor.getName()));
     }
 
     @PostMapping("/merchant-contracts/sign")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     @Operation(summary = "Sign a fixed sales plan with a durable idempotency key")
     public SuccessResponse<MerchantContractDTO> sign(
             @Valid @RequestBody ContractSignCommand command, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(contracts.sign(command, actor.getName())));
+        return SuccessResponse.of(contracts.sign(command, actor.getName()));
     }
 
     @PostMapping("/merchant-contracts/page")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     @Operation(summary = "Page signed merchant contracts")
-    public PageResponse<MerchantContractDTO> contractPage(
-            @Valid @RequestBody MerchantContractPageQuery query, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> PageResponse.of(contracts.page(query)));
+    public PageResponse<MerchantContractDTO> contractPage(@Valid @RequestBody MerchantContractPageQuery query) {
+        return PageResponse.of(contracts.page(query));
     }
 
     @PostMapping("/merchant-contracts/detail")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     @Operation(summary = "Read signed terms and their stored digest")
-    public SuccessResponse<MerchantContractDTO> contractDetail(
-            @Valid @RequestBody IdQuery query, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(contracts.detail(query.id())));
+    public SuccessResponse<MerchantContractDTO> contractDetail(@Valid @RequestBody IdQuery query) {
+        return SuccessResponse.of(contracts.detail(query.id()));
     }
 
     @PostMapping("/merchant-contracts/status")
-    @PreAuthorize(
-            "hasAuthority('contract:merchant:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:merchant:manage') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     @Operation(summary = "Suspend, resume or terminate with generation checking")
     public SuccessResponse<MerchantContractDTO> status(
             @Valid @RequestBody ContractStatusCommand command, Authentication actor) {
-        return AuthenticatedTenant.call(
-                actor, () -> SuccessResponse.of(contracts.changeStatus(command, actor.getName())));
+        return SuccessResponse.of(contracts.changeStatus(command, actor.getName()));
     }
 
     @PostMapping("/runtime/resolve")
-    @PreAuthorize(
-            "hasAuthority('contract:runtime:resolve') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:runtime:resolve') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     @Operation(summary = "Resolve signed capabilities; transaction facts must be validated by the caller")
-    public SuccessResponse<ContractDecisionDTO> resolve(
-            @Valid @RequestBody ContractResolveQuery query, Authentication actor) {
-        return AuthenticatedTenant.call(actor, () -> SuccessResponse.of(runtime.resolve(query)));
+    public SuccessResponse<ContractDecisionDTO> resolve(@Valid @RequestBody ContractResolveQuery query) {
+        return SuccessResponse.of(runtime.resolve(query));
     }
 }

@@ -16,6 +16,7 @@
 package io.github.loadup.merchantcenter.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.merchantcenter.app.security.CustomerActor;
 import io.github.loadup.merchantcenter.app.security.CustomerActorProvider;
 import io.github.loadup.merchantcenter.client.enums.PrincipalType;
@@ -28,6 +29,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtCustomerActorProvider implements CustomerActorProvider {
+    private final DatabaseTenant databaseTenant;
+
+    public JwtCustomerActorProvider(DatabaseTenant databaseTenant) {
+        this.databaseTenant = databaseTenant;
+    }
+
     public static final String MANAGE_PERMISSION = "pay:customer:manage";
 
     private static CommonException denied() {
@@ -43,10 +50,10 @@ public class JwtCustomerActorProvider implements CustomerActorProvider {
             throw denied();
         }
         try {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = databaseTenant.currentTenantId();
             String type = jwt.getClaimAsString("principal_type");
             String merchant = jwt.getClaimAsString("merchant_id");
-            if (tenant == null || !tenant.equals(tenant.trim()) || type == null || jwt.getSubject() == null) {
+            if (type == null || jwt.getSubject() == null) {
                 throw denied();
             }
             PrincipalType principalType = PrincipalType.valueOf(type);

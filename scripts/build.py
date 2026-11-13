@@ -59,8 +59,10 @@ def main(argv=None):
         cwd=common.PAY_ROOT,
     )
     for app in apps:
-        target = common.PAY_ROOT / app / f"{app}-bootstrap" / "target"
-        jars = sorted(target.glob(f"{app}-bootstrap-*.jar"))
+        module = common.PAY_ROOT / ("loadup-pay-oauth2-server" if app == "oauth2-server" else app)
+        artifact = "loadup-pay-oauth2-server" if app == "oauth2-server" else f"{app}-bootstrap"
+        target = module / ("target" if app == "oauth2-server" else f"{app}-bootstrap/target")
+        jars = sorted(target.glob(f"{artifact}-*.jar"))
         if len(jars) != 1:
             common.fail(f"Expected one executable JAR for {app}; found {len(jars)}.")
         os.chmod(jars[0], 0o644)

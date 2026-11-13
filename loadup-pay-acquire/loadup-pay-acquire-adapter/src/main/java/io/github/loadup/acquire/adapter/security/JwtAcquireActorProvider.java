@@ -22,6 +22,7 @@ import io.github.loadup.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -35,6 +36,11 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtAcquireActorProvider implements AcquireActorProvider {
+    private final DatabaseTenant databaseTenant;
+
+    public JwtAcquireActorProvider(DatabaseTenant databaseTenant) {
+        this.databaseTenant = databaseTenant;
+    }
 
     @Override
     public AcquireActor current() {
@@ -43,12 +49,11 @@ public class JwtAcquireActorProvider implements AcquireActorProvider {
             throw forbidden();
         }
         try {
-            String tenant = jwt.getClaimAsString("tenant_id"), type = jwt.getClaimAsString("principal_type");
+            String tenant = databaseTenant.currentTenantId(), type = jwt.getClaimAsString("principal_type");
             String principal = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
             DomainChecks.id(tenant);
             DomainChecks.text(principal, 128);
-            if (!tenant.equals(tenant.trim())
-                    || !Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) {
+            if (!Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) {
                 throw forbidden();
             }
             if (merchant != null) {

@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +31,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtAcquireActorProviderTest {
-    private final JwtAcquireActorProvider provider = new JwtAcquireActorProvider();
+    private final JwtAcquireActorProvider provider =
+            new JwtAcquireActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
     @AfterEach
     void clear() {
@@ -40,7 +43,6 @@ class JwtAcquireActorProviderTest {
         var builder = Jwt.withTokenValue(token)
                 .header("alg", "RS256")
                 .subject("app")
-                .claim("tenant_id", "tenant")
                 .claim("principal_type", type)
                 .claim("aud", audience);
         if (merchant != null) {
@@ -55,6 +57,22 @@ class JwtAcquireActorProviderTest {
     void delegatesTheVerifiedCallerToken() {
         authenticated("synthetic", List.of("acquire"), "MERCHANT_APP", "merchant");
         assertEquals("synthetic", provider.current().productAccessToken());
+    }
+
+    @Test
+    void spoofedTenantClaimCannotChangeConfiguredTenant() {
+        var jwt = Jwt.withTokenValue("synthetic")
+                .header("alg", "RS256")
+                .subject("app")
+                .claim("tenant_id", "spoofed-tenant")
+                .claim("principal_type", "MERCHANT_APP")
+                .claim("merchant_id", "merchant")
+                .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                        "verified", jwt, List.of(new SimpleGrantedAuthority("pay:acquire:create"))));
+
+        assertEquals("__default__", provider.current().tenantId());
     }
 
     @Test

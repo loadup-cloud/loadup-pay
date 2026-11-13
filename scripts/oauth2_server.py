@@ -1,4 +1,4 @@
-"""Prepare development-only AuthServer credentials without printing secrets or modifying Kubernetes."""
+"""Prepare development-only OAuth signing material and caller credentials."""
 
 from __future__ import annotations
 
@@ -74,13 +74,7 @@ def prepare_dev() -> None:
     for app in sorted(manage_config.SERVICE_CALLERS):
         path = directory / app / "secret.env"
         client = load(path)
-        variable = app.upper() + "_OAUTH2_CLIENT_SECRET"
-        left, right = server.get(variable), client.get("SERVICE_AUTH_CLIENT_SECRET")
-        if left and right and left != right:
-            raise ValueError(f"Credentials differ for {app}; reconcile the two secret.env files manually.")
-        value = left or right or secrets.token_urlsafe(32)
-        server[variable] = value
-        pending.append((path, {"SERVICE_AUTH_CLIENT_SECRET": value}))
+        pending.append((path, {"SERVICE_AUTH_CLIENT_SECRET": client.get("SERVICE_AUTH_CLIENT_SECRET") or secrets.token_urlsafe(32)}))
     # Persist passwords first so an interrupted key generation remains recoverable on retry.
     save(auth / "secret.env", server)
     for path, values in pending:
@@ -111,5 +105,5 @@ def prepare_dev() -> None:
             password=server["KMS_KEYSTORE_PASSWORD"],
         )
         os.chmod(store, 0o600)
-    print("Prepared local OAuth2 server KeyStore and matching per-application credentials; values hidden.")
-    print("No database or Kubernetes changes. Create loadup_authserver before deploying.")
+    print("Prepared local OAuth2 server KeyStore and caller credentials; values hidden.")
+    print("No database or Kubernetes changes. Provision OAuth clients in the database before deployment.")

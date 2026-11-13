@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-resource-server</artifactId>
+            <artifactId>loadup-components-oauth-server-core</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -31,10 +31,7 @@
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-database</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-authserver-binder-sas</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-kms-binder-local</artifactId>

@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -29,20 +31,19 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtLimitActorProviderTest {
-    final JwtLimitActorProvider provider = new JwtLimitActorProvider();
+    final JwtLimitActorProvider provider = new JwtLimitActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
     @AfterEach
     void clear() {
         SecurityContextHolder.clearContext();
     }
 
-    void authenticated(String type, String service, String tenant) {
+    void authenticated(String type, String service) {
         var jwt = Jwt.withTokenValue("synthetic")
                 .header("alg", "RS256")
                 .subject("payment")
                 .claim("principal_type", type)
                 .claim("service_id", service)
-                .claim("tenant_id", tenant)
                 .build();
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
@@ -51,23 +52,23 @@ class JwtLimitActorProviderTest {
 
     @Test
     void verifiedServiceClaimsProvideTheTenantAndExactPermissions() {
-        authenticated("SERVICE", "payment", "tenant");
+        authenticated("SERVICE", "payment");
         assertEquals("payment", provider.current().serviceId());
-        assertEquals("tenant", provider.current().tenantId());
+        assertEquals("__default__", provider.current().tenantId());
         assertTrue(provider.current().permissions().contains("pay:limit:reserve"));
     }
 
     @Test
     void aMerchantCannotPromoteItselfIntoTheServiceProtocol() {
-        authenticated("MERCHANT_APP", "payment", "tenant");
+        authenticated("MERCHANT_APP", "payment");
         assertThrows(CommonException.class, provider::current);
     }
 
     @Test
-    void serviceBindingAndTenantWhitespaceAreRejected() {
-        authenticated("SERVICE", "product", "tenant");
+    void serviceBindingAndWhitespaceAreRejected() {
+        authenticated("SERVICE", "product");
         assertThrows(CommonException.class, provider::current);
-        authenticated("SERVICE", "payment", " tenant");
+        authenticated("SERVICE", "payment ");
         assertThrows(CommonException.class, provider::current);
     }
 

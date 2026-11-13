@@ -21,7 +21,7 @@ def main(argv=None):
         print("APP_ENV selects dev (default), test or prod; edit deploy/config/<APP_ENV> directly.")
         print("Snapshot versions are derived from content; explicit versions override them.")
         print("Use SKIP_BUILD=1 IMAGE_TAG=<existing-tag> to reuse existing images.")
-        print("Dev all/oauth2-server prepares missing local signing credentials; existing values are preserved.")
+        print("Dev all/oauth2-server prepares missing local signing material and caller credentials; existing values are preserved.")
         print("Builds the required sibling framework components and waits for the OAuth2 server before business applications.")
         print("Does not install the gateway controller, database or S3.")
         return

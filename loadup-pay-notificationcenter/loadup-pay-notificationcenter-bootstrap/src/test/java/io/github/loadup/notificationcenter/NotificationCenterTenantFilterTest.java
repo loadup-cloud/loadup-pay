@@ -48,11 +48,11 @@ class NotificationCenterTenantFilterTest {
     }
 
     @Test
-    void rejectsDifferentOrMissingTenantAndUnauthenticatedRequests() throws Exception {
+    void ignoresJwtTenantClaimsAndRejectsUnauthenticatedRequests() throws Exception {
         var filter = filter();
 
-        assertForbidden(filter, "/api/internal/status", authenticated("tenant-b"));
-        assertForbidden(filter, "/notifications/list", authenticated(null));
+        assertAllowed(filter, "/api/internal/status", authenticated("tenant-b"));
+        assertAllowed(filter, "/notifications/list", authenticated(null));
         assertForbidden(filter, "/api/internal/status", null);
     }
 

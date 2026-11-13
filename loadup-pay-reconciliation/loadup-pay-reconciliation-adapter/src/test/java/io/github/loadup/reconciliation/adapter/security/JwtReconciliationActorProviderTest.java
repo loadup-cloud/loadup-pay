@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -30,7 +32,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtReconciliationActorProviderTest {
-    private final JwtReconciliationActorProvider provider = new JwtReconciliationActorProvider();
+    private final JwtReconciliationActorProvider provider =
+            new JwtReconciliationActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
     @AfterEach
     void clear() {
@@ -39,9 +42,9 @@ class JwtReconciliationActorProviderTest {
 
     @Test
     void onlyVerifiedServiceClaimsSupplyTenantCallerAndAuthorities() {
-        install("tenant", "SERVICE", "ops", "ops");
+        install("SERVICE", "ops", "ops");
         var actor = provider.current();
-        assertEquals("tenant", actor.tenantId());
+        assertEquals("__default__", actor.tenantId());
         assertEquals("ops", actor.serviceId());
         assertEquals(Set.of("pay:reconciliation:batch:read"), actor.permissions());
     }
@@ -59,15 +62,11 @@ class JwtReconciliationActorProviderTest {
 
     @Test
     void merchantsAndSelfReportedOrWhitespaceServiceIdentitiesCannotAcquireOperationsScope() {
-        install("tenant", "MERCHANT", "ops", "ops");
+        install("MERCHANT", "ops", "ops");
         denied();
-        install("tenant", "SERVICE", "other", "ops");
+        install("SERVICE", "other", "ops");
         denied();
-        install("tenant", "SERVICE", " ops ", " ops ");
-        denied();
-        install(" tenant ", "SERVICE", "ops", "ops");
-        denied();
-        install(null, "SERVICE", "ops", "ops");
+        install("SERVICE", " ops ", " ops ");
         denied();
     }
 
@@ -77,15 +76,12 @@ class JwtReconciliationActorProviderTest {
                 assertThrows(CommonException.class, provider::current).getResultCode());
     }
 
-    private void install(String tenant, String type, String subject, String service) {
+    private void install(String type, String subject, String service) {
         var builder = Jwt.withTokenValue("synthetic")
                 .header("alg", "RS256")
                 .subject(subject)
                 .claim("principal_type", type)
                 .claim("service_id", service);
-        if (tenant != null) {
-            builder.claim("tenant_id", tenant);
-        }
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                         "verified",

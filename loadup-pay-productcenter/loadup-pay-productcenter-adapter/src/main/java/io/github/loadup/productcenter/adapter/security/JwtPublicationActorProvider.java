@@ -18,6 +18,7 @@ package io.github.loadup.productcenter.adapter.security;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.productcenter.app.security.PublicationActor;
 import io.github.loadup.productcenter.app.security.PublicationActorProvider;
 import java.util.Set;
@@ -28,6 +29,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtPublicationActorProvider implements PublicationActorProvider {
+    private final DatabaseTenant databaseTenant;
+
+    public JwtPublicationActorProvider(DatabaseTenant databaseTenant) {
+        this.databaseTenant = databaseTenant;
+    }
+
     private static CommonException forbidden() {
         return new CommonException(ACTION_FORBIDDEN);
     }
@@ -39,12 +46,9 @@ public class JwtPublicationActorProvider implements PublicationActorProvider {
             throw forbidden();
         }
         try {
-            String tenant = jwt.getClaimAsString("tenant_id");
+            String tenant = databaseTenant.currentTenantId();
             String type = jwt.getClaimAsString("principal_type");
-            if (tenant == null
-                    || !tenant.equals(tenant.trim())
-                    || type == null
-                    || !Set.of("SERVICE", "OPERATOR").contains(type)) {
+            if (type == null || !Set.of("SERVICE", "OPERATOR").contains(type)) {
                 throw forbidden();
             }
             if ("SERVICE".equals(type)

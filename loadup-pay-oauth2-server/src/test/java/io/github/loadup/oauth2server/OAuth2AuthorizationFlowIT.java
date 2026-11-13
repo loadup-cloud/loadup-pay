@@ -23,6 +23,7 @@ import io.github.loadup.components.kms.KmsKeyMetadata;
 import io.github.loadup.components.kms.KmsSignature;
 import io.github.loadup.components.kms.KmsSignatureAlgorithm;
 import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.components.oauth.OAuthClientSettings;
 import io.github.loadup.components.resourceserver.LoadUpJwtAuthenticationConverter;
 import io.github.loadup.components.resourceserver.ResourceServerAutoConfiguration;
 import io.github.loadup.components.resourceserver.ResourceServerProperties;
@@ -32,10 +33,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
+import java.time.Duration;
 import java.util.Base64;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,14 +51,17 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.env.MockEnvironment;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest(
@@ -67,9 +70,7 @@ import tools.jackson.databind.json.JsonMapper;
             "AUTHSERVER_JDBC_USERNAME=sa",
             "AUTHSERVER_JDBC_PASSWORD=unused",
             "loadup.kms.enabled=false",
-            "JWT_ISSUER_URI=https://auth.test",
-            "AUTHSERVER_SERVICE_AUTHORIZATIONS={\"clients\":[{\"clientId\":\"acquire.tenant.payment\",\"tenantId\":\"tenant\",\"serviceId\":\"acquire\",\"audience\":\"payment\",\"permissions\":[\"pay:payment:read\"],\"secretEnv\":\"TEST_CLIENT_SECRET\",\"enabled\":true}]}",
-            "TEST_CLIENT_SECRET=synthetic-client-secret-32-characters"
+            "JWT_ISSUER_URI=https://auth.test"
         })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 @AutoConfigureMockMvc
@@ -78,46 +79,44 @@ class OAuth2AuthorizationFlowIT {
     static final String SECRET = "synthetic-client-secret-32-characters";
     private final MockMvc mvc;
     private final JdbcTemplate jdbc;
-    private final PlatformTransactionManager transactions;
     private final KeyPair pair;
 
     @Autowired
-    OAuth2AuthorizationFlowIT(MockMvc mvc, JdbcTemplate jdbc, PlatformTransactionManager transactions, KeyPair pair) {
+    OAuth2AuthorizationFlowIT(MockMvc mvc, JdbcTemplate jdbc, KeyPair pair) {
         this.mvc = mvc;
         this.jdbc = jdbc;
-        this.transactions = transactions;
         this.pair = pair;
     }
 
-    OAuthClientCatalog catalog(boolean enabled) {
-        return new OAuthClientCatalog(List.of(new OAuthClientCatalog.Client(
-                "acquire.tenant.payment",
-                "tenant",
-                "SERVICE",
-                "acquire",
-                null,
-                "payment",
-                Set.of("pay:payment:read"),
-                "TEST_CLIENT_SECRET",
-                enabled)));
-    }
-
-    void synchronize(boolean enabled) {
-        OAuthClientRegistry.synchronize(
-                jdbc,
-                new TransactionTemplate(transactions),
-                catalog(enabled),
-                new MockEnvironment().withProperty("TEST_CLIENT_SECRET", SECRET));
+    void register(boolean enabled) {
+        new JdbcRegisteredClientRepository(jdbc)
+                .save(RegisteredClient.withId("acquire-payment")
+                        .clientId("acquire.payment")
+                        .clientSecret(PasswordEncoderFactories.createDelegatingPasswordEncoder()
+                                .encode(SECRET))
+                        .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                        .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                        .scope("pay:payment:read")
+                        .clientSettings(ClientSettings.builder()
+                                .setting(OAuthClientSettings.ENABLED, enabled)
+                                .setting(OAuthClientSettings.AUDIENCE, "payment")
+                                .setting(PayOAuthClientSettings.SERVICE, "acquire")
+                                .setting(PayOAuthClientSettings.PRINCIPAL_TYPE, "SERVICE")
+                                .build())
+                        .tokenSettings(TokenSettings.builder()
+                                .accessTokenTimeToLive(Duration.ofMinutes(5))
+                                .build())
+                        .build());
     }
 
     @BeforeEach
     void resetGrant() {
-        synchronize(true);
+        register(true);
     }
 
     String issue(String scope) throws Exception {
         var request = MockMvcRequestBuilders.post("/oauth2/token")
-                .with(httpBasic("acquire.tenant.payment", SECRET))
+                .with(httpBasic("acquire.payment", SECRET))
                 .param("grant_type", "client_credentials");
         if (scope != null) {
             request.param("scope", scope);
@@ -152,11 +151,11 @@ class OAuth2AuthorizationFlowIT {
     }
 
     @Test
-    void clientCredentialsIssueKmsSignedTenantBoundTokensThatResourceServersVerifyLocally() throws Exception {
+    void clientCredentialsIssueTenantFreeKmsSignedTokensThatResourceServersVerifyLocally() throws Exception {
         var jwt = decoder("payment").decode(issue("pay:payment:read"));
         Assertions.assertThat(jwt.getSubject()).isEqualTo("acquire");
         Assertions.assertThat(jwt.getAudience()).containsExactly("payment");
-        Assertions.assertThat(jwt.getClaimAsString("tenant_id")).isEqualTo("tenant");
+        Assertions.assertThat(jwt.getClaimAsString("tenant_id")).isNull();
         Assertions.assertThat(jwt.getClaimAsString("principal_type")).isEqualTo("SERVICE");
         Assertions.assertThat(jwt.getClaimAsString("service_id")).isEqualTo("acquire");
         Assertions.assertThat(jwt.getClaimAsString("token_use")).isEqualTo("access");
@@ -165,7 +164,7 @@ class OAuth2AuthorizationFlowIT {
                         new LoadUpJwtAuthenticationConverter().convert(jwt).getAuthorities())
                 .extracting("authority")
                 .contains("pay:payment:read");
-        Assertions.assertThat(new JdbcRegisteredClientRepository(jdbc).findByClientId("acquire.tenant.payment"))
+        Assertions.assertThat(new JdbcRegisteredClientRepository(jdbc).findByClientId("acquire.payment"))
                 .isNotNull();
         Assertions.assertThat(jdbc.queryForObject("select count(*) from oauth2_authorization", Long.class))
                 .isPositive();
@@ -190,11 +189,11 @@ class OAuth2AuthorizationFlowIT {
     @Test
     void wrongCredentialsExtraPermissionsWrongAudienceAndTamperingAreRejected() throws Exception {
         mvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
-                        .with(httpBasic("acquire.tenant.payment", "wrong"))
+                        .with(httpBasic("acquire.payment", "wrong"))
                         .param("grant_type", "client_credentials"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
-                        .with(httpBasic("acquire.tenant.payment", SECRET))
+                        .with(httpBasic("acquire.payment", SECRET))
                         .param("grant_type", "client_credentials")
                         .param("scope", "pay:payment:accept"))
                 .andExpect(status().isBadRequest());
@@ -212,7 +211,7 @@ class OAuth2AuthorizationFlowIT {
     @Test
     void requestTenantAndAudienceCannotOverrideTheServerGrant() throws Exception {
         var response = mvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
-                        .with(httpBasic("acquire.tenant.payment", SECRET))
+                        .with(httpBasic("acquire.payment", SECRET))
                         .param("grant_type", "client_credentials")
                         .param("tenant_id", "another")
                         .param("audience", "customer"))
@@ -226,16 +225,16 @@ class OAuth2AuthorizationFlowIT {
                 .get("access_token")
                 .asString();
         Assertions.assertThat(decoder("payment").decode(token).getClaimAsString("tenant_id"))
-                .isEqualTo("tenant");
+                .isNull();
     }
 
     @Test
     void disablingGrantStopsNewIssuanceAndUnknownEndpointsRemainClosed() throws Exception {
-        synchronize(false);
+        register(false);
         mvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
-                        .with(httpBasic("acquire.tenant.payment", SECRET))
+                        .with(httpBasic("acquire.payment", SECRET))
                         .param("grant_type", "client_credentials"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isBadRequest());
         mvc.perform(MockMvcRequestBuilders.get("/admin/clients")).andExpect(status().isForbidden());
     }
 

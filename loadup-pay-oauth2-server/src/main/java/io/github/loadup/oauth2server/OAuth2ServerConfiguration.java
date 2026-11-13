@@ -15,48 +15,17 @@
  */
 package io.github.loadup.oauth2server;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.env.Environment;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
 class OAuth2ServerConfiguration {
-    @Bean
-    @DependsOnDatabaseInitialization
-    RegisteredClientRepository registeredClientRepository(
-            JdbcTemplate jdbc,
-            PlatformTransactionManager transactions,
-            Environment environment,
-            JsonMapper mapper,
-            @Value("${pay.oauth2server.catalog}") String catalogJson) {
-        OAuthClientCatalog catalog;
-        try {
-            catalog = mapper.readValue(catalogJson, OAuthClientCatalog.class);
-        } catch (RuntimeException failure) {
-            throw new IllegalArgumentException("Cannot load service authorization catalog (details suppressed)");
-        }
-        return OAuthClientRegistry.synchronize(jdbc, new TransactionTemplate(transactions), catalog, environment);
-    }
-
-    @Bean
-    OAuth2AuthorizationService authorizationService(JdbcTemplate jdbc, RegisteredClientRepository clients) {
-        return new JdbcOAuth2AuthorizationService(jdbc, clients);
-    }
-
     @Bean
     OAuthTokenCustomizer oauthTokenCustomizer(RegisteredClientRepository clients) {
         return new OAuthTokenCustomizer(clients);

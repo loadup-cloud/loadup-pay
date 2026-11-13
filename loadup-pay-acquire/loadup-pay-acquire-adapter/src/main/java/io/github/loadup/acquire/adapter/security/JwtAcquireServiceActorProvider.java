@@ -20,6 +20,7 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION
 import io.github.loadup.acquire.app.security.AcquireServiceActor;
 import io.github.loadup.acquire.app.security.AcquireServiceActorProvider;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.stream.Collectors;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -27,6 +28,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtAcquireServiceActorProvider implements AcquireServiceActorProvider {
+    private final DatabaseTenant databaseTenant;
+
+    public JwtAcquireServiceActorProvider(DatabaseTenant databaseTenant) {
+        this.databaseTenant = databaseTenant;
+    }
+
     @Override
     public AcquireServiceActor current() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -36,11 +43,9 @@ public class JwtAcquireServiceActorProvider implements AcquireServiceActorProvid
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            String tenant = jwt.getClaimAsString("tenant_id"), service = jwt.getClaimAsString("service_id");
+            String tenant = databaseTenant.currentTenantId(), service = jwt.getClaimAsString("service_id");
             if (!"SERVICE".equals(jwt.getClaimAsString("principal_type"))
-                    || tenant == null
                     || service == null
-                    || !tenant.equals(tenant.trim())
                     || !service.equals(service.trim())
                     || !service.equals(jwt.getSubject())) {
                 throw new CommonException(ACTION_FORBIDDEN);

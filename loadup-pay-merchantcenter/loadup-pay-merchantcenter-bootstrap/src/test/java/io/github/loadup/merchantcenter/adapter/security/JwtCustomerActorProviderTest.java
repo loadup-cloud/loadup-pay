@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.merchantcenter.client.enums.PrincipalType;
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +34,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtCustomerActorProviderTest {
-    private final JwtCustomerActorProvider provider = new JwtCustomerActorProvider();
+    private final JwtCustomerActorProvider provider =
+            new JwtCustomerActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
     @AfterEach
     void clearContext() {
@@ -53,7 +56,6 @@ class JwtCustomerActorProviderTest {
         return Jwt.withTokenValue("synthetic-test-token")
                 .header("alg", "RS256")
                 .subject("app")
-                .claim("tenant_id", "tenant")
                 .claim("principal_type", type);
     }
 
@@ -88,7 +90,7 @@ class JwtCustomerActorProviderTest {
         authenticated(token("OPERATOR").build(), JwtCustomerActorProvider.MANAGE_PERMISSION);
         assertTrue(provider.current().canManage());
         assertEquals(PrincipalType.OPERATOR, provider.current().principalType());
-        assertEquals("tenant", provider.current().tenantId());
+        assertEquals("__default__", provider.current().tenantId());
     }
 
     @Test

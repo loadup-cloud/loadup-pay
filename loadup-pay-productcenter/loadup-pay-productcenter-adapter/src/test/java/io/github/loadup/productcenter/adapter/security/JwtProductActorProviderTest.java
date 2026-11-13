@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +32,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtProductActorProviderTest {
-    private final JwtProductActorProvider provider = new JwtProductActorProvider("customer");
+    private final JwtProductActorProvider provider =
+            new JwtProductActorProvider("customer", new DatabaseTenant(new DatabaseProperties()));
 
     @AfterEach
     void clear() {
@@ -41,7 +44,6 @@ class JwtProductActorProviderTest {
         var builder = Jwt.withTokenValue(token)
                 .header("alg", "RS256")
                 .subject("app")
-                .claim("tenant_id", "tenant")
                 .claim("principal_type", type)
                 .claim("aud", audience);
         if (merchant != null) {

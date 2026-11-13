@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -29,20 +31,19 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtPaymentActorProviderTest {
-    final JwtPaymentActorProvider provider = new JwtPaymentActorProvider();
+    final JwtPaymentActorProvider provider = new JwtPaymentActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
     @AfterEach
     void clear() {
         SecurityContextHolder.clearContext();
     }
 
-    void authenticated(String type, String service, String tenant) {
+    void authenticated(String type, String service) {
         var jwt = Jwt.withTokenValue("synthetic")
                 .header("alg", "RS256")
                 .subject("acquire")
                 .claim("principal_type", type)
                 .claim("service_id", service)
-                .claim("tenant_id", tenant)
                 .build();
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
@@ -51,23 +52,23 @@ class JwtPaymentActorProviderTest {
 
     @Test
     void verifiedServiceClaimsProvideTheTenantAndExactPermissions() {
-        authenticated("SERVICE", "acquire", "tenant");
+        authenticated("SERVICE", "acquire");
         assertEquals("acquire", provider.current().serviceId());
-        assertEquals("tenant", provider.current().tenantId());
+        assertEquals("__default__", provider.current().tenantId());
         assertTrue(provider.current().permissions().contains("pay:payment:accept"));
     }
 
     @Test
     void aMerchantCannotPromoteItselfIntoTheServiceProtocol() {
-        authenticated("MERCHANT_APP", "acquire", "tenant");
+        authenticated("MERCHANT_APP", "acquire");
         assertThrows(CommonException.class, provider::current);
     }
 
     @Test
-    void serviceBindingAndTenantWhitespaceAreRejected() {
-        authenticated("SERVICE", "product", "tenant");
+    void serviceBindingAndWhitespaceAreRejected() {
+        authenticated("SERVICE", "product");
         assertThrows(CommonException.class, provider::current);
-        authenticated("SERVICE", "acquire", " tenant");
+        authenticated("SERVICE", "acquire ");
         assertThrows(CommonException.class, provider::current);
     }
 

@@ -88,13 +88,13 @@
 
 - 删除 per-audience / per-permission 目录与 per-call 按 audience 取不同令牌：每个服务缓存**一个**短期内部令牌（`sub=service`，资源端只验签名 + issuer + exp）。
 - 资源端保留“这是合法的 SERVICE 令牌”这一认证，不再对每个内部端点做细粒度权限矩阵校验。
-- 改动集中在 `loadup-components-service-auth` 的配置、`service-authorizations.json`（收缩为单一内部 scope）与 5 个应用的 yml。
+- 改动集中在 `loadup-components-service-auth` 的配置、数据库客户端授权（内部 scope）与 5 个应用的 yml。
 
 保留它的唯一理由是纵深防御：内部接口不裸奔，SSRF/越权不能零成本横向调用。既然“所有应用不对外暴露、内部端点不进网关”这一前提成立，后续若发现仍过重，可再评估彻底去掉（NetworkPolicy 单层），本次不采用。
 
 **运营管理（你的方案，采纳）**：以 UPMS 为基础搭账号密码登录 + RBAC。做法是新建一个 **admin 单体应用**（见 Phase 2）：内嵌 `loadup-modules-upms`（web + authserver，提供 `/auth/login` 与 `/upms/**`）以及 audit / dictionary / file / transfer 模块，再把现在 merchantmng / productmng 的控制器挪进来。它同时是前端 `/api/upms/**`、`/api/account/security/**`、`/api/audit/**` 等接口的宿主。站内信/SMS 通知**不在** admin 内，而是归 notificationcenter（见下）。
 
-**AuthServer 改名（已决：`oauth2-server`）**：它只做 OAuth2 `client_credentials`、签发机器/应用令牌，不承载用户登录（用户登录在 UPMS），名字直接表明协议身份。落地时同步改：目录与 artifactId（`authserver-*` → `oauth2-server-*`）、包名 `io.github.loadup.authserver` → `io.github.loadup.oauth2server`、`deploy/config/*/authserver/` → `deploy/config/*/oauth2-server/`、`service-authorizations.json`、各应用 `SERVICE_AUTH_TOKEN_URI`（内部令牌保留，指向新 token endpoint `/oauth2/token`）。
+**AuthServer 改名（已决：`oauth2-server`）**：它只做 OAuth2 `client_credentials`、签发机器/应用令牌，不承载用户登录（用户登录在 UPMS），名字直接表明协议身份。落地时同步改：目录与 artifactId（`authserver-*` → `oauth2-server-*`）、包名 `io.github.loadup.authserver` → `io.github.loadup.oauth2server`、`deploy/config/*/authserver/` → `deploy/config/*/oauth2-server/`、数据库客户端注册、各应用 `SERVICE_AUTH_TOKEN_URI`（内部令牌保留，指向新 token endpoint `/oauth2/token`）。
 
 **验收**：操作员能用账号密码登录拿 JWT 并调用管理接口；商户应用能凭 client_id/secret 拿 MERCHANT_APP 令牌调 acquire；内部接口鉴权方式有 ADR 记录并全部落码。
 

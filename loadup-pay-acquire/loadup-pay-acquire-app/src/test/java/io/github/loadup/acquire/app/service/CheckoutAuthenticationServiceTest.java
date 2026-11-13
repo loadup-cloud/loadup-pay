@@ -57,7 +57,7 @@ class CheckoutAuthenticationServiceTest {
         var actor = service.authenticate("tenant", TOKEN, ORIGIN);
         assertEquals("order", actor.orderId());
         assertEquals("session", actor.sessionId());
-        assertEquals("tenant", actor.tenantId());
+        assertEquals("__default__", actor.tenantId());
     }
 
     @Test

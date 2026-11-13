@@ -1,11 +1,15 @@
-# AuthServer 设计
+# Pay OAuth2 Server 架构
 
-应用仅装配协议、持久化和 Pay 的服务授权语义。协议使用 Spring Security Authorization Server；RSA 签名及公钥发布由框架 SAS binder 管理，私钥操作委托 KmsTemplate，应用不加载或导出 RSA 私钥。
+单一可执行 JAR，不再拆分 bootstrap。应用只负责 Pay 身份/claims 策略、服务专用协议链和部署配置。
+框架 oauth-server-core 提供 KMS 签发与标准 JDBC 客户端、授权及同意存储。
 
-ServiceClientCatalog 是经过审查的环境授权输入。ServiceClientRegistry 使用 PostgreSQL 事务级 advisory lock 串行同步至标准 RegisteredClientRepository，密码只持久化 BCrypt。删除/禁用的条目失去原凭证；ServiceTokenCustomizer 在签发时重新读取当前授权，限制 grant、scope 和身份。客户端额外请求参数不改变租户和 audience。
+数据库是客户端配置的权威来源；应用启动不读取 catalogJson，不同步目录、不覆盖注册、不执行注册锁。
+管理方通过 RegisteredClientRepository 保存标准 RegisteredClient，密码保存 BCrypt 散列。
+client settings 的通用键为 loadup.oauth.enabled、loadup.oauth.audience；Pay 扩展为 pay.service.identity、pay.service.principal-type、pay.service.merchant-id。
+已有数据通过应用自身 Flyway 迁移移除租户设置并迁移通用设置键，保留 client ID、密钥散列、scope 与有效期。
 
-注册信息与已签发授权使用 Spring 的 JDBC 存储实现，Flyway 维护官方 7.1 协议表。表结构遵循第三方 JDBC 契约，id 长度、协议时间列和序列化设置列按该契约保留，不套用业务 BaseDO。服务授权没有新增业务表 tenant_id 列，逻辑租户存于注册的 client settings。
+OAuthTokenCustomizer 每次签发重新读取数据库记录，检查 enabled、client_credentials 和授权 scope。主体支持 SERVICE、MERCHANT_APP、MERCHANT。
+身份及 audience 来自当前服务端授权，不来自令牌请求参数。令牌不写 tenant_id，资源端不据此选择租户；Pay 内部存储路由由应用自己的 DatabaseTenant 配置决定。
 
-HTTP 安全链仅允许标准 OAuth2 服务协议和基础健康探针，未实现用户登录、OIDC 或管理 API。应用没有启用框架通用协议安全链，使用专门的 service-only 链，保留框架提供的 KMS encoder/JWKS/settings。
-
-资源端继续本地验签和业务授权；数据库中的授权记录不提供 JWT 的即时撤销。默认有效期 5 分钟。部署的动态 schema 隔离与租户注册尚未实现，不能从此授权服务推导出数据库隔离已完成。
+服务专用协议链保持无用户登录、OIDC 或管理 HTTP 端点；其他路径只开放基础健康探针。
+JWT 本地验签不查询授权数据库，停用客户端不会立即撤销已签发 JWT。原有 5 分钟令牌有效期需由客户端 TokenSettings 继续显式配置。

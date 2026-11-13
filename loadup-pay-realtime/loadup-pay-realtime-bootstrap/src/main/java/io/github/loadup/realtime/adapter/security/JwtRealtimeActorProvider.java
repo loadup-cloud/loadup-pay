@@ -18,6 +18,7 @@ package io.github.loadup.realtime.adapter.security;
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.realtime.app.security.RealtimeActor;
 import io.github.loadup.realtime.app.security.RealtimeActorProvider;
 import java.util.Set;
@@ -28,6 +29,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtRealtimeActorProvider implements RealtimeActorProvider {
+    private final DatabaseTenant databaseTenant;
+
+    public JwtRealtimeActorProvider(DatabaseTenant databaseTenant) {
+        this.databaseTenant = databaseTenant;
+    }
+
     @Override
     public RealtimeActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -35,9 +42,9 @@ public class JwtRealtimeActorProvider implements RealtimeActorProvider {
             throw new CommonException(QUERY_FORBIDDEN);
         }
         try {
-            String tenant = jwt.getClaimAsString("tenant_id"), type = jwt.getClaimAsString("principal_type");
+            String tenant = databaseTenant.currentTenantId(), type = jwt.getClaimAsString("principal_type");
             String subject = jwt.getSubject();
-            if (tenant == null || !tenant.equals(tenant.trim()) || subject == null) {
+            if (subject == null) {
                 throw new CommonException(QUERY_FORBIDDEN);
             }
             var permissions = auth.getAuthorities().stream()

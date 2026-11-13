@@ -24,6 +24,8 @@ import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.components.observability.ApiResultMetrics;
 import io.github.loadup.components.resourceserver.ResourceServerAutoConfiguration;
 import io.github.loadup.merchantcenter.adapter.web.MerchantEligibilityController;
@@ -67,7 +69,6 @@ class MerchantEligibilityHttpSecurityTest {
                 .issueTime(Date.from(Instant.now().minusSeconds(10)))
                 .expirationTime(Date.from(expires))
                 .claim("token_use", use)
-                .claim("tenant_id", "trusted-tenant")
                 .claim("principal_type", "MERCHANT_APP")
                 .claim("merchant_id", "merchant")
                 .build();
@@ -144,9 +145,9 @@ class MerchantEligibilityHttpSecurityTest {
 
         @Bean
         MerchantEligibilityFacade eligibility(AtomicInteger calls) {
-            var actors = new JwtCustomerActorProvider();
+            var actors = new JwtCustomerActorProvider(new DatabaseTenant(new DatabaseProperties()));
             return command -> {
-                assertThat(actors.current().tenantId()).isEqualTo("trusted-tenant");
+                assertThat(actors.current().tenantId()).isEqualTo("__default__");
                 calls.incrementAndGet();
                 return new MerchantEligibilityDTO(false, "CUSTOMER_ACTION_FORBIDDEN", null, 0, null, null);
             };

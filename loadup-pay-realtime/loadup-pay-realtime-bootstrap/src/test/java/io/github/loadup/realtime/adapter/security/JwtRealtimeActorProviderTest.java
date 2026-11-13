@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -29,13 +31,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtRealtimeActorProviderTest {
-    final JwtRealtimeActorProvider provider = new JwtRealtimeActorProvider();
+    final JwtRealtimeActorProvider provider =
+            new JwtRealtimeActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
     void jwt(String type, String subject, String service, String merchant) {
         var value = Jwt.withTokenValue("synthetic")
                 .header("alg", "RS256")
                 .subject(subject)
-                .claim("tenant_id", "tenant")
                 .claim("principal_type", type);
         if (service != null) {
             value.claim("service_id", service);

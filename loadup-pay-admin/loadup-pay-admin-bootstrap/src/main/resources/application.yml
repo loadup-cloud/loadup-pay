@@ -70,6 +70,7 @@ loadup:
       permit-all:
         - /api/auth/login
     auth-server:
+      enabled: true
       issuer: ${JWT_ISSUER_URI:http://admin:8080}
       audience: ${JWT_AUDIENCE:admin}
       protocol-endpoints-enabled: false

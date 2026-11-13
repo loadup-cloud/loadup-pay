@@ -66,35 +66,6 @@ def file_data(app, directory):
     return {"oauth2-server.p12": base64.b64encode(key_store.read_bytes()).decode("ascii")}
 
 
-def catalog_data(directory, secret):
-    path = directory.parent / "service-authorizations.json"
-    catalog = json.loads(path.read_text())
-    clients = catalog.get("clients")
-    if not isinstance(clients, list) or not clients:
-        fail("service-authorizations.json must contain service clients.")
-    seen = set()
-    for client in clients:
-        client_id = client.get("clientId")
-        if not isinstance(client_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", client_id) or client_id in seen:
-            fail("Invalid or duplicate authorization client id.")
-        seen.add(client_id)
-        for field, limit in (("tenantId", 64), ("serviceId", 64), ("audience", 128)):
-            if not isinstance(client.get(field), str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1," + str(limit) + "}", client[field]):
-                fail("Invalid authorization identity; logical tenant ids are distinct from database schemas.")
-        permissions = client.get("permissions")
-        if not isinstance(permissions, list) or not permissions or any(
-                not isinstance(permission, str) or not re.fullmatch(r"(?:internal|pay:[a-z0-9:-]{1,120})", permission)
-                for permission in permissions):
-            fail("Invalid service permissions.")
-        variable = client.get("secretEnv")
-        if (not isinstance(variable, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", variable)
-                or not isinstance(client.get("enabled"), bool)):
-            fail("Each service client requires an explicit enabled flag and secretEnv name.")
-        if client["enabled"] and not re.fullmatch(r"[A-Za-z0-9_-]{32,72}", secret.get(variable, "")):
-            fail(f"Missing/invalid client secret in oauth2-server/secret.env: {variable}")
-    return json.dumps(catalog, separators=(",", ":"), sort_keys=True)
-
-
 def resource(kind, name, data, immutable):
     obj = {"apiVersion": "v1", "kind": kind,
            "metadata": {"name": name, "namespace": NAMESPACE},
@@ -115,7 +86,7 @@ def local_resources(app, directory):
     app_config = env_file(directory / "config.env")
     config.update(app_config)
     secret = env_file(directory / "secret.env")
-    prefix = app.upper().replace("-", "_")
+    prefix = "AUTHSERVER" if app == "oauth2-server" else app.upper().replace("-", "_")
     required_config = [f"{prefix}_{suffix}" for suffix in
                        ("JDBC_URL", "JDBC_USERNAME")]
     if not config.get(f"{prefix}_JWT_ISSUER_URI", config.get("JWT_ISSUER_URI", "")).strip():
@@ -141,7 +112,6 @@ def local_resources(app, directory):
             fail(f"Missing/invalid SERVICE_AUTH_CLIENT_SECRET for {app} (32-72 URL-safe ASCII characters).")
     if app == "oauth2-server":
         required_secret.append("KMS_KEYSTORE_PASSWORD")
-        config["AUTHSERVER_SERVICE_AUTHORIZATIONS"] = catalog_data(directory, secret)
     for data, required in ((config, required_config), (secret, required_secret)):
         for key in required:
             if not data.get(key, "").strip():

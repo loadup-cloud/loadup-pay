@@ -13,9 +13,9 @@ TARGETED_PROJECTS = ",".join(
     [
         "loadup-framework-bom",
         "loadup-components/integration/loadup-components-http",
-        "loadup-components/security/loadup-components-resource-server",
         "loadup-components/security/loadup-components-service-auth",
-        "loadup-components/security/loadup-components-authserver/loadup-components-authserver-binder-sas",
+        "loadup-components/security/loadup-components-oauth-server/loadup-components-oauth-server-api",
+        "loadup-components/security/loadup-components-oauth-server/loadup-components-oauth-server-core",
         "loadup-components/security/loadup-components-kms/loadup-components-kms-binder-local",
     ]
 )

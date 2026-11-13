@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.config.DatabaseProperties;
+import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -30,14 +32,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtAcquireServiceActorProviderTest {
-    final JwtAcquireServiceActorProvider provider = new JwtAcquireServiceActorProvider();
+    final JwtAcquireServiceActorProvider provider =
+            new JwtAcquireServiceActorProvider(new DatabaseTenant(new DatabaseProperties()));
 
-    void authenticate(String type, String tenant, String service, String subject) {
+    void authenticate(String type, String service, String subject) {
         var jwt = Jwt.withTokenValue("synthetic-service-token")
                 .header("alg", "RS256")
                 .subject(subject)
                 .claim("principal_type", type)
-                .claim("tenant_id", tenant)
                 .claim("service_id", service)
                 .build();
         SecurityContextHolder.getContext()
@@ -52,9 +54,9 @@ class JwtAcquireServiceActorProviderTest {
 
     @Test
     void verifiedServiceClaimsAndAuthoritiesProduceOnlyAServiceActor() {
-        authenticate("SERVICE", "tenant", "payment", "payment");
+        authenticate("SERVICE", "payment", "payment");
         var actor = provider.current();
-        assertEquals("tenant", actor.tenantId());
+        assertEquals("__default__", actor.tenantId());
         assertEquals("payment", actor.serviceId());
         assertTrue(actor.permissions().contains("pay:acquire:payment:outcome"));
         assertFalse(actor.toString().contains("synthetic-service-token"));
@@ -62,21 +64,19 @@ class JwtAcquireServiceActorProviderTest {
 
     @Test
     void merchantTokenCannotMasqueradeAsThePaymentProducer() {
-        authenticate("MERCHANT_APP", "tenant", "payment", "payment");
+        authenticate("MERCHANT_APP", "payment", "payment");
         assertThrows(CommonException.class, provider::current);
     }
 
     @Test
     void serviceClaimMustEqualTheVerifiedSubject() {
-        authenticate("SERVICE", "tenant", "payment", "other-service");
+        authenticate("SERVICE", "payment", "other-service");
         assertThrows(CommonException.class, provider::current);
     }
 
     @Test
-    void tenantAndServiceWhitespaceAliasesAreRejected() {
-        authenticate("SERVICE", " tenant", "payment", "payment");
-        assertThrows(CommonException.class, provider::current);
-        authenticate("SERVICE", "tenant", "payment ", "payment ");
+    void serviceWhitespaceAliasIsRejected() {
+        authenticate("SERVICE", "payment ", "payment ");
         assertThrows(CommonException.class, provider::current);
     }
 

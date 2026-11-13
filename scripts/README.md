@@ -2,7 +2,7 @@
 
 # 构建与部署脚本
 
-用于十一个应用（十个业务应用和 AuthServer）的本地JAR、Docker镜像和OrbStack Kubernetes部署。所有脚本统一使用 Python 入口；应用目录不再提供 shell wrapper，使用 `python3 scripts/build.py <应用名>`、`python3 scripts/deploy.py <应用名>` 等命令。
+用于十一个应用（十个业务应用和 OAuth server）的本地JAR、Docker镜像和OrbStack Kubernetes部署。所有脚本统一使用 Python 入口；应用目录不再提供 shell wrapper，使用 `python3 scripts/build.py <应用名>`、`python3 scripts/deploy.py <应用名>` 等命令。
 
 | 入口                                | 行为                                            |
 |-------------------------------------|-------------------------------------------------|
@@ -13,20 +13,20 @@
 | `python3 scripts/verify.py [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice |
 | `python3 scripts/render.py [all或应用名]` | 仅渲染镜像/配置版本引用清单供审查，不 apply |
 | `python3 scripts/up.py [all或应用名]` | 校验并创建配置快照，再调用 deploy.py 构建及部署 |
-| `python3 scripts/configmap.py <动作> [all或应用名]` | 初始化、检查、创建、换版、查看、删除配置及管理授权配置 |
-| `python3 scripts/dev_merchant_token.py --merchant-id <id>` | 仅 dev：用 AuthServer 本地 KeyStore 签发测试商户 JWT 到 stdout |
+| `python3 scripts/configmap.py <动作> [all或应用名]` | 初始化、检查、创建、换版、查看和删除配置 |
+| `python3 scripts/dev_merchant_token.py --merchant-id <id>` | 仅 dev：用 OAuth server 本地 KeyStore 签发测试商户 JWT 到 stdout |
 
 ## 环境配置与一键部署
 
 数据库准备可使用下文的 [Framework 初始化 SQL 手动导入](#framework-初始化-sql-手动导入)，并按说明协调应用迁移。
 
-直接维护 `deploy/config/dev|test|prod` 的 common.env、应用 config.env/secret.env 与 service-authorizations.json。AuthServer 另有忽略提交的 authserver.p12。配置含义见 [环境目录](../deploy/config/README.md) 与 [AuthServer](../authserver/README.md)。
+直接维护 `deploy/config/dev|test|prod` 的 common.env、应用 config.env/secret.env。OAuth server 另有忽略提交的 oauth2-server.p12，OAuth 客户端记录由数据库管理且需预先创建。配置含义见 [环境目录](../deploy/config/README.md) 与 OAuth server 的数据库客户端管理说明。
 
 ```bash
-# 先准备独立 loadup_authserver 数据库。构建脚本默认全量安装相邻 framework 的组件。
-# dev 的 up.py authserver/all 会自动准备缺失的 RSA KeyStore 和应用凭证。
+# 先准备独立 OAuth server 数据库 数据库。构建脚本默认全量安装相邻 framework 的组件。
+# dev 的 up.py oauth2-server/all 会自动准备缺失的 RSA KeyStore 和应用凭证。
 APP_ENV=dev python3 scripts/configmap.py check all
-APP_ENV=dev IMAGE_TAG=auth-001 python3 scripts/up.py authserver
+APP_ENV=dev IMAGE_TAG=oauth-001 python3 scripts/up.py oauth2-server
 APP_ENV=dev IMAGE_TAG=auth-002 python3 scripts/up.py all
 # 仅创建快照，暂不发布：
 APP_ENV=dev python3 scripts/configmap.py update payment
@@ -37,9 +37,9 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py
 CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py delete payment config
 ```
 
-up.py 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，创建不可变快照并发布。授权 JSON 进入 ConfigMap 摘要，密码及 PKCS12 进入 Secret 摘要；相同对象复用，同名不同内容拒绝。CONFIG_DIR 可覆盖完整环境目录；单应用与 all 摘要范围不同，回退使用归档中的实际版本。
+up.py 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，创建不可变快照并发布。普通配置进入 ConfigMap 摘要，密码及 PKCS12 进入 Secret 摘要；相同对象复用，同名不同内容拒绝。CONFIG_DIR 可覆盖完整环境目录；单应用与 all 摘要范围不同，回退使用归档中的实际版本。
 
-业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。私钥仅挂载 AuthServer，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
+业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。私钥仅挂载 OAuth server，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
 
 ## Framework 初始化 SQL 手动导入
 
@@ -83,7 +83,7 @@ oauth2-server 已有独立目录 `db/migration/oauth2-server`。`classpath:db/mi
 
 ## 开发用商户 JWT
 
-AuthServer 只签发 SERVICE 令牌，不提供用户/商户登录。本地测试商户 token 由 dev KeyStore 签发，脚本仅允许 `APP_ENV=dev`：
+OAuth server 只签发 SERVICE 令牌，不提供用户/商户登录。本地测试商户 token 由 dev KeyStore 签发，脚本仅允许 `APP_ENV=dev`：
 
 ```bash
 TOKEN=$(python3 scripts/dev_merchant_token.py --merchant-id 6f1c2a3e-9d4b-4f7a-8c2e-1b5d7a9c0e11)
@@ -94,7 +94,7 @@ TOKEN=$(python3 scripts/dev_merchant_token.py --merchant-id <id> --subject <app-
   --permissions pay:acquire:create,pay:product:admit --ttl-seconds 1800)
 ```
 
-默认从 `deploy/config/dev/authserver/authserver.p12` 和 `secret.env` 的 `KMS_KEYSTORE_PASSWORD` 读取签名材料；私钥只在临时目录短暂存在，token 输出到 stdout。`iss` 默认取 `CONFIG_DIR/common.env` 的 `JWT_ISSUER_URI`，`kid` 默认 `<AUTHSERVER_SIGNING_KEY>-v1`，可用 `--issuer`/`--kid` 覆盖。不要提交 token 或私钥；test/prod 必须使用真实 IdP 签发的令牌。
+默认从 `deploy/config/dev/oauth2-server/oauth2-server.p12` 和 `secret.env` 的 `KMS_KEYSTORE_PASSWORD` 读取签名材料；私钥只在临时目录短暂存在，token 输出到 stdout。`iss` 默认取 `CONFIG_DIR/common.env` 的 `JWT_ISSUER_URI`，`kid` 默认 `<AUTHSERVER_SIGNING_KEY>-v1`，可用 `--issuer`/`--kid` 覆盖。不要提交 token 或私钥；test/prod 必须使用真实 IdP 签发的令牌。
 
 外部调用走 Gateway API，不要 `port-forward` 或直连内部 Service。当前本地网关 `pay.loadup.local` 使用自签名证书：
 
@@ -116,7 +116,7 @@ curl --noproxy '*' --resolve pay.loadup.local:443:192.168.139.2 \
 
 版本变化通过滚动重启生效，不承诺 ConfigMap 自动刷新 Bean。test/prod 默认要求 HTTPS token endpoint。凭证与签名密钥轮换、回退限制见 [发布约定](../deploy/CONFIGURATION.md)。
 
-应用清单：authserver、merchantcenter、merchantmng、productcenter、productmng、limitcenter、payment、acquire、realtime、reconciliation、notificationcenter。up.py 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；AuthServer 本身已纳入应用清单。dev 的 all/authserver 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
+应用清单：oauth2-server、merchantcenter、merchantmng、productcenter、productmng、limitcenter、payment、acquire、realtime、reconciliation、notificationcenter。up.py 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；OAuth server 本身已纳入应用清单。dev 的 all/oauth2-server 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
 
 ## 前提与默认行为
 
@@ -160,7 +160,7 @@ python3 scripts/build.py payment -Dmaven.test.skip=false
 `render_deploy.py`只处理`deploy/pay.yml`
 经 kubectl 本地 dry-run 输出的 JSON：全量选择 34 个资源（Namespace、十一组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
 渲染器要求十一个应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
-全量发布先应用 AuthServer 并等待就绪，再逐个发布十个业务应用；保留完整发布归档，AuthServer 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+全量发布先应用 OAuth server 并等待就绪，再逐个发布十个业务应用；保留完整发布归档，OAuth server 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 
@@ -177,7 +177,7 @@ rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator
 当前开发阶段没有协议双栈或自动回退，十一个应用须使用匹配镜像、地址、JWT 与配置；旧协议回退也须恢复整套匹配配置和 Service。
 
 部署前准备版本化 <app>-config-<CONFIG_VERSION> ConfigMap 与 <app>-secret-<SECRET_VERSION> Secret，二者必须 immutable。
-仅 AuthServer 挂载版本化 authserver-files-<SECRET_VERSION> KeyStore Secret，业务应用不再挂载令牌文件。
+仅 OAuth server 挂载版本化 oauth2-server-files-<SECRET_VERSION> KeyStore Secret，业务应用不再挂载令牌文件。
 共享默认绑定前缀为 loadup.http.client，模块显式配置优先，旧 loadup.rpc.client 不再读取。
 渲染器将配置版本写入 Pod template 并绑定具体资源名，配置换版触发滚动。环境变量/Bean 默认重启生效，OAuth 客户端按有效期自动续取令牌。
 发布前只预检资源存在性及 immutable 元数据，归档可回退的镜像/引用组合；配置值与业务权限仍需应用和环境验证。

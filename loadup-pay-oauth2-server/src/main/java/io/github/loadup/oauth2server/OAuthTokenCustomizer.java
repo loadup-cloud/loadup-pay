@@ -15,6 +15,7 @@
  */
 package io.github.loadup.oauth2server;
 
+import io.github.loadup.components.oauth.OAuthClientSettings;
 import java.util.List;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -37,37 +38,36 @@ final class OAuthTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodingCon
         if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())
                 || !AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())
                 || client == null
-                || !Boolean.TRUE.equals(client.getClientSettings().getSetting(OAuthClientRegistry.ENABLED))
+                || !Boolean.TRUE.equals(client.getClientSettings().getSetting(OAuthClientSettings.ENABLED))
+                || !client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 || !client.getScopes().containsAll(context.getAuthorizedScopes())) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
         }
-        String service = client.getClientSettings().getSetting(OAuthClientRegistry.SERVICE);
-        String tenant = client.getClientSettings().getSetting(OAuthClientRegistry.TENANT);
-        String audience = client.getClientSettings().getSetting(OAuthClientRegistry.AUDIENCE);
-        String principalType = client.getClientSettings().getSetting(OAuthClientRegistry.PRINCIPAL_TYPE);
-        String merchantId = client.getClientSettings().getSetting(OAuthClientRegistry.MERCHANT);
+        String service = client.getClientSettings().getSetting(PayOAuthClientSettings.SERVICE);
+        String audience = client.getClientSettings().getSetting(OAuthClientSettings.AUDIENCE);
+        String principalType = client.getClientSettings().getSetting(PayOAuthClientSettings.PRINCIPAL_TYPE);
+        String merchantId = client.getClientSettings().getSetting(PayOAuthClientSettings.MERCHANT);
         if (principalType == null || principalType.isBlank()) {
-            principalType = OAuthClientCatalog.SERVICE;
+            principalType = PayOAuthClientSettings.SERVICE_TYPE;
         }
-        if (service == null || tenant == null || audience == null) {
+        if (service == null || service.isBlank() || audience == null || audience.isBlank()) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
         }
         var claims = context.getClaims();
         claims.audience(List.of(audience))
-                .claim("tenant_id", tenant)
                 .claim("principal_type", principalType)
                 .claim("token_use", "access")
                 .claim(
                         "permissions",
                         context.getAuthorizedScopes().stream().sorted().toList());
-        if (OAuthClientCatalog.SERVICE.equals(principalType)) {
+        if (PayOAuthClientSettings.SERVICE_TYPE.equals(principalType)) {
             claims.subject(service).claim("service_id", service);
-        } else if (OAuthClientCatalog.MERCHANT_APP.equals(principalType)) {
+        } else if (PayOAuthClientSettings.MERCHANT_APP.equals(principalType)) {
             if (merchantId == null || merchantId.isBlank()) {
                 throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
             }
             claims.subject(service).claim("service_id", service).claim("merchant_id", merchantId);
-        } else if (OAuthClientCatalog.MERCHANT.equals(principalType)) {
+        } else if (PayOAuthClientSettings.MERCHANT_TYPE.equals(principalType)) {
             if (merchantId == null || merchantId.isBlank()) {
                 throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
             }
