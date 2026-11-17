@@ -56,7 +56,7 @@ import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionVerifica
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.PaymentLimitExecution;
 import io.github.loadup.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -88,7 +88,7 @@ class PaymentSubmissionPreparationTest {
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
     final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
     final PaymentInputAccess inputs = mock(PaymentInputAccess.class);
-    final PaymentLimitClient limits = mock(PaymentLimitClient.class);
+    final PaymentLimitExecution limits = mock(PaymentLimitExecution.class);
     final RiskConsultGateway risk = mock(RiskConsultGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentEvents events = mock(PaymentEvents.class);

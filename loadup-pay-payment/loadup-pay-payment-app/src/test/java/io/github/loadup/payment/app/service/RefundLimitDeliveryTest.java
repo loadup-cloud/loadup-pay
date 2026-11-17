@@ -43,7 +43,7 @@ import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitRefundRestoreCommand;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitRestoreResult;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.RefundLimitRestoration;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -59,7 +59,7 @@ class RefundLimitDeliveryTest {
             new AnnotationConfigApplicationContext(RefundSettlementConverter.class.getPackageName());
     final TaskTemplate outbox = mock(TaskTemplate.class);
     final RefundProjectionEnvelopeCodec codec = mock(RefundProjectionEnvelopeCodec.class);
-    final PaymentLimitClient client = mock(PaymentLimitClient.class);
+    final RefundLimitRestoration client = mock(RefundLimitRestoration.class);
     final RefundSettlementConverter converter = context.getBean(RefundSettlementConverter.class);
     final RefundLimitDelivery delivery = new RefundLimitDelivery(outbox, codec, client, converter);
     final EventEnvelope<RefundOutcomeEventDTO> envelope = new EventEnvelope<>(

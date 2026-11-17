@@ -38,7 +38,9 @@ import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionVerifica
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReleaseDTO;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.PaymentLimitExecution;
+import io.github.loadup.payment.app.port.PaymentLimitSettlement;
+import io.github.loadup.payment.app.port.RefundLimitRestoration;
 import io.github.loadup.payment.infrastructure.config.PaymentLimitProperties;
 import io.github.loadup.payment.infrastructure.converter.RemoteContractConverter;
 import java.util.function.Function;
@@ -46,7 +48,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
-public class PaymentLimitHttpClient implements PaymentLimitClient {
+public class PaymentLimitHttpClient
+        implements PaymentLimitExecution, PaymentLimitSettlement, RefundLimitRestoration {
     private final RemoteContractConverter contracts;
     private final PaymentLimitProperties properties;
     private final ServiceAccessTokens tokens;

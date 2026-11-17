@@ -52,6 +52,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install offline check parser
+        run: python3 -m pip install -r scripts/requirements-checks.txt
+      - name: Enforce architecture boundaries
+        run: python3 scripts/check_architecture.py
+      - name: Check configuration and operations contracts
+        run: python3 scripts/check_operations.py
+      - name: Check registered migration snapshots
+        run: python3 scripts/gen-migrations.py --check
+      - name: Test repository checkers and deployment tooling
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
   lint:
     name: Formatting
     runs-on: ubuntu-24.04

@@ -40,7 +40,7 @@ import io.github.loadup.payment.app.model.limitcenter.dto.LimitExecutionPermitDT
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.PaymentLimitExecution;
 import io.github.loadup.payment.client.dto.terms.LimitPolicyRefDTO;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
@@ -71,7 +71,7 @@ public class PaymentSubmissionPreparation {
     private final PaymentAttemptGateway attempts;
     private final PaymentExecutionLocks locks;
     private final PaymentInputAccess inputs;
-    private final PaymentLimitClient limits;
+    private final PaymentLimitExecution limits;
     private final RiskConsultGateway risk;
     private final PaymentAcceptanceCodec codec;
     private final PaymentSubmissionConverter converter;
@@ -89,7 +89,7 @@ public class PaymentSubmissionPreparation {
             PaymentAttemptGateway attempts,
             PaymentExecutionLocks locks,
             PaymentInputAccess inputs,
-            PaymentLimitClient limits,
+            PaymentLimitExecution limits,
             RiskConsultGateway risk,
             PaymentAcceptanceCodec codec,
             PaymentSubmissionConverter converter,

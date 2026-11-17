@@ -30,42 +30,15 @@ import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.serviceauth.ServiceAccessTokens;
 import io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.merchantcenter.client.http.MerchantProfileHttpService;
-import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class MerchantContractFactsHttpProviderTest {
     private final MerchantProfileHttpService remote = mock(MerchantProfileHttpService.class);
     private final ServiceAccessTokens tokens = mock(ServiceAccessTokens.class);
-    private final RemoteContractConverter contracts = remoteContracts();
     private final MerchantContractFactsHttpProvider provider =
-            new MerchantContractFactsHttpProvider(remote, tokens, "merchantcenter", contracts);
-
-    private static RemoteContractConverter remoteContracts() {
-        var reference = new AtomicReference<RemoteContractConverter>();
-        new ApplicationContextRunner()
-                .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
-                        .registerBeanDefinition(
-                                "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
-                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
-        return reference.get();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Class<? extends RemoteContractConverter> remoteContractConverterType() {
-        try {
-            return (Class<? extends RemoteContractConverter>)
-                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
-        } catch (ClassNotFoundException missingGeneratedMapper) {
-            throw new IllegalStateException(
-                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
-        }
-    }
+            new MerchantContractFactsHttpProvider(remote, tokens, "merchantcenter");
 
     @AfterEach
     void clear() {

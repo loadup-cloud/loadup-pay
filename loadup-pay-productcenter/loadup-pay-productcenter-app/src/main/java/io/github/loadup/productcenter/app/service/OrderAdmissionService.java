@@ -23,7 +23,6 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
-
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -36,8 +35,7 @@ import io.github.loadup.productcenter.app.converter.OrderAdmissionConverter;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
 import io.github.loadup.productcenter.app.model.EncodedAcquiringTerms;
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO;
+import io.github.loadup.productcenter.app.model.AdmissionEligibility;
 import io.github.loadup.productcenter.app.port.CompiledTermsCodec;
 import io.github.loadup.productcenter.app.port.CurrentContractGateway;
 import io.github.loadup.productcenter.app.port.CustomerEligibilityLookup;
@@ -131,23 +129,10 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    private static Map<String, TypedValue> trustedFacts(MerchantProfileDTO merchant, AdmissionIntent intent) {
-        if (merchant == null) {
-            throw new CommonException(DEPENDENCY_UNAVAILABLE);
-        }
+    private static Map<String, TypedValue> trustedFacts(AdmissionEligibility eligibility, AdmissionIntent intent) {
         Map<String, TypedValue> values = new HashMap<>();
-        values.put("merchant.id", TypedValue.text(merchant.id()));
-        values.put("merchant.code", TypedValue.text(merchant.merchantCode()));
-        values.put("merchant.type", TypedValue.text(merchant.type()));
-        values.put("merchant.industry", TypedValue.text(merchant.industry()));
-        values.put("merchant.country", TypedValue.text(merchant.country()));
-        values.put("merchant.active", TypedValue.bool(merchant.active()));
-        if (merchant.province() != null) {
-            values.put("merchant.province", TypedValue.text(merchant.province()));
-        }
-        if (merchant.city() != null) {
-            values.put("merchant.city", TypedValue.text(merchant.city()));
-        }
+        eligibility.merchantFacts().forEach((key, value) -> values.put(
+                key, "merchant.active".equals(key) ? TypedValue.bool(Boolean.parseBoolean(value)) : TypedValue.text(value)));
         values.put("transaction.amountMinor", TypedValue.integer(intent.amount().getCent()));
         values.put("transaction.currency", TypedValue.text(intent.amount().getCurrencyValue()));
         return Map.copyOf(values);
@@ -175,7 +160,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                 return replay(prior.get(), intent);
             }
             var eligibility = customer.authorizeNewOrder(intent.payeeMerchantId());
-            var merchant = converter.toFacts(intent.payeeMerchantId(), eligibility);
+            var merchant = eligibility.decision();
             String admissionId = ids.generate();
             try {
                 StoredOrderAdmission stored = Objects.requireNonNull(transaction.execute(status -> {
@@ -218,7 +203,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
             String id,
             AdmissionIntent intent,
             ContractRecord header,
-            MerchantEligibilityDTO eligibility,
+            AdmissionEligibility eligibility,
             MerchantEligibilityFacts merchant,
             Instant at,
             LocalDateTime now) {
@@ -245,7 +230,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                 header.generation(),
                 List.of(snapshot));
         ContractDecision runtime = new ContractRuntimeResolver()
-                .resolve(view, item.getKey(), at, trustedFacts(eligibility.merchant(), intent));
+                .resolve(view, item.getKey(), at, trustedFacts(eligibility, intent));
         if (!runtime.allowed()) {
             return denied(id, intent, "CONTRACT_" + runtime.reason().name(), merchant);
         }

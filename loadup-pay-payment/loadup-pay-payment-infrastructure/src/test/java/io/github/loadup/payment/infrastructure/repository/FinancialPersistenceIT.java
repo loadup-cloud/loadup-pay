@@ -52,7 +52,7 @@ import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationStat
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentInputCipher;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.PaymentLimitExecution;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
 import io.github.loadup.payment.app.service.PaymentAcceptanceTransactions;
@@ -595,7 +595,7 @@ class FinancialPersistenceIT {
         static final String PERMIT = "e".repeat(64);
         final AtomicReference<CyclicBarrier> barrier = new AtomicReference<>();
         final Map<String, String> operationPayments = new ConcurrentHashMap<>();
-        final PaymentLimitClient limits = mock(PaymentLimitClient.class);
+        final PaymentLimitExecution limits = mock(PaymentLimitExecution.class);
         final RiskConsultGateway risk = mock(RiskConsultGateway.class);
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
         final PaymentInputCipher cipher = mock(PaymentInputCipher.class);
@@ -700,7 +700,7 @@ class FinancialPersistenceIT {
         }
 
         @Bean
-        PaymentLimitClient limits(RemotePorts ports) {
+        PaymentLimitExecution limits(RemotePorts ports) {
             return ports.limits;
         }
 

@@ -27,19 +27,19 @@ import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.PaymentLimitSettlement;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PaymentLimitOutcomeDelivery {
     private final PaymentOutcomeDeliverySupport support;
-    private final PaymentLimitClient limits;
+    private final PaymentLimitSettlement limits;
     private final PaymentAcceptanceCodec intents;
     private final PaymentOutcomeDeliveryConverter converter;
 
     public PaymentLimitOutcomeDelivery(
             PaymentOutcomeDeliverySupport support,
-            PaymentLimitClient limits,
+            PaymentLimitSettlement limits,
             PaymentAcceptanceCodec intents,
             PaymentOutcomeDeliveryConverter converter) {
         this.support = support;

@@ -26,7 +26,6 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
 import io.github.loadup.payment.client.command.PaymentAttemptStartCommand;
@@ -47,7 +46,6 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
     private final PaymentExecutionLocks locks;
     private final PaymentAttemptGateway attempts;
     private final PaymentAcceptanceCodec codec;
-    private final PaymentLimitClient limits;
     private final PaymentAcceptanceConverter views;
     private final PaymentAcceptanceTransactions transactions;
     private final Validator validator;
@@ -59,7 +57,6 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
             PaymentExecutionLocks locks,
             PaymentAttemptGateway attempts,
             PaymentAcceptanceCodec codec,
-            PaymentLimitClient limits,
             PaymentAcceptanceConverter views,
             PaymentAcceptanceTransactions transactions,
             Validator validator,
@@ -69,7 +66,6 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
         this.locks = locks;
         this.attempts = attempts;
         this.codec = codec;
-        this.limits = limits;
         this.views = views;
         this.transactions = transactions;
         this.validator = validator;

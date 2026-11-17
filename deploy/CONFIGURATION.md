@@ -52,4 +52,10 @@ NetworkPolicy 在工作负载前应用；OAuth server 只允许声明的内部�
 
 Java 授权链路、客户端缓存续取和脚本配置/渲染回归测试源码已更新，未执行。后续需验证真实 PostgreSQL、KMS、跨进程 JWKS、权限失败、凭证/密钥轮换、多副本、排空、发布回退和金融业务请求。Pod 就绪不代表这些验收通过。
 
-开发环境数据库池上限为 5、最小空闲为 1，为同一 PostgreSQL 上的九应用滚动更新预留连接；其他环境应按数据库容量单独规划。最近一次真实发布记录见 [本地环境](LOCAL_DEVELOPMENT.md)。
+开发环境数据库池上限为 5、最小空闲为 1，为同一 PostgreSQL 上的十应用滚动更新预留连接；其他环境应按数据库容量单独规划。最近一次真实发布记录见 [本地环境](LOCAL_DEVELOPMENT.md)。
+
+
+## 架构与运维契约检查
+
+[阶段 5 离线检查](../design/PHASE5_IMPLEMENTATION.md)核对配置来源、固定部署/数据源、迁移所有权、内部 HTTP 头、清单名单、端口/探针和停机预算；`check_operations.py --environment-dir <目录>` 可额外核对普通环境配置。该目录包含每个应用的 config.env，不包含秘密输入。
+源码模板、实际注入值、数据库角色权限与在线健康是不同证据。test/prod 留空 JDBC 及 dev 共用 admin 均不能证明生产隔离；继续按照[部署验收](ACCEPTANCE.md)完成角色、跨 schema 拒绝、停机恢复和版本回退验证。

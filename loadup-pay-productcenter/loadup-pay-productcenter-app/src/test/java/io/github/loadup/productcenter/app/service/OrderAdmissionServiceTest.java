@@ -28,7 +28,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -39,8 +38,8 @@ import io.github.loadup.productcenter.app.converter.OrderAdmissionConverterImpl;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
 import io.github.loadup.productcenter.app.model.EncodedAcquiringTerms;
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO;
+import io.github.loadup.productcenter.app.model.AdmissionEligibility;
+import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 import io.github.loadup.productcenter.app.port.CompiledTermsCodec;
 import io.github.loadup.productcenter.app.port.CurrentContractGateway;
 import io.github.loadup.productcenter.app.port.CustomerEligibilityLookup;
@@ -108,13 +107,14 @@ class OrderAdmissionServiceTest {
     OrderAdmissionServiceTest() {
         when(customer.authorizeNewOrder("merchant")).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return new MerchantEligibilityDTO(
-                    true,
-                    "ALLOWED",
-                    new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
-                    2,
-                    "grant",
-                    1L);
+            return new AdmissionEligibility(
+                    new MerchantEligibilityFacts("merchant", true, "ALLOWED", 2, 1),
+                    Map.of("merchant.id", "merchant",
+                            "merchant.code", "M001",
+                            "merchant.type", "ENTERPRISE",
+                            "merchant.industry", "RETAIL",
+                            "merchant.country", "CN",
+                            "merchant.active", "true"));
         });
     }
 

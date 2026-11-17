@@ -7,7 +7,7 @@
 - [x] 阶段 1A 源码与调用方/回归源码同步：[AcquireActor 与委托凭证分离](design/PHASE1A_IMPLEMENTATION.md)；构建、测试、装配与运行验证尚未执行，旧 1B 与 1C 已有源码调整，不能视为运行验收。
 - [ ] 阶段 1B 重设计：[固定部署与数据源隔离](design/PHASE1B_IMPLEMENTATION.md)及[逐文件清单](design/PHASE1B_CHANGE_INVENTORY.md)已有源码调整；2026-11-17 修复 HTTP/schema 审查缺口、补双 schema/角色测试并同步文档，R6 运行验收未完成；不保留旧租户兼容模型。
 - [ ] 阶段 2：分离完整商业配置解析、类型化策略和条款/额度编译；保持现有快照与哈希语义。
-- [ ] 阶段 3～5：阶段 3 事实/投递边界及[财务证据、付款回查替代](design/PHASE3_FINANCIAL_EVIDENCE.md)源码已调整，退款最新累计读取保留；运行验收未执行，阶段 4～5 未开始。按独立验收推进。
+- [ ] 阶段 3～5：阶段 3 事实/投递边界及[财务证据、付款回查替代](design/PHASE3_FINANCIAL_EVIDENCE.md)源码已调整，退款最新累计读取保留；运行验收未执行，[阶段 4](design/PHASE4_IMPLEMENTATION.md)已同步业务端口、调用方与测试源码，运行验收开放；[阶段 5](design/PHASE5_IMPLEMENTATION.md)已补依赖/配置运维检查、CI 入口和部署评估，门禁及回归未运行。按独立验收推进。
 
 本文只维护当前决策及待完成事项。当前源码边界见 [ARCHITECTURE](ARCHITECTURE.md)，历史环境记录见 [本地发布记录](deploy/LOCAL_DEVELOPMENT.md)。历史镜像就绪、旧测试结果均不能证明当前工作区通过验收。
 
@@ -23,8 +23,8 @@
 
 ## 当前源码收口
 
-- [ ] 修复构建脚本的目录适配：`scripts/common.py` 的 bootstrap_project 及 build.py 仍拼接旧短目录名；admin/notificationcenter 已是单模块，不能按旧 bootstrap 路径打包。完成前不将 build/up/deploy 视为可用的一键入口。
-- [ ] 同步迁移生成器的目录映射与冻结锁路径，适配 `loadup-pay-*` 及两个单模块应用；保留已登记 SQL 的版本与内容。
+- [ ] 构建脚本目录适配源码已修正：`common.bootstrap_project` 与 build.py 统一实际可执行模块位置，三个单模块与七个 bootstrap 已补路径回归；尚未运行打包/镜像/部署验证。
+- [ ] 迁移生成器目录映射与冻结锁路径已有 `loadup-pay-*` / 单模块记录；阶段 5 已接入 `--check`，仍需运行确认文件与哈希，不改已登记 SQL 的版本与内容。
 - [ ] 网关 merchantmng/productmng 后端改为 admin；同步 NetworkPolicy 调用方及 Admin/center 的 issuer、audience 信任配置。
 - [ ] 本地数据库准备补齐 admin；复核十应用发布清单、镜像位置、各自签名 KeyStore 与环境变量。
 - [ ] 验证 admin 操作员登录、中心管理接口与 OAuth 客户端管理的权限矩阵、原子审计、secret 单次交付及响应丢失处理。

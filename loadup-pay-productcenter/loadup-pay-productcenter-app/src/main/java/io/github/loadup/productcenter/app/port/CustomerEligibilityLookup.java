@@ -15,11 +15,11 @@
  */
 package io.github.loadup.productcenter.app.port;
 
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
+import io.github.loadup.productcenter.app.model.AdmissionEligibility;
 
 /**
  * Implementations validate response scope and delegate only transport-verified caller credentials.
  */
 public interface CustomerEligibilityLookup {
-    MerchantEligibilityDTO authorizeNewOrder(String payeeMerchantId);
+    AdmissionEligibility authorizeNewOrder(String payeeMerchantId);
 }

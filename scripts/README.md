@@ -1,6 +1,6 @@
 # 构建与部署脚本
 
-> 当前目录改名尚未完全同步到脚本：common.py/build.py 仍使用旧短目录及 bootstrap 布局，gen-migrations.py 仍有旧映射。以下为入口和设计说明；使用前先完成 [路线图](../ROADMAP.md) 中的脚本收口。当前文档整理未运行任何命令示例。
+> 阶段 5 已统一十应用可执行模块路径，并补齐离线架构/运维检查和 CI 入口；未运行构建、测试或发布。不能据源码调整认定一键部署已验收。
 
 用于十个应用（九个业务/管理应用和 OAuth server）的本地JAR、Docker镜像和OrbStack Kubernetes部署。所有脚本统一使用 Python 入口；应用目录不再提供 shell wrapper，使用 `python3 scripts/build.py <应用名>`、`python3 scripts/deploy.py <应用名>` 等命令。
 
@@ -209,3 +209,10 @@ node --test loadup-pay-acquire/loadup-pay-acquire-adapter/src/test/javascript/ch
 部署前使用 check_kubernetes.py 检查客户端/服务端版本差距；deploy.py 也执行此检查，不自动安装或升级 kubectl。
 
 发布后的线程 A/B、池等待和业务验收见 [最终验收](../deploy/ACCEPTANCE.md)，使用记录模板保存原始证据，不把脚本 PASS 当作金融链路通过。
+
+
+## 阶段 5 离线门禁
+
+`check_architecture.py` 检查生产源码及 reactor 直接依赖；`check_operations.py` 检查普通配置和部署契约，均不访问集群或读取 Secret。
+Python 解析依赖见 `requirements-checks.txt`。CI tooling 先检查架构、配置和冻结迁移，再执行 `scripts/tests` 回归。
+当前仅已补检查与测试源码，未运行。范围、合法例外、开发者后续命令及部署评估见[阶段 5 记录](../design/PHASE5_IMPLEMENTATION.md)。

@@ -29,7 +29,7 @@ import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitRestoreResult;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.RefundLimitRestoration;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -41,13 +41,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class RefundLimitDelivery {
     private final TaskTemplate outbox;
     private final RefundProjectionEnvelopeCodec codec;
-    private final PaymentLimitClient client;
+    private final RefundLimitRestoration client;
     private final RefundSettlementConverter converter;
 
     public RefundLimitDelivery(
             TaskTemplate outbox,
             RefundProjectionEnvelopeCodec codec,
-            PaymentLimitClient client,
+            RefundLimitRestoration client,
             RefundSettlementConverter converter) {
         this.outbox = outbox;
         this.codec = codec;

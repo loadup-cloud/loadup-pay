@@ -17,10 +17,8 @@ package io.github.loadup.productcenter.app.converter;
 
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 import io.github.loadup.productcenter.client.dto.terms.AcquiringTermsDTO;
-import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 import io.github.loadup.productcenter.domain.model.OrderAdmission;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -39,13 +37,6 @@ public interface OrderAdmissionConverter {
     @Mapping(target = "snapshotHash", source = "model.contract.snapshotHash")
     @Mapping(target = "compiledTermsHash", source = "model.contract.compiledTermsHash")
     OrderAdmissionDTO toDTO(OrderAdmission model, AcquiringTermsDTO terms);
-
-    @Mapping(target = "payeeMerchantId", source = "payee")
-    @Mapping(target = "eligible", source = "result.allowed")
-    @Mapping(target = "reasonCode", source = "result.reasonCode")
-    @Mapping(target = "merchantVersion", source = "result.merchantFactVersion")
-    @Mapping(target = "authorizationVersion", source = "result.grantVersion")
-    MerchantEligibilityFacts toFacts(String payee, MerchantEligibilityDTO result);
 
     default OffsetDateTime external(LocalDateTime value) {
         return value == null ? null : BusinessTime.external(value);

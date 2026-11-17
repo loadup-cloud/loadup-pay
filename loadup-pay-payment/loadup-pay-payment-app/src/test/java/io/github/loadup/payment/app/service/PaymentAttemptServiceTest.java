@@ -42,7 +42,6 @@ import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.command.PaymentAttemptStartCommand;
 import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
@@ -76,7 +75,6 @@ class PaymentAttemptServiceTest {
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentRouteSelector routes = mock(PaymentRouteSelector.class);
     final PaymentInputAccess inputs = mock(PaymentInputAccess.class);
-    final PaymentLimitClient limits = mock(PaymentLimitClient.class);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(false));
     final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>();
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
@@ -99,7 +97,6 @@ class PaymentAttemptServiceTest {
             locks,
             attempts,
             codec,
-            limits,
             context.getBean(PaymentAcceptanceConverter.class),
             new PaymentAcceptanceTransactions(manager),
             validation.getValidator(),
@@ -165,8 +162,6 @@ class PaymentAttemptServiceTest {
         assertNull(stored.get().riskDecision());
         assertEquals(1, manager.commits);
         verify(events).publishSnapshot(eq(accepted.get()), any());
-        verify(limits, never()).reserve(any());
-        verify(limits, never()).begin(any());
     }
 
     @Test

@@ -24,7 +24,6 @@ import io.github.loadup.productcenter.client.dto.MerchantProfileDTO;
 import io.github.loadup.productcenter.client.dto.ValueDTO;
 import io.github.loadup.productcenter.client.error.ContractResultCodeEnum;
 import io.github.loadup.productcenter.client.spi.MerchantFactsProvider;
-import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +32,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 public class MerchantContractFactsHttpProvider implements MerchantFactsProvider {
-    private final RemoteContractConverter contracts;
     private final MerchantProfileHttpService merchants;
     private final ServiceAccessTokens tokens;
     private final String audience;
@@ -41,9 +39,7 @@ public class MerchantContractFactsHttpProvider implements MerchantFactsProvider 
     public MerchantContractFactsHttpProvider(
             MerchantProfileHttpService merchants,
             ServiceAccessTokens tokens,
-            @Value("${loadup.modules.productcenter.merchantcenter-audience}") String audience,
-            RemoteContractConverter contracts) {
-        this.contracts = contracts;
+            @Value("${loadup.modules.productcenter.merchantcenter-audience}") String audience) {
         this.merchants = merchants;
         this.tokens = tokens;
         this.audience = audience;
@@ -56,8 +52,8 @@ public class MerchantContractFactsHttpProvider implements MerchantFactsProvider 
         }
         try {
             var profile =
-                    HttpServiceResponses.requiredData(contracts.fromMerchantcenterMerchantProfileDTOSuccessResponse(
-                            merchants.profile("Bearer " + tokens.token("productcenter", audience), new IdQuery(id))));
+                    HttpServiceResponses.requiredData(
+                            merchants.profile("Bearer " + tokens.token("productcenter", audience), new IdQuery(id)));
             if (!id.equals(profile.id())) {
                 throw new CommonException(ContractResultCodeEnum.MERCHANT_UNVERIFIED);
             }

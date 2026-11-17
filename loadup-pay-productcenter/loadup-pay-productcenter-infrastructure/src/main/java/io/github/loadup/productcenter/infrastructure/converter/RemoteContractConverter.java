@@ -64,45 +64,10 @@ public interface RemoteContractConverter {
     io.github.loadup.productcenter.app.model.limitcenter.enums.RefundCountRestorePolicy toLocal(
             io.github.loadup.limitcenter.client.enums.RefundCountRestorePolicy value);
 
-    io.github.loadup.merchantcenter.client.command.MerchantActionAuthorizeCommand toRemote(
-            io.github.loadup.productcenter.app.model.merchantcenter.command.MerchantActionAuthorizeCommand value);
-
-    io.github.loadup.productcenter.app.model.merchantcenter.command.MerchantActionAuthorizeCommand toLocal(
-            io.github.loadup.merchantcenter.client.command.MerchantActionAuthorizeCommand value);
-
-    io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO toRemote(
-            io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO value);
-
-    io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO toLocal(
-            io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO value);
-
-    io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO toRemote(
-            io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO value);
-
-    io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO toLocal(
-            io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO value);
-
-    io.github.loadup.merchantcenter.client.enums.MerchantAction toRemote(
-            io.github.loadup.productcenter.app.model.merchantcenter.enums.MerchantAction value);
-
-    io.github.loadup.productcenter.app.model.merchantcenter.enums.MerchantAction toLocal(
-            io.github.loadup.merchantcenter.client.enums.MerchantAction value);
-
     default SuccessResponse<io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO>
             fromLimitcenterLimitPolicyActivationDTOSuccessResponse(
                     SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO> response) {
         return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
 
-    default SuccessResponse<io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO>
-            fromMerchantcenterMerchantEligibilityDTOSuccessResponse(
-                    SuccessResponse<io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO> response) {
-        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
-    }
-
-    default SuccessResponse<io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantProfileDTO>
-            fromMerchantcenterMerchantProfileDTOSuccessResponse(
-                    SuccessResponse<io.github.loadup.merchantcenter.client.dto.MerchantProfileDTO> response) {
-        return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
-    }
 }

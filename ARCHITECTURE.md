@@ -2,7 +2,7 @@
 
 ## 阶段 0 静态架构基线
 
-2026-11-15 已按当前工作区核对[五条核心流程时序](design/PHASE0_FLOWS.md)、[POM 依赖基线](design/PHASE0_DEPENDENCIES.md)与[所有权和例外](design/PHASE0_BASELINE.md)。[阶段 1A](design/PHASE1A_IMPLEMENTATION.md)已分离 AcquireActor 与委托凭证并同步调用方/测试源码；未运行构建和测试。旧阶段 1B 已分离 Web/数据库入口并绑定部署 tenant；[1B 重设计](design/PHASE1B_IMPLEMENTATION.md)现已改为固定部署 code、DataSource/schema 与 Header 校验，已有源码实现，旧核心租户类已删除；2026-11-17 修复内部 HTTP 头与 schema 校验并补隔离测试，运行验收未完成；[阶段 1C](design/PHASE1C_IMPLEMENTATION.md)已明确 UPMS 默认持久化与应用层装配归属并同步 Admin；[阶段 2](design/PHASE2_IMPLEMENTATION.md)已拆分产品商业策略解析、条款投影与额度片段编译；[阶段 3](design/PHASE3_IMPLEMENTATION.md)已实施事实/投递边界、自包含财务证据及付款回查替代的源码，退款最新累计查询保留，运行验收仍开放；阶段 4～5 尚未实施，不能将源码调整当作运行验收。
+2026-11-15 已按当前工作区核对[五条核心流程时序](design/PHASE0_FLOWS.md)、[POM 依赖基线](design/PHASE0_DEPENDENCIES.md)与[所有权和例外](design/PHASE0_BASELINE.md)。[阶段 1A](design/PHASE1A_IMPLEMENTATION.md)已分离 AcquireActor 与委托凭证并同步调用方/测试源码；未运行构建和测试。旧阶段 1B 已分离 Web/数据库入口并绑定部署 tenant；[1B 重设计](design/PHASE1B_IMPLEMENTATION.md)现已改为固定部署 code、DataSource/schema 与 Header 校验，已有源码实现，旧核心租户类已删除；2026-11-17 修复内部 HTTP 头与 schema 校验并补隔离测试，运行验收未完成；[阶段 1C](design/PHASE1C_IMPLEMENTATION.md)已明确 UPMS 默认持久化与应用层装配归属并同步 Admin；[阶段 2](design/PHASE2_IMPLEMENTATION.md)已拆分产品商业策略解析、条款投影与额度片段编译；[阶段 3](design/PHASE3_IMPLEMENTATION.md)已实施事实/投递边界、自包含财务证据及付款回查替代的源码，退款最新累计查询保留，运行验收仍开放；[阶段 4](design/PHASE4_IMPLEMENTATION.md)已调整商户准入事实投影及付款额度能力端口；[阶段 5](design/PHASE5_IMPLEMENTATION.md)已补离线依赖/运维门禁与部署组合评估，运行验收开放，不能将源码调整当作运行验收。
 
 当前查询边界：完整付款证据路径的 acquire 落账与额度 Confirm/Release 不再回查 payment；旧冻结载荷仍按原顺序查证。退款恢复仍先重放本地回执，再读取最新累计，费用退款也保留最新汇总读取，详见[财务证据记录](design/PHASE3_FINANCIAL_EVIDENCE.md)。新业务事件类型已与目标路由分开；旧冻结标签仅保留指定读取。不能提前按目标架构删除查证、幂等或执行围栏。
 

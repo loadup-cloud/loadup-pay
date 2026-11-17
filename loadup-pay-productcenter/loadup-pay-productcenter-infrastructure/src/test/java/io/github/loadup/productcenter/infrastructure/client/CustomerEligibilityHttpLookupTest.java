@@ -29,7 +29,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
@@ -39,8 +38,9 @@ import io.github.loadup.merchantcenter.client.error.CustomerResultCodeEnum;
 import io.github.loadup.merchantcenter.client.http.CustomerHttpService;
 import io.github.loadup.productcenter.app.security.ProductActor;
 import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
-import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
+import io.github.loadup.productcenter.infrastructure.converter.AdmissionEligibilityConverter;
 import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -61,24 +61,24 @@ class CustomerEligibilityHttpLookupTest {
         TransactionSynchronizationManager.clear();
     }
 
-    private static RemoteContractConverter remoteContracts() {
-        var reference = new AtomicReference<RemoteContractConverter>();
+    private static AdmissionEligibilityConverter remoteContracts() {
+        var reference = new AtomicReference<AdmissionEligibilityConverter>();
         new ApplicationContextRunner()
                 .withInitializer(context -> ((BeanDefinitionRegistry) context.getBeanFactory())
                         .registerBeanDefinition(
                                 "remoteContractConverter", new RootBeanDefinition(remoteContractConverterType())))
-                .run(context -> reference.set(context.getBean(RemoteContractConverter.class)));
+                .run(context -> reference.set(context.getBean(AdmissionEligibilityConverter.class)));
         return reference.get();
     }
 
     @SuppressWarnings("unchecked")
-    private static Class<? extends RemoteContractConverter> remoteContractConverterType() {
+    private static Class<? extends AdmissionEligibilityConverter> remoteContractConverterType() {
         try {
-            return (Class<? extends RemoteContractConverter>)
-                    Class.forName(RemoteContractConverter.class.getName() + "Impl");
+            return (Class<? extends AdmissionEligibilityConverter>)
+                    Class.forName(AdmissionEligibilityConverter.class.getName() + "Impl");
         } catch (ClassNotFoundException missingGeneratedMapper) {
             throw new IllegalStateException(
-                    "Generated RemoteContractConverter implementation is unavailable", missingGeneratedMapper);
+                    "Generated AdmissionEligibilityConverter implementation is unavailable", missingGeneratedMapper);
         }
     }
 
@@ -99,7 +99,15 @@ class CustomerEligibilityHttpLookupTest {
     @Test
     void delegatesTokenPerRequestAndAcceptsOnlyFactsForTheExpectedPayee() {
         respond(allowed("merchant"));
-        assertTrue(lookup.authorizeNewOrder("merchant").allowed());
+        var eligibility = lookup.authorizeNewOrder("merchant");
+        assertTrue(eligibility.decision().eligible());
+        assertEquals("merchant", eligibility.decision().payeeMerchantId());
+        assertEquals(1, eligibility.decision().merchantVersion());
+        assertEquals(1, eligibility.decision().authorizationVersion());
+        assertEquals(Map.of("merchant.id", "merchant", "merchant.code", "M001",
+                "merchant.type", "ENTERPRISE", "merchant.industry", "RETAIL",
+                "merchant.country", "CN", "merchant.active", "true"), eligibility.merchantFacts());
+        assertThrows(UnsupportedOperationException.class, () -> eligibility.merchantFacts().put("merchant.id", "other"));
         verify(http)
                 .authorize(
                         eq("Bearer " + TOKEN),
@@ -124,14 +132,28 @@ class CustomerEligibilityHttpLookupTest {
                 .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.NOT_FOUND), null));
         assertEquals(
                 CustomerResultCodeEnum.NOT_FOUND.getCode(),
-                lookup.authorizeNewOrder("merchant").reasonCode());
+                lookup.authorizeNewOrder("merchant").decision().reasonCode());
         when(http.authorize(anyString(), any()))
                 .thenReturn(new SuccessResponse<>(Result.buildFailure(CustomerResultCodeEnum.ACTION_FORBIDDEN), null));
         var error = assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));
         assertSame(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE, error.getResultCode());
         respond(new MerchantEligibilityDTO(
                 false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null));
-        assertFalse(lookup.authorizeNewOrder("merchant").allowed());
+        var denied = lookup.authorizeNewOrder("merchant");
+        assertFalse(denied.decision().eligible());
+        assertEquals(0, denied.decision().authorizationVersion());
+        assertTrue(denied.merchantFacts().isEmpty());
+    }
+
+    @Test
+    void preservesOptionalLocationFactsWithoutPrematurePolicyValidation() {
+        var merchant = new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", "", "x".repeat(1025), true);
+        respond(new MerchantEligibilityDTO(true, "ALLOWED", merchant, 2, "grant", 3L));
+        var evidence = lookup.authorizeNewOrder("merchant");
+        assertEquals("", evidence.merchantFacts().get("merchant.province"));
+        assertEquals("x".repeat(1025), evidence.merchantFacts().get("merchant.city"));
+        assertEquals(2, evidence.decision().merchantVersion());
+        assertEquals(3, evidence.decision().authorizationVersion());
     }
 
     @Test

@@ -43,7 +43,7 @@ import io.github.loadup.payment.app.model.limitcenter.dto.LimitReleaseDTO;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.payment.app.port.PaymentLimitClient;
+import io.github.loadup.payment.app.port.PaymentLimitSettlement;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +55,7 @@ class PaymentLimitOutcomeDeliveryTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentOutcomeDeliveryConverter.class.getPackageName());
     final PaymentOutcomeDeliverySupport support = mock(PaymentOutcomeDeliverySupport.class);
-    final PaymentLimitClient limits = mock(PaymentLimitClient.class);
+    final PaymentLimitSettlement limits = mock(PaymentLimitSettlement.class);
     final PaymentAcceptanceCodec intents = mock(PaymentAcceptanceCodec.class);
     final PaymentLimitOutcomeDelivery delivery = new PaymentLimitOutcomeDelivery(
             support, limits, intents, context.getBean(PaymentOutcomeDeliveryConverter.class));

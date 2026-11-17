@@ -149,6 +149,9 @@ def image_prefix() -> str:
 
 
 def bootstrap_project(app: str) -> str:
-    if app == "oauth2-server":
-        return "loadup-pay-oauth2-server"
-    return f"{app}/{app}-bootstrap"
+    if app not in PAY_APPS:
+        fail("Unknown application")
+    artifact = f"loadup-pay-{app}"
+    if app in {"oauth2-server", "admin", "notificationcenter"}:
+        return artifact
+    return f"{artifact}/{artifact}-bootstrap"

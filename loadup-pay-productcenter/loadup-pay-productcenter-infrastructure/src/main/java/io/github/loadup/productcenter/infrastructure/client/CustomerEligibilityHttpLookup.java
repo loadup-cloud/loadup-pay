@@ -23,31 +23,32 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.merchantcenter.client.error.CustomerResultCodeEnum;
 import io.github.loadup.merchantcenter.client.http.CustomerHttpService;
-import io.github.loadup.productcenter.app.model.merchantcenter.command.MerchantActionAuthorizeCommand;
-import io.github.loadup.productcenter.app.model.merchantcenter.dto.MerchantEligibilityDTO;
-import io.github.loadup.productcenter.app.model.merchantcenter.enums.MerchantAction;
+import io.github.loadup.merchantcenter.client.command.MerchantActionAuthorizeCommand;
+import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
+import io.github.loadup.merchantcenter.client.enums.MerchantAction;
 import io.github.loadup.productcenter.app.port.CustomerEligibilityLookup;
+import io.github.loadup.productcenter.app.model.AdmissionEligibility;
 import io.github.loadup.productcenter.app.security.ProductActorProvider;
-import io.github.loadup.productcenter.infrastructure.converter.RemoteContractConverter;
+import io.github.loadup.productcenter.infrastructure.converter.AdmissionEligibilityConverter;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup {
-    private final RemoteContractConverter contracts;
+    private final AdmissionEligibilityConverter contracts;
     private final ProductActorProvider actors;
     private final CustomerHttpService customerHttp;
 
     public CustomerEligibilityHttpLookup(
-            CustomerHttpService customerHttp, ProductActorProvider actors, RemoteContractConverter contracts) {
+            CustomerHttpService customerHttp, ProductActorProvider actors, AdmissionEligibilityConverter contracts) {
         this.contracts = contracts;
         this.customerHttp = customerHttp;
         this.actors = actors;
     }
 
     @Override
-    public MerchantEligibilityDTO authorizeNewOrder(String payee) {
+    public AdmissionEligibility authorizeNewOrder(String payee) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -58,8 +59,8 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
         try {
             var command = new MerchantActionAuthorizeCommand(payee, MerchantAction.CREATE_ORDER);
             MerchantEligibilityDTO data = HttpServiceResponses.requiredData(
-                    contracts.fromMerchantcenterMerchantEligibilityDTOSuccessResponse(customerHttp.authorize(
-                            "Bearer " + actor.customerAccessToken(), contracts.toRemote(command))));
+                    customerHttp.authorize(
+                            "Bearer " + actor.customerAccessToken(), command));
             if (data.merchantFactVersion() < 0) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
@@ -91,11 +92,11 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
                     || data.grantVersion() != null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
-            return data;
+            return contracts.toEligibility(payee, data);
         } catch (RuntimeException failure) {
             if (CustomerResultCodeEnum.NOT_FOUND.getCode().equals(HttpServiceResponses.resultCode(failure))) {
-                return new MerchantEligibilityDTO(
-                        false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
+                return contracts.toEligibility(payee, new MerchantEligibilityDTO(
+                        false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null));
             }
             // Never expose remote descriptions or arbitrary codes.
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
