@@ -15,12 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentAttemptConverter;
@@ -76,14 +74,10 @@ public class PaymentInitialAttemptService {
         this.events = events;
     }
 
-    public StoredPaymentAcceptance create(
-            String tenant, StoredPaymentAcceptance accepted, String requestKey, String digest) {
+    public StoredPaymentAcceptance create(StoredPaymentAcceptance accepted, String requestKey, String digest) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (!tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         if (accepted.payment().activeAttemptId() != null || accepted.payment().state() != PaymentState.INIT) {
             throw new CommonException(INVALID_STATE);
@@ -92,9 +86,9 @@ public class PaymentInitialAttemptService {
         if (!clock.instant().isBefore(original.payableUntil().toInstant())) {
             throw new CommonException(PAYMENT_EXPIRED);
         }
-        var binding = routes.select(tenant, original);
+        var binding = routes.select(original);
         var preparedAt = LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
-        inputs.requireNewAcceptance(tenant, accepted.callerServiceId(), original, preparedAt);
+        inputs.requireNewAcceptance(accepted.callerServiceId(), original, preparedAt);
         var attempt = PaymentAttempt.init(
                 ids.generate(),
                 accepted.payment().id(),
@@ -115,7 +109,7 @@ public class PaymentInitialAttemptService {
         var updated = changes.withPayment(accepted, accepted.payment().prepareAttempt(attempt, null), null);
         attempts.insert(stored);
         payments.updatePayment(updated, accepted.payment().version());
-        events.publishSnapshot(tenant, updated, preparedAt);
+        events.publishSnapshot(updated, preparedAt);
         return updated;
     }
 }

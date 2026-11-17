@@ -18,15 +18,12 @@ package io.github.loadup.acquire.app.service;
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.OWNER;
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.UnitTransactions;
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -40,14 +37,15 @@ import io.github.loadup.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class AllocationRecoveryQueueTest {
     final AllocationRecoveryGateway cursors = mock(AllocationRecoveryGateway.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final AllocationRecoveryQueue queue = new AllocationRecoveryQueue(cursors, tasks, 30);
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
@@ -73,31 +71,31 @@ class AllocationRecoveryQueueTest {
         var expected = AllocationRecoveryCursor.init("payment", "order", due);
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals("tenant", TenantUtil.getTenantId());
                     return null;
                 })
                 .when(tasks)
-                .register(AllocationRecoveryQueue.TYPE, "payment.0", due);
-        transactions.writeLocal("tenant", () -> {
-            queue.register("tenant", allocation, NOW.plusNanos(123));
+                .submit(ArgumentMatchers.eq(TaskSubmission.scheduled(AllocationRecoveryQueue.TYPE, "payment.0", due)));
+        transactions.writeLocal(() -> {
+            queue.register(allocation, NOW.plusNanos(123));
             return true;
         });
         var sequence = inOrder(cursors, tasks);
         sequence.verify(cursors).insert(expected);
-        sequence.verify(tasks).register(AllocationRecoveryQueue.TYPE, "payment.0", due);
+        sequence.verify(tasks)
+                .submit(ArgumentMatchers.eq(TaskSubmission.scheduled(AllocationRecoveryQueue.TYPE, "payment.0", due)));
         assertEquals(1, manager.commits);
     }
 
     @Test
     void enqueueFailureRollsBackTheTransactionInsteadOfLeavingAnUnscheduledIntent() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        doThrow(failure).when(tasks).register(anyString(), anyString(), any());
+        doThrow(failure).when(tasks).submit(ArgumentMatchers.any(TaskSubmission.class));
         assertSame(
                 failure,
                 assertThrows(
                         CommonException.class,
-                        () -> transactions.writeLocal("tenant", () -> {
-                            queue.register("tenant", allocation, NOW);
+                        () -> transactions.writeLocal(() -> {
+                            queue.register(allocation, NOW);
                             return true;
                         })));
         assertEquals(0, manager.commits);
@@ -108,42 +106,35 @@ class AllocationRecoveryQueueTest {
     void nativeRunningTasksAreNeverRescheduledAndEachSuccessorHasANewBusinessKey() {
         var before = AllocationRecoveryCursor.init("payment", "order", NOW);
         var after = before.schedule(NOW.plusSeconds(30), 0L);
-        transactions.writeLocal("tenant", () -> {
-            queue.schedule("tenant", before, NOW.minusSeconds(1));
+        transactions.writeLocal(() -> {
+            queue.schedule(before, NOW.minusSeconds(1));
             return true;
         });
         var sequence = inOrder(cursors, tasks);
         sequence.verify(cursors).update(before, after);
-        sequence.verify(tasks).register(AllocationRecoveryQueue.TYPE, "payment.1", after.dueAt());
+        sequence.verify(tasks)
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(AllocationRecoveryQueue.TYPE, "payment.1", after.dueAt())));
         sequence.verifyNoMoreInteractions();
     }
 
     @Test
-    void registrationRejectsMissingTransactionWrongTenantAndNonFreshAllocations() {
+    void registrationRejectsMissingTransactionAndNonFreshAllocations() {
         assertSame(
                 INVALID_STATE,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant(
-                                        "tenant", () -> queue.register("tenant", allocation, NOW)))
-                        .getResultCode());
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(
-                                CommonException.class,
-                                () -> transactions.writeLocal("other-tenant", () -> {
-                                    queue.register("tenant", allocation, NOW);
-                                    return true;
-                                }))
+                assertThrows(CommonException.class, () -> queue.register(allocation, NOW))
                         .getResultCode());
         var amended = new StoredPaymentAllocation(
                 allocation.allocation(), OWNER, allocation.intentPayload(), allocation.payloadHash(), 1L);
+        System.err.println("AMENDED rowVersion=" + amended.rowVersion() + " state="
+                + amended.allocation().state() + " srcVersion="
+                + amended.allocation().paymentSourceVersion());
         assertSame(
                 INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
-                                () -> transactions.writeLocal("tenant", () -> {
-                                    queue.register("tenant", amended, NOW);
+                                () -> transactions.writeLocal(() -> {
+                                    queue.register(amended, NOW);
                                     return true;
                                 }))
                         .getResultCode());

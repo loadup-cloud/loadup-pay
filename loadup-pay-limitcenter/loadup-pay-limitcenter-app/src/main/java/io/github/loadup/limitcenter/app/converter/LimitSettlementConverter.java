@@ -17,6 +17,9 @@ package io.github.loadup.limitcenter.app.converter;
 
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
+import io.github.loadup.limitcenter.app.model.payment.dto.PaymentExecutionDTO;
+import io.github.loadup.limitcenter.app.model.payment.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.limitcenter.domain.model.LimitReleaseEvidence;
@@ -47,4 +50,12 @@ public interface LimitSettlementConverter {
 
     LimitReleaseEvidence toReleaseEvidence(
             String paymentId, Money amount, long paymentVersion, String evidenceId, boolean executionFenced);
+
+    @Mapping(target = "payment", source = "evidence")
+    @Mapping(target = "limitOperationId", source = "operationId")
+    PaymentSettlementFactsDTO toFacts(PaymentFinancialEvidence evidence);
+
+    @Mapping(target = "version", source = "paymentVersion")
+    @Mapping(target = "action", ignore = true)
+    PaymentExecutionDTO toExecution(PaymentFinancialEvidence evidence);
 }

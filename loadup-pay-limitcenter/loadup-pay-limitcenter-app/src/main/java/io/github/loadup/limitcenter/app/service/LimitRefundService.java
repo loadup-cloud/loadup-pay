@@ -108,7 +108,7 @@ public class LimitRefundService implements LimitRefundFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor, () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(command.operationId());
             DomainChecks.id(command.paymentId());
             DomainChecks.id(command.refundId());
@@ -129,7 +129,10 @@ public class LimitRefundService implements LimitRefundFacade {
             // Query before acquiring any local database transaction or lock.
             var facts = payment.refundFacts(command.refundId());
             bind(command, first, facts);
-            return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
+            if (command.financialEvidence() != null) {
+                validateCapturedEvidence(command, facts);
+            }
+            return transactions.writeLocal(OUTCOME_CONFLICT, () -> {
                 var gate = reservations
                         .lockGate(command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -287,10 +290,39 @@ public class LimitRefundService implements LimitRefundFacade {
         return converter.toDTO(receipt);
     }
 
+    private void validateCapturedEvidence(LimitRefundRestoreCommand command, RefundSettlementFactsDTO facts) {
+        var proof = command.financialEvidence();
+        var original = proof.payment();
+        if (!proof.refundId().equals(command.refundId())
+                || proof.refundVersion() != command.refundVersion()
+                || !proof.refundEvidenceId().equals(command.refundEvidenceId())
+                || proof.amountMinor() != command.refundAmountMinor()
+                || proof.cumulativePaymentRefundedMinor() != command.cumulativePaymentRefundedMinor()
+                || !original.operationId().equals(command.operationId())
+                || !original.paymentId().equals(command.paymentId())
+                || !original.currency().equals(command.currency())
+                || original.paymentVersion() != facts.paymentVersion()
+                || original.amountMinor() != facts.paymentAmountMinor()
+                || !original.terminalEvidenceId().equals(facts.paymentEvidenceId())
+                || !original.activeAttemptId().equals(facts.paymentAttemptId())
+                || !original.initiatedAt()
+                        .toInstant()
+                        .equals(facts.paymentInitiatedAt().toInstant())
+                || !original.orderId().equals(facts.refund().orderId())
+                || !original.payeeMerchantId().equals(facts.refund().payeeMerchantId())
+                || !proof.refundRequestId().equals(facts.refund().refundRequestId())
+                || proof.paymentRefundVersion() > facts.paymentRefundVersion()
+                || proof.cumulativePaymentRefundedMinor() > facts.refund().cumulativePaymentRefundedMinor()
+                || proof.paymentRefundVersion() == facts.paymentRefundVersion()
+                        && proof.cumulativePaymentRefundedMinor()
+                                != facts.refund().cumulativePaymentRefundedMinor()) {
+            throw new CommonException(OUTCOME_CONFLICT);
+        }
+    }
+
     private String digest(LimitActor actor, LimitRefundRestoreCommand command) {
         var canonical = new StringBuilder("limit.refund.v1/");
         for (var field : List.of(
-                actor.tenantId(),
                 actor.serviceId(),
                 command.operationId(),
                 command.paymentId(),
@@ -305,6 +337,14 @@ public class LimitRefundService implements LimitRefundFacade {
                     .append(field.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(field);
+        }
+        if (command.financialEvidence() != null) {
+            for (String field : command.financialEvidence().canonicalFields()) {
+                canonical
+                        .append(field.getBytes(StandardCharsets.UTF_8).length)
+                        .append(':')
+                        .append(field);
+            }
         }
         return DigestUtils.sha256(canonical.toString());
     }

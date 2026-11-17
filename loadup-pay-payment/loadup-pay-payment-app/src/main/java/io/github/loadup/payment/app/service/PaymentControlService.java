@@ -117,7 +117,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public ParentFenceDTO fenceParent(ParentPaymentFenceCommand command) {
         validate(command);
         var actor = actor("pay:payment:fence");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             validateIds(command.orderId(), command.payeeMerchantId(), command.requestKey());
             String digest = digest(
                     actor,
@@ -161,7 +161,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query) {
         validate(query);
         var actor = actor("pay:payment:fence:read");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(query.orderId());
             var current = gates.lockParent(query.orderId());
             if (current.isEmpty()) {
@@ -178,7 +178,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public PaymentCloseDTO close(PaymentCloseCommand command) {
         validate(command);
         var actor = actor("pay:payment:close");
-        return transactions.writeLocal(actor.tenantId(), () -> closeLocked(actor, command));
+        return transactions.writeLocal(() -> closeLocked(actor, command));
     }
 
     private PaymentCloseDTO closeLocked(PaymentActor actor, PaymentCloseCommand command) {
@@ -251,7 +251,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 var closed = order.requestClose().close(new NoCollectionEvidence(evidence, order.id(), true));
                 var updated = converter.withPayment(previous, closed, evidence);
                 store.updatePayment(updated, order.version());
-                events.publish(actor.tenantId(), updated, true, now());
+                events.publish(updated, true, now());
                 payment = Optional.of(updated);
             } else if (order.state() == PaymentState.INIT
                     || order.state() == PaymentState.PROCESSING
@@ -274,9 +274,9 @@ public class PaymentControlService implements PaymentControlFacade {
                         previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
                 store.updatePayment(updated, order.version());
                 if (updatedOrder.state() == PaymentState.CLOSED) {
-                    events.publish(actor.tenantId(), updated, true, now());
+                    events.publish(updated, true, now());
                 } else {
-                    events.publishSnapshot(actor.tenantId(), updated, now());
+                    events.publishSnapshot(updated, now());
                 }
                 payment = Optional.of(updated);
             } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED) {
@@ -327,7 +327,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command) {
         validate(command);
         var actor = actor("pay:payment:input:expire");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(command.inputRef());
             DomainChecks.id(command.paymentId());
             DomainChecks.id(command.orderId());
@@ -474,7 +474,6 @@ public class PaymentControlService implements PaymentControlFacade {
         var canonical = new StringBuilder();
         for (String field : Arrays.asList(
                 "payment.control.v1",
-                actor.tenantId(),
                 actor.serviceId(),
                 kind,
                 order,

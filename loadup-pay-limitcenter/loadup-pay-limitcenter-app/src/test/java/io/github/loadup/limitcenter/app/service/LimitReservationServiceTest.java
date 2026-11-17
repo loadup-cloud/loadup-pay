@@ -156,7 +156,7 @@ class LimitReservationServiceTest {
     @Test
     void aUniquenessRaceRollsBackBeforeStartingTheRetry() {
         AtomicInteger calls = new AtomicInteger();
-        String result = f.transactions.writeLocal(f.actor, LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
+        String result = f.transactions.writeLocal(LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
             if (calls.incrementAndGet() == 1) {
                 throw new LimitWriteRaceException("synthetic collision");
             }
@@ -172,7 +172,7 @@ class LimitReservationServiceTest {
     void persistentContentionStopsAfterThreeRolledBackAttempts() {
         var error = assertThrows(
                 CommonException.class,
-                () -> f.transactions.writeLocal(f.actor, LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
+                () -> f.transactions.writeLocal(LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
                     throw new LimitWriteRaceException("synthetic collision");
                 }));
         assertSame(LimitCenterResultCodeEnum.CONCURRENT_UPDATE, error.getResultCode());

@@ -87,7 +87,7 @@ class CheckoutSessionServiceTest {
     final CheckoutPresentation presentation = mock(CheckoutPresentation.class);
     final AtomicReference<StoredCheckoutSession> stored = new AtomicReference<>();
     final AtomicReference<AcquireActor> actor =
-            new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:session")));
+            new AtomicReference<>(new AcquireActor(OWNER, Set.of("pay:acquire:session")));
     final AtomicInteger ids = new AtomicInteger();
 
     CheckoutSessionService service(Clock clock) {
@@ -238,7 +238,7 @@ class CheckoutSessionServiceTest {
 
     @Test
     void differentOwnerCannotIssueEvenWithAnOrderIdAndSessionPermission() {
-        actor.set(new AcquireActor("tenant", "b".repeat(64), null, Set.of("pay:acquire:session")));
+        actor.set(new AcquireActor("b".repeat(64), Set.of("pay:acquire:session")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).create(command("request")))
@@ -277,12 +277,12 @@ class CheckoutSessionServiceTest {
 
     @Test
     void newSessionRequiresPermissionAndNoOuterTransaction() {
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of()));
+        actor.set(new AcquireActor(OWNER, Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).create(command("request")))
                         .getResultCode());
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:session")));
+        actor.set(new AcquireActor(OWNER, Set.of("pay:acquire:session")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

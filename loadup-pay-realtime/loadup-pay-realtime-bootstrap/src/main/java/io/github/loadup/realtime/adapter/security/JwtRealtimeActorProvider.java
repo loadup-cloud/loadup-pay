@@ -18,7 +18,6 @@ package io.github.loadup.realtime.adapter.security;
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.realtime.app.security.RealtimeActor;
 import io.github.loadup.realtime.app.security.RealtimeActorProvider;
 import java.util.Set;
@@ -29,11 +28,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtRealtimeActorProvider implements RealtimeActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtRealtimeActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     @Override
     public RealtimeActor current() {
@@ -42,7 +36,7 @@ public class JwtRealtimeActorProvider implements RealtimeActorProvider {
             throw new CommonException(QUERY_FORBIDDEN);
         }
         try {
-            String tenant = databaseTenant.currentTenantId(), type = jwt.getClaimAsString("principal_type");
+            String type = jwt.getClaimAsString("principal_type");
             String subject = jwt.getSubject();
             if (subject == null) {
                 throw new CommonException(QUERY_FORBIDDEN);
@@ -55,7 +49,7 @@ public class JwtRealtimeActorProvider implements RealtimeActorProvider {
                 if (!subject.equals(service) || !service.equals(service.trim())) {
                     throw new CommonException(QUERY_FORBIDDEN);
                 }
-                return new RealtimeActor(tenant, service, null, permissions);
+                return new RealtimeActor(service, null, permissions);
             }
             if (!Set.of("MERCHANT", "MERCHANT_APP").contains(type)) {
                 throw new CommonException(QUERY_FORBIDDEN);
@@ -66,7 +60,7 @@ public class JwtRealtimeActorProvider implements RealtimeActorProvider {
                     || "MERCHANT".equals(type) && !subject.equals(merchant)) {
                 throw new CommonException(QUERY_FORBIDDEN);
             }
-            return new RealtimeActor(tenant, null, merchant, permissions);
+            return new RealtimeActor(null, merchant, permissions);
         } catch (RuntimeException invalid) {
             throw new CommonException(QUERY_FORBIDDEN);
         }

@@ -17,7 +17,6 @@ package io.github.loadup.acquire.app.service;
 
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.UnitTransactions;
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome.Kind.SUCCEEDED;
@@ -55,10 +54,10 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import java.math.BigDecimal;
@@ -72,6 +71,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -88,7 +88,7 @@ class MerchantNotificationEventsTest {
     private final OrderCreationCodec admissions = mock(OrderCreationCodec.class);
     private final OrderSnapshotReader factsReader = mock(OrderSnapshotReader.class);
     private final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
-    private final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    private final TaskTemplate tasks = mock(TaskTemplate.class);
     private final IdGenerator ids = mock(IdGenerator.class);
     private final UnitTransactions manager = new UnitTransactions();
     private final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
@@ -174,7 +174,7 @@ class MerchantNotificationEventsTest {
                     return null;
                 })
                 .when(tasks)
-                .register(anyString(), anyString(), any());
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         when(ids.generate()).thenAnswer(call -> "delivery-" + idSequence.incrementAndGet());
     }
 
@@ -187,10 +187,10 @@ class MerchantNotificationEventsTest {
 
     @Test
     void disabledOriginalContractDoesNotCreateDeliveryOrTask() {
-        write(() -> events.order(TENANT, currentFacts.get()));
+        write(() -> events.order(currentFacts.get()));
 
         verify(deliveries, never()).insert(any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
         verifyNoInteractions(ids);
     }
 
@@ -198,7 +198,7 @@ class MerchantNotificationEventsTest {
     void paidOrderEmitsFrozenFullPaymentEventWithStableSchemaAndIdentity() {
         enableNotifications(TARGET, "signing-v1");
 
-        write(() -> events.order(TENANT, currentFacts.get()));
+        write(() -> events.order(currentFacts.get()));
 
         var delivery = onlyDelivery();
         Map<?, ?> body = json(delivery.body());
@@ -214,12 +214,13 @@ class MerchantNotificationEventsTest {
         assertEquals(10000, ((Number) data.get("orderAmountMinor")).longValue());
         assertEquals("PAID", data.get("orderState"));
         assertEquals(
-                DigestUtils.sha256(
-                        JsonUtil.toJson(List.of("pay-merchant-event-v1", TENANT, "OrderFullyPaid", ORDER_ID, 7L))),
+                DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", "OrderFullyPaid", ORDER_ID, 7L))),
                 delivery.eventId());
         assertEquals(delivery.eventId(), body.get("eventId"));
         assertEquals("delivery-1", delivery.id());
-        verify(tasks).register(eq(MerchantNotificationService.TYPE), eq("delivery-1:0"), eq(delivery.nextAttemptAt()));
+        verify(tasks)
+                .submit(eq(TaskSubmission.scheduled(
+                        MerchantNotificationService.TYPE, "delivery-1:0", delivery.nextAttemptAt())));
     }
 
     @Test
@@ -227,7 +228,7 @@ class MerchantNotificationEventsTest {
         enableNotifications(TARGET, "signing-v1");
         prepare(AcquireOrderState.CLOSED, 4000, NOW, 8);
 
-        write(() -> events.order(TENANT, currentFacts.get()));
+        write(() -> events.order(currentFacts.get()));
 
         Map<?, ?> body = json(onlyDelivery().body());
         Map<?, ?> data = (Map<?, ?>) body.get("data");
@@ -244,7 +245,7 @@ class MerchantNotificationEventsTest {
         var payment = new VerifiedPaymentOutcome(
                 ORDER_ID, "payment", ChannelAmounts.cnyAmount(4000, "CNY"), SUCCEEDED, 3, "evidence", false);
 
-        write(() -> events.payment(TENANT, ORDER_ID, payment));
+        write(() -> events.payment(ORDER_ID, payment));
 
         MerchantNotificationDelivery delivery = onlyDelivery();
         Map<?, ?> body = json(delivery.body());
@@ -267,18 +268,18 @@ class MerchantNotificationEventsTest {
         enableNotifications(TARGET, "signing-v1");
         var header = currentFacts.get();
 
-        write(() -> events.order(TENANT, header));
-        write(() -> events.order(TENANT, header));
+        write(() -> events.order(header));
+        write(() -> events.order(header));
 
         verify(deliveries, times(1)).insert(any());
-        verify(tasks, times(1)).register(anyString(), anyString(), any());
+        verify(tasks, times(1)).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
     void sameEventKeyRejectsChangedBodyOrPolicy() {
         enableNotifications(TARGET, "signing-v1");
         var initial = currentFacts.get();
-        write(() -> events.order(TENANT, initial));
+        write(() -> events.order(initial));
 
         var changedBody = new OrderSnapshotFacts(
                 initial.orderId(),
@@ -293,36 +294,26 @@ class MerchantNotificationEventsTest {
                 initial.sourceVersion());
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> write(() -> events.order(TENANT, changedBody)))
+                assertThrows(CommonException.class, () -> write(() -> events.order(changedBody)))
                         .getResultCode());
 
         admission.set(withNotifications(TARGET, "signing-v2"));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> write(() -> events.order(TENANT, initial)))
+                assertThrows(CommonException.class, () -> write(() -> events.order(initial)))
                         .getResultCode());
         verify(deliveries, times(1)).insert(any());
-        verify(tasks, times(1)).register(anyString(), anyString(), any());
+        verify(tasks, times(1)).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
-    void foreignTenantAndMissingWritableTransactionAreRejectedBeforeStorageAccess() {
+    void missingWritableTransactionIsRejectedBeforeStorageAccess() {
         enableNotifications(TARGET, "signing-v1");
 
         assertSame(
                 INVALID_STATE,
-                assertThrows(CommonException.class, () -> events.order(TENANT, currentFacts.get()))
+                assertThrows(CommonException.class, () -> events.order(currentFacts.get()))
                         .getResultCode());
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(
-                                CommonException.class,
-                                () -> transactions.writeLocal("other-tenant", () -> {
-                                    events.order(TENANT, currentFacts.get());
-                                    return true;
-                                }))
-                        .getResultCode());
-
         verifyNoInteractions(orders, admissions, factsReader, deliveries, tasks, ids);
     }
 
@@ -370,8 +361,8 @@ class MerchantNotificationEventsTest {
         enableNotifications(TARGET, "signing-v1");
         var source = refundEvent("RefundOrder", "SUCCEEDED", 1000, 1000, 0);
         var original = storedOrder.get();
-        var registered = transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
-        var replay = transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
+        var registered = transactions.writeLocal(() -> events.refund(source));
+        var replay = transactions.writeLocal(() -> events.refund(source));
 
         assertEquals(registered, replay);
         assertEquals("ENQUEUED", registered.disposition());
@@ -389,14 +380,14 @@ class MerchantNotificationEventsTest {
                 BusinessTime.external(delivery.occurredAt()).toInstant());
         assertEquals(original, storedOrder.get());
         verify(deliveries, times(1)).insert(any());
-        verify(tasks, times(1)).register(anyString(), anyString(), any());
+        verify(tasks, times(1)).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
     void completedPartialRefundRequestKeepsFixedTotalAndDistinctEventType() {
         enableNotifications(TARGET, "signing-v1");
         var source = refundEvent("RefundRequest", "PARTIAL_SUCCEEDED", 1500, 1000, 500);
-        transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
+        transactions.writeLocal(() -> events.refund(source));
         var body = json(onlyDelivery().body());
         var data = (Map<?, ?>) body.get("data");
         assertEquals("RefundRequestCompleted", body.get("eventType"));
@@ -409,7 +400,7 @@ class MerchantNotificationEventsTest {
     @Test
     void disabledRefundPolicyReturnsStableDispositionWithoutATask() {
         var source = refundEvent("RefundOrder", "FAILED", 1000, 0, 1000);
-        var registration = transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
+        var registration = transactions.writeLocal(() -> events.refund(source));
         assertEquals("DISABLED", registration.disposition());
         assertEquals(64, registration.merchantEventId().length());
         verifyNoInteractions(deliveries, tasks, ids);
@@ -450,7 +441,7 @@ class MerchantNotificationEventsTest {
     }
 
     private void write(Runnable action) {
-        transactions.writeLocal(TENANT, () -> {
+        transactions.writeLocal(() -> {
             action.run();
             return true;
         });
@@ -458,7 +449,6 @@ class MerchantNotificationEventsTest {
 
     private void activeTenant() {
         assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-        assertEquals(TENANT, TenantUtil.getTenantId());
     }
 
     private MerchantNotificationDelivery onlyDelivery() {

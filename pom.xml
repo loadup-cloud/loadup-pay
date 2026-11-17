@@ -95,6 +95,20 @@
         </dependencies>
     </dependencyManagement>
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <!-- Test-only deployment constant; production requires an explicit loadup.deployment.code. -->
+                            <loadup.deployment.code>test</loadup.deployment.code>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <!-- No executions: invoke these plugin goals explicitly. -->
         <plugins>
             <plugin>
@@ -230,6 +244,10 @@
                     <includes>
                         <include>**/*IT.java</include>
                     </includes>
+                    <systemPropertyVariables>
+                        <!-- Test-only deployment constant; production requires an explicit loadup.deployment.code. -->
+                        <loadup.deployment.code>test</loadup.deployment.code>
+                    </systemPropertyVariables>
                     <!-- Ensure containers are properly cleaned up -->
                     <reuseForks>true</reuseForks>
                     <forkCount>1</forkCount>

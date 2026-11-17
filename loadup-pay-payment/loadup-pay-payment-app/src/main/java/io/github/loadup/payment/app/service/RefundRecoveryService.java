@@ -15,14 +15,13 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.payment.domain.gateway.RefundRecoveryGateway;
@@ -44,7 +43,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class RefundRecoveryService {
     public static final String TYPE = "pay.payment.refund.progress";
     private final RefundRecoveryGateway cursors;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final RefundExecutionLocks locks;
     private final RefundExecutionService execution;
     private final PaymentAcceptanceTransactions transactions;
@@ -53,7 +52,7 @@ public class RefundRecoveryService {
 
     public RefundRecoveryService(
             RefundRecoveryGateway cursors,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             RefundExecutionLocks locks,
             RefundExecutionService execution,
             PaymentAcceptanceTransactions transactions,
@@ -71,29 +70,29 @@ public class RefundRecoveryService {
     /**
      * Caller holds the original parent/request transaction when inserting the fixed refund plan.
      */
-    public void register(String tenant, StoredRefundRequest stored) {
-        writable(tenant);
+    public void register(StoredRefundRequest stored) {
+        writable();
         if (stored.request().version() != 0
                 || stored.request().children().stream().anyMatch(c -> c.state() != RefundState.INIT)) {
             throw new CommonException(INVALID_STATE);
         }
         var cursor = RefundRecoveryCursor.init(stored.request().id(), stored.plannedAt());
         cursors.insert(cursor);
-        tasks.register(TYPE, new RefundRecoveryKey(cursor.requestId(), cursor.generation()).bizId(), cursor.dueAt());
+        tasks.submit(TaskSubmission.scheduled(
+                TYPE, new RefundRecoveryKey(cursor.requestId(), cursor.generation()).bizId(), cursor.dueAt()));
     }
 
-    public RecoveryHandlingOutcome handle(DelayedTask task) {
+    public RecoveryHandlingOutcome handle(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        var identity = RecoveryTaskProtocol.receive(TYPE, task, TenantUtil.getTenantId());
+        var identity = RecoveryTaskProtocol.receive(TYPE, task);
         var key = new RefundRecoveryKey(identity.subjectId(), identity.generation());
         var registered = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         RecoveryTaskProtocol.requireClaim(TYPE, task, registered, LocalDateTime.now(clock));
-        String tenant = TenantUtil.getTenantId();
-        boolean active = transactions.writeLocal(tenant, () -> {
-            var request = locks.request(tenant, key.requestId());
-            var cursor = cursor(tenant, key);
+        boolean active = transactions.writeLocal(() -> {
+            var request = locks.request(key.requestId());
+            var cursor = cursor(key);
             if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.executeAt())) {
                 return false;
             }
@@ -107,10 +106,10 @@ public class RefundRecoveryService {
             return RecoveryHandlingOutcome.SKIPPED;
         }
         // Existing durable first-submit winner and original-request query logic own all channel side effects.
-        execution.progress(tenant, key.requestId());
-        return transactions.writeLocal(tenant, () -> {
-            var request = locks.request(tenant, key.requestId());
-            var before = cursor(tenant, key);
+        execution.progress(key.requestId());
+        return transactions.writeLocal(() -> {
+            var request = locks.request(key.requestId());
+            var before = cursor(key);
             if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) {
                 return RecoveryHandlingOutcome.SKIPPED;
             }
@@ -128,13 +127,14 @@ public class RefundRecoveryService {
                 var next = before.schedule(nextAt, key.generation());
                 cursors.update(before, next);
                 // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
-                tasks.register(TYPE, new RefundRecoveryKey(next.requestId(), next.generation()).bizId(), next.dueAt());
+                tasks.submit(TaskSubmission.scheduled(
+                        TYPE, new RefundRecoveryKey(next.requestId(), next.generation()).bizId(), next.dueAt()));
                 return RecoveryHandlingOutcome.CONTINUED;
             }
         });
     }
 
-    private RefundRecoveryCursor cursor(String tenant, RefundRecoveryKey key) {
+    private RefundRecoveryCursor cursor(RefundRecoveryKey key) {
         var value = cursors.lock(key.requestId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         return value;
     }
@@ -143,10 +143,7 @@ public class RefundRecoveryService {
         return request.request().children().stream().allMatch(RefundOrder::terminal);
     }
 
-    private void writable(String tenant) {
-        if (!tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);

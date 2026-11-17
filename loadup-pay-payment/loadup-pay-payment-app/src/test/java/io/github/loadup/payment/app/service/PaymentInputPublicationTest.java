@@ -31,7 +31,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import io.github.loadup.payment.app.security.PaymentActor;
@@ -52,7 +51,7 @@ class PaymentInputPublicationTest {
     final PaymentInputPublication publication = new PaymentInputPublication(payments, () -> "parent");
     final PaymentAcceptanceTransactions transactions =
             new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
-    final PaymentActor actor = new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:prepare"));
+    final PaymentActor actor = new PaymentActor("acquire", Set.of("pay:payment:input:prepare"));
     final PaymentInputPrepareCommand command = new PaymentInputPrepareCommand(
             "payment",
             "order",
@@ -88,7 +87,7 @@ class PaymentInputPublicationTest {
     void aFencedParentCanBeLockedForReplayButRejectsANewPublication() {
         var fenced = gate(null, true);
         when(payments.lockParent("order")).thenReturn(Optional.of(fenced));
-        assertEquals(fenced, transactions.writeLocal("tenant", () -> publication.lockParent(actor, command)));
+        assertEquals(fenced, transactions.writeLocal(() -> publication.lockParent(actor, command)));
         assertEquals(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, this::publish).getResultCode());
@@ -124,9 +123,7 @@ class PaymentInputPublicationTest {
     void noTransactionAndWrongOriginalOwnerFailWithoutOpeningTheGate() {
         assertEquals(
                 INVALID_STATE,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant("tenant", () -> publication.lockParent(actor, command)))
+                assertThrows(CommonException.class, () -> publication.lockParent(actor, command))
                         .getResultCode());
         var other = new StoredPaymentGate(
                 "parent",
@@ -142,7 +139,7 @@ class PaymentInputPublicationTest {
     }
 
     private boolean publish() {
-        return transactions.writeLocal("tenant", () -> {
+        return transactions.writeLocal(() -> {
             var parent = publication.lockParent(actor, command);
             publication.requireNew(actor, command, parent);
             return true;

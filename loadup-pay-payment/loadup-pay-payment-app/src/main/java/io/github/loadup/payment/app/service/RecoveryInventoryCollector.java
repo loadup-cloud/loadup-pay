@@ -21,7 +21,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.log.LogUtil;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.scheduler.ScheduledTask;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.payment.app.port.RecoveryInventoryReader;
@@ -33,13 +32,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.ObjectProvider;
@@ -56,7 +53,6 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     private final PaymentAcceptanceTransactions transactions;
     private final Clock clock;
     private final boolean enabled;
-    private final Set<String> tenants;
     private final long intervalSeconds;
     private final boolean hasRegistry;
     private final RecoveryEscalationPolicy escalation;
@@ -73,7 +69,6 @@ public class RecoveryInventoryCollector implements ScheduledTask {
             ObjectProvider<MeterRegistry> registries,
             RecoveryEscalationPolicy escalation,
             @Value("${loadup.modules.payment.recovery-inventory.enabled:false}") boolean enabled,
-            @Value("${loadup.modules.payment.recovery-inventory.tenant-ids:}") String tenantIds,
             @Value("${loadup.modules.payment.recovery-inventory.interval-seconds:300}") long intervalSeconds) {
         this.reader = reader;
         this.transactions = transactions;
@@ -84,14 +79,6 @@ public class RecoveryInventoryCollector implements ScheduledTask {
             throw new CommonException(INVALID_ARGUMENT);
         }
         this.intervalSeconds = intervalSeconds;
-        this.tenants = Set.copyOf(Arrays.stream(tenantIds.split(",", -1))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toList());
-        if (tenants.size() > 100 || enabled && tenants.isEmpty()) {
-            throw new CommonException(INVALID_ARGUMENT);
-        }
-        tenants.forEach(DomainChecks::id);
         var registry = registries.getIfAvailable();
         hasRegistry = registry != null;
         if (registry == null) {
@@ -101,8 +88,6 @@ public class RecoveryInventoryCollector implements ScheduledTask {
             success = registry.counter(PREFIX + ".refresh", "outcome", "success");
             failure = registry.counter(PREFIX + ".refresh", "outcome", "failure");
             Gauge.builder(PREFIX + ".enabled", this, value -> value.enabled ? 1.0 : 0.0)
-                    .register(registry);
-            Gauge.builder(PREFIX + ".configured.tenants", this, value -> value.tenants.size())
                     .register(registry);
             Gauge.builder(PREFIX + ".initialized", this, value -> value.snapshot.get() == null ? 0.0 : 1.0)
                     .register(registry);
@@ -171,12 +156,10 @@ public class RecoveryInventoryCollector implements ScheduledTask {
                 combined.put(kind, RecoveryInventoryCell.empty(kind));
             }
             try {
-                for (var tenant : tenants) {
-                    var cells = transactions.readSnapshot(tenant, () -> reader.read());
-                    requireComplete(cells);
-                    for (var cell : cells) {
-                        combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));
-                    }
+                var cells = transactions.readSnapshot(() -> reader.read());
+                requireComplete(cells);
+                for (var cell : cells) {
+                    combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));
                 }
                 // Only a complete configured scope replaces the previous publication, never a successful partial
                 // prefix.

@@ -45,7 +45,7 @@ public class PaymentRouteSelector {
         this.profiles = profiles;
     }
 
-    public ChannelBindingRevision select(String tenant, PaymentExecuteCommand accepted) {
+    public ChannelBindingRevision select(PaymentExecuteCommand accepted) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }

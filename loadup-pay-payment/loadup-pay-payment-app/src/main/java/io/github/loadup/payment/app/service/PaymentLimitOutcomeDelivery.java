@@ -19,9 +19,10 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPEND
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.task.TaskExecution;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentOutcomeDeliveryConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitReservationDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitReservationState;
@@ -47,18 +48,23 @@ public class PaymentLimitOutcomeDelivery {
         this.converter = converter;
     }
 
-    public void deliver(OutboxEvent event) {
-        var snapshot = support.load(event, PaymentEvents.LIMIT); // All local locks are released on return.
+    public void deliver(TaskExecution event) {
+        var snapshot = support.load(event, PaymentDeliveryRoutes.LIMIT); // All local locks are released on return.
         var payment = snapshot.payment();
         var envelope = snapshot.envelope();
         if (payment.payment().state() == PaymentState.SUCCEEDED) {
-            var ack = limits.confirm(converter.toConfirm(payment, envelope.businessEventId(), snapshot.succeededAt()));
+            var ack = limits.confirm(converter.toConfirm(
+                    payment,
+                    envelope.businessEventId(),
+                    snapshot.succeededAt(),
+                    envelope.data().financialEvidence()));
             reservation(snapshot, ack);
             if (ack.state() != LimitReservationState.CONFIRMED) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
         } else {
-            var ack = limits.release(converter.toRelease(payment, envelope.businessEventId()));
+            var ack = limits.release(converter.toRelease(
+                    payment, envelope.businessEventId(), envelope.data().financialEvidence()));
             if (ack == null
                     || !ack.fenced()
                     || !payment.payment().id().equals(ack.paymentId())

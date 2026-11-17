@@ -28,7 +28,6 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
@@ -63,6 +62,7 @@ import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 import io.github.loadup.productcenter.domain.model.OrderAdmission;
 import io.github.loadup.productcenter.domain.model.StoredOrderAdmission;
 import io.github.loadup.productcenter.domain.model.TypedValue;
+import io.github.loadup.productcenter.domain.policy.CommercialPolicyParser;
 import io.github.loadup.productcenter.domain.policy.OrderAdmissionPolicy;
 import jakarta.validation.Validator;
 import java.time.Clock;
@@ -84,6 +84,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class OrderAdmissionService implements OrderAdmissionFacade {
+    private final CommercialPolicyParser policies = new CommercialPolicyParser();
     private final ProductActorProvider actors;
     private final OrderAdmissionGateway admissions;
     private final CurrentContractGateway contracts;
@@ -253,7 +254,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         if (publication == null || !publication.activeAt(now)) {
             return denied(id, intent, "POLICY_NOT_ACTIVE", merchant);
         }
-        AcquiringTermsDTO terms = compiler.compile(runtime.configuration(), publication);
+        AcquiringTermsDTO terms = compiler.compile(policies.parse(runtime.configuration()), publication);
         if (!policy.acceptsRequestedDeadline(intent, now, terms.order().maxWaitSeconds())) {
             return denied(id, intent, "ORDER_DEADLINE_INVALID", merchant);
         }
@@ -357,7 +358,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
 
     private <T> T invoke(ProductActor actor, Supplier<T> work) {
         try {
-            return TenantUtil.callWithTenant(actor.tenantId(), work::get);
+            return work.get();
         } catch (DomainViolation violation) {
             throw new CommonException(
                     violation.reason() == DomainViolation.Reason.CONFLICT ? IDEMPOTENCY_CONFLICT : INVALID_ARGUMENT);

@@ -1,36 +1,10 @@
-# HTTP 迁移与虚拟线程验收
+# 当前架构验收要求
 
-当前状态：44/44 内部操作、版本化发布、HTTP 入站策略及 Envoy Gateway 已有源码。
-2026-11-03 用户反馈本地编译无问题，测试验证暂缓；助手未重新执行构建或单元测试。
-随后用户授权部署 Gateway，控制器/代理/策略已部署并完成下述就绪及只读连通性检查；完整业务验收仍未完成，
-后续源码变更仍须按实际版本重新核对编译范围，不把这条反馈当作所有后续版本的通过记录。
-本文把源码检查与实际运行证据分开，不能用表中的测试名称或示例命令视为通过。Boot 4.1.x / Java 25 保持不变。
-
-同日用户继续授权七应用发布：已执行 clean package（跳过测试）并构建七个 release-001 镜像，
-以 cfg-20261103-r2 / sec-20261103 发布后七应用 1/1 就绪、Service 端点就绪；本地 JWT 信任源与 RustFS 已接入。
-首次冷启动探针超时的失败候选保留，第二轮发布及有限只读检查见 [本地部署结果](LOCAL_DEVELOPMENT.md#本次发布结果)。完整业务验收仍未完成。
-
-## 当前环境只读快照
-
-2026-11-03 在用户授权 Gateway 部署后更新 orbstack 快照；仅核对平台就绪、TLS 与只读 GET，没有执行金融请求或完整业务测试。
-
-| 项目 | 当前证据 | 仍未证明 |
-| --- | --- | --- |
-| 客户端/服务端 | kubectl v1.37.2 / Kubernetes v1.36.5+orb1，先前版本差距已解决 | 后续发布与业务正确性 |
-| 应用 | 七应用 release-001 均 1/1 就绪，ConfigMap 为 cfg-20261103-r2，环境 Secret 为 sec-20261103；均有就绪 8080 Service 端点 | 真实内部调用、扩缩容、零停机滚动与业务恢复 |
-| Gateway API | 复用现有 Gateway API v1.6.1/Envoy CRD；部署 Envoy Gateway v1.9.3，控制器 1/1、代理 2/2 就绪 | 升级、回退与长期稳定性 |
-| 网关实例 | GatewayClass Accepted=True，Gateway Accepted/Programmed=True；8 个 BackendTrafficPolicy 与 1 个 ClientTrafficPolicy Accepted=True；9 个路由 Accepted/ResolvedRefs 均为 True | 业务调用、轮换、压力与故障验收 |
-| 本地 TLS/入口 | pay.loadup.local，LoadBalancer 192.168.139.2；自签名证书校验通过，HTTP 308；公有证书在忽略目录，2026-12-03 到期；本机 hosts 与系统信任未修改 | DNS/浏览器接入与生产证书 |
-| 只读转发 | 更新后 HTTPS /checkout、/checkout.js 均为 200；customer readiness 为 200；原 GET 内部 API/Actuator 检查为网关 404；抽查一个代理无配置更新 failure/rejected | 完整协议、授权矩阵与业务验证 |
-| RustFS | 复用现有 Docker RustFS，开发 bucket 已创建；从 reconciliation 容器使用已部署凭证执行签名 HEAD 为 200 | 真实文件上传/下载、权限与故障恢复 |
-| 网络策略 | 七个应用 NetworkPolicy 已部署 | CNI 实际隔离及完整允许/拒绝验证 |
-
-这份快照只记录当前对象状态和上述有限检查，不替代完整测试或后续发布授权；已有副本 ready 不代表本轮迁移业务验收通过。
-具体 release、证书与本机接入方式见 [网关部署结果](gateway/README.md#本地部署结果)。
+本文定义当前源码的验收范围，不记录当前集群状态。应用集合及身份、数据库边界以 [总体架构](../ARCHITECTURE.md) 为准；旧 release-001/auth-20261103-verified 的实际检查见 [历史运行记录](LOCAL_DEVELOPMENT.md)。历史七/八应用结果不能证明当前十应用版本通过验收。
 
 ## 线程配置
 
-七应用基础配置显式设置 spring.threads.virtual.enabled=false。候选 application-virtual-threads.yml 只启用原生虚拟线程开关和 keep-alive，
+当前应用基础配置显式设置 spring.threads.virtual.enabled=false。候选 application-virtual-threads.yml 只启用原生虚拟线程开关和 keep-alive，
 需要显式激活；压测通过前不改变默认值。两个线程模式均配置 spring.task.execution.propagate-context=true，
 由 Boot 原生 Micrometer 上下文传播与已有 LoadUpContextTaskDecorator 组合，不引入新的线程框架。
 
@@ -54,18 +28,18 @@ keep-alive 防止仅剩 daemon 工作线程时 JVM 退出，不会扩容连接�
 | HTTP 池观测 | HttpPoolMetricsTest / HttpTemplateTest | 原生 lease 饱和超时、计时边界、刷新连续性、注册失败回收、scope 隔离和关闭清理已有回归源码；尚未执行 |
 | JSON 数值契约 | Commons JSON 的 IntegerJsonContractTest | 金额/版本拒绝浮点截断、BigDecimal 精度和数字枚举拒绝；EnumFeature 使用 Jackson 3 API，尚未执行 |
 | 原生回调 | ProtocolResponseTest 与 Payment 回调 Controller | 原生 ACK/状态/内容类型的表示层边界已有源码；真实渠道签名、原文与代理透传尚未验收 |
-| 持久化/金融语义 | 各 infrastructure 的 PostgreSQL IT 与应用层测试 | 事务、receipt、Outbox、租约、未知结果等已有回归入口；本次未运行，不能由线程测试代替 |
+| 持久化/金融语义 | 各 infrastructure 的 PostgreSQL IT 与应用层测试 | 事务、receipt、Task、租约、未知结果等已有回归入口；本次未运行，不能由线程测试代替 |
 
 MvcThreadModelTest 仅在测试类中创建合成身份，不读取业务配置、不连接业务数据库或渠道，不能证明 Resource Server JWT 验签或租户数据库隔离。
 真实鉴权仍需验证签名、issuer、audience、有效期、token_use、SERVICE 身份及业务权限。后台任务应从持久记录重建可信身份，不依赖请求线程残留。
 
-Local binder 的 fixed-delay 扫描继续串行执行各 scanner，虚拟线程不会自动并行化 Outbox/DelayedTask。
+Local binder 的 fixed-delay 扫描继续串行执行各 scanner，虚拟线程不会自动并行化 Task/Task。
 Boot 自动调度器与任务执行器可能随全局虚拟线程开关改变；自定义执行器不会因此统一替换。
 业务元数据需要显式 wrap/decorate，认证上下文按原生安全集成及调用方明确授权处理；数据库事务不能跨线程继承。
 
 ## 开发者验证入口
 
-按用户当前要求暂缓测试。以下仅保留后续恢复验证时的入口，未执行；由开发者选择受影响模块，始终 clean：
+构建及测试由开发者按需执行。以下仅保留后续恢复验证时的入口，未执行；由开发者选择受影响模块，始终 clean：
 
 ```bash
 # 在 loadup-framework 根目录；仅选择本阶段相关模块及其依赖。
@@ -86,7 +60,7 @@ mvnd clean test -pl loadup-commons/loadup-commons-json -am \
   -Dsurefire.failIfNoSpecifiedTests=false -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
-这些命令均不覆盖全部七服务、业务协议或 PostgreSQL，业务迁移仍按 [逐操作清单](../HTTP_MIGRATION.md) 与各模块测试完成。
+这些命令均不覆盖全部七服务、业务协议或 PostgreSQL，业务迁移仍按 [逐操作清单](../ARCHITECTURE.md) 与各模块测试完成。
 部署脚本回归位于 scripts/tests；网关语义用例需额外的 test-only PyYAML，依赖见该目录 requirements.txt。
 它们不安装控制器、访问真实集群或执行金融请求，仍不能代替 CNI/CRD/流量验收。
 
@@ -108,7 +82,7 @@ HTTP 基础地址/超时、网关限流及背景任务库存。只改变线程�
 | 资源 | CPU、RSS/堆、GC、分配、容器重启/OOM、在途与排队趋势；不能仅看平均值 |
 | 数据库 | 连接池 active/idle/pending、获取等待和超时、事务时长/锁等待、数据库负载；实际 exporter 名称以目标版本为准 |
 | HTTP 池 | loadup.http.pool.leased/pending/available/max/route.max 与 acquire 计时的 outcome；源码采集已补，真实抓取与饱和验证仍待执行。acquire 包含连接可用性校验，排除 TCP/TLS/HTTP 耗时；需要分位数时预先启用原生 histogram |
-| 业务并发 | 现有渠道恢复 Bulkhead、任务领取/租约、扫描持续时间、Outbox 堆积、下游饱和与恢复 |
+| 业务并发 | 现有渠道恢复 Bulkhead、任务领取/租约、扫描持续时间、Task 堆积、下游饱和与恢复 |
 | 上下文/追踪 | 不同租户/主体并行、异常、异步边界和任务重建；验证审计/trace 关联，指标标签不得带租户、订单或 token |
 | JDK 诊断 | 在受控环境保留 JFR/线程转储及分析结论；按 Java 25 实际行为判断，不因源码有 synchronized 就推断发生 pinning |
 
@@ -133,7 +107,7 @@ Java 25 的诊断方式参见 [JDK 虚拟线程说明](https://docs.oracle.com/e
 
 | 链路 | 必须验证的事实 |
 | --- | --- |
-| customer/product | 原商户委托与 audience、资格拒绝/依赖失败区分、原合约/额度发布版本/hash 与幂等 |
+| merchantcenter/productcenter | 原商户委托与 audience、资格拒绝/依赖失败区分、原合约/额度发布版本/hash 与幂等 |
 | acquire/payment | 付款受理、输入过期/不存在、未知结果查证、原请求身份恢复、关单/围栏；超时不当成未收款 |
 | limitcenter | 预占、执行凭证、消耗/释放、退款恢复、只读源证据；错误白名单与并发边界 |
 | 退款/通知 | 原付款绑定、独立退款幂等、成功证据、原文验签、提交后 ACK、重投原事件与 receipt |

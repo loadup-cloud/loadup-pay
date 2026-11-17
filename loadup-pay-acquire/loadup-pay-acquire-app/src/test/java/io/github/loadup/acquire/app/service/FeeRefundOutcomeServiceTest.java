@@ -83,7 +83,7 @@ class FeeRefundOutcomeServiceTest {
     final OrderCreationCodec codec = mock(OrderCreationCodec.class);
     final PaymentOutcomeClient payment = mock(PaymentOutcomeClient.class);
     final AtomicReference<AcquireServiceActor> actor =
-            new AtomicReference<>(new AcquireServiceActor("tenant", "payment", Set.of("pay:acquire:fee:refund")));
+            new AtomicReference<>(new AcquireServiceActor("payment", Set.of("pay:acquire:fee:refund")));
     final Map<String, FeeRefundReceipt> accepted = new HashMap<>();
     final UnitTransactions manager = new UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
@@ -220,12 +220,12 @@ class FeeRefundOutcomeServiceTest {
 
     @Test
     void configuredServiceAndDedicatedPermissionAreBothRequired() {
-        actor.set(new AcquireServiceActor("tenant", "other", Set.of("pay:acquire:fee:refund")));
+        actor.set(new AcquireServiceActor("other", Set.of("pay:acquire:fee:refund")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.accept(event("delivery", 3, 1000)))
                         .getResultCode());
-        actor.set(new AcquireServiceActor("tenant", "payment", Set.of("pay:acquire:payment:outcome")));
+        actor.set(new AcquireServiceActor("payment", Set.of("pay:acquire:payment:outcome")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.accept(event("delivery", 3, 1000)))
@@ -253,5 +253,23 @@ class FeeRefundOutcomeServiceTest {
         assertThrows(CommonException.class, () -> service.accept(event("delivery", 3, 1000)));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
+    }
+
+    @Test
+    void frozenTargetTypedDeliveryStillAcceptsAndReplaysItsOriginalReceipt() {
+        var original = event("frozen-delivery", 3, 1000);
+        var frozen = new EventEnvelope<>(
+                original.deliveryId(),
+                original.businessEventId(),
+                original.producer(),
+                "pay.payment.refund.fee.v1",
+                original.schemaVersion(),
+                original.aggregateId(),
+                original.aggregateVersion(),
+                original.occurredAt(),
+                original.data());
+        var ack = service.accept(frozen);
+        assertTrue(ack.accepted());
+        assertEquals(ack, service.accept(frozen));
     }
 }

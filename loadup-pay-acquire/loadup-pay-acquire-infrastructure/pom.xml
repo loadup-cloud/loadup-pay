@@ -27,6 +27,14 @@
             <artifactId>loadup-components-service-auth</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-http</artifactId>
         </dependency>
@@ -49,7 +57,7 @@
 
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-outbox</artifactId>
+            <artifactId>loadup-components-task</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

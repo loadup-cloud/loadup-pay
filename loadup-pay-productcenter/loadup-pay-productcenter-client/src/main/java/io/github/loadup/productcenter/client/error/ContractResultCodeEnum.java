@@ -96,7 +96,7 @@ public enum ContractResultCodeEnum implements ResultCode {
     TOO_MANY_ENTRIES("CONTRACT_TOO_MANY_ENTRIES", "Too many entries"),
     MISSING_VALUE_PROVENANCE("CONTRACT_MISSING_VALUE_PROVENANCE", "Missing value provenance"),
     INVALID_PAGE("CONTRACT_INVALID_PAGE", "Page must be positive and size must be between 1 and 100"),
-    MERCHANT_LOOKUP_ID_REQUIRED("CONTRACT_MERCHANT_LOOKUP_ID_REQUIRED", "Tenant and lookup identifiers are required"),
+    MERCHANT_LOOKUP_ID_REQUIRED("CONTRACT_MERCHANT_LOOKUP_ID_REQUIRED", "Lookup identifiers are required"),
     CONTRACT_STATE_CHANGED_OR_TERMINATED(
             "CONTRACT_CONTRACT_STATE_CHANGED_OR_TERMINATED", "Contract state changed or terminated"),
     CATALOG_VERSION_CHANGED("CONTRACT_CATALOG_VERSION_CHANGED", "Catalog version changed"),

@@ -341,7 +341,7 @@ CREATE TABLE refund_order
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
 
--- Merchant notifications are registered and dispatched by acquire; payment owns the refund Outbox source.
+-- Merchant notifications are registered and dispatched by acquire; payment owns the refund Task source.
 
 
 CREATE TABLE refund_recovery_cursor

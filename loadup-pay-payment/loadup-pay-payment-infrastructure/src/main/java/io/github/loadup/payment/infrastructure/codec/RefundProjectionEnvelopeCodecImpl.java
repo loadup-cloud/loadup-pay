@@ -19,6 +19,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
@@ -68,8 +70,13 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
         try {
             var event = decode(payload, new TypeReference<EventEnvelope<OrderRefundSummaryEventDTO>>() {});
             event.data().requireEnvelope(event);
-            event.requireSource(
-                    type, "payment", event.data().orderId(), event.data().refundSummaryVersion());
+            FrozenEventTypes.requireSource(
+                    event,
+                    BusinessEventTypes.ORDER_REFUND_SUMMARY,
+                    "payment",
+                    event.data().orderId(),
+                    event.data().refundSummaryVersion(),
+                    type);
             return event;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);

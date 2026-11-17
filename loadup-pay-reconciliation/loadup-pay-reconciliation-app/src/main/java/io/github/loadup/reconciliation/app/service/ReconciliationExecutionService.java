@@ -20,10 +20,9 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationConverter;
 import io.github.loadup.reconciliation.client.enums.ReconciliationState;
 import io.github.loadup.reconciliation.domain.gateway.ReconciliationBatchGateway;
@@ -46,7 +45,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 public class ReconciliationExecutionService {
     public static final String TYPE = "pay.reconciliation.compare";
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final ReconciliationBatchGateway batches;
     private final ReconciliationInputGateway inputs;
     private final ReconciliationResultGateway results;
@@ -56,7 +55,7 @@ public class ReconciliationExecutionService {
     private final Clock clock;
 
     public ReconciliationExecutionService(
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             ReconciliationBatchGateway batches,
             ReconciliationInputGateway inputs,
             ReconciliationResultGateway results,
@@ -74,13 +73,13 @@ public class ReconciliationExecutionService {
         this.clock = clock;
     }
 
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (task == null
                 || !TYPE.equals(task.taskType())
-                || task.status() != DelayedTaskStatus.RUNNING
+                || task.status() != TaskStatus.RUNNING
                 || task.attempts() <= 0
                 || task.maxAttempts() < task.attempts()) {
             throw new CommonException(INVALID_STATE);
@@ -103,15 +102,14 @@ public class ReconciliationExecutionService {
                 || !Objects.equals(task.nextExecuteAt(), registered.nextExecuteAt())
                 || task.attempts() != registered.attempts()
                 || task.maxAttempts() != registered.maxAttempts()
-                || registered.status() != DelayedTaskStatus.RUNNING
+                || registered.status() != TaskStatus.RUNNING
                 || registered.leaseUntil() == null
                 || !registered.leaseUntil().isAfter(now)
                 || registered.nextExecuteAt() == null
                 || registered.nextExecuteAt().isAfter(now)) {
             throw new CommonException(INVALID_STATE);
         }
-        String tenant = TenantUtil.getTenantId();
-        var work = transactions.readSnapshot(tenant, () -> {
+        var work = transactions.readSnapshot(() -> {
             var stored = batches.findRun(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!task.bizId().equals(stored.batch().runId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -135,7 +133,7 @@ public class ReconciliationExecutionService {
         }
         var snapshot = work.get();
         var compared = matcher.compare(snapshot.channel(), snapshot.ledger());
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             var current = batches.lock(snapshot.stored().batch().id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var next = current.batch().complete(task.bizId(), compared);

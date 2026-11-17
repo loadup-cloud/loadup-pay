@@ -20,7 +20,6 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION
 import io.github.loadup.acquire.app.security.MerchantNotificationActor;
 import io.github.loadup.acquire.app.security.MerchantNotificationActorProvider;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,11 +28,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtMerchantNotificationActorProvider implements MerchantNotificationActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtMerchantNotificationActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     @Override
     public MerchantNotificationActor current() {
@@ -42,9 +36,7 @@ public class JwtMerchantNotificationActorProvider implements MerchantNotificatio
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            String tenant = databaseTenant.currentTenantId(),
-                    type = jwt.getClaimAsString("principal_type"),
-                    principal = jwt.getSubject();
+            String type = jwt.getClaimAsString("principal_type"), principal = jwt.getSubject();
             String merchant = jwt.getClaimAsString("merchant_id");
             if (principal == null || !principal.equals(principal.trim()) || type == null) {
                 throw new CommonException(ACTION_FORBIDDEN);
@@ -59,7 +51,6 @@ public class JwtMerchantNotificationActorProvider implements MerchantNotificatio
                 throw new CommonException(ACTION_FORBIDDEN);
             }
             return new MerchantNotificationActor(
-                    tenant,
                     type,
                     principal,
                     merchant,

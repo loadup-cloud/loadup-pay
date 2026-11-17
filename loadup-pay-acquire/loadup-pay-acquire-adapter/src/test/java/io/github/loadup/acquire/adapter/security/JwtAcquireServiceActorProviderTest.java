@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -32,8 +30,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtAcquireServiceActorProviderTest {
-    final JwtAcquireServiceActorProvider provider =
-            new JwtAcquireServiceActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    final JwtAcquireServiceActorProvider provider = new JwtAcquireServiceActorProvider();
 
     void authenticate(String type, String service, String subject) {
         var jwt = Jwt.withTokenValue("synthetic-service-token")
@@ -56,7 +53,6 @@ class JwtAcquireServiceActorProviderTest {
     void verifiedServiceClaimsAndAuthoritiesProduceOnlyAServiceActor() {
         authenticate("SERVICE", "payment", "payment");
         var actor = provider.current();
-        assertEquals("__default__", actor.tenantId());
         assertEquals("payment", actor.serviceId());
         assertTrue(actor.permissions().contains("pay:acquire:payment:outcome"));
         assertFalse(actor.toString().contains("synthetic-service-token"));

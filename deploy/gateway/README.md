@@ -1,4 +1,4 @@
-> 2026-11-04：管理路由已改为 `/api/merchantmng` → merchantmng、`/api/productmng` → productmng。merchantcenter/productcenter 不公开；以下历史部署记录不代表新结构已部署。
+> 当前模板仍将 `/api/merchantmng` → merchantmng、`/api/productmng` → productmng；OAuth 客户端 BFF `/api/oauth/clients/...` → admin。OAuth server 管理 API 只允许内部调用，不配置公网路由。merchantmng/productmng 已合并入 admin，旧后端 Service 名须同步到 admin 后再发布；本次未修改路由模板。
 
 # Gateway API + Envoy Gateway
 
@@ -66,7 +66,7 @@ TLS Secret 默认同 namespace，无需 ReferenceGrant。指定 tlsSecret.namesp
 授权来自 loadup-pay 的 Gateway 读取指定 Secret 名称；目标 namespace 和证书由平台先准备。原生 Grant 不支持限定来源 Gateway 名称，因此写 Gateway 的权限必须受控。
 没有跨 namespace 后端 Service 引用，也没有宽泛的 Secret 授权。
 
-## 本地部署结果
+## 历史本地部署结果（2026-11-03）
 
 2026-11-03 部署到 orbstack，使用 [values-local.yaml](values-local.yaml)：
 
@@ -87,7 +87,7 @@ helm upgrade --install loadup-pay-gateway ./deploy/gateway --namespace loadup-pa
 公有证书保存在本地忽略目录 deploy/gateway/rendered/pay.loadup.local.crt；私钥由 Kubernetes Secret 保存。
 rendered/ 也通过 .helmignore 排除，避免下载的控制器 chart、生成清单及证书被打入 Pay chart 的 Helm release 记录。
 
-本机尚无 pay.loadup.local 的 DNS/hosts 记录，写入 /etc/hosts 需要管理员权限，尚未自动完成。使用浏览器前添加：
+本地浏览器接入需核对 pay.loadup.local 的 DNS/hosts 和证书信任；本文未重新检查当前主机。需配置时使用目标环境的实际地址：
 
 ```text
 192.168.139.2 pay.loadup.local
@@ -109,15 +109,18 @@ GET /api/internal/v1/payment/operations/detail 与 GET /actuator/health 在网�
 随后用户授权发布七应用，现已全部更新为 release-001 并就绪，9 条 HTTPRoute 的 Accepted/ResolvedRefs 均为 True。
 HTTPS /checkout 和 /checkout.js 已返回 200，先前旧镜像的静态页面 404 已解除；当前发布组合及 RustFS 检查见 [本地环境结果](../LOCAL_DEVELOPMENT.md#本次发布结果)。
 
-## 路由与治理
+## 当前路由与治理
+
+表中保留实际 URL 前缀，并区分应用所有者和模板遗留后端。merchantcenter/productcenter 无公开路由；旧 `/api/customer`、`/api/product` 不属于当前入口。
 
 | 入口 | 后端 | 请求上限 | 请求/后端超时 |
 | --- | --- | --- | --- |
-| POST /api/customer | customer | 64 KiB | 15s |
-| POST /api/product | product | 1 MiB | 15s |
+| POST /api/merchantmng | admin；模板旧 backend merchantmng 待同步 | 1 MiB | 15s |
+| POST /api/productmng | admin；模板旧 backend productmng 待同步 | 1 MiB | 15s |
 | POST /api/acquire、/api/cashier | acquire | 1 MiB | 15s |
 | POST /api/payment/refunds、channel-bindings、routing-profiles、operations/recovery | payment | 1 MiB | 15s |
 | POST /api/payment/channel-callbacks | payment | 64 KiB | 15s |
+| POST /api/oauth/clients/{registrationId}/{create,detail,authorization,disable,expiry,rotate} | admin | 64 KiB | 15s |
 | POST /api/realtime/trades | realtime | 1 MiB | 15s |
 | POST /api/reconciliation | reconciliation | 32 MiB | 75s |
 | GET /checkout 及四个脚本/样式文件的精确路径 | acquire | 1 KiB | 10s |

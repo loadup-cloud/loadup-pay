@@ -15,7 +15,9 @@
  */
 package io.github.loadup.limitcenter.client.command;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.contracts.event.payment.RefundFinancialEvidence;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -39,7 +41,9 @@ public record LimitRefundRestoreCommand(
 
         @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
-        @Schema(description = "Refund evidence id") @NotBlank @Size(max = 64) String refundEvidenceId) {
+        @Schema(description = "Refund evidence id") @NotBlank @Size(max = 64) String refundEvidenceId,
+
+        @JsonInclude(JsonInclude.Include.NON_NULL) RefundFinancialEvidence financialEvidence) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

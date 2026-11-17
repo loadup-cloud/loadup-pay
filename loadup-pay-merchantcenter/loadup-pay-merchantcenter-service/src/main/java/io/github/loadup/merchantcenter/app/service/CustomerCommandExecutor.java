@@ -61,8 +61,7 @@ public class CustomerCommandExecutor {
             Class<T> responseType,
             Runnable lockPayee,
             Supplier<Prepared<T>> prepare) {
-        String key = digest(JsonUtil.toJson(
-                List.of(actor.tenantId(), actor.principalType().name(), actor.principalId(), requestKey)));
+        String key = digest(JsonUtil.toJson(List.of(actor.principalType().name(), actor.principalId(), requestKey)));
         String fingerprint = digest(JsonUtil.toJson(command));
         Optional<GlobalUniqueRecord> found = unique.find(operation, key);
         if (found.isPresent()) {

@@ -1,12 +1,10 @@
-> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng。以 [总体架构](../ARCHITECTURE.md) 的四应用边界为准。两个后管无数据库，center 仅内部访问。
-
 # 环境配置与版本化发布
 
 配置源按 deploy/config/dev、test、prod 直接维护。文件格式和必需值见 [环境目录](config/README.md)，应用授权及 KeyStore 见 OAuth server 的数据库客户端管理说明。
 
 | 资源 | 名称 | 内容与生效方式 |
 | --- | --- | --- |
-| 不可变 ConfigMap | `<app>-config-<CONFIG_VERSION>` | common.env 与应用 config.env；OAuth server 不从配置文件加载客户端；启动读取 |
+| 不可变 ConfigMap | `<app>-config-<CONFIG_VERSION>` | common.env 与应用 config.env；OAuth server 额外配置专用 Admin JWT issuer、audience、JWKS；启动读取 |
 | 不可变环境 Secret | `<app>-secret-<SECRET_VERSION>` | 密码、业务密钥、OAuth 应用凭证；启动读取 |
 | 不可变文件 Secret | `oauth2-server-files-<SECRET_VERSION>` | PKCS12，只读挂载 OAuth server，内容参与 Secret 摘要 |
 
@@ -26,7 +24,7 @@ APP_ENV=dev python3 scripts/configmap.py update payment
 
 up.py 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建默认全量安装相邻 framework 的全部组件，避免镜像遗漏或混用旧 jar；全量发布先等待 OAuth server 就绪，再逐个发布业务应用。普通配置进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
 
-直接 deploy.py/render.py 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 34 个资源：Namespace、十一组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
+直接 deploy.py/render.py 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 31 个资源：Namespace、十组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
 
 ConfigMap、环境 Secret、KeyStore 和 Spring Bean 默认滚动重启生效，不承诺热刷新。客户端 Secret 轮换需协调数据库客户端记录与调用方，新旧凭证并行使用窗口当前未实现；首次迁移也必须使用支持 OAuth 取令牌的新镜像。不要用新配置启动旧 release-001。
 
@@ -50,7 +48,7 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py
 
 十 Deployment 沿用 HTTP readiness/liveness、360 秒启动预算、600 秒进度期限和 660 秒等待上限；maxUnavailable=0、maxSurge=1，preStop 等待 10 秒，终止宽限 100 秒。业务应用与 OAuth server 均设置 Spring 每阶段停机等待 75 秒。应用不挂载 ServiceAccount token，不访问 Kubernetes 发现 API。
 
-NetworkPolicy 在工作负载前应用；OAuth server 只允许声明的内部应用和监控命名空间访问，没有公开网关入口。Gateway API + Envoy Gateway 仍单独发布，参见 [网关说明](gateway/README.md)。
+NetworkPolicy 在工作负载前应用；OAuth server 只允许声明的内部应用和监控命名空间访问，没有公开网关入口。Admin BFF 通过 `/api/oauth/clients/...` 提供管理接口并将操作转发到内部 `/api/internal/v1/oauth/clients/...`；Gateway 只路由到 Admin，不直连 OAuth server。参见 [网关说明](gateway/README.md) 和 [网络策略](NETWORK_POLICY.md)。
 
 Java 授权链路、客户端缓存续取和脚本配置/渲染回归测试源码已更新，未执行。后续需验证真实 PostgreSQL、KMS、跨进程 JWKS、权限失败、凭证/密钥轮换、多副本、排空、发布回退和金融业务请求。Pod 就绪不代表这些验收通过。
 

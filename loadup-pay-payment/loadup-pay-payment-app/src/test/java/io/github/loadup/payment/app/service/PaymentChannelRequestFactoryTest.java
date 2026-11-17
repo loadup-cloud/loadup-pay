@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -144,16 +144,14 @@ class PaymentChannelRequestFactoryTest {
         var expected = new ChannelPaymentRequest(prepared, command.subject(), command.payableUntil(), channelInput);
         stubRead(acceptance, storedAttempt, command, plaintext, channelInput, expected);
 
-        assertSame(expected, factory.create(TENANT, prepared));
+        assertSame(expected, factory.create(prepared));
 
         verify(payments).find(prepared.identity().paymentId());
         verify(attempts).find(prepared.identity().attemptId());
         verify(codec).decode(acceptance);
         verify(inputs)
                 .openForAttempt(
-                        TENANT,
-                        prepared.identity().paymentId(),
-                        prepared.identity().attemptId());
+                        prepared.identity().paymentId(), prepared.identity().attemptId());
         verify(converter).toInput(plaintext);
         verify(converter).toRequest(prepared, command, channelInput);
     }
@@ -182,7 +180,7 @@ class PaymentChannelRequestFactoryTest {
         var acceptance = AttemptFixtures.accepted(true);
         var stalePrepared = prepared(staleStoredAttempt.attempt());
         stubRecords(acceptance, staleStoredAttempt, command);
-        assertThrows(CommonException.class, () -> factory.create(TENANT, stalePrepared));
+        assertThrows(CommonException.class, () -> factory.create(stalePrepared));
         verifyNoInteractions(inputs, converter);
 
         var storedAttempt = submittingAttempt();
@@ -225,7 +223,7 @@ class PaymentChannelRequestFactoryTest {
         for (var changed : changedPreparedFacts) {
             clearInvocations(payments, attempts, codec, inputs, converter, transactions);
             stubRecords(acceptance, storedAttempt, command);
-            assertThrows(CommonException.class, () -> factory.create(TENANT, changed));
+            assertThrows(CommonException.class, () -> factory.create(changed));
             verifyNoInteractions(inputs, converter);
         }
 
@@ -237,7 +235,7 @@ class PaymentChannelRequestFactoryTest {
                 storedAttempt.preparedInputRef());
         clearInvocations(payments, attempts, codec, inputs, converter, transactions);
         stubRecords(acceptance, mismatchedDigest, command);
-        assertThrows(CommonException.class, () -> factory.create(TENANT, validPrepared));
+        assertThrows(CommonException.class, () -> factory.create(validPrepared));
         verifyNoInteractions(inputs, converter);
 
         var mismatchedCaller = copy(
@@ -248,7 +246,7 @@ class PaymentChannelRequestFactoryTest {
                 storedAttempt.preparedInputRef());
         clearInvocations(payments, attempts, codec, inputs, converter, transactions);
         stubRecords(acceptance, mismatchedCaller, command);
-        assertThrows(CommonException.class, () -> factory.create(TENANT, validPrepared));
+        assertThrows(CommonException.class, () -> factory.create(validPrepared));
         verifyNoInteractions(inputs, converter);
     }
 
@@ -259,16 +257,12 @@ class PaymentChannelRequestFactoryTest {
         var storedAttempt = submittingAttempt();
         var prepared = prepared(storedAttempt.attempt());
         stubRecords(acceptance, storedAttempt, command);
-        when(transactions.withTenantContext(eq(TENANT), any()))
-                .thenAnswer(invocation -> invocation
-                        .<Supplier<ChannelPaymentRequest>>getArgument(1)
-                        .get());
         when(codec.decode(acceptance)).thenReturn(command);
 
-        var thrown = assertThrows(CommonException.class, () -> factory.create(TENANT, prepared));
+        var thrown = assertThrows(CommonException.class, () -> factory.create(prepared));
 
         assertEquals(PAYMENT_EXPIRED, thrown.getResultCode());
-        verify(inputs, never()).openForAttempt(any(), any(), any());
+        verify(inputs, never()).openForAttempt(any(), any());
         verifyNoInteractions(converter);
     }
 
@@ -277,7 +271,7 @@ class PaymentChannelRequestFactoryTest {
         var prepared = prepared(submittingAttempt().attempt());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            var thrown = assertThrows(CommonException.class, () -> factory.create(TENANT, prepared));
+            var thrown = assertThrows(CommonException.class, () -> factory.create(prepared));
             assertEquals(INVALID_STATE, thrown.getResultCode());
         } finally {
             TransactionSynchronizationManager.clear();
@@ -293,12 +287,7 @@ class PaymentChannelRequestFactoryTest {
             ChannelPaymentInput channelInput,
             ChannelPaymentRequest expected) {
         stubRecords(acceptance, storedAttempt, command);
-        when(transactions.withTenantContext(eq(TENANT), any()))
-                .thenAnswer(invocation -> invocation
-                        .<Supplier<ChannelPaymentRequest>>getArgument(1)
-                        .get());
         when(inputs.openForAttempt(
-                        TENANT,
                         expected.payment().identity().paymentId(),
                         expected.payment().identity().attemptId()))
                 .thenReturn(plaintext);
@@ -308,8 +297,9 @@ class PaymentChannelRequestFactoryTest {
 
     private void stubRecords(
             StoredPaymentAcceptance acceptance, StoredPaymentAttempt storedAttempt, PaymentExecuteCommand command) {
-        when(transactions.withTenantContext(eq(TENANT), any()))
-                .thenAnswer(call -> ((Supplier<?>) call.getArgument(1)).get());
+        doAnswer(call -> ((Supplier<?>) call.getArgument(0)).get())
+                .when(transactions)
+                .guarded(any());
         when(payments.find("payment")).thenReturn(Optional.of(acceptance));
         doReturn(Optional.of(storedAttempt)).when(attempts).find("attempt");
         when(codec.decode(acceptance)).thenReturn(command);

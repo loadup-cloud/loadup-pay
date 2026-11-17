@@ -133,23 +133,20 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                 command.conclusion().name(),
                 command.note(),
                 command.evidenceFileId());
-        var replay = transactions.readSnapshot(
-                actor.tenantId(),
-                () -> reviews.findRequest(actor.serviceId(), command.requestKey())
-                        .map(event -> replay(actor, event, digest, command.batchId(), command.differenceId())));
+        var replay = transactions.readSnapshot(() -> reviews.findRequest(actor.serviceId(), command.requestKey())
+                .map(event -> replay(actor, event, digest, command.batchId(), command.differenceId())));
         if (replay.isPresent()) {
             return replay.get();
         }
-        transactions.readSnapshot(
-                actor.tenantId(), () -> evidence(actor, command.batchId(), command.differenceId(), false));
+        transactions.readSnapshot(() -> evidence(actor, command.batchId(), command.differenceId(), false));
         var file = command.evidenceFileId() == null ? null : files.inspect(actor.serviceId(), command.evidenceFileId());
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var source = evidence(actor, command.batchId(), command.differenceId(), true);
             var old = reviews.findRequest(actor.serviceId(), command.requestKey());
             if (old.isPresent()) {
                 return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
             }
-            var previous = head(actor.tenantId(), source.reference(), true);
+            var previous = head(source.reference(), true);
             if (previous.version() != command.expectedVersion()) {
                 throw new CommonException(REVIEW_VERSION_CONFLICT);
             }
@@ -188,13 +185,13 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                 Long.toString(command.expectedVersion()),
                 command.proposalId(),
                 command.note());
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var source = evidence(actor, command.batchId(), command.differenceId(), true);
             var old = reviews.findRequest(actor.serviceId(), command.requestKey());
             if (old.isPresent()) {
                 return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
             }
-            var previous = head(actor.tenantId(), source.reference(), true);
+            var previous = head(source.reference(), true);
             if (previous.version() != command.expectedVersion()
                     || !command.proposalId().equals(previous.proposalId())) {
                 throw new CommonException(REVIEW_VERSION_CONFLICT);
@@ -202,7 +199,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             if (previous.state() != ReconciliationReviewState.PROPOSED) {
                 throw new CommonException(INVALID_STATE);
             }
-            var proposal = proposal(actor.tenantId(), source.reference(), previous.proposalId());
+            var proposal = proposal(source.reference(), previous.proposalId());
             if (actor.serviceId().equals(proposal.proposerServiceId())) {
                 throw new CommonException(REVIEW_CHECKER_REQUIRED);
             }
@@ -226,14 +223,11 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     public ReconciliationReviewDTO detail(ReconciliationReviewQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var source = evidence(actor, query.batchId(), query.differenceId(), false);
-            var head = head(actor.tenantId(), source.reference(), false);
-            var proposal = head.proposalId() == null
-                    ? null
-                    : proposal(actor.tenantId(), source.reference(), head.proposalId());
-            var event =
-                    head.lastEventId() == null ? null : event(actor.tenantId(), source.reference(), head.lastEventId());
+            var head = head(source.reference(), false);
+            var proposal = head.proposalId() == null ? null : proposal(source.reference(), head.proposalId());
+            var event = head.lastEventId() == null ? null : event(source.reference(), head.lastEventId());
             return converter.toDTO(
                     head,
                     proposal == null ? null : converter.toDTO(proposal, clock),
@@ -246,9 +240,9 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     public PageDTO<ReconciliationReviewEventDTO> history(ReconciliationReviewHistoryQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var source = evidence(actor, query.batchId(), query.differenceId(), false);
-            var head = head(actor.tenantId(), source.reference(), false);
+            var head = head(source.reference(), false);
             var page = reviews.history(query.differenceId(), query.page(), query.size());
             long offset = (long) (query.page() - 1) * query.size();
             if (page.page() != query.page()
@@ -261,7 +255,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                 if (event.version() != ++offset) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                verifyEvent(actor.tenantId(), source.reference(), event);
+                verifyEvent(source.reference(), event);
             }
             return PageDTO.of(page.map(value -> converter.toDTO(value, clock)));
         });
@@ -279,14 +273,14 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             long expectedVersion,
             boolean lock) {
         var source = evidence(actor, batchId, differenceId, lock);
-        var head = head(actor.tenantId(), source.reference(), lock);
+        var head = head(source.reference(), lock);
         if (head.state() != ReconciliationReviewState.APPROVED
                 || head.version() != expectedVersion
                 || !proposalId.equals(head.proposalId())
                 || !approvalEventId.equals(head.lastEventId())) {
             throw new CommonException(REVIEW_VERSION_CONFLICT);
         }
-        var proposal = proposal(actor.tenantId(), source.reference(), proposalId);
+        var proposal = proposal(source.reference(), proposalId);
         if (proposal.conclusion() != ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION) {
             throw new CommonException(INVALID_STATE);
         }
@@ -314,22 +308,22 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                 || !event.requestDigest().equals(digest)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
-        verifyEvent(actor.tenantId(), source.reference(), event);
-        var head = head(actor.tenantId(), source.reference(), false);
+        verifyEvent(source.reference(), event);
+        var head = head(source.reference(), false);
         if (event.version() > head.version()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return converter.toDTO(event, clock);
     }
 
-    private ReconciliationReview head(String tenant, ReconciliationReviewReference reference, boolean lock) {
+    private ReconciliationReview head(ReconciliationReviewReference reference, boolean lock) {
         var value = (lock ? reviews.lock(reference.differenceId()) : reviews.find(reference.differenceId()))
                 .orElseGet(() -> ReconciliationReview.init(reference));
         if (!reference.equals(value.reference())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (value.lastEventId() != null) {
-            var event = event(tenant, reference, value.lastEventId());
+            var event = event(reference, value.lastEventId());
             try {
                 event.verifyHead(value);
             } catch (DomainViolation corrupt) {
@@ -339,7 +333,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         return value;
     }
 
-    private ReconciliationReviewProposal proposal(String tenant, ReconciliationReviewReference reference, String id) {
+    private ReconciliationReviewProposal proposal(ReconciliationReviewReference reference, String id) {
         var value = reviews.proposal(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!id.equals(value.id()) || !reference.equals(value.reference())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -350,20 +344,20 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         return value;
     }
 
-    private ReconciliationReviewEvent event(String tenant, ReconciliationReviewReference reference, String id) {
+    private ReconciliationReviewEvent event(ReconciliationReviewReference reference, String id) {
         var value = reviews.event(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!id.equals(value.id())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        verifyEvent(tenant, reference, value);
+        verifyEvent(reference, value);
         return value;
     }
 
-    private void verifyEvent(String tenant, ReconciliationReviewReference reference, ReconciliationReviewEvent event) {
+    private void verifyEvent(ReconciliationReviewReference reference, ReconciliationReviewEvent event) {
         if (!reference.equals(event.reference())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var proposal = proposal(tenant, reference, event.proposalId());
+        var proposal = proposal(reference, event.proposalId());
         boolean same = proposal.proposerServiceId().equals(event.callerServiceId());
         if ((event.operation() == ReconciliationReviewOperation.PROPOSE) != same) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -425,7 +419,6 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
 
     private String digest(ReconciliationActor actor, String... fields) {
         var value = new StringBuilder("reconciliation-review-v1");
-        field(value, actor.tenantId());
         field(value, actor.serviceId());
         for (String field : fields) {
             field(value, field);

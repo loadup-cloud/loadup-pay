@@ -20,11 +20,10 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
 /**
- * Supplied only by an authenticated inbound adapter; request DTOs carry no tenant or permission claims.
+ * Supplied only by an authenticated inbound adapter; request DTOs carry no permission claims.
  */
-public record ReconciliationActor(String tenantId, String serviceId, Set<String> permissions) {
+public record ReconciliationActor(String serviceId, Set<String> permissions) {
     public ReconciliationActor {
-        DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         permissions = Set.copyOf(permissions);
     }

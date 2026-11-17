@@ -116,15 +116,12 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var digest = digest(actor, command);
-        var existing = transactions.readSnapshot(
-                actor.tenantId(),
-                () -> imports.findRequest(actor.serviceId(), command.requestKey())
-                        .map(value -> replay(actor, value, digest)));
+        var existing = transactions.readSnapshot(() -> imports.findRequest(actor.serviceId(), command.requestKey())
+                .map(value -> replay(actor, value, digest)));
         if (existing.isPresent()) {
             return existing.get();
         }
-        var original =
-                transactions.readSnapshot(actor.tenantId(), () -> authorizedBatch(actor, command.batchId(), false));
+        var original = transactions.readSnapshot(() -> authorizedBatch(actor, command.batchId(), false));
         available(original);
         var account = accounts.statementAccount(
                 actor.serviceId(),
@@ -137,7 +134,7 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
         if (!source.sha256().equals(command.sourceSha256())) {
             throw new CommonException(INPUT_INVALID);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var current = authorizedBatch(actor, command.batchId(), true);
             var raced = imports.findRequest(actor.serviceId(), command.requestKey());
             if (raced.isPresent()) {
@@ -185,10 +182,10 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
     public ReconciliationImportDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var value =
                     checked(actor, imports.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)), false);
-            return dto(actor.tenantId(), value);
+            return dto(value);
         });
     }
 
@@ -196,13 +193,9 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
     public ReconciliationImportDTO retry(ReconciliationImportRetryCommand command) {
         validate(command);
         var actor = actor("retry");
-        var original = transactions.readSnapshot(
-                actor.tenantId(),
-                () -> checked(
-                        actor,
-                        imports.find(command.importId()).orElseThrow(() -> new CommonException(NOT_FOUND)),
-                        false));
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        var original = transactions.readSnapshot(() -> checked(
+                actor, imports.find(command.importId()).orElseThrow(() -> new CommonException(NOT_FOUND)), false));
+        return transactions.writeLocal(() -> {
             authorizedBatch(actor, original.batchId(), true);
             var value = checked(
                     actor, imports.lock(original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)), false);
@@ -234,10 +227,10 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
         if (!value.requestDigest().equals(digest)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
-        return dto(actor.tenantId(), value);
+        return dto(value);
     }
 
-    private ReconciliationImportDTO dto(String tenant, ReconciliationImportRequest value) {
+    private ReconciliationImportDTO dto(ReconciliationImportRequest value) {
         var task = nativeCall(() -> tasks.get(value.taskId(), value.callerServiceId(), false));
         ReconciliationImportExecutionService.validateTask(task, value, null);
         if (task.status() == TransferStatus.SUCCEEDED && value.state() != ReconciliationImportState.SEALED) {
@@ -260,7 +253,7 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
                                 batch.batch().scope()))) {
             throw new CommonException(SCOPE_MISMATCH);
         }
-        official.verify(actor.tenantId(), value);
+        official.verify(value);
         return value;
     }
 
@@ -301,7 +294,6 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
         var framed = new StringBuilder();
         for (var part : List.of(
                 "reconciliation-manual-import-v1",
-                actor.tenantId(),
                 actor.serviceId(),
                 command.requestKey(),
                 command.batchId(),

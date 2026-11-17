@@ -20,14 +20,12 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.ConcurrencyFailureException;
@@ -43,27 +41,21 @@ class PublicationTransactionsTest {
     @Test
     void contextScopeDoesNotOpenATransactionAndRestoresOuterTenantAfterFailure() {
         var original = new IllegalStateException("Synthetic context failure");
-        TenantUtil.callWithTenant("outer", () -> {
-            assertSame(
-                    original,
-                    assertThrows(
-                            IllegalStateException.class,
-                            () -> transactions.withTenantContext("inner", () -> {
-                                assertEquals("inner", TenantUtil.getTenantId());
-                                assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                                throw original;
-                            })));
-            assertEquals("outer", TenantUtil.getTenantId());
-            return true;
-        });
+        assertSame(
+                original,
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> transactions.guarded(() -> {
+                            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+                            throw original;
+                        })));
         assertEquals(0, manager.begins);
     }
 
     @Test
     void localPublicationWritesRetryAfterRollbackUsingReadCommittedAndKeepTheConflictMapping() {
         var calls = new AtomicInteger();
-        assertEquals("published", transactions.writeLocal("tenant", () -> {
-            assertEquals("tenant", TenantUtil.getTenantId());
+        assertEquals("published", transactions.writeLocal(() -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
@@ -79,7 +71,7 @@ class PublicationTransactionsTest {
         assertEquals(1, manager.commits);
         var exhausted = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> {
+                () -> transactions.writeLocal(() -> {
                     throw new ConcurrencyFailureException("Synthetic repeated publication contention");
                 }));
         assertEquals(POLICY_PUBLICATION_CONFLICT, exhausted.getResultCode());
@@ -91,25 +83,22 @@ class PublicationTransactionsTest {
     void businessConflictsAreNotRetriedAndNestedLocalWritesAreRejected() {
         var conflict = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> {
+                () -> transactions.writeLocal(() -> {
                     throw new DomainViolation(DomainViolation.Reason.CONFLICT);
                 }));
         assertEquals(IDEMPOTENCY_CONFLICT, conflict.getResultCode());
         assertEquals(1, manager.begins);
         assertEquals(1, manager.rollbacks);
-        transactions.writeLocal("tenant", () -> {
-            assertTrue(transactions.withTenantContext(
-                    "inner", () -> TransactionSynchronizationManager.isActualTransactionActive()));
-            assertEquals("tenant", TenantUtil.getTenantId());
+        transactions.writeLocal(() -> {
+            assertTrue(transactions.guarded(() -> TransactionSynchronizationManager.isActualTransactionActive()));
             assertEquals(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> true))
+                    assertThrows(CommonException.class, () -> transactions.writeLocal(() -> true))
                             .getResultCode());
             return true;
         });
         assertEquals(2, manager.begins);
         assertEquals(1, manager.commits);
-        assertNull(TenantUtil.getTenantId());
     }
 
     static final class Manager extends AbstractPlatformTransactionManager {

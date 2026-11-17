@@ -100,7 +100,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     @Override
     public LimitExecutionPermitDTO beginExecution(LimitBeginExecutionCommand command) {
         var actor = transactions.authorize(command, "pay:limit:execute");
-        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+        return transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
             DomainChecks.id(command.attemptId());
             DomainChecks.text(command.requestKey(), 128);
             var stored = lockOperation(actor, command.operationId());
@@ -109,7 +109,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
                 if (!command.attemptId().equals(value.activeAttemptId())) {
                     throw new CommonException(OUTCOME_UNKNOWN);
                 }
-                var grant = grant(actor.tenantId(), value);
+                var grant = grant(value);
                 if (!command.requestKey().equals(grant.requestKey()) || command.previousAttemptEvidenceId() != null) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
@@ -154,7 +154,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     @Override
     public LimitExecutionVerificationDTO verifyExecution(LimitExecutionVerifyCommand command) {
         var actor = transactions.authorize(command, "pay:limit:verify");
-        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+        return transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
             DomainChecks.id(command.paymentId());
             DomainChecks.id(command.attemptId());
             var stored = lockOperation(actor, command.operationId());
@@ -162,7 +162,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
             if (value.state() != LimitReservationState.EXECUTING) {
                 return new LimitExecutionVerificationDTO(false, "NOT_EXECUTING");
             }
-            var grant = grant(actor.tenantId(), value);
+            var grant = grant(value);
             boolean valid = value.paymentId().equals(command.paymentId())
                     && value.activeAttemptId().equals(command.attemptId())
                     && value.executionEpoch() == command.executionEpoch()
@@ -176,7 +176,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     @Override
     public LimitReservationDTO expire(LimitExpireCommand command) {
         var actor = transactions.authorize(command, "pay:limit:expire");
-        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+        return transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
             var stored = lockOperation(actor, command.operationId());
             var value = stored.reservation();
             LocalDateTime now = now();
@@ -257,7 +257,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
         return stored;
     }
 
-    private LimitExecutionGrant grant(String tenant, LimitReservation value) {
+    private LimitExecutionGrant grant(LimitReservation value) {
         var grant = reservations
                 .findExecutionGrant(value.operationId(), value.executionEpoch())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

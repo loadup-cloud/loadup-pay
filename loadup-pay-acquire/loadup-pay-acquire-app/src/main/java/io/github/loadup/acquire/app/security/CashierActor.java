@@ -23,9 +23,8 @@ import java.util.Objects;
 /**
  * Created only after checking the stored capability; no merchant or refund privileges.
  */
-public record CashierActor(String tenantId, String sessionId, String orderId, LocalDateTime expiresAt) {
+public record CashierActor(String sessionId, String orderId, LocalDateTime expiresAt) {
     public CashierActor {
-        DomainChecks.id(tenantId);
         DomainChecks.id(sessionId);
         DomainChecks.id(orderId);
         Objects.requireNonNull(expiresAt);

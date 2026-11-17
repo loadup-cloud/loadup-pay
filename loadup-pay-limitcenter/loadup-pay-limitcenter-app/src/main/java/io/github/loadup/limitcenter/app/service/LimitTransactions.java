@@ -23,7 +23,6 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.limitcenter.app.security.LimitActor;
 import io.github.loadup.limitcenter.app.security.LimitActorProvider;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
@@ -69,11 +68,11 @@ public class LimitTransactions {
     /**
      * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
      */
-    public <T> T writeLocal(LimitActor actor, LimitCenterResultCodeEnum conflict, Supplier<T> work) {
+    public <T> T writeLocal(LimitCenterResultCodeEnum conflict, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        return withTenantContext(actor, conflict, () -> {
+        return guarded(conflict, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
@@ -93,15 +92,15 @@ public class LimitTransactions {
     }
 
     /**
-     * Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active.
+     * Error translation only. Creates no transaction; any existing caller transaction remains active.
      */
-    public <T> T withTenantContext(LimitActor actor, Supplier<T> work) {
-        return withTenantContext(actor, IDEMPOTENCY_CONFLICT, work);
+    public <T> T guarded(Supplier<T> work) {
+        return guarded(IDEMPOTENCY_CONFLICT, work);
     }
 
-    private <T> T withTenantContext(LimitActor actor, LimitCenterResultCodeEnum conflict, Supplier<T> work) {
+    private <T> T guarded(LimitCenterResultCodeEnum conflict, Supplier<T> work) {
         try {
-            return TenantUtil.callWithTenant(actor.tenantId(), work::get);
+            return work.get();
         } catch (DomainViolation violation) {
             throw new CommonException(
                     switch (violation.reason()) {

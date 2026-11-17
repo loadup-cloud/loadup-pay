@@ -58,7 +58,7 @@ class RefundExecutionLocksTest {
     }
 
     StoredRefundRequest lock() {
-        return transactions.writeLocal("tenant", () -> locks.request("tenant", "request"));
+        return transactions.writeLocal(() -> locks.request("request"));
     }
 
     @Test

@@ -18,7 +18,6 @@ package io.github.loadup.reconciliation.adapter.security;
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.reconciliation.app.security.ReconciliationActor;
 import io.github.loadup.reconciliation.app.security.ReconciliationActorProvider;
 import java.util.stream.Collectors;
@@ -31,11 +30,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class JwtReconciliationActorProvider implements ReconciliationActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtReconciliationActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     @Override
     public ReconciliationActor current() {
@@ -44,7 +38,7 @@ public class JwtReconciliationActorProvider implements ReconciliationActorProvid
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            String tenant = databaseTenant.currentTenantId(), service = jwt.getClaimAsString("service_id");
+            String service = jwt.getClaimAsString("service_id");
             if (!"SERVICE".equals(jwt.getClaimAsString("principal_type"))
                     || service == null
                     || !service.equals(service.trim())
@@ -54,7 +48,7 @@ public class JwtReconciliationActorProvider implements ReconciliationActorProvid
             var permissions = auth.getAuthorities().stream()
                     .map(authority -> authority.getAuthority())
                     .collect(Collectors.toUnmodifiableSet());
-            return new ReconciliationActor(tenant, service, permissions);
+            return new ReconciliationActor(service, permissions);
         } catch (RuntimeException invalid) {
             throw new CommonException(ACTION_FORBIDDEN);
         }

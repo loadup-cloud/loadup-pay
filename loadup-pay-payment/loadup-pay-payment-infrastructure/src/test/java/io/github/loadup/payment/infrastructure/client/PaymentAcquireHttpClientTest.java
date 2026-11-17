@@ -85,15 +85,14 @@ class PaymentAcquireHttpClientTest {
                     PaymentState.SUCCEEDED,
                     2,
                     "proof",
-                    false));
+                    false,
+                    null));
 
     String credential;
     PaymentAcquireHttpClient client;
 
     Map<String, Object> claims() {
         return new HashMap<>(Map.of(
-                "tenant_id",
-                "tenant",
                 "sub",
                 "payment",
                 "service_id",

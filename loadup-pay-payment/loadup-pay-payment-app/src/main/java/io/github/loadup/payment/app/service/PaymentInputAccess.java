@@ -74,7 +74,7 @@ public class PaymentInputAccess {
     /**
      * Called only after holding the original parent and single-payment gates.
      */
-    public void requireNewAcceptance(String tenant, String service, PaymentExecuteCommand command, LocalDateTime now) {
+    public void requireNewAcceptance(String service, PaymentExecuteCommand command, LocalDateTime now) {
         requireTransaction();
         if (!requiresInput(command)) {
             return;
@@ -92,7 +92,7 @@ public class PaymentInputAccess {
     /**
      * Joins the Y2 payment/attempt CAS transaction; no network or cryptographic call is performed here.
      */
-    public void bindToAttempt(String tenant, StoredPaymentAcceptance accepted, String attemptId, LocalDateTime now) {
+    public void bindToAttempt(StoredPaymentAcceptance accepted, String attemptId, LocalDateTime now) {
         requireTransaction();
         DomainChecks.id(attemptId);
         var command = codec.decode(accepted);
@@ -116,11 +116,11 @@ public class PaymentInputAccess {
     /**
      * Only an already active attempt can read its bound input; there is deliberately no HTTP decrypt endpoint.
      */
-    public PaymentInteractionDTO openForAttempt(String tenant, String paymentId, String attemptId) {
+    public PaymentInteractionDTO openForAttempt(String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(tenant, () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
             var accepted = payments.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -152,11 +152,11 @@ public class PaymentInputAccess {
     /**
      * Opens only the original still-unbound input for local parameter inspection before Y2.
      */
-    public PaymentInteractionDTO openForPreparation(String tenant, StoredPaymentAcceptance original, String attemptId) {
+    public PaymentInteractionDTO openForPreparation(StoredPaymentAcceptance original, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(tenant, () -> {
+        return transactions.guarded(() -> {
             var accepted = payments.find(original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (accepted.payment().state() != PaymentState.PROCESSING
                     || !attemptId.equals(accepted.payment().activeAttemptId())

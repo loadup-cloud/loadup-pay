@@ -88,7 +88,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
         try {
-            accepted = transactions.withTenantContext(endpoint.tenantId(), () -> {
+            accepted = transactions.guarded(() -> {
                 var hint = notifications.identify(endpoint.channel(), endpoint.bindingRevisionId(), input);
                 var stored = attempts.findChannelRequest(endpoint.bindingRevisionId(), hint.channelRequestNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -125,7 +125,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
                                 notificationId.getBytes(StandardCharsets.UTF_8).length + ":" + notificationId + facts);
                 String source = DigestUtils.sha256(
                         "notification-source:" + verified.sourceDigest() + ":" + query.sourceDigest());
-                var result = results.record(endpoint.tenantId(), converter.toObservation(query, key, source));
+                var result = results.record(converter.toObservation(query, key, source));
                 return result.disposition() != PaymentReceiptDisposition.CONFLICT;
             });
         } catch (RuntimeException rejected) {

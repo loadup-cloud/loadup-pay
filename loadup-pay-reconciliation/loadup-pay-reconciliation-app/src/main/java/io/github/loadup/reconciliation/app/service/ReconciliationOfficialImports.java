@@ -38,7 +38,7 @@ public class ReconciliationOfficialImports {
         this.files = files;
     }
 
-    public void verify(String tenant, ReconciliationImportRequest request) {
+    public void verify(ReconciliationImportRequest request) {
         if (request.sourceKind() == ReconciliationSourceKind.MANUAL_UPLOAD) {
             return;
         }

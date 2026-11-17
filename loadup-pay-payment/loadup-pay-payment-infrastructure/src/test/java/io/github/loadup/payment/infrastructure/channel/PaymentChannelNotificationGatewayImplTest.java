@@ -24,7 +24,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.facade.ChannelNotificationFacade;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.components.payment.channel.api.model.ChannelExecutionContext;
@@ -64,13 +63,10 @@ class PaymentChannelNotificationGatewayImplTest {
     void identifiesEncryptedNotificationUsingTrustedTenantAndOriginalEndpointRevision() {
         when(bindings.findRevision("old-revision")).thenReturn(Optional.of(original));
         var expected = new ChannelNotificationHint("original-order");
-        when(facade.identify(new ChannelExecutionContext("tenant", original), input))
-                .thenReturn(expected);
-        assertEquals(
-                expected,
-                TenantUtil.callWithTenant("tenant", () -> gateway.identify(Channel.WECHAT, "old-revision", input)));
+        when(facade.identify(new ChannelExecutionContext(original), input)).thenReturn(expected);
+        assertEquals(expected, gateway.identify(Channel.WECHAT, "old-revision", input));
         verify(bindings).findRevision("old-revision");
-        verify(facade).identify(new ChannelExecutionContext("tenant", original), input);
+        verify(facade).identify(new ChannelExecutionContext(original), input);
         verifyNoMoreInteractions(bindings, facade);
     }
 
@@ -78,10 +74,8 @@ class PaymentChannelNotificationGatewayImplTest {
     void refusesMissingOrWrongChannelBindingBeforeDecryptingOrCallingProvider() {
         when(bindings.findRevision("missing")).thenReturn(Optional.empty());
         when(bindings.findRevision("old-revision")).thenReturn(Optional.of(original));
-        TenantUtil.runWithTenant("tenant", () -> {
-            assertThrows(CommonException.class, () -> gateway.identify(Channel.WECHAT, "missing", input));
-            assertThrows(CommonException.class, () -> gateway.identify(Channel.ALIPAY, "old-revision", input));
-        });
+        assertThrows(CommonException.class, () -> gateway.identify(Channel.WECHAT, "missing", input));
+        assertThrows(CommonException.class, () -> gateway.identify(Channel.ALIPAY, "old-revision", input));
         verifyNoInteractions(facade);
     }
 
@@ -89,10 +83,7 @@ class PaymentChannelNotificationGatewayImplTest {
     void refusesLocalTransactionBeforeAnyCredentialOrBindingAccess() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            TenantUtil.runWithTenant(
-                    "tenant",
-                    () -> assertThrows(
-                            CommonException.class, () -> gateway.identify(Channel.WECHAT, "old-revision", input)));
+            assertThrows(CommonException.class, () -> gateway.identify(Channel.WECHAT, "old-revision", input));
         } finally {
             TransactionSynchronizationManager.clear();
         }

@@ -63,7 +63,7 @@ public class CheckoutSessionService implements CheckoutSessionFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(command.orderId());
             DomainChecks.text(command.requestKey(), 128);
             var order = orders.lockOrder(command.orderId());

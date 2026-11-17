@@ -17,7 +17,6 @@ package io.github.loadup.acquire.app.service;
 
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.acquire.app.service.CheckoutFixtures.UnitTransactions;
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
@@ -38,10 +37,10 @@ import io.github.loadup.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.acquire.app.port.OrderSnapshotReader;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,6 +48,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -57,7 +57,7 @@ class OrderSnapshotEventsTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(OrderSnapshotConverter.class.getPackageName());
     final OrderSnapshotReader headers = mock(OrderSnapshotReader.class);
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final AtomicInteger ids = new AtomicInteger();
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
@@ -92,30 +92,30 @@ class OrderSnapshotEventsTest {
     }
 
     void publish() {
-        events.publish("tenant", "order", 2);
+        events.publish("order", 2);
     }
 
     @Test
     void freezesThePersistedCompleteHeaderAndAuditTimesInsideTheOwningTransaction() {
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals("tenant", TenantUtil.getTenantId());
                     return null;
                 })
                 .when(outbox)
-                .publish(any());
-        transactions.writeLocal("tenant", () -> {
+                .submit(any());
+        transactions.writeLocal(() -> {
             publish();
             return true;
         });
-        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox).publish(capture.capture());
+        var capture = ArgumentCaptor.forClass(TaskSubmission.class);
+        verify(outbox).submit(capture.capture());
         var message = capture.getValue();
         Map<?, ?> envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
         var data = (Map<?, ?>) envelope.get("data");
-        assertEquals("order", message.businessId());
-        assertEquals(OrderSnapshotEvents.TYPE, message.type());
+        assertEquals("order", message.bizId());
+        assertEquals(OrderSnapshotEvents.DELIVERY_TYPE, message.taskType());
         assertEquals("acquire", envelope.get("producer"));
+        assertEquals(BusinessEventTypes.ORDER_SNAPSHOT, envelope.get("eventType"));
         assertEquals(2, ((Number) envelope.get("aggregateVersion")).longValue());
         assertEquals(10000, ((Number) data.get("amountMinor")).longValue());
         assertEquals(4000, ((Number) data.get("paidAmountMinor")).longValue());
@@ -136,8 +136,8 @@ class OrderSnapshotEventsTest {
                 SNAPSHOT_INVALID,
                 assertThrows(
                                 CommonException.class,
-                                () -> transactions.writeLocal("tenant", () -> {
-                                    events.publish("tenant", "order", 1);
+                                () -> transactions.writeLocal(() -> {
+                                    events.publish("order", 1);
                                     return true;
                                 }))
                         .getResultCode());
@@ -146,10 +146,12 @@ class OrderSnapshotEventsTest {
 
     @Test
     void outboxFailureAbortsTheLocalTransactionBoundary() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(outbox).publish(any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
+                .when(outbox)
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> {
+                () -> transactions.writeLocal(() -> {
                     publish();
                     return true;
                 }));
@@ -170,12 +172,12 @@ class OrderSnapshotEventsTest {
     }
 
     @Test
-    void anotherTenantCannotReadOrPublishTheHeader() {
+    void aReadOnlySnapshotCannotPublishTheHeader() {
         assertSame(
-                ACTION_FORBIDDEN,
+                INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
-                                () -> transactions.writeLocal("other", () -> {
+                                () -> transactions.readSnapshot(() -> {
                                     publish();
                                     return true;
                                 }))

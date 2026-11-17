@@ -15,13 +15,13 @@
  */
 package io.github.loadup.reconciliation.infrastructure.task;
 
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
 import io.github.loadup.reconciliation.app.service.ReconciliationExecutionService;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ReconciliationTaskHandler implements DelayedTaskHandler {
+public class ReconciliationTaskHandler implements TaskHandler {
     private final ReconciliationExecutionService execution;
 
     public ReconciliationTaskHandler(ReconciliationExecutionService execution) {
@@ -34,7 +34,7 @@ public class ReconciliationTaskHandler implements DelayedTaskHandler {
     }
 
     @Override
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         execution.handle(task);
     }
 }

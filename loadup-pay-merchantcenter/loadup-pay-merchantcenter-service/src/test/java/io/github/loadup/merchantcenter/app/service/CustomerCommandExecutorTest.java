@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
 class CustomerCommandExecutorTest {
     private final GlobalUniqueTemplate unique = mock(GlobalUniqueTemplate.class);
     private final CustomerCommandExecutor executor = new CustomerCommandExecutor(unique);
-    private final CustomerActor actor = new CustomerActor("tenant", PrincipalType.OPERATOR, "operator", null, true);
+    private final CustomerActor actor = new CustomerActor(PrincipalType.OPERATOR, "operator", null, true);
     private final OffsetDateTime from = OffsetDateTime.parse("2026-10-21T09:00:00.123456+08:00");
     private final MerchantRelationshipCreateCommand command =
             new MerchantRelationshipCreateCommand("parent", "child", from, null, "request");
@@ -151,7 +151,7 @@ class CustomerCommandExecutorTest {
     }
 
     @Test
-    void tenantIsPartOfTheClaimKeyEvenWhenTheUnderlyingCollationIgnoresCase() {
+    void principalIsPartOfTheClaimKey() {
         durableStore(new HashMap<>());
         AtomicInteger writes = new AtomicInteger();
         executor.execute(
@@ -162,7 +162,7 @@ class CustomerCommandExecutorTest {
                 MerchantRelationshipDTO.class,
                 () -> {},
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
-        CustomerActor other = new CustomerActor("TENANT", PrincipalType.OPERATOR, "operator", null, true);
+        CustomerActor other = new CustomerActor(PrincipalType.OPERATOR, "other-operator", null, true);
         executor.execute(
                 other,
                 "create.v1",

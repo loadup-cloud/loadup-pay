@@ -18,17 +18,17 @@ package io.github.loadup.payment.app.service;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.BusinessFact;
 import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.payment.app.dispatch.PaymentFactPublisher;
+import io.github.loadup.payment.app.dispatch.PaymentFactRoutes;
 import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.payment.domain.gateway.PaymentResultGateway;
@@ -36,7 +36,6 @@ import io.github.loadup.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import java.time.LocalDateTime;
-import java.util.List;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -45,11 +44,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 public class PaymentEvents {
-    public static final String ACQUIRE = "pay.payment.outcome.acquire.v1";
-    public static final String LIMIT = "pay.payment.outcome.limit.v1";
-    public static final String REALTIME = "pay.payment.snapshot.realtime.v1";
-    public static final String RISK = "pay.payment.outcome.risk.v1";
-    private final OutboxTemplate outbox;
+    private final PaymentFactPublisher facts;
     private final PaymentResultConverter converter;
     private final IdGenerator ids;
     private final PaymentAttemptGateway attempts;
@@ -57,13 +52,14 @@ public class PaymentEvents {
     private final PaymentRealtimeConverter snapshots;
 
     public PaymentEvents(
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             PaymentResultConverter converter,
             IdGenerator ids,
             PaymentAttemptGateway attempts,
             PaymentResultGateway results,
-            PaymentRealtimeConverter snapshots) {
-        this.outbox = outbox;
+            PaymentRealtimeConverter snapshots,
+            PaymentFactRoutes routes) {
+        this.facts = new PaymentFactPublisher(outbox, ids, routes);
         this.converter = converter;
         this.ids = ids;
         this.attempts = attempts;
@@ -71,42 +67,37 @@ public class PaymentEvents {
         this.snapshots = snapshots;
     }
 
-    public void publish(String tenant, StoredPaymentAcceptance payment, boolean fenced, LocalDateTime occurredAt) {
-        writable(tenant);
+    public void publish(StoredPaymentAcceptance payment, boolean fenced, LocalDateTime occurredAt) {
         if (payment == null
                 || occurredAt == null
                 || !PaymentExecutionService.terminal(payment.payment().state())
                 || payment.terminalEvidenceId() == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var realtime = freezeSnapshot(tenant, payment, occurredAt);
-        var data = converter.toEvent(payment, fenced);
-        for (var type : List.of(ACQUIRE, LIMIT, RISK)) {
-            var envelope = new EventEnvelope<>(
-                    ids.generate(),
-                    payment.terminalEvidenceId(),
-                    "payment",
-                    type,
-                    1,
-                    payment.payment().id(),
-                    payment.payment().version(),
-                    BusinessTime.external(occurredAt),
-                    data);
-            outbox.publish(new OutboxMessage(type, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
-        }
-        sendSnapshot(payment, realtime);
+        var snapshot = freezeSnapshot(payment, occurredAt);
+        var evidence = converter.toFinancialEvidence(payment, snapshot.data().succeededAt(), fenced);
+        var data = converter.toEvent(payment, fenced).withFinancialEvidence(evidence);
+        facts.publish(new BusinessFact<>(
+                payment.terminalEvidenceId(),
+                "payment",
+                BusinessEventTypes.PAYMENT_FINANCIAL,
+                1,
+                payment.payment().id(),
+                payment.payment().version(),
+                BusinessTime.external(occurredAt),
+                data));
+        facts.publish(snapshot);
     }
 
     /**
      * Caller invokes this only after inserting or changing the payment aggregate version. No financial delivery is emitted.
      */
-    public void publishSnapshot(String tenant, StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
-        writable(tenant);
-        sendSnapshot(payment, freezeSnapshot(tenant, payment, occurredAt));
+    public void publishSnapshot(StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
+        facts.publish(freezeSnapshot(payment, occurredAt));
     }
 
-    private EventEnvelope<PaymentSnapshotEventDTO> freezeSnapshot(
-            String tenant, StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
+    private BusinessFact<PaymentSnapshotEventDTO> freezeSnapshot(
+            StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
         if (payment == null || occurredAt == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -162,11 +153,10 @@ public class PaymentEvents {
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return new EventEnvelope<>(
-                ids.generate(),
+        return new BusinessFact<>(
                 terminal ? payment.terminalEvidenceId() : ids.generate(),
                 "payment",
-                REALTIME,
+                BusinessEventTypes.PAYMENT_SNAPSHOT,
                 1,
                 payment.payment().id(),
                 payment.payment().version(),
@@ -174,17 +164,10 @@ public class PaymentEvents {
                 snapshot);
     }
 
-    private void sendSnapshot(StoredPaymentAcceptance payment, EventEnvelope<PaymentSnapshotEventDTO> envelope) {
-        outbox.publish(new OutboxMessage(REALTIME, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
-    }
-
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(PaymentResultCodeEnum.INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(PaymentResultCodeEnum.ACTION_FORBIDDEN);
         }
     }
 }

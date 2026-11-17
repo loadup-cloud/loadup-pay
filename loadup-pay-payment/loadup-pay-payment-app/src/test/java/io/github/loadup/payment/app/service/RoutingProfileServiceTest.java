@@ -84,7 +84,7 @@ class RoutingProfileServiceTest {
     final RoutingProfileCodec codec = mock(RoutingProfileCodec.class);
     final Map<String, RoutingProfile> saved = new HashMap<>();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(
-            new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:routing:publish", "pay:payment:routing:read")));
+            new PaymentActor("pay-ops", Set.of("pay:payment:routing:publish", "pay:payment:routing:read")));
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
@@ -290,14 +290,14 @@ class RoutingProfileServiceTest {
 
     @Test
     void onlyConfiguredOperationsServiceWithRequiredScopeCanPublish() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:routing:publish")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:routing:publish")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(
                                 CommonException.class,
                                 () -> service.publish(command("routing-v1", "publish", List.of(rule("primary")))))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:routing:read")));
+        actor.set(new PaymentActor("pay-ops", Set.of("pay:payment:routing:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(

@@ -50,6 +50,15 @@ management:
         http.server.requests: true
 
 loadup:
+  task:
+    worker-enabled: ${RECONCILIATION_VERIFICATION_WORKER_ENABLED:true}
+    lease: ${RECONCILIATION_TASK_LEASE:PT5M}
+    retry-delay: ${RECONCILIATION_TASK_RETRY_DELAY:PT1M}
+    max-attempts: ${RECONCILIATION_TASK_MAX_ATTEMPTS:5}
+    batch-size: ${RECONCILIATION_TASK_BATCH_SIZE:10}
+    enabled: true
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
   webmvc:
     request-body:
       path-prefix: /api/internal/
@@ -64,12 +73,6 @@ loadup:
         max-connections: 8
         max-connections-per-route: 4
         max-response-bytes: 33554432
-  outbox:
-    worker-enabled: ${RECONCILIATION_VERIFICATION_WORKER_ENABLED:true}
-    lease: ${RECONCILIATION_VERIFICATION_DELIVERY_LEASE:PT2M}
-    retry-delay: ${RECONCILIATION_VERIFICATION_RETRY_DELAY:PT5S}
-    max-attempts: ${RECONCILIATION_VERIFICATION_MAX_ATTEMPTS:8}
-    batch-size: ${RECONCILIATION_VERIFICATION_BATCH_SIZE:10}
   dfs:
     enabled: true
     binder-type: s3
@@ -94,22 +97,13 @@ loadup:
       ledger-fetch-seconds: ${RECONCILIATION_LEDGER_FETCH_SECONDS:60}
       max-records: ${RECONCILIATION_MAX_RECORDS:10000}
       statement-max-bytes: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}
-      accounts:
-        tenants: { }
-  delayedtask:
-    enabled: true
-    batch-size: ${RECONCILIATION_TASK_BATCH_SIZE:10}
-    max-attempts: ${RECONCILIATION_TASK_MAX_ATTEMPTS:5}
-    lease: ${RECONCILIATION_TASK_LEASE:PT5M}
-    retry-delay: ${RECONCILIATION_TASK_RETRY_DELAY:PT1M}
+      accounts: { }
   scheduler:
     binder-type: local
     local:
       interval: ${RECONCILIATION_SCAN_INTERVAL:PT30S}
   database:
-    multi-tenant:
-      enabled: false
-      required: false
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:
     enabled: true
     locations:

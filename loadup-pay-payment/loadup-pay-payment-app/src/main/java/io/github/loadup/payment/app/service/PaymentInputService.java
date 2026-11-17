@@ -98,7 +98,7 @@ public class PaymentInputService implements PaymentInputFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             validate(command);
             var prior = store.findByPayment(command.paymentId());
             if (prior.isPresent()) {
@@ -119,7 +119,7 @@ public class PaymentInputService implements PaymentInputFacade {
                     encrypted,
                     preparedAt,
                     preparedAt.plus(cipher.lifetime()));
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var parent = publication.lockParent(actor, command);
                 var winner = store.findByPayment(command.paymentId());
                 if (winner.isPresent()) {
@@ -161,7 +161,7 @@ public class PaymentInputService implements PaymentInputFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.paymentId());
             DomainChecks.id(query.orderId());
             DomainChecks.id(query.allocationId());

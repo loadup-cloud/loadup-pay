@@ -33,7 +33,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-outbox</artifactId>
+            <artifactId>loadup-components-task</artifactId>
         </dependency>
 
         <dependency>

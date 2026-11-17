@@ -21,11 +21,10 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.payment.client.enums.PaymentCaptureState;
@@ -45,7 +44,7 @@ public class PaymentCaptureExecutionService {
     private final PaymentCaptureReader reader;
     private final PaymentAcceptanceTransactions transactions;
     private final PaymentCaptureConverter converter;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final Clock clock;
     private final int timeoutSeconds;
     private final String reconciliationService;
@@ -55,7 +54,7 @@ public class PaymentCaptureExecutionService {
             PaymentCaptureReader reader,
             PaymentAcceptanceTransactions transactions,
             PaymentCaptureConverter converter,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             Clock clock,
             @Value("${loadup.modules.payment.reconciliation.source-read-timeout-seconds:10}") int timeoutSeconds,
             @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
@@ -72,11 +71,11 @@ public class PaymentCaptureExecutionService {
         this.reconciliationService = DomainChecks.id(reconciliationService);
     }
 
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()
                 || task == null
                 || !TYPE.equals(task.taskType())
-                || task.status() != DelayedTaskStatus.RUNNING
+                || task.status() != TaskStatus.RUNNING
                 || task.bizId() == null
                 || task.id() == null
                 || task.attempts() < 1) {
@@ -86,7 +85,7 @@ public class PaymentCaptureExecutionService {
         if (!Objects.equals(actual.id(), task.id())
                 || !TYPE.equals(actual.taskType())
                 || !Objects.equals(actual.bizId(), task.bizId())
-                || actual.status() != DelayedTaskStatus.RUNNING
+                || actual.status() != TaskStatus.RUNNING
                 || actual.attempts() != task.attempts()
                 || actual.maxAttempts() != task.maxAttempts()
                 || actual.maxAttempts() < actual.attempts()
@@ -99,9 +98,8 @@ public class PaymentCaptureExecutionService {
                 || !actual.leaseUntil().isAfter(LocalDateTime.now(clock))) {
             throw new CommonException(INVALID_STATE);
         }
-        String tenant = TenantUtil.getTenantId();
         var original = transactions.readSnapshot(
-                tenant, () -> captures.find(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                () -> captures.find(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         if (!reconciliationService.equals(original.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
@@ -111,7 +109,7 @@ public class PaymentCaptureExecutionService {
         if (!original.scope().systemZone().equals(clock.getZone().getId())) {
             throw new CommonException(INVALID_STATE);
         }
-        var read = transactions.readSnapshot(tenant, timeoutSeconds, () -> reader.read(original.scope()));
+        var read = transactions.readSnapshot(timeoutSeconds, () -> reader.read(original.scope()));
         String hash = read.blocker() == null
                 ? PaymentCaptureContentHash.compute(
                         original.id(),
@@ -127,7 +125,7 @@ public class PaymentCaptureExecutionService {
                                         converter.toDTO(line, original.scope().systemZone()))
                                 .toList())
                 : null;
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             var current = captures.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() != PaymentCaptureState.INIT) {
                 return false;

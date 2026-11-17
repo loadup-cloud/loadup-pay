@@ -80,7 +80,9 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
+import io.github.loadup.contracts.event.BusinessEventTypes;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import jakarta.validation.Validation;
@@ -117,7 +119,7 @@ class PaymentOutcomeEventServiceTest {
     final AtomicReference<PaymentOutcomeReceipt> outcome = new AtomicReference<>();
     final AtomicReference<PaymentSettlementFactsDTO> facts = new AtomicReference<>();
     final AtomicReference<AcquireServiceActor> actor =
-            new AtomicReference<>(new AcquireServiceActor("tenant", "payment", Set.of("pay:acquire:payment:outcome")));
+            new AtomicReference<>(new AcquireServiceActor("payment", Set.of("pay:acquire:payment:outcome")));
     final Map<String, PaymentEventReceipt> accepted = new HashMap<>();
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
@@ -243,7 +245,8 @@ class PaymentOutcomeEventServiceTest {
                         p.state(),
                         p.version(),
                         p.terminalEvidenceId(),
-                        f.executionFenced()));
+                        f.executionFenced(),
+                        null));
     }
 
     @BeforeEach
@@ -336,7 +339,7 @@ class PaymentOutcomeEventServiceTest {
                 original.closeEpoch(),
                 original.version());
         order.set(context.getBean(PaymentProgressConverter.class).withOrder(previous, partial));
-        var scope = new OrderPaymentScope("tenant", OWNER);
+        var scope = new OrderPaymentScope(OWNER);
         var proof = new PaymentCloseDTO("payment", "order", 1L, true, null, "input-expiry-proof");
         var result = operations.applyInputExpiry(scope, "order", "payment", proof);
         Assertions.assertNull(result.payment());
@@ -361,7 +364,7 @@ class PaymentOutcomeEventServiceTest {
                 assertThrows(
                                 CommonException.class,
                                 () -> operations.applyInputExpiry(
-                                        new OrderPaymentScope("tenant", OWNER), "order", "payment", proof))
+                                        new OrderPaymentScope(OWNER), "order", "payment", proof))
                         .getResultCode());
         assertSame(held, order.get());
         verify(allocations, never()).apply(any(), any(), any(), anyLong());
@@ -380,7 +383,7 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(ack.orderVersion(), order.get().order().version());
         assertEquals(1, manager.commits);
         verify(fees).confirmPaid(any(), any(), any());
-        verify(snapshots).publish("tenant", "order", order.get().order().version());
+        verify(snapshots).publish("order", order.get().order().version());
     }
 
     @Test
@@ -404,13 +407,12 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(10000, order.get().order().paidAmountMinor());
         verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
         verify(fees, times(1)).confirmPaid(any(), any(), any());
-        verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
+        verify(snapshots, times(1)).publish(eq("order"), anyLong());
     }
 
     @Test
     void eventAfterMerchantRefreshReusesTheAlreadyCommittedOutcomeReceipt() {
-        operations.refresh(
-                new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
+        operations.refresh(new OrderPaymentScope(OWNER), new PaymentProgressRefreshCommand("order", "payment"));
         service.accept(event("delivery"));
         verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
         verify(fees, times(1)).confirmPaid(any(), any(), any());
@@ -480,7 +482,8 @@ class PaymentOutcomeEventServiceTest {
                         d.state(),
                         d.paymentVersion(),
                         d.evidenceId(),
-                        d.executionFenced()));
+                        d.executionFenced(),
+                        null));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.accept(altered))
@@ -514,21 +517,19 @@ class PaymentOutcomeEventServiceTest {
 
     @Test
     void wrongServiceOrMissingEventPermissionIsRejectedBeforeFinancialReads() {
-        actor.set(new AcquireServiceActor("tenant", "other-service", Set.of("pay:acquire:payment:outcome")));
+        actor.set(new AcquireServiceActor("other-service", Set.of("pay:acquire:payment:outcome")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.accept(event("delivery")))
                         .getResultCode());
-        actor.set(new AcquireServiceActor("tenant", "payment", Set.of()));
+        actor.set(new AcquireServiceActor("payment", Set.of()));
         assertThrows(CommonException.class, () -> service.accept(event("delivery")));
         verifyNoInteractions(orders, allocations, events);
     }
 
     @Test
     void snapshotFailureCannotCommitTheFinancialTransitionOrItsEventAck() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
-                .when(snapshots)
-                .publish(anyString(), anyString(), anyLong());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(snapshots).publish(anyString(), anyLong());
         assertThrows(CommonException.class, () -> service.accept(event("delivery")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -558,5 +559,147 @@ class PaymentOutcomeEventServiceTest {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
         verifyNoInteractions(orders, payment, events);
+    }
+
+    @Test
+    void frozenTargetTypedDeliveryStillAcceptsAndReplaysItsOriginalReceipt() {
+        var original = event("frozen-delivery");
+        var frozen = new EventEnvelope<>(
+                original.deliveryId(),
+                original.businessEventId(),
+                original.producer(),
+                "pay.payment.outcome.acquire.v1",
+                original.schemaVersion(),
+                original.aggregateId(),
+                original.aggregateVersion(),
+                original.occurredAt(),
+                original.data());
+        var ack = service.accept(frozen);
+        assertTrue(ack.accepted());
+        assertEquals(ack, service.accept(frozen));
+    }
+
+    EventEnvelope<PaymentOutcomeEventDTO> financialEvent(String delivery) {
+        var legacy = event(delivery);
+        var d = legacy.data();
+        var source = facts.get().payment();
+        var proof = new PaymentFinancialEvidence(
+                1,
+                d.paymentId(),
+                d.orderId(),
+                d.allocationId(),
+                d.operationId(),
+                d.payeeMerchantId(),
+                d.amountMinor(),
+                d.currency(),
+                d.state(),
+                d.paymentVersion(),
+                d.evidenceId(),
+                source.activeAttemptId(),
+                source.initiatedAt(),
+                d.state() == PaymentState.SUCCEEDED ? source.initiatedAt().plusSeconds(1) : null,
+                d.executionFenced());
+        return new EventEnvelope<>(
+                delivery,
+                legacy.businessEventId(),
+                legacy.producer(),
+                BusinessEventTypes.PAYMENT_FINANCIAL,
+                1,
+                legacy.aggregateId(),
+                legacy.aggregateVersion(),
+                legacy.occurredAt(),
+                d.withFinancialEvidence(proof));
+    }
+
+    @Test
+    void completeEvidenceConvergesAndReplaysWithoutSourceAvailability() {
+        var e = financialEvent("financial-delivery");
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(payment).facts(anyString());
+        var ack = service.accept(e);
+        assertEquals(ack, service.accept(e));
+        assertEquals(10000, order.get().order().paidAmountMinor());
+        assertEquals(AllocationState.CONSUMED, allocation.get().allocation().state());
+        verify(payment, never()).facts(anyString());
+        verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
+        verify(fees, times(1)).confirmPaid(any(), any(), any());
+        verify(events, times(1)).insert(any());
+    }
+
+    @Test
+    void completeNoCollectionEvidenceReleasesOnlyTheOriginalHoldWithoutAQuery() {
+        prepare(4000, PaymentState.CLOSED);
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(payment).facts(anyString());
+        service.accept(financialEvent("financial-close"));
+        assertEquals(0, order.get().order().paidAmountMinor());
+        assertEquals(0, order.get().order().paymentReservedMinor());
+        assertEquals(AllocationState.RELEASED, allocation.get().allocation().state());
+        verify(payment, never()).facts(anyString());
+        verifyNoInteractions(fees);
+    }
+
+    @Test
+    void changedEvidenceCannotReuseAnAcceptedDelivery() {
+        var e = financialEvent("financial-delivery");
+        service.accept(e);
+        var proof = e.data().financialEvidence();
+        var changed = new PaymentFinancialEvidence(
+                1,
+                proof.paymentId(),
+                proof.orderId(),
+                proof.allocationId(),
+                proof.operationId(),
+                proof.payeeMerchantId(),
+                proof.amountMinor(),
+                proof.currency(),
+                proof.state(),
+                proof.paymentVersion(),
+                proof.terminalEvidenceId(),
+                proof.activeAttemptId(),
+                proof.initiatedAt(),
+                proof.succeededAt().plusSeconds(1),
+                proof.executionFenced());
+        var altered = new EventEnvelope<>(
+                e.deliveryId(),
+                e.businessEventId(),
+                e.producer(),
+                e.eventType(),
+                e.schemaVersion(),
+                e.aggregateId(),
+                e.aggregateVersion(),
+                e.occurredAt(),
+                e.data().withFinancialEvidence(changed));
+        assertSame(
+                IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> service.accept(altered))
+                        .getResultCode());
+        verify(allocations, times(1)).apply(any(), any(), any(), anyLong());
+    }
+
+    @Test
+    void financialTypeCannotDowngradeToLegacyQueryWhenEvidenceIsMissing() {
+        var legacy = event("missing-proof");
+        var invalid = new EventEnvelope<>(
+                legacy.deliveryId(),
+                legacy.businessEventId(),
+                legacy.producer(),
+                BusinessEventTypes.PAYMENT_FINANCIAL,
+                1,
+                legacy.aggregateId(),
+                legacy.aggregateVersion(),
+                legacy.occurredAt(),
+                legacy.data());
+        assertThrows(CommonException.class, () -> service.accept(invalid));
+        verifyNoInteractions(orders, allocations, events);
+        verify(payment, never()).facts(anyString());
+    }
+
+    @Test
+    void completeEvidenceDoesNotGrantCallerPermissions() {
+        var e = financialEvent("unauthorized");
+        actor.set(new AcquireServiceActor("payment", Set.of()));
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, () -> service.accept(e)).getResultCode());
+        verifyNoInteractions(orders, allocations, events, payment);
     }
 }

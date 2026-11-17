@@ -15,15 +15,11 @@
  */
 package io.github.loadup.acquire.app.security;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
-public record AcquireActor(
-        String tenantId, String scopeHash, @DiagnosticHidden String productAccessToken, Set<String> permissions) {
+public record AcquireActor(String scopeHash, Set<String> permissions) {
     public AcquireActor {
-        DomainChecks.id(tenantId);
         if (scopeHash == null || !scopeHash.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("Invalid caller scope");
         }

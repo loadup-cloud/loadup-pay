@@ -18,7 +18,6 @@ package io.github.loadup.payment.adapter.security;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.payment.app.security.RefundActor;
 import io.github.loadup.payment.app.security.RefundActorProvider;
 import java.nio.charset.StandardCharsets;
@@ -34,11 +33,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtRefundActorProvider implements RefundActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtRefundActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     @Override
     public RefundActor current() {
@@ -47,7 +41,7 @@ public class JwtRefundActorProvider implements RefundActorProvider {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            String tenant = databaseTenant.currentTenantId(), type = jwt.getClaimAsString("principal_type");
+            String type = jwt.getClaimAsString("principal_type");
             String subject = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
             if (!Set.of("MERCHANT", "MERCHANT_APP").contains(type)
                     || jwt.getIssuer() == null
@@ -68,7 +62,6 @@ public class JwtRefundActorProvider implements RefundActorProvider {
                     .formatHex(MessageDigest.getInstance("SHA-256")
                             .digest(framed.toString().getBytes(StandardCharsets.UTF_8)));
             return new RefundActor(
-                    tenant,
                     merchant,
                     hash,
                     auth.getAuthorities().stream()

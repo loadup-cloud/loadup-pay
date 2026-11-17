@@ -18,7 +18,7 @@ package io.github.loadup.acquire.app.model;
 import io.github.loadup.acquire.client.enums.AcquireRecoveryKind;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.task.TaskExecution;
 
 /**
  * Bounded operational projection; contains neither native errors nor financial request payloads.
@@ -28,7 +28,7 @@ public record AcquireRecoveryInspection(
         String subjectId,
         long generation,
         String orderId,
-        @DiagnosticHidden DelayedTask task,
+        @DiagnosticHidden TaskExecution task,
         boolean businessCurrent,
         boolean retryable) {
     @Override

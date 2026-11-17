@@ -23,8 +23,9 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.Set;
 
 /**
  * Complete monetary snapshot, bounded independently of historical refund-request count.
@@ -42,7 +43,9 @@ public record OrderRefundSummaryEventDTO(
 
         @Schema(description = "Independent source monetary summary version")
         long refundSummaryVersion) {
+    /** Frozen delivery label; newly published fact types are defined by BusinessEventTypes. */
     public static final String REALTIME_TYPE = "pay.payment.refund-summary.realtime.v1";
+    /** Frozen delivery label; newly published fact types are defined by BusinessEventTypes. */
     public static final String FEE_TYPE = "pay.payment.refund.fee.v1";
 
     public OrderRefundSummaryEventDTO {
@@ -58,8 +61,15 @@ public record OrderRefundSummaryEventDTO(
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {
-        require(equals(envelope.data()) && Set.of(REALTIME_TYPE, FEE_TYPE).contains(envelope.eventType()), CONFLICT);
-        envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);
+        require(equals(envelope.data()), CONFLICT);
+        FrozenEventTypes.requireSource(
+                envelope,
+                BusinessEventTypes.ORDER_REFUND_SUMMARY,
+                "payment",
+                orderId,
+                refundSummaryVersion,
+                REALTIME_TYPE,
+                FEE_TYPE);
     }
 
     @Override

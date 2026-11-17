@@ -1,0 +1,174 @@
+{
+  "channel.WECHAT.DIRECT.H5.enabled": {
+    "type": "BOOLEAN",
+    "value": "true"
+  },
+  "channel.routingProfileRef": {
+    "type": "STRING",
+    "value": "routing-v1"
+  },
+  "checkout.returnTargetCode": {
+    "type": "STRING",
+    "value": "RETURN_V1"
+  },
+  "checkout.sessionSeconds": {
+    "type": "INTEGER",
+    "value": "300"
+  },
+  "fee.base": {
+    "type": "STRING",
+    "value": "ORDER_AMOUNT"
+  },
+  "fee.confirmationTrigger": {
+    "type": "STRING",
+    "value": "ORDER_FULLY_PAID"
+  },
+  "fee.fixedMinor": {
+    "type": "INTEGER",
+    "value": "0"
+  },
+  "fee.maximumEnabled": {
+    "type": "BOOLEAN",
+    "value": "false"
+  },
+  "fee.minimumMinor": {
+    "type": "INTEGER",
+    "value": "0"
+  },
+  "fee.rate": {
+    "type": "DECIMAL",
+    "value": "0.003"
+  },
+  "fee.refundPolicy": {
+    "type": "STRING",
+    "value": "NO_RETURN"
+  },
+  "fee.rounding": {
+    "type": "STRING",
+    "value": "HALF_UP"
+  },
+  "limit.countingBasis": {
+    "type": "STRING",
+    "value": "INITIATED_AT"
+  },
+  "limit.parentAggregationEnabled": {
+    "type": "BOOLEAN",
+    "value": "false"
+  },
+  "limit.policyRef": {
+    "type": "STRING",
+    "value": "policy"
+  },
+  "limit.refundAmountRestore": {
+    "type": "STRING",
+    "value": "NO_RESTORE"
+  },
+  "limit.refundCountRestore": {
+    "type": "STRING",
+    "value": "NO_RESTORE"
+  },
+  "limit.weekStart": {
+    "type": "INTEGER",
+    "value": "1"
+  },
+  "notify.enabled": {
+    "type": "BOOLEAN",
+    "value": "false"
+  },
+  "notify.retryInitialSeconds": {
+    "type": "INTEGER",
+    "value": "1"
+  },
+  "notify.retryMaxAttempts": {
+    "type": "INTEGER",
+    "value": "5"
+  },
+  "notify.retryMaximumSeconds": {
+    "type": "INTEGER",
+    "value": "60"
+  },
+  "notify.retryMultiplier": {
+    "type": "DECIMAL",
+    "value": "2"
+  },
+  "notify.retryWindowSeconds": {
+    "type": "INTEGER",
+    "value": "3600"
+  },
+  "notify.timeoutMillis": {
+    "type": "INTEGER",
+    "value": "1000"
+  },
+  "order.extensionAllowed": {
+    "type": "BOOLEAN",
+    "value": "false"
+  },
+  "order.extensionMaxSeconds": {
+    "type": "INTEGER",
+    "value": "0"
+  },
+  "order.maxWaitSeconds": {
+    "type": "INTEGER",
+    "value": "3600"
+  },
+  "order.unpaidAction": {
+    "type": "STRING",
+    "value": "KEEP_PENDING"
+  },
+  "order.waitSeconds": {
+    "type": "INTEGER",
+    "value": "600"
+  },
+  "payment.allowExactRemainderBelowMin": {
+    "type": "BOOLEAN",
+    "value": "true"
+  },
+  "payment.maxAmountMinor": {
+    "type": "INTEGER",
+    "value": "100000"
+  },
+  "payment.maxSuccessfulPaymentsEnabled": {
+    "type": "BOOLEAN",
+    "value": "false"
+  },
+  "payment.minAmountMinor": {
+    "type": "INTEGER",
+    "value": "1"
+  },
+  "refund.allocationPolicy": {
+    "type": "STRING",
+    "value": "FIFO"
+  },
+  "refund.enabled": {
+    "type": "BOOLEAN",
+    "value": "true"
+  },
+  "refund.executionMode": {
+    "type": "STRING",
+    "value": "SEQUENTIAL"
+  },
+  "refund.lateCollectionPolicy": {
+    "type": "STRING",
+    "value": "MANUAL_REVIEW"
+  },
+  "refund.partialAllowed": {
+    "type": "BOOLEAN",
+    "value": "true"
+  },
+  "refund.windowSeconds": {
+    "type": "INTEGER",
+    "value": "86400"
+  },
+  "trade.amountModel": {
+    "type": "STRING",
+    "value": "FIXED_TOTAL"
+  },
+  "trade.completionRule": {
+    "type": "STRING",
+    "value": "SUCCESS_SUM_EQUALS_TOTAL"
+  },
+  "trade.defaultCurrency": {
+    "type": "STRING",
+    "value": "CNY"
+  }
+}

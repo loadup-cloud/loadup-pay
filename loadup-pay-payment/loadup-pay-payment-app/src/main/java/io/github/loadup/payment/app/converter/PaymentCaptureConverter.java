@@ -15,8 +15,8 @@
  */
 package io.github.loadup.payment.app.converter;
 
-import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.task.TaskExecution;
 import io.github.loadup.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.payment.domain.model.PaymentCapture;
@@ -50,7 +50,7 @@ public interface PaymentCaptureConverter {
     @Mapping(target = "nativeStatus", source = "task.status")
     @Mapping(target = "attempts", source = "task.attempts")
     @Mapping(target = "maxAttempts", source = "task.maxAttempts")
-    PaymentCaptureDTO toDTO(PaymentCapture value, DelayedTask task);
+    PaymentCaptureDTO toDTO(PaymentCapture value, TaskExecution task);
 
     @Mapping(target = "ordinal", source = "value.ordinal")
     @Mapping(target = "kind", source = "value.kind")

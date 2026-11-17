@@ -126,7 +126,7 @@ class PaymentInitiationServiceTest {
     final OrderSnapshotEvents snapshots = mock(OrderSnapshotEvents.class);
     final AllocationRecoveryQueue recovery = mock(AllocationRecoveryQueue.class);
     final AtomicReference<AcquireActor> actor =
-            new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:start")));
+            new AtomicReference<>(new AcquireActor(OWNER, Set.of("pay:acquire:payment:start")));
     final AtomicReference<StoredAcquireOrder> order =
             new AtomicReference<>(order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10)));
     final Map<String, StoredPaymentAllocation> saved = new HashMap<>();
@@ -159,20 +159,20 @@ class PaymentInitiationServiceTest {
     void setup() {
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    StoredPaymentAllocation registered = c.getArgument(1);
+                    StoredPaymentAllocation registered = c.getArgument(0);
                     assertEquals(registered, saved.get(registered.allocation().actionKey()));
-                    assertTrue(c.getArgument(2) instanceof LocalDateTime);
+                    assertTrue(c.getArgument(1) instanceof LocalDateTime);
                     return null;
                 })
                 .when(recovery)
-                .register(eq("tenant"), any(), any());
+                .register(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(order.get().order().version(), (long) c.getArgument(2));
+                    assertEquals(order.get().order().version(), (long) c.getArgument(1));
                     return null;
                 })
                 .when(snapshots)
-                .publish(eq("tenant"), eq("order"), anyLong());
+                .publish(eq("order"), anyLong());
         when(orders.lockOrder("order")).thenAnswer(c -> order.get());
         when(hashes.decodeAdmission(anyString(), anyString())).thenReturn(admission());
         when(hashes.checksum(anyString()))
@@ -225,8 +225,8 @@ class PaymentInitiationServiceTest {
     @Test
     void aNativeRecoveryRegistrationFailureRollsBackA2BeforeAnyRemoteCall() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        Mockito.doThrow(failure).when(recovery).register(eq("tenant"), any(), any());
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        Mockito.doThrow(failure).when(recovery).register(any(), any());
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("queue-failure", 4000, new NoInteractionDTO());
         assertSame(
                 failure,
@@ -241,11 +241,10 @@ class PaymentInitiationServiceTest {
     void checkoutUsesTheSharedReservationAndOriginalActionWhileKeepingItsOwnScope() {
         var guarded = new ArrayList<Boolean>();
         var owner = actor.get();
-        var principal =
-                new PaymentInitiationPrincipal("tenant", owner.scopeHash(), "checkout/session", (stored, creating) -> {
-                    assertEquals(owner.scopeHash(), stored.callerScopeHash());
-                    guarded.add(creating);
-                });
+        var principal = new PaymentInitiationPrincipal(owner.scopeHash(), "checkout/session", (stored, creating) -> {
+            assertEquals(owner.scopeHash(), stored.callerScopeHash());
+            guarded.add(creating);
+        });
         var command = h5Command("checkout-action", 4000, new NoInteractionDTO());
         var first = operations(clock(NOW)).start(principal, command);
         var second = operations(clock(NOW)).start(principal, command);
@@ -254,7 +253,7 @@ class PaymentInitiationServiceTest {
                 "checkout/session", saved.get("checkout-action").allocation().actorScope());
         assertEquals(owner.scopeHash(), saved.get("checkout-action").callerScopeHash());
         assertEquals(1, guarded.stream().filter(Boolean::booleanValue).count());
-        verify(recovery, times(1)).register(eq("tenant"), eq(saved.get("checkout-action")), eq(NOW));
+        verify(recovery, times(1)).register(eq(saved.get("checkout-action")), eq(NOW));
         verify(allocations, Mockito.times(1)).reserve(any(), any(), anyLong());
     }
 
@@ -307,14 +306,14 @@ class PaymentInitiationServiceTest {
                 .allMatch(value -> "opaque-prepared-input".equals(value.preparedInputRef())));
         verify(allocations, times(1)).reserve(any(), any(), anyLong());
         verify(allocations, times(1)).attachInput(any(), any());
-        verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
+        verify(snapshots, times(1)).publish(eq("order"), anyLong());
     }
 
     @Test
     void recoveringALostReplyUsesTheExactFrozenInputAndNeverTakesAnotherHold() {
         var guarded = new ArrayList<Boolean>();
-        var principal = new PaymentInitiationPrincipal(
-                "tenant", OWNER, "checkout/session", (stored, creating) -> guarded.add(creating));
+        var principal =
+                new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> guarded.add(creating));
         when(payment.prepareInput(any()))
                 .thenReturn(
                         new PaymentInputDTO("opaque-input", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(5))));
@@ -348,15 +347,15 @@ class PaymentInitiationServiceTest {
 
     @Test
     void missingIntentAndPendingInputAreDistinctAndNeitherIsFinancialEvidence() {
-        var principal = new PaymentInitiationPrincipal(
-                "tenant", OWNER, "checkout/session", (stored, creating) -> assertFalse(creating));
+        var principal =
+                new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> assertFalse(creating));
         var choice = new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5);
         var absent = operations(clock(NOW)).recover(principal, "order", "unknown", 4000, choice);
         assertEquals(PaymentIntentRecovery.State.NOT_OBSERVED, absent.state());
         assertNull(absent.paymentId());
         verify(allocations, never()).reserve(any(), any(), anyLong());
         when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
-        var start = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var start = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         assertThrows(
                 CommonException.class,
                 () -> operations(clock(NOW))
@@ -377,7 +376,7 @@ class PaymentInitiationServiceTest {
     }
 
     PaymentInitiationPrincipal missingPreparation(String key) {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(
                 CommonException.class,
@@ -477,7 +476,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void lostInputPreparationReplyIsRecoveredByOriginalScopeWithoutRecreatingPayerInput() {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("lost-input", 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
         when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command));
@@ -517,13 +516,13 @@ class PaymentInitiationServiceTest {
         verify(payment).lookupInput(query);
         verify(payment, never()).prepareInput(any());
         verify(allocations, never()).reserve(any(), any(), anyLong());
-        verify(snapshots, never()).publish(anyString(), anyString(), anyLong());
+        verify(snapshots, never()).publish(anyString(), anyLong());
         verify(allocations).attachInput(eq(original), any());
     }
 
     @Test
     void malformedLookupOrRemoteFailureNeverFallsBackToPreparationOrNewPayment() {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("input", 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
         when(payment.prepareInput(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command));
@@ -551,7 +550,7 @@ class PaymentInitiationServiceTest {
     }
 
     PaymentInitiationPrincipal preparedCheckout(String key) {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         when(payment.prepareInput(any()))
                 .thenReturn(new PaymentInputDTO("prepared", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(2))));
         doAnswer(call -> {
@@ -630,7 +629,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void originalInputlessH5RecoveryUsesItsExactDigestAndDoesNotWaitForAnInputThatNeverExisted() {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "merchant/" + OWNER, (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "merchant/" + OWNER, (stored, creating) -> {});
         var command = h5Command("inputless", 4000, new NoInteractionDTO());
         operations(clock(NOW)).start(principal, command);
         var original = saved.get("inputless");
@@ -650,7 +649,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void aReferenceCannotBeAddedToAnIntentWhoseOriginalDigestCommittedNoInput() {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "merchant/" + OWNER, (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "merchant/" + OWNER, (stored, creating) -> {});
         var command = h5Command("inputless", 4000, new NoInteractionDTO());
         operations(clock(NOW)).start(principal, command);
         var paymentId = saved.get("inputless").allocation().paymentId();
@@ -672,7 +671,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void recoveryRejectsChangedAmountChoiceAndAnAllocationReturnedFromAnotherScope() {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("original", 4000, new NoInteractionDTO());
         operations(clock(NOW)).start(principal, command);
         clearInvocations(payment);
@@ -695,7 +694,7 @@ class PaymentInitiationServiceTest {
                                                 4000,
                                                 new PaymentChoiceDTO(Channel.ALIPAY, PaymentMethod.H5)))
                         .getResultCode());
-        var other = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/other", (stored, creating) -> {});
+        var other = new PaymentInitiationPrincipal(OWNER, "checkout/other", (stored, creating) -> {});
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(
@@ -709,7 +708,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void releasedUnacceptedIntentIsResolvedForOutcomeConvergenceWithoutReacceptance() {
-        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var principal = new PaymentInitiationPrincipal(OWNER, "checkout/session", (stored, creating) -> {});
         var command = h5Command("original", 4000, new NoInteractionDTO());
         operations(clock(NOW)).start(principal, command);
         var old = saved.get("original");
@@ -820,7 +819,7 @@ class PaymentInitiationServiceTest {
         assertEquals(admission().terms(), frozen.admittedTerms().terms());
         assertEquals(10000, frozen.admittedTerms().orderAmountMinor());
         assertNull(frozen.preparedInputRef());
-        verify(snapshots).publish("tenant", "order", order.get().order().version());
+        verify(snapshots).publish("order", order.get().order().version());
     }
 
     @Test
@@ -839,7 +838,7 @@ class PaymentInitiationServiceTest {
         assertEquals(4000, order.get().order().paymentReservedMinor());
         verify(allocations, times(1)).reserve(any(), any(), anyLong());
         verify(payment, times(2)).accept(frozen);
-        verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
+        verify(snapshots, times(1)).publish(eq("order"), anyLong());
     }
 
     @Test
@@ -936,7 +935,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void callerWithoutPermissionCannotReadOrReserveAnOrder() {
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of()));
+        actor.set(new AcquireActor(OWNER, Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).startPayment(command("one", 4000)))
@@ -946,7 +945,7 @@ class PaymentInitiationServiceTest {
 
     @Test
     void anotherOwnerIsRejectedBeforeHoldingMoney() {
-        actor.set(new AcquireActor("tenant", "b".repeat(64), null, Set.of("pay:acquire:payment:start")));
+        actor.set(new AcquireActor("b".repeat(64), Set.of("pay:acquire:payment:start")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service(clock(NOW)).startPayment(command("one", 4000)))

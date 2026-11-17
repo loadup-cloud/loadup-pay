@@ -19,12 +19,16 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentOutcomeEnvelopeCodec;
@@ -45,7 +49,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 public class PaymentOutcomeDeliverySupport {
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final PaymentOutcomeEnvelopeCodec envelopes;
     private final PaymentAcceptanceGateway payments;
     private final PaymentAttemptGateway attempts;
@@ -56,7 +60,7 @@ public class PaymentOutcomeDeliverySupport {
     private final PaymentResultConverter converter;
 
     public PaymentOutcomeDeliverySupport(
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             PaymentOutcomeEnvelopeCodec envelopes,
             PaymentAcceptanceGateway payments,
             PaymentAttemptGateway attempts,
@@ -76,52 +80,56 @@ public class PaymentOutcomeDeliverySupport {
         this.converter = converter;
     }
 
-    public PaymentDeliverySnapshot load(OutboxEvent event, String expectedType) {
+    public PaymentDeliverySnapshot load(TaskExecution event, String expectedType) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.message() == null
-                || event.message().version() != 1
-                || !expectedType.equals(event.message().type())) {
+        if (event == null || event.payloadVersion() != 1 || !expectedType.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        String tenant = TenantUtil.getTenantId();
         DomainChecks.id(event.id());
         var queue = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!queue.id().equals(event.id())
-                || !queue.type().equals(expectedType)
-                || !queue.businessId().equals(event.message().businessId())
-                || !"PROCESSING".equals(queue.status())) {
+                || !queue.taskType().equals(expectedType)
+                || !queue.bizId().equals(event.bizId())
+                || queue.status() != TaskStatus.RUNNING) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var envelope = envelopes.decode(event.message().payload());
+        if (!Set.of(PaymentDeliveryRoutes.ACQUIRE, PaymentDeliveryRoutes.LIMIT, PaymentDeliveryRoutes.RISK)
+                .contains(expectedType)) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var envelope = envelopes.decode(event.payload());
         if (envelope == null
                 || envelope.data() == null
                 || envelope.schemaVersion() != 1
                 || !"payment".equals(envelope.producer())
-                || !expectedType.equals(envelope.eventType())
-                || !queue.businessId().equals(envelope.aggregateId())
+                || !(FrozenEventTypes.accepts(BusinessEventTypes.PAYMENT_FINANCIAL, expectedType, envelope.eventType())
+                        || BusinessEventTypes.PAYMENT_OUTCOME.equals(envelope.eventType()))
+                || !queue.bizId().equals(envelope.aggregateId())
                 || !envelope.aggregateId().equals(envelope.data().paymentId())
                 || envelope.aggregateVersion() != envelope.data().paymentVersion()
                 || !envelope.businessEventId().equals(envelope.data().evidenceId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var data = envelope.data();
+        if ((data.financialEvidence() != null) != BusinessEventTypes.PAYMENT_FINANCIAL.equals(envelope.eventType())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (!Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED)
                 .contains(data.state())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return transactions.withTenantContext(tenant, () -> {
+        return transactions.guarded(() -> {
             var original = payments.find(data.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            return transactions.writeLocal(tenant, () -> {
-                var locked = locks.lock(tenant, data.paymentId(), original.callerServiceId());
+            return transactions.writeLocal(() -> {
+                var locked = locks.lock(data.paymentId(), original.callerServiceId());
                 var current = locked.payment();
                 var accepted = intents.decode(current);
                 boolean fenced = locked.gate().gate().state() == GateState.FENCED;
                 boolean succeeded = current.payment().state() == PaymentState.SUCCEEDED;
                 // A later fence cannot invalidate an earlier positive terminal fact.
-                if (!converter.toEvent(current, data.executionFenced()).equals(data)
+                if (!converter.toEvent(current, data.executionFenced()).equals(data.withoutFinancialEvidence())
                         || data.executionFenced() && !fenced
                         || !succeeded && !fenced) {
                     throw new CommonException(SNAPSHOT_INVALID);
@@ -163,6 +171,15 @@ public class PaymentOutcomeDeliverySupport {
                                 || !Objects.equals(
                                         attempt.attempt().noCollectionEvidenceId(), current.terminalEvidenceId()))) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
+                if (data.financialEvidence() != null) {
+                    var verified = converter.toFinancialEvidence(
+                            current,
+                            succeededAt == null ? null : BusinessTime.external(succeededAt),
+                            data.executionFenced());
+                    if (!verified.equals(data.financialEvidence())) {
+                        throw new CommonException(SNAPSHOT_INVALID);
+                    }
                 }
                 return new PaymentDeliverySnapshot(envelope, current, attempt, succeededAt);
             });

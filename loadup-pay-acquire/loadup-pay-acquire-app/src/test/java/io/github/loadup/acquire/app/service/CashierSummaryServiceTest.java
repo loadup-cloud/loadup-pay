@@ -63,7 +63,7 @@ class CashierSummaryServiceTest {
         when(access.read(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.eq("ORDER_SUMMARY")))
                 .thenReturn(CheckoutFixtures.session(CheckoutSessionState.ACTIVE, expires));
         return new CashierSummaryService(
-                () -> new CashierActor("tenant", "session", "order", expires),
+                () -> new CashierActor("session", "order", expires),
                 orders,
                 context.getBean(AcquireOrderConverter.class),
                 context.getBean(CheckoutConverter.class),

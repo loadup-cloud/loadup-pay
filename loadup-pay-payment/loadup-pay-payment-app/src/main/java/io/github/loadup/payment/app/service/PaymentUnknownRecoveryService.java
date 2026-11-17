@@ -103,7 +103,7 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
         } catch (DomainViolation | DateTimeException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var rows = reader.list(query.kind(), window);
             requireWindow(rows, query, window);
             boolean more = rows.size() > query.limit();

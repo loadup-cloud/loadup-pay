@@ -32,12 +32,9 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-delayedtask</artifactId>
+            <artifactId>loadup-components-task</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-outbox</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-pay-acquire-client</artifactId>

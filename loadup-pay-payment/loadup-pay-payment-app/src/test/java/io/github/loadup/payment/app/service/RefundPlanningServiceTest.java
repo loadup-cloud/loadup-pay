@@ -43,7 +43,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
@@ -105,7 +104,7 @@ class RefundPlanningServiceTest {
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
     final AtomicReference<RefundActor> actor = new AtomicReference<>(new RefundActor(
-            "tenant", "merchant", "a".repeat(64), Set.of("pay:payment:refund:create", "pay:payment:refund:read")));
+            "merchant", "a".repeat(64), Set.of("pay:payment:refund:create", "pay:payment:refund:read")));
     final Map<String, PaymentRefundCapacity> capacities = new TreeMap<>();
     final Map<String, StoredRefundRequest> saved = new HashMap<>();
     final Map<String, PaymentExecuteCommand> commands = new HashMap<>();
@@ -143,7 +142,6 @@ class RefundPlanningServiceTest {
                         ((StoredPaymentAcceptance) c.getArgument(0)).payment().id()));
         when(payments.lockParent("order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return Optional.of(AttemptFixtures.gate(true));
         });
         when(refunds.merchantReference(eq("merchant"), anyString()))
@@ -176,11 +174,10 @@ class RefundPlanningServiceTest {
                 .insertPlan(any(), anyList());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals("tenant", TenantUtil.getTenantId());
                     return null;
                 })
                 .when(recovery)
-                .register(anyString(), any());
+                .register(any());
         addPayment("z-old", 3000, AttemptFixtures.NOW.minusHours(2));
         addPayment("a-new", 7000, AttemptFixtures.NOW.minusHours(1));
     }
@@ -266,7 +263,7 @@ class RefundPlanningServiceTest {
         assertEquals(3000, capacities.get("a-new").reservedMinor());
         assertEquals(1, manager.commits);
         var stored = saved.get(dto.refundRequestId());
-        verify(recovery, times(1)).register("tenant", stored);
+        verify(recovery, times(1)).register(stored);
         assertEquals("transaction-z-old", stored.allocations().get(0).channelTransactionNo());
         assertEquals("binding-revision", stored.allocations().get(0).original().bindingRevisionId());
         assertEquals(32, stored.allocations().get(0).refund().channelRefundNo().length());
@@ -285,8 +282,8 @@ class RefundPlanningServiceTest {
         verify(refunds, never()).insertPlan(any(), anyList());
         verify(codec, never()).decode(any());
         verifyNoInteractions(results, attempts);
-        verify(projections, times(1)).planned(anyString(), any(), any());
-        verify(recovery, never()).register(anyString(), any());
+        verify(projections, times(1)).planned(any(), any());
+        verify(recovery, never()).register(any());
     }
 
     @Test
@@ -360,13 +357,13 @@ class RefundPlanningServiceTest {
 
     @Test
     void recoveryRegistrationFailurePropagatesAndRollsBackTheOwningTransactionBoundary() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(eq("tenant"), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(any());
 
         assertThrows(CommonException.class, () -> service(AttemptFixtures.NOW).create(command(6000)));
 
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        verify(recovery).register(eq("tenant"), any());
+        verify(recovery).register(any());
         // The in-memory transaction fixture checks propagation only; real database rollback remains integration
         // acceptance.
     }
@@ -375,7 +372,7 @@ class RefundPlanningServiceTest {
     void authenticatedMerchantMustMatchTheRequestedPayeeAndStoredRefundOwner() {
         var first = service(AttemptFixtures.NOW).create(command(6000));
         actor.set(new RefundActor(
-                "tenant", "other", "a".repeat(64), Set.of("pay:payment:refund:create", "pay:payment:refund:read")));
+                "other", "a".repeat(64), Set.of("pay:payment:refund:create", "pay:payment:refund:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(

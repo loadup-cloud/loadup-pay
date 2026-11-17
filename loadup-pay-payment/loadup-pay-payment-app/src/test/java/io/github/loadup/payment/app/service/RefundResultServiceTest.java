@@ -110,7 +110,7 @@ class RefundResultServiceTest {
                 List.of(started, original.allocations().get(1))));
         facts.set(new RefundExecutionFacts(started, RefundResultFixtures.NOW, null, null));
         when(results.requestId("refund")).thenReturn(Optional.of("request"));
-        when(locks.lock("tenant", "request", "refund")).thenAnswer(c -> {
+        when(locks.lock("request", "refund")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return new LockedRefund(request.get(), facts.get(), capacity.get());
         });
@@ -186,7 +186,7 @@ class RefundResultServiceTest {
 
     @Test
     void successAtomicallyConsumesTheHoldAndAdvancesOnlyTheFrozenChildAndRequest() {
-        var result = service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
+        var result = service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
         assertEquals(APPLIED, result.disposition());
         assertEquals(1000, capacity.get().refundedMinor());
         assertEquals(0, capacity.get().reservedMinor());
@@ -204,36 +204,36 @@ class RefundResultServiceTest {
 
     @Test
     void sameReceiptAndAnotherObservationOfTheSameRefundCannotConsumeCapacityTwice() {
-        var first = service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
-        var replay = service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
+        var first = service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
+        var replay = service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
         assertEquals(first.receiptId(), replay.receiptId());
         assertEquals(
                 IGNORED,
-                service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "other-event"))
+                service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "other-event"))
                         .disposition());
         verify(results, times(1)).update(any());
         verify(results, times(1)).insertClaim(any());
         assertEquals(1000, capacity.get().refundedMinor());
-        verify(projections, times(1)).changed(eq("tenant"), any());
+        verify(projections, times(1)).changed(any());
     }
 
     @Test
     void unknownKeepsCapacityAndBlocksTheNextChildWhileAcceptedCannotRegressIt() {
-        service.record("tenant", observation(ChannelRefundOutcome.Kind.UNKNOWN, "unknown"));
+        service.record(observation(ChannelRefundOutcome.Kind.UNKNOWN, "unknown"));
         assertEquals(1000, capacity.get().reservedMinor());
         assertEquals(0, capacity.get().refundedMinor());
         assertTrue(request.get().request().nextExecutable().isEmpty());
         assertEquals(1, request.get().request().unknownCount());
         assertEquals(
                 IGNORED,
-                service.record("tenant", observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted"))
+                service.record(observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted"))
                         .disposition());
         assertEquals(RefundState.UNKNOWN, facts.get().child().refund().state());
     }
 
     @Test
     void definiteFailureReleasesTheHoldButDoesNotReallocateOrReopenTheFailedChild() {
-        service.record("tenant", observation(ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND, "failed"));
+        service.record(observation(ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND, "failed"));
         assertEquals(0, capacity.get().reservedMinor());
         assertEquals(0, capacity.get().refundedMinor());
         assertEquals(1000, request.get().request().failedMinor());
@@ -242,7 +242,7 @@ class RefundResultServiceTest {
                 request.get().request().nextExecutable().orElseThrow().id());
         assertEquals(
                 CONFLICT,
-                service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "late-success"))
+                service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "late-success"))
                         .disposition());
         assertEquals("TERMINAL_FACT_CONFLICT", anomalies.getFirst().reasonCode());
         verify(results, never()).insertClaim(any());
@@ -250,8 +250,8 @@ class RefundResultServiceTest {
 
     @Test
     void changedFactsUnderTheSameReceiptBecomeADurableAnomaly() {
-        service.record("tenant", observation(ChannelRefundOutcome.Kind.UNKNOWN, "event"));
-        var result = service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
+        service.record(observation(ChannelRefundOutcome.Kind.UNKNOWN, "event"));
+        var result = service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
         assertEquals(CONFLICT, result.disposition());
         assertEquals("RECEIPT_FACTS_CONFLICT", anomalies.getFirst().reasonCode());
         assertEquals(1, receipts.size());
@@ -274,7 +274,7 @@ class RefundResultServiceTest {
                 original.receiptKey(),
                 original.sourceDigest(),
                 null);
-        assertEquals(CONFLICT, service.record("tenant", changed).disposition());
+        assertEquals(CONFLICT, service.record(changed).disposition());
         assertEquals("REFUND_IDENTITY_MISMATCH", anomalies.getFirst().reasonCode());
         verify(results, never()).update(any());
         verify(results, never()).insertClaim(any());
@@ -293,7 +293,7 @@ class RefundResultServiceTest {
                 o.channelRefundTransactionNo(),
                 o.succeededAt(),
                 "other-receipt"));
-        assertEquals(CONFLICT, service.record("tenant", o).disposition());
+        assertEquals(CONFLICT, service.record(o).disposition());
         assertEquals("REFUND_TRANSACTION_ALREADY_CLAIMED", anomalies.getFirst().reasonCode());
         assertEquals(0, capacity.get().refundedMinor());
         verify(results, never()).update(any());
@@ -306,7 +306,7 @@ class RefundResultServiceTest {
         request.set(RefundResultFixtures.initial());
         assertEquals(
                 CONFLICT,
-                service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"))
+                service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"))
                         .disposition());
         assertEquals("OBSERVATION_BEFORE_SUBMISSION", anomalies.getFirst().reasonCode());
         verify(results, never()).update(any());
@@ -314,10 +314,9 @@ class RefundResultServiceTest {
 
     @Test
     void snapshotFailureCannotCommitARefundFinancialTransition() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(projections).changed(anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(projections).changed(any());
         assertThrows(
-                CommonException.class,
-                () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
+                CommonException.class, () -> service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         verify(results, never()).insertReceipt(any());
@@ -328,8 +327,7 @@ class RefundResultServiceTest {
     void receiptFailureAbortsTheWholeResultTransactionBoundary() {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(results).insertReceipt(any());
         assertThrows(
-                CommonException.class,
-                () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
+                CommonException.class, () -> service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         // Mock state is not a rollback proof. Real claim/child/request/capacity rollback still needs PostgreSQL
@@ -338,7 +336,7 @@ class RefundResultServiceTest {
 
     @Test
     void localTransportUncertaintyIsNotAChannelReceiptOrRefundSuccess() {
-        service.uncertain("tenant", "request", "refund");
+        service.uncertain("request", "refund");
         assertEquals(RefundState.UNKNOWN, facts.get().child().refund().state());
         assertEquals(1000, capacity.get().reservedMinor());
         verify(results, never()).insertReceipt(any());
@@ -350,7 +348,7 @@ class RefundResultServiceTest {
         var original = observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted");
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
         when(acceptances.remember(any(), ArgumentMatchers.anyLong())).thenReturn(true);
-        var result = service.record("tenant", observed);
+        var result = service.record(observed);
         assertEquals(RefundState.PROCESSING, facts.get().child().refund().state());
         assertEquals(0L, capacity.get().refundedMinor());
         assertEquals(1000L, capacity.get().reservedMinor());
@@ -367,7 +365,7 @@ class RefundResultServiceTest {
         var original = observation(ChannelRefundOutcome.Kind.SUCCEEDED, "accepted-success");
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
         when(acceptances.remember(any(), ArgumentMatchers.anyLong())).thenReturn(false);
-        var result = service.record("tenant", observed);
+        var result = service.record(observed);
         assertEquals(APPLIED, result.disposition());
         assertEquals(RefundState.SUCCEEDED, facts.get().child().refund().state());
         assertEquals(1000L, capacity.get().refundedMinor());
@@ -379,7 +377,7 @@ class RefundResultServiceTest {
         var observed = accepted(
                 observation(ChannelRefundOutcome.Kind.ACCEPTED, "too-early"),
                 facts.get().child().originalSucceededAt().minusSeconds(1));
-        assertEquals(CONFLICT, service.record("tenant", observed).disposition());
+        assertEquals(CONFLICT, service.record(observed).disposition());
         Mockito.verifyNoInteractions(acceptances);
         verify(results, never()).update(any());
         assertTrue(anomalies.stream().anyMatch(value -> value.reasonCode().equals("REFUND_ACCEPTANCE_TIME_MISMATCH")));

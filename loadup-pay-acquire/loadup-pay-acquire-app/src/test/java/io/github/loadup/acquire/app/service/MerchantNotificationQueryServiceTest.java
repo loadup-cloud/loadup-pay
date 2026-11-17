@@ -55,8 +55,8 @@ class MerchantNotificationQueryServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(MerchantNotificationQueryConverter.class.getPackageName());
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
-    final AtomicReference<MerchantNotificationActor> actor = new AtomicReference<>(new MerchantNotificationActor(
-            "tenant", "MERCHANT_APP", "app", "merchant", Set.of("pay:acquire:notification:read")));
+    final AtomicReference<MerchantNotificationActor> actor = new AtomicReference<>(
+            new MerchantNotificationActor("MERCHANT_APP", "app", "merchant", Set.of("pay:acquire:notification:read")));
     final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
     final MerchantNotificationQueryService service = new MerchantNotificationQueryService(
             new MerchantNotificationAccess(actor::get, "pay-ops"),
@@ -91,7 +91,7 @@ class MerchantNotificationQueryServiceTest {
         when(deliveries.find("delivery"))
                 .thenReturn(Optional.of(MerchantNotificationOperationsServiceTest.delivery(NOW)));
         actor.set(new MerchantNotificationActor(
-                "tenant", "MERCHANT_APP", "foreign-app", "other-merchant", Set.of("pay:acquire:notification:read")));
+                "MERCHANT_APP", "foreign-app", "other-merchant", Set.of("pay:acquire:notification:read")));
         assertSame(
                 NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.detail(new IdQuery("delivery")))
@@ -123,13 +123,12 @@ class MerchantNotificationQueryServiceTest {
 
     @Test
     void missingReadPermissionAndUnconfiguredServiceAreRejected() {
-        actor.set(new MerchantNotificationActor("tenant", "MERCHANT", "merchant", "merchant", Set.of()));
+        actor.set(new MerchantNotificationActor("MERCHANT", "merchant", "merchant", Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.detail(new IdQuery("delivery")))
                         .getResultCode());
-        actor.set(new MerchantNotificationActor(
-                "tenant", "SERVICE", "payment", null, Set.of("pay:acquire:notification:manage")));
+        actor.set(new MerchantNotificationActor("SERVICE", "payment", null, Set.of("pay:acquire:notification:manage")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.detail(new IdQuery("delivery")))

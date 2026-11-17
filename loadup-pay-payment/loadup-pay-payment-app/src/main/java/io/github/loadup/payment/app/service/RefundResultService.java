@@ -24,7 +24,6 @@ import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.CON
 import static io.github.loadup.payment.domain.model.RefundReceiptDisposition.IGNORED;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
@@ -88,31 +87,24 @@ public class RefundResultService {
         this.acceptances = acceptances;
     }
 
-    public RefundResultApplication record(String tenant, RefundObservation observation) {
+    public RefundResultApplication record(RefundObservation observation) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (observation == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(tenant, () -> {
-            DomainChecks.id(tenant);
+        return transactions.guarded(() -> {
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
             String requestId =
                     results.requestId(observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(
-                    tenant,
-                    () -> apply(
-                            tenant,
-                            locks.lock(tenant, requestId, observation.refundId()),
-                            observation,
-                            digest,
-                            payload));
+                    () -> apply(locks.lock(requestId, observation.refundId()), observation, digest, payload));
         });
     }
 
     private RefundResultApplication apply(
-            String tenant, LockedRefund locked, RefundObservation observation, String digest, String payload) {
+            LockedRefund locked, RefundObservation observation, String digest, String payload) {
         var request = locked.request();
         var facts = locked.child();
         var current = facts.child().refund();
@@ -120,18 +112,18 @@ public class RefundResultService {
         if (known.isPresent()) {
             var receipt = known.get();
             if (!receipt.factsDigest().equals(digest)) {
-                return anomaly(tenant, request, receipt.id(), observation, digest, payload, "RECEIPT_FACTS_CONFLICT");
+                return anomaly(request, receipt.id(), observation, digest, payload, "RECEIPT_FACTS_CONFLICT");
             }
             return present(receipt.disposition(), receipt.id(), request);
         }
         String id = ids.generate();
         String mismatch = mismatch(facts, observation);
         if (mismatch != null) {
-            return reject(tenant, request, id, observation, digest, payload, mismatch);
+            return reject(request, id, observation, digest, payload, mismatch);
         }
         if (observation.kind() == ChannelRefundOutcome.Kind.SUCCEEDED) {
             if (current.state() == RefundState.FAILED) {
-                return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
+                return reject(request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
             }
             var claimed = results.transaction(
                     observation.original().channel(),
@@ -139,10 +131,10 @@ public class RefundResultService {
                     observation.channelRefundTransactionNo());
             var own = results.claim(current.id());
             if (claimed.isPresent() && !matches(claimed.get(), observation)) {
-                return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_ALREADY_CLAIMED");
+                return reject(request, id, observation, digest, payload, "REFUND_TRANSACTION_ALREADY_CLAIMED");
             }
             if (own.isPresent() && !matches(own.get(), observation)) {
-                return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_CONFLICT");
+                return reject(request, id, observation, digest, payload, "REFUND_TRANSACTION_CONFLICT");
             }
             if (current.state() == RefundState.SUCCEEDED) {
                 if (own.isEmpty()
@@ -155,7 +147,7 @@ public class RefundResultService {
                         || locked.capacity().refundedMinor() < current.amount().getCent()) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
+                return receipt(request, id, observation, digest, payload, IGNORED, null);
             }
             if (own.isPresent() || claimed.isPresent()) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -163,14 +155,14 @@ public class RefundResultService {
             results.insertClaim(converter.toClaim(ids.generate(), observation, id));
         } else if (observation.kind() == ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND
                 && current.state() == RefundState.SUCCEEDED) {
-            return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
+            return reject(request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
         }
         if (current.terminal()) {
-            return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
+            return receipt(request, id, observation, digest, payload, IGNORED, null);
         }
         var changed = locked.capacity().applyOutcome(current, converter.toOutcome(observation, id));
         if (changed.refund().equals(current)) {
-            return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
+            return receipt(request, id, observation, digest, payload, IGNORED, null);
         }
         var next = request.request().apply(changed.refund());
         var change = new RefundProgressChange(
@@ -184,7 +176,7 @@ public class RefundResultService {
                 observation.channelRefundTransactionNo(),
                 observation.succeededAt());
         results.update(change);
-        projections.changed(tenant, change);
+        projections.changed(change);
         var updated = converter.withRefund(facts.child(), changed.refund());
         var stored = converter.withRequest(
                 request,
@@ -192,15 +184,15 @@ public class RefundResultService {
                 request.allocations().stream()
                         .map(c -> c.refund().id().equals(current.id()) ? updated : c)
                         .toList());
-        return receipt(tenant, stored, id, observation, digest, payload, APPLIED, null);
+        return receipt(stored, id, observation, digest, payload, APPLIED, null);
     }
 
     /**
      * A local ambiguous transport failure is not a verified channel result or a financial receipt.
      */
-    public void uncertain(String tenant, String requestId, String refundId) {
-        transactions.writeLocal(tenant, () -> {
-            var locked = locks.lock(tenant, requestId, refundId);
+    public void uncertain(String requestId, String refundId) {
+        transactions.writeLocal(() -> {
+            var locked = locks.lock(requestId, refundId);
             var current = locked.child().child().refund();
             if (current.terminal() || current.state() == RefundState.UNKNOWN) {
                 return true;
@@ -222,7 +214,7 @@ public class RefundResultService {
                     null,
                     null);
             results.update(change);
-            projections.changed(tenant, change);
+            projections.changed(change);
             return true;
         });
     }
@@ -260,32 +252,19 @@ public class RefundResultService {
     }
 
     private RefundResultApplication reject(
-            String tenant,
-            StoredRefundRequest request,
-            String id,
-            RefundObservation o,
-            String digest,
-            String payload,
-            String reason) {
-        receipt(tenant, request, id, o, digest, payload, CONFLICT, reason);
-        return anomaly(tenant, request, id, o, digest, payload, reason);
+            StoredRefundRequest request, String id, RefundObservation o, String digest, String payload, String reason) {
+        receipt(request, id, o, digest, payload, CONFLICT, reason);
+        return anomaly(request, id, o, digest, payload, reason);
     }
 
     private RefundResultApplication anomaly(
-            String tenant,
-            StoredRefundRequest request,
-            String id,
-            RefundObservation o,
-            String digest,
-            String payload,
-            String reason) {
+            StoredRefundRequest request, String id, RefundObservation o, String digest, String payload, String reason) {
         results.recordAnomaly(
                 new RefundResultAnomaly(ids.generate(), o.refundId(), id, reason, digest, payload, now()));
         return present(CONFLICT, id, request);
     }
 
     private RefundResultApplication receipt(
-            String tenant,
             StoredRefundRequest request,
             String id,
             RefundObservation o,

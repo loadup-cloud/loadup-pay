@@ -22,7 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.contracts.event.BusinessEventTypes;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundFinancialEvidence;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
@@ -111,7 +115,8 @@ class RefundProjectionEnvelopeCodecImplTest {
                 RefundState.SUCCEEDED,
                 2,
                 1000,
-                "refund-evidence");
+                "refund-evidence",
+                null);
         var event = new EventEnvelope<>(
                 "delivery-limit", "change-limit", "payment", "pay.payment.refund.limit.v1", 1, "refund", 2, at, data);
         var payload = json.writeValueAsString(event);
@@ -147,7 +152,8 @@ class RefundProjectionEnvelopeCodecImplTest {
                 RefundState.FAILED,
                 2,
                 0,
-                "refund-evidence");
+                "refund-evidence",
+                null);
         var failedEvent = new EventEnvelope<>(
                 "delivery-failed",
                 "change-failed",
@@ -159,6 +165,83 @@ class RefundProjectionEnvelopeCodecImplTest {
                 at,
                 failed);
         assertThrows(CommonException.class, () -> codec.limit(json.writeValueAsString(failedEvent)));
+    }
+
+    PaymentFinancialEvidence paymentEvidence() {
+        return new PaymentFinancialEvidence(
+                1,
+                "payment",
+                "order",
+                "allocation",
+                "operation",
+                "merchant",
+                10000,
+                "CNY",
+                PaymentState.SUCCEEDED,
+                3,
+                "payment-evidence",
+                "attempt",
+                at.minusHours(1),
+                at.minusMinutes(5),
+                false);
+    }
+
+    RefundOutcomeEventDTO financialData(long cumulative, PaymentFinancialEvidence payment) {
+        return new RefundOutcomeEventDTO(
+                "refund",
+                "request",
+                "payment",
+                "order",
+                "operation",
+                "merchant",
+                1000,
+                "CNY",
+                RefundState.SUCCEEDED,
+                2,
+                cumulative,
+                "refund-evidence",
+                new RefundFinancialEvidence(
+                        1, "refund", "request", 2, "refund-evidence", 1000, cumulative, 2, at, payment));
+    }
+
+    EventEnvelope<RefundOutcomeEventDTO> financialEvent(RefundOutcomeEventDTO data) {
+        return new EventEnvelope<>(
+                "delivery-financial",
+                "refund-evidence",
+                "payment",
+                BusinessEventTypes.REFUND_FINANCIAL,
+                1,
+                "refund",
+                2,
+                at,
+                data);
+    }
+
+    @Test
+    void financialLimitEnvelopeRoundTripsAndRequiresBoundedEvidence() {
+        var payment = paymentEvidence();
+        var expected = financialEvent(financialData(1000, payment));
+        assertEquals(expected, codec.limit(json.writeValueAsString(expected)));
+
+        var missingProof = new RefundOutcomeEventDTO(
+                "refund",
+                "request",
+                "payment",
+                "order",
+                "operation",
+                "merchant",
+                1000,
+                "CNY",
+                RefundState.SUCCEEDED,
+                2,
+                1000,
+                "refund-evidence",
+                null);
+        assertThrows(CommonException.class, () -> codec.limit(json.writeValueAsString(financialEvent(missingProof))));
+
+        var excessiveCumulative = json.writeValueAsString(expected)
+                .replace("\"cumulativePaymentRefundedMinor\":1000", "\"cumulativePaymentRefundedMinor\":10001");
+        assertThrows(CommonException.class, () -> codec.limit(excessiveCumulative));
     }
 
     @Test

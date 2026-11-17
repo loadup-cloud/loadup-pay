@@ -15,14 +15,16 @@
  */
 package io.github.loadup.acquire.adapter.security;
 
+import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
+import io.github.loadup.components.resourceserver.LoadUpJwtAuthenticationConverter;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,8 +33,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtAcquireActorProviderTest {
-    private final JwtAcquireActorProvider provider =
-            new JwtAcquireActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    private final JwtAcquireActorProvider provider = new JwtAcquireActorProvider();
 
     @AfterEach
     void clear() {
@@ -54,9 +55,12 @@ class JwtAcquireActorProviderTest {
     }
 
     @Test
-    void delegatesTheVerifiedCallerToken() {
+    void exposesOnlyTheVerifiedBusinessScopeAndPermissions() {
         authenticated("synthetic", List.of("acquire"), "MERCHANT_APP", "merchant");
-        assertEquals("synthetic", provider.current().productAccessToken());
+        var actor = provider.current();
+        assertEquals("0cb99328a82102b51641a7f7289b96eb11c9f6c64663c6328adc20d2cf62d76c", actor.scopeHash());
+        assertEquals(Set.of("pay:acquire:create"), actor.permissions());
+        assertFalse(actor.toString().contains("synthetic"));
     }
 
     @Test
@@ -71,8 +75,6 @@ class JwtAcquireActorProviderTest {
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                         "verified", jwt, List.of(new SimpleGrantedAuthority("pay:acquire:create"))));
-
-        assertEquals("__default__", provider.current().tenantId());
     }
 
     @Test
@@ -90,6 +92,32 @@ class JwtAcquireActorProviderTest {
         assertThrows(CommonException.class, provider::current);
         authenticated("synthetic", List.of("acquire"), "MERCHANT", "another-merchant");
         assertThrows(CommonException.class, provider::current);
+    }
+
+    @Test
+    void serviceIdentityCannotBecomeAMerchantDelegation() {
+        authenticated("synthetic-service", List.of("acquire"), "SERVICE", "merchant");
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, provider::current).getResultCode());
+    }
+
+    @Test
+    void frameworkVerifiedJwtRetainsItsBusinessIdentityAfterCredentialErasure() {
+        var jwt = Jwt.withTokenValue("synthetic-framework-token")
+                .header("alg", "RS256")
+                .subject("app")
+                .claim("principal_type", "MERCHANT_APP")
+                .claim("merchant_id", "merchant")
+                .claim("permissions", List.of("pay:acquire:create"))
+                .build();
+        var authentication = new LoadUpJwtAuthenticationConverter().convert(jwt);
+        authentication.eraseCredentials();
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        var actor = provider.current();
+        assertEquals(Set.of("pay:acquire:create"), actor.permissions());
+        assertFalse(actor.toString().contains("synthetic-framework-token"));
     }
 
     @Test

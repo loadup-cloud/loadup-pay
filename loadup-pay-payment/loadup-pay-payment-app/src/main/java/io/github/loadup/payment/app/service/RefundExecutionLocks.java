@@ -52,7 +52,7 @@ public class RefundExecutionLocks {
         this.attempts = attempts;
     }
 
-    public StoredRefundRequest request(String tenant, String requestId) {
+    public StoredRefundRequest request(String requestId) {
         var reference = refunds.reference(requestId).orElseThrow(() -> new CommonException(NOT_FOUND));
         var parent = payments.lockParent(reference.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!parent.payeeMerchantId().equals(reference.payeeMerchantId())
@@ -72,7 +72,7 @@ public class RefundExecutionLocks {
         return current;
     }
 
-    public LockedRefund child(String tenant, StoredRefundRequest request, String refundId) {
+    public LockedRefund child(StoredRefundRequest request, String refundId) {
         var selected = request.allocations().stream()
                 .filter(c -> c.refund().id().equals(refundId))
                 .findFirst()
@@ -114,7 +114,7 @@ public class RefundExecutionLocks {
         return new LockedRefund(request, facts, capacity);
     }
 
-    public LockedRefund lock(String tenant, String requestId, String refundId) {
-        return child(tenant, request(tenant, requestId), refundId);
+    public LockedRefund lock(String requestId, String refundId) {
+        return child(request(requestId), refundId);
     }
 }

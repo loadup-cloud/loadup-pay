@@ -30,14 +30,12 @@ import java.util.Set;
  * Verified delegation credentials are transport-only and never persisted with admissions.
  */
 public record ProductActor(
-        String tenantId,
         String principalType,
         String principalId,
         String merchantId,
         @DiagnosticHidden String customerAccessToken,
         Set<String> permissions) {
     public ProductActor {
-        DomainChecks.id(tenantId);
         DomainChecks.text(principalType, 24);
         DomainChecks.text(principalId, 128);
         if (merchantId != null) {
@@ -50,7 +48,7 @@ public record ProductActor(
         try {
             return HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256")
-                            .digest(JsonUtil.toJson(Arrays.asList(tenantId, principalType, principalId, merchantId))
+                            .digest(JsonUtil.toJson(Arrays.asList(principalType, principalId, merchantId))
                                     .getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new ExceptionInInitializerError(impossible);

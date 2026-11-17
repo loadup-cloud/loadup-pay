@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +31,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtRefundActorProviderTest {
-    final JwtRefundActorProvider provider = new JwtRefundActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    final JwtRefundActorProvider provider = new JwtRefundActorProvider();
 
     void authenticate(String type, String subject, String merchant) {
         var jwt = Jwt.withTokenValue("synthetic")
@@ -58,7 +56,6 @@ class JwtRefundActorProviderTest {
         authenticate("MERCHANT_APP", "app", "merchant");
         var actor = provider.current();
         assertEquals("merchant", actor.merchantId());
-        assertEquals("__default__", actor.tenantId());
         assertTrue(actor.subjectHash().matches("[0-9a-f]{64}"));
         assertTrue(actor.permissions().contains("pay:payment:refund:create"));
         assertFalse(actor.permissions().contains("pay:payment:refund:read"));

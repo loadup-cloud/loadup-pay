@@ -51,7 +51,7 @@ class PaymentSettlementFactsServiceTest {
     final PaymentAcceptanceGateway store = mock(PaymentAcceptanceGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final AtomicReference<PaymentActor> actor =
-            new AtomicReference<>(new PaymentActor("tenant", "acquire", Set.of("pay:payment:acquire-facts")));
+            new AtomicReference<>(new PaymentActor("acquire", Set.of("pay:payment:acquire-facts")));
     final AtomicReference<StoredPaymentAcceptance> source = new AtomicReference<>(AttemptFixtures.accepted(true));
     final PaymentSettlementFactsService service = new PaymentSettlementFactsService(
             actor::get,
@@ -87,13 +87,13 @@ class PaymentSettlementFactsServiceTest {
 
     @Test
     void limitcenterKeepsItsDedicatedAuthorityScope() {
-        actor.set(new PaymentActor("tenant", "limitcenter", Set.of("pay:payment:limit-facts")));
+        actor.set(new PaymentActor("limitcenter", Set.of("pay:payment:limit-facts")));
         assertEquals("operation", service.paymentFacts(new IdQuery("payment")).limitOperationId());
     }
 
     @Test
     void acquireScopeCannotBeUsedByAnotherService() {
-        actor.set(new PaymentActor("tenant", "other-service", Set.of("pay:payment:acquire-facts")));
+        actor.set(new PaymentActor("other-service", Set.of("pay:payment:acquire-facts")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.paymentFacts(new IdQuery("payment")))
@@ -121,7 +121,7 @@ class PaymentSettlementFactsServiceTest {
 
     @Test
     void missingRoleScopeCannotBeReplacedByTheOtherServicesPermission() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:limit-facts")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:limit-facts")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.paymentFacts(new IdQuery("payment")))

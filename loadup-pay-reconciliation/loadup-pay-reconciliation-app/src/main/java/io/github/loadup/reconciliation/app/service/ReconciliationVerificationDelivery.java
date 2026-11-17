@@ -20,9 +20,9 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationVerificationConverter;
 import io.github.loadup.reconciliation.app.port.ReconciliationPaymentVerification;
 import io.github.loadup.reconciliation.app.security.ReconciliationActor;
@@ -38,7 +38,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 public class ReconciliationVerificationDelivery {
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final ReconciliationVerificationGateway requests;
     private final ReconciliationTransactions transactions;
     private final ReconciliationReviewService reviews;
@@ -46,7 +46,7 @@ public class ReconciliationVerificationDelivery {
     private final ReconciliationVerificationConverter converter;
 
     public ReconciliationVerificationDelivery(
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             ReconciliationVerificationGateway requests,
             ReconciliationTransactions transactions,
             ReconciliationReviewService reviews,
@@ -60,44 +60,41 @@ public class ReconciliationVerificationDelivery {
         this.converter = converter;
     }
 
-    public void deliver(OutboxEvent event) {
+    public void deliver(TaskExecution event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (event == null
-                || event.message() == null
                 || event.id() == null
-                || event.message().version() != 1
-                || !ReconciliationVerificationMessages.TYPE.equals(
-                        event.message().type())) {
+                || event.payloadVersion() != 1
+                || !ReconciliationVerificationMessages.TYPE.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var message = event.message();
-        String tenant = TenantUtil.getTenantId();
+        var message = event;
         var id = ReconciliationVerificationMessages.decode(message.payload());
-        if (!id.equals(message.businessId())) {
+        if (!id.equals(message.bizId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var original = transactions.readSnapshot(
-                tenant, () -> requests.find(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                () -> requests.find(id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         var nativeRow = ReconciliationVerificationService.delivery(outbox, original);
         if (!event.id().equals(original.deliveryId())
-                || !"PROCESSING".equals(nativeRow.status())
+                || nativeRow.status() != TaskStatus.RUNNING
                 || nativeRow.attempts() < 1) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (original.state() == ReconciliationVerificationState.RECORDED) {
             return;
         }
-        transactions.readSnapshot(tenant, () -> approved(tenant, original, false));
+        transactions.readSnapshot(() -> approved(original, false));
         var query = converter.toQuery(original);
         var result = payment.verify(query);
         if (result == null || !query.equals(result.request())) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         var receipt = converter.toReceipt(result);
-        transactions.writeLocal(tenant, () -> {
-            approved(tenant, original, true);
+        transactions.writeLocal(() -> {
+            approved(original, true);
             var current = requests.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() == ReconciliationVerificationState.RECORDED) {
                 return false;
@@ -106,7 +103,7 @@ public class ReconciliationVerificationDelivery {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var actual = ReconciliationVerificationService.delivery(outbox, current);
-            if (!"PROCESSING".equals(actual.status()) || actual.attempts() != nativeRow.attempts()) {
+            if (actual.status() != TaskStatus.RUNNING || actual.attempts() != nativeRow.attempts()) {
                 throw new CommonException(INVALID_STATE);
             }
             requests.update(current.complete(receipt), current.version());
@@ -114,8 +111,8 @@ public class ReconciliationVerificationDelivery {
         });
     }
 
-    private boolean approved(String tenant, ReconciliationVerificationRequest value, boolean lock) {
-        var actor = new ReconciliationActor(tenant, value.callerServiceId(), Set.of());
+    private boolean approved(ReconciliationVerificationRequest value, boolean lock) {
+        var actor = new ReconciliationActor(value.callerServiceId(), Set.of());
         var original = reviews.approvedForVerification(
                 actor,
                 value.reference().batchId(),

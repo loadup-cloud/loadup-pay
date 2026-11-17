@@ -45,20 +45,18 @@ management:
         http.server.requests: true
 
 loadup:
-  webmvc:
-    request-body:
-      path-prefix: /api/internal/
-      max-size: 32MB
-  delayedtask:
+  task:
     enabled: true
     batch-size: ${ACQUIRE_TASK_BATCH_SIZE:100}
     max-attempts: ${ACQUIRE_TASK_MAX_ATTEMPTS:5}
     lease: ${ACQUIRE_TASK_LEASE:PT5M}
     retry-delay: ${ACQUIRE_TASK_RETRY_DELAY:PT1M}
-  scheduler:
-    binder-type: local
-    local:
-      interval: ${ACQUIRE_SCAN_INTERVAL:PT5S}
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
+  webmvc:
+    request-body:
+      path-prefix: /api/internal/
+      max-size: 32MB
   modules:
     acquire:
       order-close:
@@ -75,9 +73,7 @@ loadup:
         keys:
           v1: ${ACQUIRE_CHECKOUT_SECRET:59b4837096b6c2d9ae214058f4d8b7c22be6db20378a72261d5449f12b948383}
   database:
-    multi-tenant:
-      enabled: false
-      required: false
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:
     enabled: true
     locations:

@@ -104,7 +104,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
             var requested = inputTime(command.requestedDueAt());
@@ -155,8 +155,8 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                     Math.incrementExact(deadlineVersion),
                     appliedAt);
             store.extend(extended, receipt);
-            deadlineTasks.register(actor.tenantId(), extended, receipt.deadlineVersion());
-            snapshots.publish(actor.tenantId(), extended.id(), extended.version());
+            deadlineTasks.register(extended, receipt.deadlineVersion());
+            snapshots.publish(extended.id(), extended.version());
             return orderConverter.toDTO(
                     orders.findOrder(command.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
         });
@@ -216,7 +216,6 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
         var framed = new StringBuilder();
         for (String field : List.of(
                 "acquire.order-extend.v1",
-                actor.tenantId(),
                 actor.scopeHash(),
                 command.id(),
                 command.requestKey(),

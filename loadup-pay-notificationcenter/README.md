@@ -1,31 +1,44 @@
 # Notification Center
 
-Pay 通用通知中心，复用 Framework Notification module。系统设计与实施状态见 [ARCHITECTURE](ARCHITECTURE.md)。
+独立通知应用，提供 IN_APP 可靠提交与个人站内信。职责、事务与限制见 [ARCHITECTURE](ARCHITECTURE.md)。
 
-当前批次组装已有站内信能力：`POST /notifications/list`、`unread-count`、`read`、`read-all`、`archive`；
-`publish` 沿用 Framework 的超级管理员授权。个人身份要求认证主体提供有效 userId。
-服务间使用 `POST /api/internal/v1/notifications/submit`，当前仅支持 IN_APP；请求与目标、Outbox 事件同事务受理，后台异步落入收件箱。
-同 source/requestKey 重复内容返回原受理结果，修改内容返回冲突。详情和 JSON 示例见设计第 13 节。
-需要 SERVICE 身份、subject = service_id、`SCOPE_notification:submit:in-app` 及配置租户匹配。
-第三方渠道投递和来源业务应用接入尚待后续实现，不应将 publish 接口作为服务到服务的提交通道。
+## 接入与配置
 
-## 配置与运行前提
+单模块启动入口位于 `loadup-pay-notificationcenter/src/main`，HTTP 默认 8080，readiness 检查数据库。配置以 [application.yml](src/main/resources/application.yml) 为准。
 
-- 准备独立 PostgreSQL 数据库和默认 schema，不与 payment/acquire 共享表。
-- 设置 `NOTIFICATIONCENTER_JDBC_URL`、`NOTIFICATIONCENTER_JDBC_USERNAME`、`NOTIFICATIONCENTER_JDBC_PASSWORD`。
-- 设置 `NOTIFICATIONCENTER_JWT_ISSUER_URI` 及 JWK/公钥配置，audience 默认 `notificationcenter`。
-- 设置 `NOTIFICATIONCENTER_TENANT_ID`（默认 `__default__`）；当前仅服务该租户，其他 tenant_id 的令牌被拒绝。
-- 数据库组件尚无动态 schema 路由；当前使用一个默认 schema，不支持同实例承接多个租户。
-- 启动时要求 Resource Server 开启、数据库使用单租户模式，避免将未实现的动态路由当作隔离能力。
-- 默认 HTTP 8080，readiness 包含数据库；已作为内部服务加入发布脚本和数据库初始化，尚未加入网关或 AuthServer 授权清单。
+| 配置 | 用途 |
+|---|---|
+| `NOTIFICATIONCENTER_JDBC_URL/USERNAME/PASSWORD` | 独立 PostgreSQL，不与交易服务共享表 |
+| `NOTIFICATIONCENTER_JWT_ISSUER_URI` 与 JWKS/公钥配置 | 验证签名；audience 默认 notificationcenter |
+| `DEPLOYMENT_CODE` / `DEPLOYMENT_DATABASE_SCHEMA` | 本部署固定标识与 schema，不由 JWT tenant_id 选择 |
 
-## Gotone 渠道投递
+启用 Resource Server，数据库使用单租户模式。调用客户端由 oauth2-server 数据库管理授权；内部 submit 不发布公网 Gateway 路由。Gotone engine/store-jdbc 与 Notification 共用本应用数据源，未配置真实供应商渠道。
 
-Notification Center 单独装配 Gotone engine 与 JDBC store。Gotone 的服务/渠道配置及发送尝试记录保存在
-Notification Center 自己的数据库及当前部署的默认 schema 中，与 Notification 表使用同一数据源和事务管理器；不跨库读取或写入。
-其他 Pay 应用不安装 `loadup-components-gotone-store-jdbc`，也不共享这份存储。Gotone engine 本身没有数据库依赖，存储通过可选 SPI 接入。
+## 内部提交
 
-`RecordHandler` 记录的是发送尝试日志，不能替代 Notification 的可靠业务状态及投递状态。当前尚未配置任何真实渠道，故不会进行真实渠道投递。
+`POST /api/internal/v1/notifications/submit` 要求 SERVICE、subject=service_id 和 `SCOPE_notification:submit:in-app`：
 
-依赖版本由 Pay BOM 与 Framework BOM 管理。使用方需要先在本地准备相应 Framework 制品。
-本批次未构建、未启动、未执行数据库迁移或真实发送。
+```json
+{
+  "requestKey": "contract:123:activated:v1",
+  "sceneCode": "CONTRACT_ACTIVATED",
+  "recipients": ["user-123"],
+  "channel": "IN_APP",
+  "title": "合约已生效",
+  "body": "你的合约已生效，可查看详情。",
+  "actionUrl": "/contracts/123",
+  "expiresAt": null
+}
+```
+
+返回 SuccessResponse<NotificationAcceptedDTO>；同 source/requestKey 同内容返回原 ID/时间且 duplicate=true，改内容冲突。source 来自认证服务身份。受理成功不等于送达或已读。
+
+## 用户接口
+
+`POST /notifications/{list,unread-count,read,read-all,archive}` 要求有效用户身份；publish 仅超级管理员使用。来源应用不得以 publish 代替内部 submit。
+
+## 限制与待验收
+
+仅支持 IN_APP，不支持外部渠道、模板参数或业务关联/投递状态查询。来源业务接线、数据库事务与幂等、Task 重试/过期/耗尽和权限隔离仍需运行验收，完整清单见架构文档。
+
+阶段 1B：NotificationCenter 不再建立租户过滤器；JWT 凭证守卫保持 order=0。WebMVC 的 DeploymentCodeFilter 在安全链前校验部署 code，通知中心不读取 JWT tenant_id 或请求头选择 schema。

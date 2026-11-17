@@ -23,7 +23,6 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.kms.KmsCiphertext;
 import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.components.kms.KmsTemplate;
@@ -86,22 +85,19 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
 
     @Override
     public String fingerprint(String service, PaymentInputPrepareCommand command, String keyId) {
-        String tenant = TenantUtil.getTenantId();
         String secret = properties.fingerprintKeys().get(keyId);
         if (secret == null) {
             throw new CommonException(INPUT_UNAVAILABLE);
         }
         return DigestUtils.hmacSha256(
-                mapper.writeValueAsString(
-                        new FingerprintPayload("loadup-pay-input-v1", tenant, service, keyId, command)),
+                mapper.writeValueAsString(new FingerprintPayload("loadup-pay-input-v1", service, keyId, command)),
                 secret);
     }
 
     @Override
     public EncryptedPaymentInput encrypt(String service, String inputRef, PaymentInputPrepareCommand command) {
-        String tenant = TenantUtil.getTenantId();
         requireNoTransaction();
-        byte[] bytes = mapper.writeValueAsBytes(new CipherPayload(1, tenant, service, inputRef, command));
+        byte[] bytes = mapper.writeValueAsBytes(new CipherPayload(1, service, inputRef, command));
         try {
             var value = template().encrypt(KmsKeyRef.latest(properties.encryptionKey()), bytes);
             return new EncryptedPaymentInput(value.keyName(), value.version(), value.value());
@@ -112,7 +108,6 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
 
     @Override
     public PaymentInteractionDTO decrypt(PaymentInput stored) {
-        String tenant = TenantUtil.getTenantId();
         requireNoTransaction();
         if (!properties.encryptionKey().equals(stored.encryptionKey())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -125,7 +120,6 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
             CipherPayload payload = mapper.readValue(bytes, CipherPayload.class);
             if (payload == null
                     || payload.schemaVersion() != 1
-                    || !tenant.equals(payload.tenant())
                     || !stored.id().equals(payload.inputRef())
                     || !stored.callerServiceId().equals(payload.service())
                     || payload.command() == null
@@ -174,7 +168,6 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
 
     private record FingerprintPayload(
             String protocol,
-            String tenant,
             String service,
             String keyId,
             @DiagnosticHidden PaymentInputPrepareCommand command) {
@@ -186,7 +179,6 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
 
     private record CipherPayload(
             int schemaVersion,
-            String tenant,
             String service,
             @DiagnosticHidden String inputRef,
             @DiagnosticHidden PaymentInputPrepareCommand command) {

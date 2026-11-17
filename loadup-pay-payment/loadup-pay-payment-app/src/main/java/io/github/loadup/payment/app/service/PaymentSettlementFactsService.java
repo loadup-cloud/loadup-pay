@@ -81,7 +81,7 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
         if (!limitAccess && !acquireAccess) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(query.id());
             var first = store.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (acquireAccess && !actor.serviceId().equals(first.callerServiceId())) {

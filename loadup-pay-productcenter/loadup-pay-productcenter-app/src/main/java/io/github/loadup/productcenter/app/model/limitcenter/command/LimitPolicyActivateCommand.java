@@ -34,8 +34,7 @@ public record LimitPolicyActivateCommand(
 
         @Schema(description = "Consecutive immutable revision, starting at 1") @Positive int policyVersion,
 
-        @Schema(description = "Canonical SHA-256 from LimitPolicyHash, bound to the trusted tenant")
-        @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String policyHash,
+        @Schema(description = "Canonical SHA-256 from LimitPolicyHash") @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String policyHash,
 
         @Schema(description = "Payee merchant owning this policy") @NotBlank @Size(max = 64) String payeeMerchantId,
 

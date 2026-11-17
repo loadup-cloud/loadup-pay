@@ -25,9 +25,9 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskDispatcher;
-import io.github.loadup.components.delayedtask.DelayedTaskProperties;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.TaskDispatcher;
+import io.github.loadup.components.task.TaskProperties;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.reconciliation.app.service.ReconciliationExecutionService;
@@ -91,8 +91,8 @@ class ReconciliationComparisonRetryPersistenceIT {
     private final ReconciliationImportPersistenceIT.Actors actors;
     private final ReconciliationInputGateway inputs;
     private final ReconciliationTransactions transactions;
-    private final DelayedTaskDispatcher dispatcher;
-    private final DelayedTaskProperties properties;
+    private final TaskDispatcher dispatcher;
+    private final TaskProperties properties;
     private final FaultingResults results;
     private final JdbcTemplate jdbc;
     private final PlatformTransactionManager transactionManager;
@@ -103,8 +103,8 @@ class ReconciliationComparisonRetryPersistenceIT {
             ReconciliationImportPersistenceIT.Actors actors,
             ReconciliationInputGateway inputs,
             ReconciliationTransactions transactions,
-            DelayedTaskDispatcher dispatcher,
-            DelayedTaskProperties properties,
+            TaskDispatcher dispatcher,
+            TaskProperties properties,
             FaultingResults results,
             JdbcTemplate jdbc,
             PlatformTransactionManager transactionManager) {
@@ -125,74 +125,67 @@ class ReconciliationComparisonRetryPersistenceIT {
         int previousMaxAttempts = properties.getMaxAttempts();
         properties.setMaxAttempts(1);
         try {
-            String tenant = "tenant-" + UUID.randomUUID();
             LocalDate date = LocalDate.of(2026, 10, 26);
-            var batch = actors.call(
-                    tenant, () -> batches.create(new ReconciliationBatchCreateCommand("batch", "account", date)));
+            var batch =
+                    actors.call(() -> batches.create(new ReconciliationBatchCreateCommand("batch", "account", date)));
             var scope =
                     new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, WechatTradeStatementParser.PROFILE);
             var channel = dataset(scope, ReconciliationSide.CHANNEL, 100L);
             var ledger = dataset(scope, ReconciliationSide.LEDGER, 90L);
-            transactions.writeLocal(tenant, () -> {
+            transactions.writeLocal(() -> {
                 inputs.insertSealed(channel.manifest().artifactId(), channel);
                 inputs.insertSealed(ledger.manifest().artifactId(), ledger);
                 return true;
             });
-            actors.call(
-                    tenant,
-                    () -> batches.attach(new ReconciliationInputAttachCommand(
-                            batch.batchId(),
-                            ReconciliationSide.CHANNEL,
-                            channel.manifest().artifactId())));
-            actors.call(
-                    tenant,
-                    () -> batches.attach(new ReconciliationInputAttachCommand(
-                            batch.batchId(),
-                            ReconciliationSide.LEDGER,
-                            ledger.manifest().artifactId())));
-            var started =
-                    actors.call(tenant, () -> batches.start(new ReconciliationBatchStartCommand(batch.batchId())));
+            actors.call(() -> batches.attach(new ReconciliationInputAttachCommand(
+                    batch.batchId(),
+                    ReconciliationSide.CHANNEL,
+                    channel.manifest().artifactId())));
+            actors.call(() -> batches.attach(new ReconciliationInputAttachCommand(
+                    batch.batchId(),
+                    ReconciliationSide.LEDGER,
+                    ledger.manifest().artifactId())));
+            var started = actors.call(() -> batches.start(new ReconciliationBatchStartCommand(batch.batchId())));
             results.failOnceFor(batch.batchId());
             dispatcher.execute();
-            var failed = actors.call(tenant, () -> batches.detail(new IdQuery(batch.batchId())));
+            var failed = actors.call(() -> batches.detail(new IdQuery(batch.batchId())));
             assertEquals("FAILED", failed.nativeStatus());
             assertEquals(started.runId(), failed.runId());
-            assertEquals(0L, differenceCount(tenant, batch.batchId()));
+            assertEquals(0L, differenceCount(batch.batchId()));
             var command = new ReconciliationBatchRetryCommand(batch.batchId(), failed.runId(), failed.taskId());
             var ready = new CountDownLatch(2);
             var go = new CountDownLatch(1);
             try (var pool = Executors.newFixedThreadPool(2)) {
-                var first = pool.submit(() -> retry(tenant, command, ready, go));
-                var second = pool.submit(() -> retry(tenant, command, ready, go));
+                var first = pool.submit(() -> retry(command, ready, go));
+                var second = pool.submit(() -> retry(command, ready, go));
                 assertTrue(ready.await(10, TimeUnit.SECONDS));
                 go.countDown();
                 assertNotEquals(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
             }
-            var queued = actors.call(tenant, () -> batches.detail(new IdQuery(batch.batchId())));
+            var queued = actors.call(() -> batches.detail(new IdQuery(batch.batchId())));
             assertEquals(failed.taskId(), queued.taskId());
             assertEquals("PENDING", queued.nativeStatus());
             dispatcher.execute();
-            var completed = actors.call(tenant, () -> batches.detail(new IdQuery(batch.batchId())));
+            var completed = actors.call(() -> batches.detail(new IdQuery(batch.batchId())));
             assertEquals("SUCCEEDED", completed.nativeStatus());
             assertEquals(ReconciliationState.DIFFERENCES, completed.state());
             assertEquals(started.runId(), completed.runId());
             assertEquals(Long.valueOf(1L), completed.differenceCount());
-            assertEquals(1L, differenceCount(tenant, batch.batchId()));
-            assertThrows(CommonException.class, () -> actors.call(tenant, () -> batches.retry(command)));
+            assertEquals(1L, differenceCount(batch.batchId()));
+            assertThrows(CommonException.class, () -> actors.call(() -> batches.retry(command)));
         } finally {
             properties.setMaxAttempts(previousMaxAttempts);
         }
     }
 
-    private boolean retry(
-            String tenant, ReconciliationBatchRetryCommand command, CountDownLatch ready, CountDownLatch go)
+    private boolean retry(ReconciliationBatchRetryCommand command, CountDownLatch ready, CountDownLatch go)
             throws Exception {
         ready.countDown();
         if (!go.await(10, TimeUnit.SECONDS)) {
             throw new AssertionError("Retry barrier timed out");
         }
         try {
-            actors.call(tenant, () -> batches.retry(command));
+            actors.call(() -> batches.retry(command));
             return true;
         } catch (CommonException rejected) {
             assertEquals(ReconciliationResultCodeEnum.INVALID_STATE, rejected.getResultCode());
@@ -200,7 +193,7 @@ class ReconciliationComparisonRetryPersistenceIT {
         }
     }
 
-    private long differenceCount(String tenant, String batchId) {
+    private long differenceCount(String batchId) {
         return jdbc.queryForObject(
                 "SELECT COUNT(*) FROM reconciliation_difference WHERE batch_id = ?", Long.class, batchId);
     }

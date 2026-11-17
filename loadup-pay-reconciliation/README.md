@@ -1,165 +1,47 @@
-# Reconciliation 后置交易对账
+# Reconciliation 后置对账
 
-> 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
+比较同账户、账期下的完整封存 CHANNEL 与 LEDGER 输入，记录差错和独立复核；不裁定支付终态或直接修改资金。当前支持微信 ALL 交易账单，支付宝解析及金融处置未完成。来源、封存和任务规则见 [ARCHITECTURE](ARCHITECTURE.md)。
 
-首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
+## 接入配置
 
-当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（标准 HTTP 声明接口位于 client.http）：批次创建/封存输入引用、原运行与持久任务、
-双侧完整输入核对、多原因差错、数据库适配和 HTTP 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
-微信 ALL 交易账单解析源码按 2026-01-16 官方格式实现，独立校验账户、账期、规范化行和完整汇总；已接受信 SERVICE 的
-File/Transfer 手工来源导入；微信官方下载与 payment 只读 HTTP 已有源码，本服务官方来源请求/任务/File/Transfer 接线源码已补。
+启动模块为 `loadup-pay-reconciliation-bootstrap`，HTTP 默认 8080，local profile 为 8087。配置见 [application.yml](loadup-pay-reconciliation-bootstrap/src/main/resources/application.yml)。
 
-应用间调用已迁移为标准 HTTP；所有新增源码未启动服务、执行真实 HTTP 业务调用或部署，不代表当前业务环境已可用。官方来源真实环境验收、支付宝解析、
-差错独立复核/审批源码已补，显式可信源端只读查询/留档源码已补，受控金融处置仍待继续；payment 微信权威采集快照与完整导入已有源码，不直接改交易资金状态。
+| 配置 | 用途/默认值 |
+|---|---|
+| `RECONCILIATION_JDBC_URL/USERNAME/PASSWORD` | 独立 PostgreSQL，业务、File、Transfer、任务共用数据源 |
+| `JWT_ISSUER_URI`、JWKS/公钥 | 入站 audience 为 reconciliation |
+| `SERVICE_AUTH_TOKEN_URI/CLIENT_SECRET` | 出站 payment 的 OAuth2 SERVICE 凭证 |
+| `RECONCILIATION_S3_BUCKET` | 私有证据 bucket；不会自动创建 |
+| `RECONCILIATION_S3_REGION/ENDPOINT/PATH_STYLE/ACCESS_KEY/SECRET_KEY` | S3 配置或默认凭证链 |
+| `RECONCILIATION_MAX_RECORDS` | 最大记录数，默认 10000 |
+| `RECONCILIATION_STATEMENT_MAX_BYTES` | 原账单最大 16 MiB，允许范围 32 KiB–16 MiB |
+| `RECONCILIATION_LEDGER_FETCH_SECONDS` | 完整快照获取预算，默认 60 秒 |
 
+账户目录默认空、拒绝全部操作。配置 `loadup.modules.reconciliation.accounts.tenants.<tenant>.<code>` 的 channel、account-scope-hash、statement-profile、实际 statement-account、service-ids；官方下载还需 statement-binding-revision-id。hash 由受控账户身份计算，不接受请求自报。
 
-实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
+仅 SERVICE 且 sub=service_id；部署标识来自本地固定配置，必须有当前账户授权。原 caller 约束不因令牌轮换或账户配置变更被绕过。
 
-## 业务装配
+## 操作入口
 
-- 构建入口 `python3 scripts/build.py reconciliation`；运行前准备数据库、认证和存储配置。
-- 独立 `RECONCILIATION_JDBC_URL/USERNAME/PASSWORD`、`RECONCILIATION_JWT_ISSUER_URI/AUDIENCE/JWK_SET_URI`。
-- 导入与比较上限 `RECONCILIATION_MAX_RECORDS` 默认 10000；解析原字节上限 `RECONCILIATION_STATEMENT_MAX_BYTES` 默认 16
-  MiB。
-- DelayedTask 同库注册/执行，默认每轮 10 条、最大 5 次、租约 5 分钟、重试间隔 1 分钟；Local Scheduler 每 30 秒唤醒。
-- 默认账户目录为空，拒绝全部账户操作；外部配置 `loadup.modules.reconciliation.accounts.tenants.<tenant>.<code>`，包括
-  channel、account-scope-hash、statement-profile、实际 statement-account 与明确 service-ids。目录不存渠道密钥，不接受请求传入账户
-  hash。
-- 仅已验证的 SERVICE 身份，sub 必须等于 service_id；租户来自 JWT。所需权限分别是
-  `pay:reconciliation:batch:create/attach/start/read/retry`。
-  原批次只允许原 caller 及当前账户授权读取/操作；商户凭证不能直接取得对账运营权限。
-- HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,task,retry,differences}`；start 使用
-  `ReconciliationBatchStartCommand`。
-  内部契约是 reconciliation-client 的 ReconciliationHttpService，路径 /api/internal/v1/reconciliation/batches/，
-  MVC 适配器复用原 Facade、完整 JWT 校验和业务错误信封。
-  differences 使用通用 PageDTO/PageResponse，默认 1/20，最大 100；终态差错查询不回源交易服务。
-  detail 在 run 已建立时显示任务 ID 与原生状态；retry 要求 batchId、runId、expectedTaskId，只重试原 FAILED 任务，保留两份封存输入。
+| POST 路径组 | 操作与权限前缀 |
+|---|---|
+| `/api/reconciliation/batches/` | create/attach/start/detail/task/retry/differences；`pay:reconciliation:batch:*` |
+| `/api/reconciliation/imports/` | upload/submit/detail/retry；`pay:reconciliation:import:*` |
+| `/api/reconciliation/ledger/` | prepare/import/retry；`pay:reconciliation:ledger:*` |
+| `/api/reconciliation/statements/` | submit/detail/retry；`pay:reconciliation:statement:submit/read/retry` |
+| `/api/reconciliation/reviews/` | evidence/propose/decide/detail/history；`pay:reconciliation:review:upload/propose/decide/read` |
+| `/api/reconciliation/verifications/` | submit/detail/retry；独立 verification 权限 |
 
-以下外部配置仅示意结构；hash 应由受控账户身份规范计算，不直接使用示例值：
+内部六个批次契约位于 `/api/internal/v1/reconciliation/batches/`，复用相同 Facade 与认证。差错分页，终态查询不回查交易源。批次 retry 要求原 batchId/runId/expectedTaskId，仅重试原 FAILED 任务。
 
-```yaml
-loadup:
-  modules:
-    reconciliation:
-      accounts:
-        tenants:
-          merchant-tenant:
-            wechat-account:
-              channel: WECHAT
-              account-scope-hash: <actual-account-scope-sha256>
-              statement-profile: wechat-trade-all-20260116
-              statement-binding-revision-id: <original-payment-binding-revision-id>
-              statement-account:
-                merchant-id: '1234567890'
-                # sub-merchant-id: '1234567899' # Set for the actual provider sub-merchant.
-              service-ids: [ pay-ops ]
-```
+手工 upload 为 multipart UTF-8 微信 ALL 原文，不接受 xlsx/ZIP/GZIP 或 LEDGER CSV。submit 使用原 batchId/requestKey/fileId/sourceSha256；hash 只绑定文件，不证明官方来源。
 
-本服务只有经受信导入/导出适配器完整验证并封存的 artifact 才能 attach。普通文件上传不是封存证明；当前不开放直接上传规范化行或成功结果。
-微信解析器不能证明下载来源真实性；不支持的 REVOKED 明细明确拒绝整份输入，等待独立撤销补偿身份接入，不会被跳过。
+官方 submit 只传 batchId/requestKey，由目录冻结原绑定；ledger prepare/import 为显式两步，不自动轮询、导入或启动比较。INIT/BLOCKED 快照不可导入；修复源事实后用新 requestKey 请求新快照，原 capture 不覆盖。
 
-## 手工渠道文件导入
+出站 payment 默认 `http://payment:8080`；普通组使用框架默认，`payment-statements` 使用 60 秒、32 MiB 响应和独立 8/4 连接池，页大小 100。查证使用独立 `payment-verification` 超时预算；目标服务验证最小权限。
 
-当前支持微信 API ALL 格式的原始 UTF-8 文本文件（非 xlsx、ZIP 或 GZIP）。入口是 POST /api/reconciliation/imports：
+## 限制与待验收
 
-| 路径    | 输入与权限                                                                  | 结果                                                                        |
-|---------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-| /upload | multipart file；pay:reconciliation:import:upload                            | FileResource id、实际字节数、SHA256；不返回 storageId、存储地址或密钥       |
-| /submit | batchId、requestKey、fileId、sourceSha256；pay:reconciliation:import:submit | 原导入、原任务和 MANUAL_UPLOAD 来源标记                                     |
-| /detail | IdQuery；pay:reconciliation:import:read                                     | 逻辑 INIT/SEALED/REJECTED、原 artifact、独立 native taskStatus 与固定拒绝码 |
-| /retry  | importId、expectedTaskId；pay:reconciliation:import:retry                   | 仅原 FAILED 重排/原 QUEUED 重放；不替换文件或重领 RUNNING                   |
+只支持 WECHAT/`wechat-trade-all-20260116`，不支持的 REVOKED 明细拒绝整份输入；手工上传不升级为官方证明。Transfer 无崩溃租约回收，RUNNING 不自动重领；文件保留/清理、支付宝解析和金融修正仍待完善。
 
-sourceSha256 必须是上传返回的原字节 SHA256，用于绑定选择的文件，不证明渠道真实性。原请求重放不重新读取源文件；变更批次/文件/hash
-冲突。
-原租户/调用方来自已验证 JWT，调用方必须同时是文件拥有者、批次原 caller，且仍有当前账户目录授权。
-实际账单商户/子商户标识由目录 statement-account 冻结，不能由请求参数传入；目录变更后不重解释原导入。
-批次锁串行限制同一批次一个 INIT 渠道导入；已有渠道输入或运行/完成批次不能新导入。
-
-提交先在事务外读取并固定原文件 id/storageId/长度/SHA256，再在同库事务登记导入、业务文件引用和原 Transfer 任务。
-任务绑定 tenant/owner/taskId/handler/sourceFileId 和唯一 importId option；只读 RR 查证原任务为 RUNNING，解析在事务外。
-接收完整原长度并核对 SHA256 后才判断账单内容；I/O/短读为依赖失败，保留 INIT 等待原 FAILED 显式重试。
-完整字节与原 hash 不符、格式/汇总/作用域不符则 REJECTED，不写部分行或伪造空文件。
-封存输入/全部行、批次 CHANNEL 引用和导入 SEALED 在一个本地写事务提交。原任务 ACK 丢失或报告失败不撤销封存，重放核对原
-manifest 后跳过解析。
-
-MANUAL_UPLOAD 明确记录于导入审计，capture id 对应原 import id；在 /imports/detail 查看来源。普通上传不升级为渠道验签下载，不开放
-LEDGER CSV 导入。
-长期业务文件引用在成功或拒绝后均保留，原生 Transfer 释放临时引用不使证据文件可删除；保留/清理政策仍待后续实施。
-Transfer 当前没有租约恢复；崩溃遗留 RUNNING 不自动改成 QUEUED，逻辑是否已封存可独立查询。需后续补受控恢复与运行证明，不能声称已覆盖崩溃恢复。
-
-业务 profile 新增 LoadUp Transfer/File 本地装配与 S3 binder，元数据和业务表共用本服务 DataSource，不引入内部 HTTP。
-需提供私有 RECONCILIATION_S3_BUCKET，可配置 REGION/ENDPOINT/PATH_STYLE；使用默认凭证链或一对
-S3_ACCESS_KEY/S3_SECRET_KEY，不自动创建 bucket。
-Local Scheduler 同时唤醒 Transfer 与比较任务；默认每轮 10 个导入，multipart 上限默认 16 MiB/请求 17 MiB，可配置
-IMPORT_MAX_REQUEST_SIZE。
-本轮仅写源码/测试/迁移/配置，未连接 S3、数据库，未运行任何命令验收。
-
-## payment 权威采集快照（P1 源码）
-
-当前仅 WECHAT / `wechat-trade-all-20260116`。使用 [采集契约](../ARCHITECTURE.md)，
-调用 payment 的标准 HTTP；不读 realtime，不跨数据库，不接受上传 LEDGER CSV。
-
-- `POST /api/reconciliation/ledger/prepare`：batchId/requestKey；按原批次 scope 请求异步源端快照，重复 requestKey 查询原结果。
-- `POST /api/reconciliation/ledger/import`：batchId/captureId；只接受 SEALED，完整分页/空 EOF/总计/hash/冻结范围核对后，
-  上传原规范二进制证据，再同事务保存文件长期引用、LEDGER 全行和批次关联；重复原 capture 不做远端 IO。
-- `POST /api/reconciliation/ledger/retry`：batchId/captureId/expectedTaskId；只重试源端原 FAILED 任务，不能刷新已封存结果。
-- 独立运营权限 `pay:reconciliation:ledger:prepare/import/retry`，仍要求原 caller 与当前账户目录授权。
-- 出站服务凭证为 `RECONCILIATION_SERVICE_ID`（默认 reconciliation），配置 `RECONCILIATION_PAYMENT_TENANT_ID`、
-  `RECONCILIATION_PAYMENT_AUDIENCE`（默认 payment）和 `RECONCILIATION_PAYMENT_TOKEN_FILE`。当前凭证配置对应一个租户，其他租户显式拒绝。
-  接收方需授予 `pay:payment:reconciliation:capture:create/read/retry`；逐次读取挂载凭证，未签发真实令牌。
-- payment 目标按应用名默认 http://payment:8080；本地 profile 为 localhost:8081。普通调用使用框架默认超时与大小，
-  账单下载使用独立组 60s 读取、8/4 连接限额和 32 MiB 响应上限。完整抓取预算由 RECONCILIATION_LEDGER_FETCH_SECONDS 控制；分页 100。
-  目标地址由部署配置，不写在业务代码。
-- INIT/BLOCKED 不能导入；BLOCKED 是覆盖阻断样本，无可导出金额/行。查证原资金后使用新 requestKey 请求新 RR，原快照永不覆盖。
-
-账务源生成和对账挂入是显式两步，当前不自动轮询/自动导入或启动核对。导入数据库失败可重放原 capture，
-上传后尚未登记的文件按 File 的无引用资源政策处理，长期证据不自动清理。上述源码/测试未编译运行或联调。
-
-## 官方 CHANNEL 来源（P1，2026-10-28）
-
-`POST /api/reconciliation/statements/{submit,detail,retry}` 提供受信服务运营入口，独立权限
-`pay:reconciliation:statement:submit/read/retry`。
-submit 仅传 batchId/requestKey，账户目录显式配置 `statement-binding-revision-id`；未配置仍允许手工导入，但不能官方下载。
-原请求与 DelayedTask 先同库落 INIT，再由原生 handler 事务外调用 payment 的原绑定只读 HTTP、保存原件/凭证。
-两个长期 File 引用、Transfer、OFFICIAL_DOWNLOAD import 与来源 READY 原子登记；原严格解析随后封存批次 CHANNEL。
-READY 的 sourceId 就是 importId；下载 taskId 与 Transfer taskId 独立，重试分别沿用原 expectedTaskId，不重领 RUNNING。
-
-payment-statement 独立 channel 使用原 payment 目标、round_robin、20MB inbound 上限及默认 60s deadline；服务凭证需增加
-payment 官方来源读取权限。
-原 scope/实际收款主体/当前授权每次核验，绑定版本冻结，配置轮换不会换掉原来源；原件和凭证不提供公开链接。
-明细/重试/封存均校验 READY 来源行及长期引用，sourceKind 不能自行声明为可信来源。
-内部 import key 保留 `official:` 前缀，手工 submit 禁用。statement-max-bytes 需 32KiB–16MiB。
-
-来源表为 reconciliation_statement_request；原件/凭证留 FileResource，不将 URL/令牌原文放进业务表。
-未附着对象清理、来源专用 MySQL 原子性/并发测试、支付宝解析、真实查询验收及受控金融处置仍待完成。新源码、迁移和测试均未运行。
-详见 [来源契约](../ARCHITECTURE.md)。
-
-## 差错独立复核（P1）
-
-`/api/reconciliation/reviews/{evidence,propose,decide,detail,history}` 提供私有证据上传、不可变提案与独立 SERVICE
-审批、当前详情和追加审计。原 DIFFERENCES 结果、差错和资金不被复核改写。新权限为 pay:reconciliation:review:
-upload/propose/decide/read；独立审批服务必须获得相同账户目录授权，且身份与原提案提交服务不同。这不构成两名自然人审批证明，也不授予修改原批次的权限。
-
-未提案时为虚拟 INIT0；原子提案后 PROPOSED1，独立审批为 APPROVED2 或 REJECTED2，驳回可在当前版本重新提案。原提案和命令回执不覆盖，重放返回原
-ACK，当前状态使用 detail。备注诊断隐藏，File 证据永久引用与 proposal/event/head 同库提交。三表迁移、领域/应用/映射和真实
-MySQL 故障注入/并发 IT 测试源码已补，均未运行。详见 [复核设计](../ARCHITECTURE.md)
-；源端只读查询/观察留档源码已补，实际验收与金融修正仍待继续。
-
-## 获批差错的显式源端查询
-
-`/api/reconciliation/verifications/{submit,detail,retry}` 只允许 verification 独立权限、当前账户授权、原
-APPROVED/NEEDS_SOURCE_VERIFICATION 提案及精确审批事件/版本。请求与原 Outbox 先同库冻结，服务器选取原自然键和优先 LEDGER
-的原请求号。原 SourceQuery 只从 payment 已提交对象重建原绑定，事务外只读查询原渠道；无对象/未提交/不唯一返回明确覆盖缺口，UNKNOWN
-不变成未收款。
-
-源回执与原请求完全关联后首次有效提交独立留档，RECORDED 不等于差错解决；ACK 丢失或原 FAILED
-重放不再覆盖回执/重复查询。收款/退款金额、结果与批次/复核均无写入口。复用框架 Outbox、60s 的独立 payment-verification 引用超时
-与原 SERVICE Token（需新增 payment 读取权限）。两侧 Client
-API/持久化/投递/Facade/索引迁移和测试源码已补，均未运行。见 [查证设计](../ARCHITECTURE.md)。
-
-## Payment HTTP 客户端迁移
-
-付款快照、账单来源下载和只读查证已改为标准 HTTP Service Clients，payment 目标按应用名默认 http://payment:8080。
-普通组使用框架默认；payment-statements 组保留 60s、32 MiB 响应上限及独立 8/4 连接限额，兼顾 Base64 膨胀与普通查证可用连接。
-原 SERVICE token 每次重读，事务外联网、错误白名单与原来源校验保留；分页错序、非封存统计、字节/哈希异常不能当作权威输入。
-本服务六个内部提供操作亦已迁移 HTTP，旧协议生成/装配已删除；源码进度与未运行的验收见 [迁移清单](../HTTP_MIGRATION.md)。
+待验收：PostgreSQL 封存/比较/回执的原子性与并发，File/Transfer/S3/JWT/HTTP 真链路、官方来源验真、源端采集与分页完整性、任务中断/重试、独立复核授权及只读查证。入口见 [测试说明](loadup-pay-reconciliation-infrastructure/src/test/README.md)。

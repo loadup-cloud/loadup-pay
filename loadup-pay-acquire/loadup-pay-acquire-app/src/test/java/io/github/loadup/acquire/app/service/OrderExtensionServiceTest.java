@@ -31,7 +31,6 @@ import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -91,7 +90,7 @@ class OrderExtensionServiceTest {
     final AtomicLong deadlineVersion = new AtomicLong(1L);
     final UnitTransactions manager = new UnitTransactions();
     final OrderExtensionService service = new OrderExtensionService(
-            () -> new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:extend")),
+            () -> new AcquireActor(OWNER, Set.of("pay:acquire:extend")),
             orders,
             store,
             codec,
@@ -193,12 +192,12 @@ class OrderExtensionServiceTest {
                 .extend(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(current.get().order(), c.getArgument(1));
-                    assertEquals(2L, (long) c.getArgument(2));
+                    assertEquals(current.get().order(), c.getArgument(0));
+                    assertEquals(2L, (long) c.getArgument(1));
                     return null;
                 })
                 .when(deadlines)
-                .register(eq("tenant"), any(), anyLong());
+                .register(any(), anyLong());
     }
 
     @AfterEach
@@ -213,7 +212,7 @@ class OrderExtensionServiceTest {
         service.extend(command);
         assertEquals(NOW.plusMinutes(15), current.get().order().orderDueAt());
         assertEquals(2L, deadlineVersion.get());
-        verify(deadlines, times(1)).register("tenant", current.get().order(), 2L);
+        verify(deadlines, times(1)).register(current.get().order(), 2L);
         verify(store, times(1)).extend(any(), any());
         verify(codec).decodeDirectPay(any());
         verify(codec, never()).decodeIntent(any());
@@ -223,7 +222,7 @@ class OrderExtensionServiceTest {
     @Test
     void deadlineTaskRegistrationFailureRollsBackBeforePublishingTheNewDeadline() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        doThrow(failure).when(deadlines).register(anyString(), any(), anyLong());
+        doThrow(failure).when(deadlines).register(any(), anyLong());
         assertSame(failure, assertThrows(CommonException.class, () -> service.extend(command)));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);

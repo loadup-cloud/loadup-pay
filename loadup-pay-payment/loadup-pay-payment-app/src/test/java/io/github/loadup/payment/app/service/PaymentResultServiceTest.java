@@ -245,7 +245,7 @@ class PaymentResultServiceTest {
     @BeforeEach
     void setup() {
         when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
-        when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
+        when(locks.lock("payment", "acquire")).thenAnswer(c -> {
             active();
             return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
@@ -331,7 +331,7 @@ class PaymentResultServiceTest {
                     return null;
                 })
                 .when(events)
-                .publish(anyString(), any(), anyBoolean(), any());
+                .publish(any(), anyBoolean(), any());
     }
 
     @AfterEach
@@ -341,7 +341,7 @@ class PaymentResultServiceTest {
 
     @Test
     void successCommitsClaimAttemptPaymentRefundCapacityReceiptAndTargetEventsTogether() {
-        var result = service.record("tenant", success());
+        var result = service.record(success());
         assertEquals(APPLIED, result.disposition());
         assertEquals(PaymentState.SUCCEEDED, accepted.get().payment().state());
         assertEquals(PaymentAttemptState.SUCCEEDED, attempt.get().attempt().state());
@@ -350,7 +350,7 @@ class PaymentResultServiceTest {
         assertEquals(4000, capacity.get().availableMinor());
         assertEquals(AttemptFixtures.NOW, capacity.get().succeededAt());
         assertEquals(1, manager.commits);
-        verify(events).publish(eq("tenant"), eq(accepted.get()), eq(false), any());
+        verify(events).publish(eq(accepted.get()), eq(false), any());
     }
 
     @Test
@@ -362,25 +362,25 @@ class PaymentResultServiceTest {
         var action = new AlipayH5ChannelAction(url, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
         var submission = new ChannelPaymentSubmission(original.identity(), original.amount(), null, action);
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
-        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
+        doReturn(locked).when(locks).lock("payment", "acquire");
         doAnswer(call -> {
                     active();
                     return null;
                 })
                 .when(actions)
-                .record("tenant", locked, original, submission, null);
+                .record(locked, original, submission, null);
         var before = accepted.get();
 
-        var result = service.recordSubmission("tenant", original, submission);
+        var result = service.recordSubmission(original, submission);
 
         assertEquals(IGNORED, result.disposition());
         assertNull(result.receiptId());
         assertSame(before, accepted.get());
         assertEquals(1, manager.commits);
-        verify(actions).record("tenant", locked, original, submission, null);
-        verify(actions).present("tenant", locked);
+        verify(actions).record(locked, original, submission, null);
+        verify(actions).present(locked);
         verifyNoInteractions(results, changes, attempts, events, codec);
-        assertThrows(CommonException.class, () -> service.recordRecovery("tenant", recovery(original), submission));
+        assertThrows(CommonException.class, () -> service.recordRecovery(recovery(original), submission));
     }
 
     @Test
@@ -401,16 +401,16 @@ class PaymentResultServiceTest {
                 null,
                 1,
                 BusinessTime.external(AttemptFixtures.NOW));
-        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
-        when(actions.present("tenant", locked)).thenReturn(presented);
+        doReturn(locked).when(locks).lock("payment", "acquire");
+        when(actions.present(locked)).thenReturn(presented);
         doAnswer(call -> {
                     active();
                     return null;
                 })
                 .when(actions)
-                .record(eq("tenant"), eq(locked), eq(original), eq(submission), anyString());
+                .record(eq(locked), eq(original), eq(submission), anyString());
 
-        var result = service.recordSubmission("tenant", original, submission);
+        var result = service.recordSubmission(original, submission);
 
         assertEquals(APPLIED, result.disposition());
         assertEquals("result-1", result.receiptId());
@@ -420,8 +420,8 @@ class PaymentResultServiceTest {
         calls.verify(results)
                 .insertReceipt(ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
                         && receipt.identity().equals(original.identity())));
-        calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
-        calls.verify(actions).present("tenant", locked);
+        calls.verify(actions).record(locked, original, submission, result.receiptId());
+        calls.verify(actions).present(locked);
         verifyNoInteractions(events);
     }
 
@@ -444,16 +444,16 @@ class PaymentResultServiceTest {
                 null,
                 1,
                 BusinessTime.external(AttemptFixtures.NOW));
-        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
-        when(actions.present("tenant", locked)).thenReturn(presented);
+        doReturn(locked).when(locks).lock("payment", "acquire");
+        when(actions.present(locked)).thenReturn(presented);
         doAnswer(call -> {
                     active();
                     return null;
                 })
                 .when(actions)
-                .record(eq("tenant"), eq(locked), eq(original), eq(submission), anyString());
+                .record(eq(locked), eq(original), eq(submission), anyString());
 
-        var result = service.recordRecovery("tenant", original, submission);
+        var result = service.recordRecovery(original, submission);
 
         assertEquals(APPLIED, result.disposition());
         assertSame(presented, result.payment());
@@ -461,8 +461,8 @@ class PaymentResultServiceTest {
         calls.verify(results)
                 .insertReceipt(ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
                         && receipt.identity().equals(original.identity())));
-        calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
-        calls.verify(actions).present("tenant", locked);
+        calls.verify(actions).record(locked, original, submission, result.receiptId());
+        calls.verify(actions).present(locked);
     }
 
     @Test
@@ -471,11 +471,11 @@ class PaymentResultServiceTest {
         var original = recovery(prepared);
         var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.QUERY_RESPONSE);
 
-        var result = service.recordRecovery("tenant", original, submission);
+        var result = service.recordRecovery(original, submission);
 
         assertEquals(CONFLICT, result.disposition());
-        verify(actions, never()).record(anyString(), any(), any(), any(), anyString());
-        verify(actions, never()).present(anyString(), any());
+        verify(actions, never()).record(any(), any(), any(), anyString());
+        verify(actions, never()).present(any());
     }
 
     @Test
@@ -485,7 +485,7 @@ class PaymentResultServiceTest {
         var submission =
                 jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.SUBMIT_RESPONSE);
 
-        assertThrows(CommonException.class, () -> service.recordRecovery("tenant", original, submission));
+        assertThrows(CommonException.class, () -> service.recordRecovery(original, submission));
 
         verifyNoInteractions(locks, results, actions);
     }
@@ -495,15 +495,15 @@ class PaymentResultServiceTest {
         var original = jsapiPayment(accepted.get().payment().amount());
         var submission = jsapiSubmission(original, "trade-1");
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
-        doReturn(locked).when(locks).lock("tenant", "payment", "acquire");
+        doReturn(locked).when(locks).lock("payment", "acquire");
         doAnswer(call -> {
                     active();
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
                 })
                 .when(actions)
-                .record(eq("tenant"), eq(locked), eq(original), eq(submission), anyString());
+                .record(eq(locked), eq(original), eq(submission), anyString());
 
-        assertThrows(CommonException.class, () -> service.recordSubmission("tenant", original, submission));
+        assertThrows(CommonException.class, () -> service.recordSubmission(original, submission));
 
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -516,17 +516,17 @@ class PaymentResultServiceTest {
         var original = jsapiPayment(ChannelAmounts.cnyAmount(3999, "CNY"));
         var submission = jsapiSubmission(original, "trade-1");
 
-        var result = service.recordSubmission("tenant", original, submission);
+        var result = service.recordSubmission(original, submission);
 
         assertEquals(CONFLICT, result.disposition());
-        verify(actions, never()).record(anyString(), any(), any(), any(), anyString());
-        verify(actions, never()).present(anyString(), any());
+        verify(actions, never()).record(any(), any(), any(), anyString());
+        verify(actions, never()).present(any());
     }
 
     @Test
     void identicalReceiptWithAnotherSignatureDigestDoesNotRepeatFinancialEffects() {
         var original = success();
-        var result = service.record("tenant", original);
+        var result = service.record(original);
         clearInvocations(results, changes, attempts, events);
         var rewrapped = new PaymentObservation(
                 original.identity(),
@@ -537,7 +537,7 @@ class PaymentResultServiceTest {
                 original.source(),
                 original.receiptKey(),
                 "d".repeat(64));
-        assertEquals(result, service.record("tenant", rewrapped));
+        assertEquals(result, service.record(rewrapped));
         verifyNoInteractions(events);
         verify(results, never()).insertClaim(any());
         verify(changes, never()).updatePayment(any(), anyLong());
@@ -545,12 +545,11 @@ class PaymentResultServiceTest {
 
     @Test
     void laterIndependentSuccessReceiptKeepsTheFirstClaimEvidenceAndCapacity() {
-        service.record("tenant", success());
+        service.record(success());
         var evidence = accepted.get().terminalEvidenceId();
         var initialCapacity = capacity.get();
         clearInvocations(events);
         var result = service.record(
-                "tenant",
                 observation(ChannelPaymentOutcome.Kind.SUCCEEDED, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
         assertEquals(IGNORED, result.disposition());
         assertEquals(evidence, accepted.get().terminalEvidenceId());
@@ -561,7 +560,7 @@ class PaymentResultServiceTest {
     @Test
     void sameReceiptWithChangedFinancialFactsRetainsAnomalyWithoutRewritingSuccess() {
         var original = success();
-        service.record("tenant", original);
+        service.record(original);
         var changed = new PaymentObservation(
                 original.identity(),
                 original.kind(),
@@ -571,7 +570,7 @@ class PaymentResultServiceTest {
                 original.source(),
                 original.receiptKey(),
                 original.sourceDigest());
-        assertEquals(CONFLICT, service.record("tenant", changed).disposition());
+        assertEquals(CONFLICT, service.record(changed).disposition());
         assertEquals("RECEIPT_FACTS_CONFLICT", anomalies.getFirst().reasonCode());
         assertEquals(4000, accepted.get().payment().amount().getCent());
         assertEquals(1, receipts.size());
@@ -589,7 +588,7 @@ class PaymentResultServiceTest {
                 o.source(),
                 o.receiptKey(),
                 o.sourceDigest());
-        assertEquals(CONFLICT, service.record("tenant", wrong).disposition());
+        assertEquals(CONFLICT, service.record(wrong).disposition());
         assertNull(claim.get());
         assertNull(capacity.get());
         assertEquals("PAYMENT_AMOUNT_MISMATCH", anomalies.getFirst().reasonCode());
@@ -630,7 +629,7 @@ class PaymentResultServiceTest {
                 previous.preparedAt(),
                 previous.submissionStartedAt(),
                 previous.rowVersion()));
-        assertEquals(CONFLICT, service.record("tenant", wrong).disposition());
+        assertEquals(CONFLICT, service.record(wrong).disposition());
         assertEquals("PAYMENT_IDENTITY_MISMATCH", anomalies.getFirst().reasonCode());
         assertNull(claim.get());
         assertEquals(1, receipts.size());
@@ -643,7 +642,7 @@ class PaymentResultServiceTest {
                 o.source(),
                 "correct-target-corrupt-binding",
                 o.sourceDigest());
-        var rejected = assertThrows(CommonException.class, () -> service.record("tenant", correctTarget));
+        var rejected = assertThrows(CommonException.class, () -> service.record(correctTarget));
         assertEquals(PaymentResultCodeEnum.SNAPSHOT_INVALID, rejected.getResultCode());
         assertEquals(1, receipts.size());
         assertEquals(1, anomalies.size());
@@ -657,7 +656,7 @@ class PaymentResultServiceTest {
     @Test
     void observationBeforeY2CannotInventAnExternalSubmission() {
         attempt.set(AttemptFixtures.prepared());
-        assertEquals(CONFLICT, service.record("tenant", success()).disposition());
+        assertEquals(CONFLICT, service.record(success()).disposition());
         assertEquals("OBSERVATION_BEFORE_SUBMISSION", anomalies.getFirst().reasonCode());
         assertNull(claim.get());
     }
@@ -665,17 +664,15 @@ class PaymentResultServiceTest {
     @Test
     void unknownRemainsInFlightAndAcceptedCannotUndoThatUncertainty() {
         service.record(
-                "tenant",
                 observation(ChannelPaymentOutcome.Kind.UNKNOWN, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
         assertEquals(PaymentState.UNKNOWN, accepted.get().payment().state());
         var result = service.record(
-                "tenant",
                 observation(ChannelPaymentOutcome.Kind.ACCEPTED, "query-2", PaymentObservation.Source.QUERY_RESPONSE));
         assertEquals(IGNORED, result.disposition());
         assertEquals(PaymentAttemptState.UNKNOWN, attempt.get().attempt().state());
         assertNull(capacity.get());
-        verify(events, Mockito.times(1)).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
-        verify(events, never()).publish(anyString(), any(), anyBoolean(), any());
+        verify(events, Mockito.times(1)).publishSnapshot(eq(accepted.get()), any());
+        verify(events, never()).publish(any(), anyBoolean(), any());
     }
 
     @Test
@@ -684,49 +681,43 @@ class PaymentResultServiceTest {
                 .withPayment(accepted.get(), accepted.get().payment().requestClose(), null));
         gate.set(context.getBean(PaymentControlConverter.class)
                 .withGate(gate.get(), gate.get().gate().fence(1)));
-        service.record("tenant", success());
+        service.record(success());
         assertEquals(PaymentState.SUCCEEDED, accepted.get().payment().state());
-        verify(events).publish(eq("tenant"), any(), eq(true), any());
+        verify(events).publish(any(), eq(true), any());
     }
 
     @Test
     void definitiveNoCollectionFencesExecutionAndFailsPaymentWithoutRefundCapacity() {
-        var result = service.record(
-                "tenant",
-                observation(
-                        ChannelPaymentOutcome.Kind.NO_COLLECTION, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
+        var result = service.record(observation(
+                ChannelPaymentOutcome.Kind.NO_COLLECTION, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
         assertEquals(APPLIED, result.disposition());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
         assertEquals(PaymentAttemptState.FAILED, attempt.get().attempt().state());
         assertEquals(GateState.FENCED, gate.get().gate().state());
         assertEquals(result.receiptId(), accepted.get().terminalEvidenceId());
         assertNull(capacity.get());
-        verify(events).publish(eq("tenant"), any(), eq(true), any());
+        verify(events).publish(any(), eq(true), any());
     }
 
     @Test
     void definitiveNoCollectionCompletesAnExistingCloseRequest() {
         accepted.set(context.getBean(PaymentControlConverter.class)
                 .withPayment(accepted.get(), accepted.get().payment().requestClose(), null));
-        service.record(
-                "tenant",
-                observation(
-                        ChannelPaymentOutcome.Kind.NO_COLLECTION, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
+        service.record(observation(
+                ChannelPaymentOutcome.Kind.NO_COLLECTION, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
         assertEquals(PaymentState.CLOSED, accepted.get().payment().state());
     }
 
     @Test
     void negativeTerminalObservationCannotEraseACommittedSuccess() {
-        service.record("tenant", success());
+        service.record(success());
         clearInvocations(events);
         assertEquals(
                 CONFLICT,
-                service.record(
-                                "tenant",
-                                observation(
-                                        ChannelPaymentOutcome.Kind.NO_COLLECTION,
-                                        "query-1",
-                                        PaymentObservation.Source.QUERY_RESPONSE))
+                service.record(observation(
+                                ChannelPaymentOutcome.Kind.NO_COLLECTION,
+                                "query-1",
+                                PaymentObservation.Source.QUERY_RESPONSE))
                         .disposition());
         assertEquals(PaymentState.SUCCEEDED, accepted.get().payment().state());
         verifyNoInteractions(events);
@@ -735,7 +726,7 @@ class PaymentResultServiceTest {
     @Test
     void secondRealTransactionForTheSameAttemptIsAnomalyAndCannotReplaceTheFirst() {
         var original = success();
-        service.record("tenant", original);
+        service.record(original);
         var other = new PaymentObservation(
                 original.identity(),
                 original.kind(),
@@ -745,7 +736,7 @@ class PaymentResultServiceTest {
                 PaymentObservation.Source.QUERY_RESPONSE,
                 "query-1",
                 original.sourceDigest());
-        assertEquals(CONFLICT, service.record("tenant", other).disposition());
+        assertEquals(CONFLICT, service.record(other).disposition());
         assertEquals("ATTEMPT_TRANSACTION_CONFLICT", anomalies.getFirst().reasonCode());
         assertEquals("channel-transaction", claim.get().channelTransactionNo());
     }
@@ -754,12 +745,10 @@ class PaymentResultServiceTest {
     void reversalRequiresIndependentCompensationInsteadOfRewritingGrossPaidAmount() {
         assertEquals(
                 CONFLICT,
-                service.record(
-                                "tenant",
-                                observation(
-                                        ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED,
-                                        "reversal",
-                                        PaymentObservation.Source.CALLBACK))
+                service.record(observation(
+                                ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED,
+                                "reversal",
+                                PaymentObservation.Source.CALLBACK))
                         .disposition());
         assertEquals(
                 "FUNDS_RETURNED_REQUIRES_COMPENSATION", anomalies.getFirst().reasonCode());
@@ -769,10 +758,9 @@ class PaymentResultServiceTest {
 
     @Test
     void intermediateObservationAfterSuccessCannotRegressTheTerminalState() {
-        service.record("tenant", success());
+        service.record(success());
         clearInvocations(events);
         var result = service.record(
-                "tenant",
                 observation(ChannelPaymentOutcome.Kind.UNKNOWN, "query-1", PaymentObservation.Source.QUERY_RESPONSE));
         assertEquals(IGNORED, result.disposition());
         assertEquals(PaymentState.SUCCEEDED, accepted.get().payment().state());
@@ -781,10 +769,8 @@ class PaymentResultServiceTest {
 
     @Test
     void outboxFailureRollsBackTheY3BoundaryInsteadOfAcknowledgingSuccess() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
-                .when(events)
-                .publish(anyString(), any(), anyBoolean(), any());
-        assertThrows(CommonException.class, () -> service.record("tenant", success()));
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(events).publish(any(), anyBoolean(), any());
+        assertThrows(CommonException.class, () -> service.record(success()));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         // Mock maps do not model database rollback; actual persistence is a separate PostgreSQL acceptance gate.
@@ -796,7 +782,7 @@ class PaymentResultServiceTest {
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> service.record("tenant", success()))
+                    assertThrows(CommonException.class, () -> service.record(success()))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

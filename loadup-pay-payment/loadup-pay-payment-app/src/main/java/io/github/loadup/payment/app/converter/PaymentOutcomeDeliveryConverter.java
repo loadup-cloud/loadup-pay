@@ -17,6 +17,7 @@ package io.github.loadup.payment.app.converter;
 
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitConfirmCommand;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitReleaseCommand;
@@ -38,14 +39,22 @@ public interface PaymentOutcomeDeliveryConverter {
     @Mapping(target = "successEvidenceId", source = "value.terminalEvidenceId")
     @Mapping(target = "amountMinor", source = "value.payment.amount.cent")
     @Mapping(target = "currency", source = "value.payment.amount.currencyValue")
-    LimitConfirmCommand toConfirm(StoredPaymentAcceptance value, String businessEventId, LocalDateTime succeededAt);
+    @Mapping(target = "succeededAt", source = "succeededAt")
+    @Mapping(target = "financialEvidence", expression = "java(financialEvidence)")
+    LimitConfirmCommand toConfirm(
+            StoredPaymentAcceptance value,
+            String businessEventId,
+            LocalDateTime succeededAt,
+            PaymentFinancialEvidence financialEvidence);
 
     @Mapping(target = "operationId", source = "value.payment.limitOperationId")
     @Mapping(target = "paymentId", source = "value.payment.id")
     @Mapping(target = "paymentVersion", source = "value.payment.version")
     @Mapping(target = "noCollectionEvidenceId", source = "value.terminalEvidenceId")
     @Mapping(target = "reasonCode", source = "value.payment.state", qualifiedByName = "releaseReason")
-    LimitReleaseCommand toRelease(StoredPaymentAcceptance value, String businessEventId);
+    @Mapping(target = "financialEvidence", expression = "java(financialEvidence)")
+    LimitReleaseCommand toRelease(
+            StoredPaymentAcceptance value, String businessEventId, PaymentFinancialEvidence financialEvidence);
 
     @Mapping(target = "consultation", source = "consultation")
     @Mapping(target = "decision", source = "decision")

@@ -18,7 +18,6 @@ package io.github.loadup.payment.infrastructure.codec;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.payment.app.converter.RoutingProfileConverter;
 import io.github.loadup.payment.app.port.RoutingProfileCodec;
 import io.github.loadup.payment.client.dto.RoutingProfileSpecDTO;
@@ -89,9 +88,8 @@ public class RoutingProfileCodecImpl implements RoutingProfileCodec {
 
     @Override
     public String requestDigest(String caller, String key, String contentHash) {
-        String tenant = TenantUtil.getTenantId();
         var framed = new StringBuilder();
-        for (String value : List.of("payment-routing-publish-v1", tenant, caller, key, contentHash)) {
+        for (String value : List.of("payment-routing-publish-v1", caller, key, contentHash)) {
             framed.append(value.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(value);

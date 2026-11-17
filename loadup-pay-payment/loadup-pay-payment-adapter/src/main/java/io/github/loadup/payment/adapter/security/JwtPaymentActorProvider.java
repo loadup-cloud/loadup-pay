@@ -16,7 +16,6 @@
 package io.github.loadup.payment.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
 import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
@@ -27,11 +26,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtPaymentActorProvider implements PaymentActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtPaymentActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     private static CommonException forbidden() {
         return new CommonException(PaymentResultCodeEnum.ACTION_FORBIDDEN);
@@ -46,7 +40,6 @@ public class JwtPaymentActorProvider implements PaymentActorProvider {
             throw forbidden();
         }
         try {
-            String tenant = databaseTenant.currentTenantId();
             String service = jwt.getClaimAsString("service_id");
             if (!"SERVICE".equals(jwt.getClaimAsString("principal_type"))
                     || service == null
@@ -55,7 +48,6 @@ public class JwtPaymentActorProvider implements PaymentActorProvider {
                 throw forbidden();
             }
             return new PaymentActor(
-                    tenant,
                     service,
                     authentication.getAuthorities().stream()
                             .map(authority -> authority.getAuthority())

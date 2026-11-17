@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -40,18 +39,19 @@ import io.github.loadup.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class OrderClosureRecoveryServiceTest {
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
     final OrderClosureGateway closes = mock(OrderClosureGateway.class);
     final OrderClosureOperations operations = mock(OrderClosureOperations.class);
@@ -82,18 +82,18 @@ class OrderClosureRecoveryServiceTest {
             NOW.minusMinutes(1),
             "original-payment-cursor",
             3L);
-    final DelayedTask task = new DelayedTask(
+    final TaskExecution task = new TaskExecution(
             "close-task",
             OrderClosureTasks.TYPE,
             "order.3",
             NOW,
             NOW,
-            DelayedTaskStatus.RUNNING,
+            TaskStatus.RUNNING,
             1,
             5,
             NOW.plusMinutes(5),
             null);
-    final OrderPaymentScope scope = new OrderPaymentScope("tenant", OWNER);
+    final OrderPaymentScope scope = new OrderPaymentScope(OWNER);
 
     @BeforeEach
     void setup() {
@@ -107,7 +107,7 @@ class OrderClosureRecoveryServiceTest {
     }
 
     void handle() {
-        TenantUtil.runWithTenant("tenant", () -> service.handle(task));
+        service.handle(task);
     }
 
     @Test
@@ -128,7 +128,7 @@ class OrderClosureRecoveryServiceTest {
         doReturn(false).when(operations).isCurrent(scope, order, intent, 3L);
         handle();
         verify(operations, never()).resume(any(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test

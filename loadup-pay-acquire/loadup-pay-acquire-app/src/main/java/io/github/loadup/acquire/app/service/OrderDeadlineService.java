@@ -25,11 +25,10 @@ import io.github.loadup.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.acquire.domain.model.OrderTaskKey;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskHandler;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -40,8 +39,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * A native due wake-up uses the persisted deadline version, never a timer as financial evidence.
  */
 @Service
-public class OrderDeadlineService implements DelayedTaskHandler {
-    private final DelayedTaskTemplate tasks;
+public class OrderDeadlineService implements TaskHandler {
+    private final TaskTemplate tasks;
     private final OrderCreationGateway orders;
     private final OrderExtensionGateway extensions;
     private final OrderClosureGateway closes;
@@ -51,7 +50,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     private final Clock clock;
 
     public OrderDeadlineService(
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             OrderCreationGateway orders,
             OrderExtensionGateway extensions,
             OrderClosureGateway closes,
@@ -75,13 +74,12 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     }
 
     @Override
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         var key = validate(task);
         if (key.generation() < 1) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        String tenant = TenantUtil.getTenantId();
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             var order = orders.lockOrder(key.orderId());
             if (!order.order().id().equals(key.orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -98,7 +96,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
             if (at.isBefore(order.order().orderDueAt())) {
                 throw new CommonException(INVALID_STATE);
             }
-            var scope = new OrderPaymentScope(tenant, order.callerScopeHash());
+            var scope = new OrderPaymentScope(order.callerScopeHash());
             if (order.order().state() == AcquireOrderState.PAID || order.order().state() == AcquireOrderState.CLOSED) {
                 return true;
             }
@@ -116,13 +114,13 @@ public class OrderDeadlineService implements DelayedTaskHandler {
                         new AcquireOrderCloseCommand(key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
             } else if (!due.equals(order.order())) {
                 closes.keepPending(order.order(), due);
-                snapshots.publish(tenant, due.id(), due.version());
+                snapshots.publish(due.id(), due.version());
             }
             return true;
         });
     }
 
-    private OrderTaskKey validate(DelayedTask task) {
+    private OrderTaskKey validate(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -141,7 +139,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
                 || !taskType().equals(nativeTask.taskType())
                 || !task.bizId().equals(nativeTask.bizId())
                 || !task.executeAt().equals(nativeTask.executeAt())
-                || nativeTask.status() != DelayedTaskStatus.RUNNING
+                || nativeTask.status() != TaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts()
                 || nativeTask.leaseUntil() == null
                 || !at.isBefore(nativeTask.leaseUntil())

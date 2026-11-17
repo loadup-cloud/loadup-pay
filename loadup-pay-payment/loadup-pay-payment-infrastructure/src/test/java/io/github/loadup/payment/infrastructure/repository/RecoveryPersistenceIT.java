@@ -19,11 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskDispatcher;
-import io.github.loadup.components.delayedtask.DelayedTaskHandler;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskDispatcher;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.payment.app.service.PaymentAcceptanceTransactions;
@@ -67,8 +68,8 @@ class RecoveryPersistenceIT {
     private static final String AUDIT_TYPE = "pay.review.native-retry";
     private final PaymentRecoveryGateway cursors;
     private final PaymentRecoveryRetryGateway receipts;
-    private final DelayedTaskTemplate tasks;
-    private final DelayedTaskDispatcher dispatcher;
+    private final TaskTemplate tasks;
+    private final TaskDispatcher dispatcher;
     private final PaymentAcceptanceTransactions transactions;
     private final TestScenario scenario;
 
@@ -76,8 +77,8 @@ class RecoveryPersistenceIT {
     RecoveryPersistenceIT(
             PaymentRecoveryGateway cursors,
             PaymentRecoveryRetryGateway receipts,
-            DelayedTaskTemplate tasks,
-            DelayedTaskDispatcher dispatcher,
+            TaskTemplate tasks,
+            TaskDispatcher dispatcher,
             PaymentAcceptanceTransactions transactions,
             TestScenario scenario) {
         this.cursors = cursors;
@@ -110,12 +111,12 @@ class RecoveryPersistenceIT {
         String tenant = id("tenant"), payment = id("payment");
         assertThrows(
                 IllegalStateException.class,
-                () -> transactions.writeLocal(tenant, () -> {
+                () -> transactions.writeLocal(() -> {
                     cursors.insert(PaymentRecoveryCursor.init(payment, AT));
-                    tasks.register(PaymentRecoveryService.TYPE, key(payment, 0), AT);
+                    tasks.submit(TaskSubmission.scheduled(PaymentRecoveryService.TYPE, key(payment, 0), AT));
                     throw new IllegalStateException("Injected after native registration");
                 }));
-        transactions.readSnapshot(tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertTrue(cursors.find(payment).isEmpty());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isEmpty());
             return true;
@@ -128,14 +129,14 @@ class RecoveryPersistenceIT {
         seed(tenant, payment);
         assertThrows(
                 IllegalStateException.class,
-                () -> transactions.writeLocal(tenant, () -> {
+                () -> transactions.writeLocal(() -> {
                     var before = cursors.lock(payment).orElseThrow();
                     var after = before.schedule(AT.plusSeconds(30), 0L);
                     cursors.update(before, after);
-                    tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());
+                    tasks.submit(TaskSubmission.scheduled(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt()));
                     throw new IllegalStateException("Injected before successor commit");
                 }));
-        transactions.readSnapshot(tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(0L, cursors.find(payment).orElseThrow().generation());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isPresent());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isEmpty());
@@ -153,14 +154,14 @@ class RecoveryPersistenceIT {
             Callable<Boolean> advance = () -> {
                 ready.countDown();
                 await(start);
-                return transactions.writeLocal(tenant, () -> {
+                return transactions.writeLocal(() -> {
                     var before = cursors.lock(payment).orElseThrow();
                     if (before.generation() != 0L) {
                         return false;
                     }
                     var after = before.schedule(AT.plusSeconds(30), 0L);
                     cursors.update(before, after);
-                    tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());
+                    tasks.submit(TaskSubmission.scheduled(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt()));
                     return true;
                 });
             };
@@ -176,7 +177,7 @@ class RecoveryPersistenceIT {
         } finally {
             start.countDown();
         }
-        transactions.readSnapshot(tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(1L, cursors.find(payment).orElseThrow().generation());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isPresent());
             return true;
@@ -191,7 +192,7 @@ class RecoveryPersistenceIT {
         var observed = new CountDownLatch(1);
         var written = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            var reader = workers.submit(() -> transactions.readSnapshot(tenant, () -> {
+            var reader = workers.submit(() -> transactions.readSnapshot(() -> {
                 assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
                 assertEquals(0L, cursors.find(payment).orElseThrow().generation());
                 assertTrue(
@@ -206,11 +207,12 @@ class RecoveryPersistenceIT {
             await(observed);
             var writer = workers.submit(() -> {
                 try {
-                    return transactions.writeLocal(tenant, () -> {
+                    return transactions.writeLocal(() -> {
                         var before = cursors.lock(payment).orElseThrow();
                         var after = before.schedule(AT.plusSeconds(30), 0L);
                         cursors.update(before, after);
-                        tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());
+                        tasks.submit(
+                                TaskSubmission.scheduled(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt()));
                         return true;
                     });
                 } finally {
@@ -226,7 +228,7 @@ class RecoveryPersistenceIT {
         } finally {
             written.countDown();
         }
-        transactions.readSnapshot(tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(1L, cursors.find(payment).orElseThrow().generation());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isPresent());
             return true;
@@ -236,11 +238,11 @@ class RecoveryPersistenceIT {
     @Test
     void failedNativeRetryAndActualAuditGatewayHaveTheSameRollbackBoundary() {
         String tenant = id("tenant"), subject = id("payment"), request = id("operation");
-        transactions.writeLocal(tenant, () -> tasks.register(AUDIT_TYPE, key(subject, 0), AT));
+        transactions.writeLocal(() -> tasks.submit(TaskSubmission.scheduled(AUDIT_TYPE, key(subject, 0), AT)));
         dispatcher.execute();
         var failed = transactions.readSnapshot(
-                tenant, () -> tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow());
-        assertEquals(DelayedTaskStatus.FAILED, failed.status());
+                () -> tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow());
+        assertEquals(TaskStatus.FAILED, failed.status());
         var receipt = new PaymentRecoveryRetryReceipt(
                 id("receipt"),
                 request,
@@ -259,26 +261,26 @@ class RecoveryPersistenceIT {
                 AT);
         assertThrows(
                 IllegalStateException.class,
-                () -> transactions.writeLocal(tenant, () -> {
-                    tasks.retryFailed(AUDIT_TYPE, key(subject, 0));
+                () -> transactions.writeLocal(() -> {
+                    tasks.retryFailed(failed.id(), "test-operator", "Injected rollback proof");
                     receipts.insert(receipt);
                     throw new IllegalStateException("Injected after actual audit insert");
                 }));
-        transactions.readSnapshot(tenant, () -> {
+        transactions.readSnapshot(() -> {
             var unchanged = tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow();
-            assertEquals(DelayedTaskStatus.FAILED, unchanged.status());
+            assertEquals(TaskStatus.FAILED, unchanged.status());
             assertEquals(failed.attempts(), unchanged.attempts());
             assertTrue(receipts.find(receipt.callerScopeHash(), request).isEmpty());
             return true;
         });
-        transactions.writeLocal(tenant, () -> {
-            tasks.retryFailed(AUDIT_TYPE, key(subject, 0));
+        transactions.writeLocal(() -> {
+            tasks.retryFailed(failed.id(), "test-operator", "Injected rollback proof");
             receipts.insert(receipt);
             return true;
         });
-        transactions.readSnapshot(tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(
-                    DelayedTaskStatus.PENDING,
+                    TaskStatus.PENDING,
                     tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow().status());
             assertEquals(
                     receipt, receipts.find(receipt.callerScopeHash(), request).orElseThrow());
@@ -287,9 +289,9 @@ class RecoveryPersistenceIT {
     }
 
     private void seed(String tenant, String payment) {
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             cursors.insert(PaymentRecoveryCursor.init(payment, AT));
-            tasks.register(PaymentRecoveryService.TYPE, key(payment, 0), AT);
+            tasks.submit(TaskSubmission.scheduled(PaymentRecoveryService.TYPE, key(payment, 0), AT));
             return true;
         });
     }
@@ -309,15 +311,15 @@ class RecoveryPersistenceIT {
         }
 
         @Bean
-        DelayedTaskHandler syntheticFailure() {
-            return new DelayedTaskHandler() {
+        TaskHandler syntheticFailure() {
+            return new TaskHandler() {
                 @Override
                 public String taskType() {
                     return AUDIT_TYPE;
                 }
 
                 @Override
-                public void handle(DelayedTask task) {
+                public void handle(TaskExecution task) {
                     throw new IllegalStateException("Injected native failure");
                 }
             };

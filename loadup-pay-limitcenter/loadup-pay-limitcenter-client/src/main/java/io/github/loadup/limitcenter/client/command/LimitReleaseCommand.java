@@ -15,7 +15,9 @@
  */
 package io.github.loadup.limitcenter.client.command;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -32,7 +34,9 @@ public record LimitReleaseCommand(
 
         @Schema(description = "No collection evidence id") @NotBlank @Size(max = 64) String noCollectionEvidenceId,
 
-        @Schema(description = "Reason code") @NotBlank @Size(max = 64) String reasonCode) {
+        @Schema(description = "Reason code") @NotBlank @Size(max = 64) String reasonCode,
+
+        @JsonInclude(JsonInclude.Include.NON_NULL) PaymentFinancialEvidence financialEvidence) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

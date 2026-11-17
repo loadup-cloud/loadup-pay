@@ -26,9 +26,8 @@ import java.util.Set;
  * Resource scope comes only from authenticated JWT claims, never the notification query.
  */
 public record MerchantNotificationActor(
-        String tenantId, String principalType, String principalId, String merchantId, Set<String> permissions) {
+        String principalType, String principalId, String merchantId, Set<String> permissions) {
     public MerchantNotificationActor {
-        DomainChecks.id(tenantId);
         DomainChecks.text(principalId, 128);
         permissions = Set.copyOf(permissions);
         require(

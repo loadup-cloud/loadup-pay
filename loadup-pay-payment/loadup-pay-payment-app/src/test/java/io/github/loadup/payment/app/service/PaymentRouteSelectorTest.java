@@ -149,7 +149,7 @@ class PaymentRouteSelectorTest {
                 .thenReturn(List.of(new RoutableChannelBinding(head, revision)));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertEquals(binding, selector.select("tenant", command));
+            assertEquals(binding, selector.select(command));
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
@@ -169,7 +169,7 @@ class PaymentRouteSelectorTest {
         try {
             assertSame(
                     CHANNEL_BINDING_UNAVAILABLE,
-                    assertThrows(CommonException.class, () -> selector.select("tenant", command))
+                    assertThrows(CommonException.class, () -> selector.select(command))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
@@ -180,7 +180,7 @@ class PaymentRouteSelectorTest {
     void selectionRequiresTheCallersLocalTransactionBeforeTakingRouteLocks() {
         assertSame(
                 INVALID_STATE,
-                assertThrows(CommonException.class, () -> selector.select("tenant", PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> selector.select(PaymentFixtures.command()))
                         .getResultCode());
         verifyNoInteractions(bindings, profiles);
     }
@@ -191,7 +191,7 @@ class PaymentRouteSelectorTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 ROUTING_PROFILE_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> selector.select("tenant", PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> selector.select(PaymentFixtures.command()))
                         .getResultCode());
         verifyNoInteractions(bindings);
     }
@@ -202,7 +202,7 @@ class PaymentRouteSelectorTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 ROUTING_PROFILE_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> selector.select("tenant", PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> selector.select(PaymentFixtures.command()))
                         .getResultCode());
         verifyNoInteractions(bindings);
     }
@@ -215,7 +215,7 @@ class PaymentRouteSelectorTest {
                 .thenReturn(Optional.of(profile("merchant", List.of(rule("first"), rule("second")))));
         when(bindings.lockActive(anyString(), any(), anySet(), any())).thenReturn(List.of(second, first));
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        assertEquals(first.revision().binding(), selector.select("tenant", PaymentFixtures.command()));
+        assertEquals(first.revision().binding(), selector.select(PaymentFixtures.command()));
     }
 
     @Test
@@ -225,7 +225,7 @@ class PaymentRouteSelectorTest {
                 .thenReturn(Optional.of(profile("merchant", List.of(rule("first"), rule("second")))));
         when(bindings.lockActive(anyString(), any(), anySet(), any())).thenReturn(List.of(second));
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        assertEquals(second.revision().binding(), selector.select("tenant", PaymentFixtures.command()));
+        assertEquals(second.revision().binding(), selector.select(PaymentFixtures.command()));
     }
 
     @Test
@@ -234,7 +234,7 @@ class PaymentRouteSelectorTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 CHANNEL_BINDING_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> selector.select("tenant", PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> selector.select(PaymentFixtures.command()))
                         .getResultCode());
     }
 
@@ -245,7 +245,7 @@ class PaymentRouteSelectorTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
                 UNSUPPORTED_CAPABILITY,
-                assertThrows(CommonException.class, () -> selector.select("tenant", PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> selector.select(PaymentFixtures.command()))
                         .getResultCode());
         verifyNoInteractions(bindings);
     }

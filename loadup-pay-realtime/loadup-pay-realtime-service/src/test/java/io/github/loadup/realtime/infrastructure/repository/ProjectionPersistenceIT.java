@@ -250,7 +250,7 @@ class ProjectionPersistenceIT {
                 CommonException.class, () -> lifecycle(fixture, "illegal-reopen", 5L, PaymentState.UNKNOWN));
         assertEquals(SOURCE_CONFLICT.getCode(), reopen.getResultCode().getCode());
         assertCounts(fixture, 1L, 7L);
-        transactions.readSnapshot(fixture.tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(
                     0L,
                     jdbc.queryForObject(
@@ -362,15 +362,12 @@ class ProjectionPersistenceIT {
     }
 
     private Map<String, Object> row(Fixture fixture) {
-        return transactions.readSnapshot(
-                fixture.tenant,
-                () -> jdbc.queryForMap(
-                        "SELECT * FROM " + fixture.kind.table + " WHERE " + fixture.kind.key + " = ?",
-                        fixture.aggregate));
+        return transactions.readSnapshot(() -> jdbc.queryForMap(
+                "SELECT * FROM " + fixture.kind.table + " WHERE " + fixture.kind.key + " = ?", fixture.aggregate));
     }
 
     private void assertCounts(Fixture fixture, long projections, long accepted) {
-        transactions.readSnapshot(fixture.tenant, () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(
                     projections,
                     jdbc.queryForObject(
@@ -391,7 +388,7 @@ class ProjectionPersistenceIT {
     }
 
     private void assertVersion(Fixture fixture, long version) {
-        transactions.readSnapshot(fixture.tenant, () -> {
+        transactions.readSnapshot(() -> {
             scenario.assertDb(fixture.kind.table)
                     .where(fixture.kind.key, fixture.aggregate)
                     .exists()
@@ -435,7 +432,6 @@ class ProjectionPersistenceIT {
 
     private static class Fixture {
         final Kind kind;
-        final String tenant = "tenant-" + UUID.randomUUID();
         final String aggregate = "aggregate-" + UUID.randomUUID();
 
         Fixture(Kind kind) {
@@ -458,10 +454,7 @@ class ProjectionPersistenceIT {
 
         <T> T call(Fixture fixture, Supplier<T> work) {
             current.set(new RealtimeActor(
-                    fixture.tenant,
-                    fixture.kind.producer,
-                    null,
-                    Set.of("pay:realtime:projection:" + fixture.kind.permission)));
+                    fixture.kind.producer, null, Set.of("pay:realtime:projection:" + fixture.kind.permission)));
             try {
                 return work.get();
             } finally {

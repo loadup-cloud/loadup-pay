@@ -32,18 +32,21 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.payment.app.model.LockedRefund;
 import io.github.loadup.payment.app.security.PaymentActor;
+import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.payment.domain.model.RefundOrder;
+import io.github.loadup.payment.domain.model.RefundProgressChange;
 import io.github.loadup.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredRefundChild;
@@ -68,7 +71,7 @@ class RefundSettlementFactsServiceTest {
     final RefundResultGateway results = mock(RefundResultGateway.class);
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
     final AtomicReference<PaymentActor> actor =
-            new AtomicReference<>(new PaymentActor("tenant", "limitcenter", Set.of("pay:payment:refund-facts")));
+            new AtomicReference<>(new PaymentActor("limitcenter", Set.of("pay:payment:refund-facts")));
     final RefundExecutionConverter edits = context.getBean(RefundExecutionConverter.class);
     final StoredRefundRequest initial = RefundResultFixtures.initial();
     final StoredRefundChild first = initial.allocations().getFirst();
@@ -121,7 +124,7 @@ class RefundSettlementFactsServiceTest {
     @BeforeEach
     void setup() {
         when(results.requestId("refund")).thenReturn(Optional.of("request"));
-        when(locks.lock("tenant", "request", "refund")).thenAnswer(c -> {
+        when(locks.lock("request", "refund")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return locked.get();
         });
@@ -168,12 +171,12 @@ class RefundSettlementFactsServiceTest {
 
     @Test
     void configuredLimitServiceAndItsDedicatedScopeAreRequired() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:refund-facts")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:refund-facts")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.refundFacts(new IdQuery("refund")))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "limitcenter", Set.of("pay:payment:limit-facts")));
+        actor.set(new PaymentActor("limitcenter", Set.of("pay:payment:limit-facts")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.refundFacts(new IdQuery("refund")))
@@ -214,5 +217,66 @@ class RefundSettlementFactsServiceTest {
                 assertThrows(CommonException.class, () -> service.refundFacts(new IdQuery("refund")))
                         .getResultCode());
         verifyNoInteractions(locks);
+    }
+
+    RefundProgressChange sourceChange() {
+        var started = first.refund().beginSubmission();
+        var beforeRequest = initial.request().apply(started);
+        var beforeCapacity = new PaymentRefundCapacity(
+                capacity.paymentId(),
+                capacity.orderId(),
+                capacity.payeeMerchantId(),
+                capacity.succeededAt(),
+                capacity.succeededAmount(),
+                1000,
+                1500,
+                4);
+        return new RefundProgressChange(
+                new RefundExecutionFacts(
+                        edits.withRefund(first, started), RefundResultFixtures.NOW.minusSeconds(10), null, null),
+                successful,
+                beforeRequest,
+                beforeRequest.apply(successful),
+                beforeCapacity,
+                capacity,
+                RefundResultFixtures.NOW.minusSeconds(10),
+                claim.channelRefundTransactionNo(),
+                claim.succeededAt());
+    }
+
+    @Test
+    void outboundEvidenceFreezesPermanentRefundAndOriginalPaymentBindingsInTheOwningTransaction() {
+        var original = payments.find("payment").orElseThrow();
+        var verifier = new RefundFinancialEvidenceVerifier(results);
+        var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
+        var proof = transactions.writeLocal(() -> verifier.freeze(sourceChange(), original));
+        assertEquals("refund-proof", proof.refundEvidenceId());
+        assertEquals("payment-proof", proof.payment().terminalEvidenceId());
+        assertEquals(claim.original().attemptId(), proof.payment().activeAttemptId());
+        assertEquals(5, proof.paymentRefundVersion());
+        assertEquals(2000, proof.cumulativePaymentRefundedMinor());
+        assertEquals(claim.succeededAt(), BusinessTime.local(proof.refundedAt()));
+    }
+
+    @Test
+    void outboundEvidenceCannotBeFrozenWithoutMatchingGlobalClaimOrWritableTransaction() {
+        var original = payments.find("payment").orElseThrow();
+        var verifier = new RefundFinancialEvidenceVerifier(results);
+        assertSame(
+                PaymentResultCodeEnum.INVALID_STATE,
+                assertThrows(CommonException.class, () -> verifier.freeze(sourceChange(), original))
+                        .getResultCode());
+        when(results.transaction(
+                        claim.original().channel(),
+                        claim.original().accountScopeHash(),
+                        claim.channelRefundTransactionNo()))
+                .thenReturn(Optional.empty());
+        var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> transactions.writeLocal(() -> verifier.freeze(sourceChange(), original)))
+                        .getResultCode());
     }
 }

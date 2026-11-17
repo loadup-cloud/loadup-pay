@@ -18,7 +18,6 @@ package io.github.loadup.limitcenter.infrastructure.codec;
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.limitcenter.client.support.LimitPolicyHash;
@@ -45,7 +44,6 @@ public class LimitPolicyCodec {
     }
 
     public ActivatedLimitPolicy decode(LimitPolicyRevisionDO row) {
-        String tenant = TenantUtil.getTenantId();
         try {
             var command = json.readValue(row.getCompiledRules(), LimitPolicyActivateCommand.class);
             if (!validator.validate(command).isEmpty()
@@ -53,7 +51,7 @@ public class LimitPolicyCodec {
                     || command.policyVersion() != row.getPolicyVersion()
                     || !command.payeeMerchantId().equals(row.getPayeeMerchantId())
                     || !command.policyHash().equals(row.getPolicyHash())
-                    || !command.policyHash().equals(LimitPolicyHash.compute(tenant, command))) {
+                    || !command.policyHash().equals(LimitPolicyHash.compute(command))) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return converter.toPolicy(command, row.getActivatedAt());

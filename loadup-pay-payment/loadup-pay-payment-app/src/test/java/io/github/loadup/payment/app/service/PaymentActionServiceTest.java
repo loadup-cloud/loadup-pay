@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.AlipayH5ChannelAction;
@@ -326,7 +325,7 @@ class PaymentActionServiceTest {
         when(actionCodec.checksum("local-artifact")).thenReturn(HASH);
         when(actions.find("attempt")).thenReturn(Optional.empty());
 
-        inTransaction(() -> service.record(TENANT, fixture.locked(), fixture.original(), submission, null));
+        inTransaction(() -> service.record(fixture.locked(), fixture.original(), submission, null));
 
         var captured = ArgumentCaptor.forClass(StoredPaymentAction.class);
         verify(actions).insert(captured.capture());
@@ -336,8 +335,8 @@ class PaymentActionServiceTest {
         assertEquals(action, captured.getValue().action());
         var failure = assertThrows(
                 CommonException.class,
-                () -> inTransaction(() -> service.record(
-                        TENANT, fixture.locked(), fixture.original(), submission, "fabricated-receipt")));
+                () -> inTransaction(
+                        () -> service.record(fixture.locked(), fixture.original(), submission, "fabricated-receipt")));
         assertEquals(INVALID_ARGUMENT, failure.getResultCode());
     }
 
@@ -380,7 +379,7 @@ class PaymentActionServiceTest {
         when(channelViews.toAction(action)).thenReturn(actionDto);
         when(views.withAction(base, actionDto)).thenReturn(decorated);
 
-        assertSame(decorated, inTransaction(() -> service.present(TENANT, locked)));
+        assertSame(decorated, inTransaction(() -> service.present(locked)));
     }
 
     @Test
@@ -398,7 +397,7 @@ class PaymentActionServiceTest {
                 .insert(any());
 
         inTransaction(() -> service.record(
-                TENANT, fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-1"));
+                fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-1"));
         var first = saved.get();
         assertEquals(fixture.original().identity(), first.identity());
         assertEquals(fixture.original().amount(), first.amount());
@@ -407,7 +406,7 @@ class PaymentActionServiceTest {
         assertEquals(fixture.action(), first.action());
 
         inTransaction(() -> service.record(
-                TENANT, fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-2"));
+                fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-2"));
 
         assertSame(first, saved.get());
         verify(actions, Mockito.times(1)).insert(any());
@@ -425,14 +424,14 @@ class PaymentActionServiceTest {
         var tradeFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(
-                        () -> service.record(TENANT, fixture.locked(), fixture.original(), changedTrade, "receipt-2")));
+                        () -> service.record(fixture.locked(), fixture.original(), changedTrade, "receipt-2")));
         assertEquals(OUTCOME_UNKNOWN, tradeFailure.getResultCode());
 
         var changedExpiry = submission(fixture, "trade-1", EXPIRES_AT.plusMinutes(1));
         var expiryFailure = assertThrows(
                 CommonException.class,
-                () -> inTransaction(() ->
-                        service.record(TENANT, fixture.locked(), fixture.original(), changedExpiry, "receipt-3")));
+                () -> inTransaction(
+                        () -> service.record(fixture.locked(), fixture.original(), changedExpiry, "receipt-3")));
         assertEquals(OUTCOME_UNKNOWN, expiryFailure.getResultCode());
         verify(actions, never()).insert(any());
     }
@@ -448,7 +447,6 @@ class PaymentActionServiceTest {
         var epochFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(() -> service.record(
-                        TENANT,
                         wrongEpoch.locked(),
                         wrongEpoch.original(),
                         submission(wrongEpoch, "trade-1", EXPIRES_AT),
@@ -460,7 +458,6 @@ class PaymentActionServiceTest {
         var amountFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(() -> service.record(
-                        TENANT,
                         wrongAmount.locked(),
                         largerOriginal,
                         submission(wrongAmount, "trade-1", EXPIRES_AT, largerOriginal.amount()),
@@ -472,7 +469,6 @@ class PaymentActionServiceTest {
         var callerFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(() -> service.record(
-                        TENANT,
                         wrongCaller.locked(),
                         wrongCaller.original(),
                         submission(wrongCaller, "trade-1", EXPIRES_AT),
@@ -484,7 +480,6 @@ class PaymentActionServiceTest {
         var methodFailure = assertThrows(
                 CommonException.class,
                 () -> inTransaction(() -> service.record(
-                        TENANT,
                         wrongMethod.locked(),
                         wrongMethod.original(),
                         submission(wrongMethod, "trade-1", EXPIRES_AT),
@@ -502,14 +497,9 @@ class PaymentActionServiceTest {
 
         var anotherAttempt = withActiveAttempt(fixture, "new-attempt");
         inTransaction(() -> service.record(
-                TENANT,
-                anotherAttempt.locked(),
-                fixture.original(),
-                submission(fixture, "trade-1", EXPIRES_AT),
-                "receipt-1"));
+                anotherAttempt.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-1"));
 
         inTransaction(() -> service.record(
-                TENANT,
                 fixture.locked(),
                 fixture.original(),
                 submission(fixture, "trade-2", OffsetDateTime.parse("2026-10-22T03:00:00Z")),
@@ -518,7 +508,6 @@ class PaymentActionServiceTest {
         var closing =
                 acceptance(fixture.acceptance(), fixture.acceptance().payment().requestClose(), null);
         inTransaction(() -> service.record(
-                TENANT,
                 locked(closing, AttemptFixtures.gate(true), AttemptFixtures.gate(false)),
                 fixture.original(),
                 submission(fixture, "trade-3", EXPIRES_AT),
@@ -526,7 +515,6 @@ class PaymentActionServiceTest {
 
         var fencedGate = fenced(AttemptFixtures.gate(false));
         inTransaction(() -> service.record(
-                TENANT,
                 locked(fixture.acceptance().payment(), AttemptFixtures.gate(true), fencedGate),
                 fixture.original(),
                 submission(fixture, "trade-4", EXPIRES_AT),
@@ -534,7 +522,6 @@ class PaymentActionServiceTest {
 
         var closedPayment = terminalAcceptance(fixture.acceptance());
         inTransaction(() -> service.record(
-                TENANT,
                 locked(closedPayment, AttemptFixtures.gate(true), AttemptFixtures.gate(false)),
                 fixture.original(),
                 submission(fixture, "trade-5", EXPIRES_AT),
@@ -556,22 +543,22 @@ class PaymentActionServiceTest {
         when(attempts.find("attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
         when(codec.decode(fixture.acceptance())).thenReturn(fixture.command());
 
-        assertSame(decorated, inTransaction(() -> service.present(TENANT, fixture.locked())));
+        assertSame(decorated, inTransaction(() -> service.present(fixture.locked())));
 
         var expired = storedAction(fixture, "trade-1", OffsetDateTime.parse("2026-10-22T03:00:00Z"));
         when(actions.find("attempt")).thenReturn(Optional.of(expired));
-        assertSame(base, inTransaction(() -> service.present(TENANT, fixture.locked())));
+        assertSame(base, inTransaction(() -> service.present(fixture.locked())));
 
         var stale = withActiveAttempt(fixture, "new-attempt");
         when(views.toDTO(stale.acceptance())).thenReturn(base);
-        assertSame(base, inTransaction(() -> service.present(TENANT, stale.locked())));
+        assertSame(base, inTransaction(() -> service.present(stale.locked())));
         verify(actions).find("new-attempt");
     }
 
     private void inTransaction(Runnable work) {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            TenantUtil.runWithTenant(TENANT, work);
+            work.run();
         } finally {
             TransactionSynchronizationManager.clear();
         }
@@ -580,7 +567,7 @@ class PaymentActionServiceTest {
     private <T> T inTransaction(Supplier<T> work) {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            return TenantUtil.callWithTenant(TENANT, work::get);
+            return work.get();
         } finally {
             TransactionSynchronizationManager.clear();
         }

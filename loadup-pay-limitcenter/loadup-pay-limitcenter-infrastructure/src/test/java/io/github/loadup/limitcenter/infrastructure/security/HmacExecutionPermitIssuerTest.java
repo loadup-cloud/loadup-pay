@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.limitcenter.domain.model.LimitReservation;
@@ -59,34 +58,30 @@ class HmacExecutionPermitIssuerTest {
                 new LimitPermitProperties(active, Map.of("old", oldSecret, "new", newSecret)));
     }
 
-    String issue(
-            HmacExecutionPermitIssuer issuer, String tenant, StoredLimitReservation stored, String key, long epoch) {
-        return TenantUtil.callWithTenant(tenant, () -> issuer.issue(stored, "attempt", epoch, "request", key));
+    String issue(HmacExecutionPermitIssuer issuer, StoredLimitReservation stored, String key, long epoch) {
+        return issuer.issue(stored, "attempt", epoch, "request", key);
     }
 
     @Test
     void replayIsDeterministicAndRotationDoesNotChangeOldIssuances() {
-        var original = issue(issuer("old"), "tenant", stored("payment-service", 40), "old", 1);
+        var original = issue(issuer("old"), stored("payment-service", 40), "old", 1);
         assertTrue(original.matches("[0-9a-f]{64}"));
-        assertEquals(original, issue(issuer("new"), "tenant", stored("payment-service", 40), "old", 1));
+        assertEquals(original, issue(issuer("new"), stored("payment-service", 40), "old", 1));
     }
 
     @Test
-    void tenantCallerAmountAndEpochAreCryptographicallyBound() {
+    void callerAmountAndEpochAreCryptographicallyBound() {
         var issuer = issuer("old");
         var stored = stored("payment-service", 40);
-        var original = issue(issuer, "tenant", stored, "old", 1);
-        assertNotEquals(original, issue(issuer, "other-tenant", stored, "old", 1));
-        assertNotEquals(original, issue(issuer, "tenant", stored("another-service", 40), "old", 1));
-        assertNotEquals(original, issue(issuer, "tenant", stored("payment-service", 41), "old", 1));
-        assertNotEquals(original, issue(issuer, "tenant", stored, "old", 2));
+        var original = issue(issuer, stored, "old", 1);
+        assertNotEquals(original, issue(issuer, stored("another-service", 40), "old", 1));
+        assertNotEquals(original, issue(issuer, stored("payment-service", 41), "old", 1));
+        assertNotEquals(original, issue(issuer, stored, "old", 2));
     }
 
     @Test
     void missingHistoricalKeyFailsClosed() {
-        assertThrows(
-                CommonException.class,
-                () -> issue(issuer("new"), "tenant", stored("payment-service", 40), "removed", 1));
+        assertThrows(CommonException.class, () -> issue(issuer("new"), stored("payment-service", 40), "removed", 1));
     }
 
     @Test

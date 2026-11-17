@@ -22,28 +22,24 @@ import io.github.loadup.components.signature.request.RequestSigningIdentity;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Tenant/merchant-owned immutable catalog references; changing a target requires a new reference.
+ * Merchant-owned immutable catalog references; changing a target requires a new reference.
  */
 @ConfigurationProperties("loadup.modules.acquire.merchant-notifications")
-public record MerchantNotificationProperties(
-        Map<String, Map<String, Target>> targets, Map<String, Map<String, Signing>> signingIdentities) {
+public record MerchantNotificationProperties(Map<String, Target> targets, Map<String, Signing> signingIdentities) {
     public MerchantNotificationProperties {
         targets = immutable(targets);
         signingIdentities = immutable(signingIdentities);
     }
 
-    private static <T> Map<String, Map<String, T>> immutable(Map<String, Map<String, T>> values) {
+    private static <T> Map<String, T> immutable(Map<String, T> values) {
         if (values == null) {
             return Map.of();
         }
-        return values.entrySet().stream().collect(Collectors.toUnmodifiableMap(e -> DomainChecks.id(e.getKey()), e -> {
-            e.getValue().keySet().forEach(key -> DomainChecks.text(key, 128));
-            return Map.copyOf(e.getValue());
-        }));
+        values.keySet().forEach(key -> DomainChecks.text(key, 128));
+        return Map.copyOf(values);
     }
 
     @Override

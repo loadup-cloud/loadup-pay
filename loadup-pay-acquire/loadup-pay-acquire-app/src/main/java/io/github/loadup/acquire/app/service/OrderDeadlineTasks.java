@@ -15,14 +15,13 @@
  */
 package io.github.loadup.acquire.app.service;
 
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderTaskKey;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -33,16 +32,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 public class OrderDeadlineTasks {
     public static final String TYPE = "pay.acquire.order.deadline";
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
 
-    public OrderDeadlineTasks(DelayedTaskTemplate tasks) {
+    public OrderDeadlineTasks(TaskTemplate tasks) {
         this.tasks = tasks;
     }
 
-    public void register(String tenant, AcquireOrder order, long deadlineVersion) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    public void register(AcquireOrder order, long deadlineVersion) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
@@ -51,6 +47,7 @@ public class OrderDeadlineTasks {
                 || order.state() != AcquireOrderState.INIT && order.state() != AcquireOrderState.PENDING) {
             throw new CommonException(INVALID_STATE);
         }
-        tasks.register(TYPE, new OrderTaskKey(order.id(), deadlineVersion).bizId(), order.orderDueAt());
+        tasks.submit(TaskSubmission.scheduled(
+                TYPE, new OrderTaskKey(order.id(), deadlineVersion).bizId(), order.orderDueAt()));
     }
 }

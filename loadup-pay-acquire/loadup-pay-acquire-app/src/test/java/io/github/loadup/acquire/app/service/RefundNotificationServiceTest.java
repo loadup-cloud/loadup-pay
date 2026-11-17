@@ -32,7 +32,8 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -55,7 +56,6 @@ import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
@@ -74,8 +74,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class RefundNotificationServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(RefundNotificationConverter.class.getPackageName());
-    final AtomicReference<AcquireServiceActor> actor = new AtomicReference<>(
-            new AcquireServiceActor("tenant", "payment", Set.of("pay:acquire:refund:notification")));
+    final AtomicReference<AcquireServiceActor> actor =
+            new AtomicReference<>(new AcquireServiceActor("payment", Set.of("pay:acquire:refund:notification")));
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
     final PaymentOutcomeGateway payments = mock(PaymentOutcomeGateway.class);
     final RefundNotificationReceiptGateway receipts = mock(RefundNotificationReceiptGateway.class);
@@ -101,11 +101,12 @@ class RefundNotificationServiceTest {
         when(orders.lockOrder("order")).thenReturn(stored);
         when(payments.lockPayment("order", "payment")).thenReturn(Optional.of(allocation(AllocationState.CONSUMED)));
         when(receipts.find(anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(0))));
-        when(notifications.refund(eq("tenant"), any())).thenAnswer(c -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
-            return new MerchantNotificationRegistration("f".repeat(64), "ENQUEUED");
-        });
+        doAnswer(c -> {
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    return new MerchantNotificationRegistration("f".repeat(64), "ENQUEUED");
+                })
+                .when(notifications)
+                .refund(any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     var receipt = c.<RefundNotificationReceipt>getArgument(0);
@@ -179,7 +180,7 @@ class RefundNotificationServiceTest {
         assertEquals(3, first.sourceVersion());
         when(orders.lockOrder(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertEquals(first, service.accept(child()));
-        verify(notifications, times(1)).refund(eq("tenant"), any());
+        verify(notifications, times(1)).refund(any());
         verify(receipts, times(1)).insert(any());
         verify(payments, never()).apply(any(), any(), any(), anyLong());
         assertEquals(1, manager.commits);
@@ -203,7 +204,7 @@ class RefundNotificationServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.accept(changed))
                         .getResultCode());
-        verify(notifications, times(1)).refund(eq("tenant"), any());
+        verify(notifications, times(1)).refund(any());
     }
 
     @Test
@@ -241,8 +242,9 @@ class RefundNotificationServiceTest {
 
     @Test
     void originalDisabledPolicyIsDurablyAcknowledged() {
-        when(notifications.refund(eq("tenant"), any()))
-                .thenReturn(new MerchantNotificationRegistration("f".repeat(64), "DISABLED"));
+        doReturn(new MerchantNotificationRegistration("f".repeat(64), "DISABLED"))
+                .when(notifications)
+                .refund(any());
         assertEquals("DISABLED", service.accept(child()).disposition());
         assertEquals("DISABLED", accepted.get("delivery").disposition());
     }
@@ -275,12 +277,12 @@ class RefundNotificationServiceTest {
 
     @Test
     void configuredServiceAndDedicatedPermissionAreBothRequired() {
-        actor.set(new AcquireServiceActor("tenant", "other", Set.of("pay:acquire:refund:notification")));
+        actor.set(new AcquireServiceActor("other", Set.of("pay:acquire:refund:notification")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.accept(child()))
                         .getResultCode());
-        actor.set(new AcquireServiceActor("tenant", "payment", Set.of("pay:acquire:fee:refund")));
+        actor.set(new AcquireServiceActor("payment", Set.of("pay:acquire:fee:refund")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.accept(child()))
@@ -290,7 +292,7 @@ class RefundNotificationServiceTest {
 
     @Test
     void registrationAndReceiptFailuresReturnNoAck() {
-        when(notifications.refund(eq("tenant"), any())).thenThrow(new CommonException(CONCURRENT_UPDATE));
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(notifications).refund(any());
         assertThrows(CommonException.class, () -> service.accept(child()));
         assertTrue(accepted.isEmpty());
         verify(receipts, never()).insert(any());

@@ -22,24 +22,23 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
 import io.github.loadup.productcenter.app.model.PolicyActivationDispatch;
 import io.github.loadup.productcenter.app.service.PolicyPublicationService;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
-class PolicyActivationOutboxHandlerTest {
+class PolicyActivationTaskHandlerTest {
     final PolicyPublicationService service = mock(PolicyPublicationService.class);
-    final PolicyActivationOutboxHandler handler =
-            new PolicyActivationOutboxHandler(service, JsonMapper.builder().build());
+    final PolicyActivationTaskHandler handler =
+            new PolicyActivationTaskHandler(service, JsonMapper.builder().build());
 
-    OutboxEvent event(String businessId, int version) {
-        return new OutboxEvent(
+    TaskExecution event(String businessId, int version) {
+        return new TaskExecution(
                 "event",
-                new OutboxMessage(
+                TaskSubmission.immediate(
                         PolicyActivationDispatch.TYPE,
                         version,
                         businessId,
@@ -50,22 +49,19 @@ class PolicyActivationOutboxHandlerTest {
 
     @Test
     void aMatchingFrameworkTenantAndEnvelopeDispatchTheStoredIntent() {
-        TenantUtil.runWithTenant("tenant", () -> handler.handle(event("publication", 1)));
-        verify(service).deliver("tenant", "event", "publication");
+        handler.handle(event("publication", 1));
+        verify(service).deliver("event", "publication");
     }
 
     @Test
     void businessBindingMismatchNeverInvokesTheDeliveryService() {
-        TenantUtil.runWithTenant("tenant", () -> {
-            assertThrows(CommonException.class, () -> handler.handle(event("different", 1)));
-        });
+        assertThrows(CommonException.class, () -> handler.handle(event("different", 1)));
         verifyNoInteractions(service);
     }
 
     @Test
     void anUnknownPayloadVersionIsNotSilentlyAcknowledged() {
-        TenantUtil.runWithTenant(
-                "tenant", () -> assertThrows(CommonException.class, () -> handler.handle(event("publication", 2))));
+        assertThrows(CommonException.class, () -> handler.handle(event("publication", 2)));
         verifyNoInteractions(service);
     }
 }

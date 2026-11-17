@@ -29,10 +29,12 @@ public class RealtimeSecurityConfiguration implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)
-                || !environment.getProperty("loadup.database.multi-tenant.enabled", Boolean.class, false)
-                || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false)) {
-            throw new IllegalStateException("Realtime business requires verified JWT and trusted tenant isolation");
+        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
+            throw new IllegalStateException("Realtime business requires the verified JWT resource server");
+        }
+        String schema = environment.getProperty("loadup.database.schema", "");
+        if (schema.isBlank()) {
+            throw new IllegalStateException("Realtime business requires a fixed database schema");
         }
     }
 }

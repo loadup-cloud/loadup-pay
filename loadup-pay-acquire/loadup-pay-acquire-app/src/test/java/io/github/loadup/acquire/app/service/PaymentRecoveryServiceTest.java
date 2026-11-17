@@ -74,7 +74,7 @@ class PaymentRecoveryServiceTest {
     final PaymentInitiationOperations initiation = mock(PaymentInitiationOperations.class);
     final PaymentOutcomeOperations outcomes = mock(PaymentOutcomeOperations.class);
     final AtomicReference<AcquireActor> actor =
-            new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:recover")));
+            new AtomicReference<>(new AcquireActor(OWNER, Set.of("pay:acquire:payment:recover")));
     final PaymentRecoveryService service = new PaymentRecoveryService(
             actor::get,
             initiation,
@@ -118,7 +118,6 @@ class PaymentRecoveryServiceTest {
         var principal = ArgumentCaptor.forClass(PaymentInitiationPrincipal.class);
         verify(initiation).recover(principal.capture(), eq("order"), eq("action"), eq(1000L), eq(choice));
         assertEquals("merchant/" + OWNER, principal.getValue().actionScope());
-        assertEquals("tenant", principal.getValue().tenantId());
         principal.getValue().authorize(original, false);
         assertThrows(CommonException.class, () -> principal.getValue().authorize(original, true));
         var other = new StoredAcquireOrder(
@@ -135,8 +134,7 @@ class PaymentRecoveryServiceTest {
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> principal.getValue().authorize(other, false))
                         .getResultCode());
-        verify(outcomes)
-                .refresh(new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
+        verify(outcomes).refresh(new OrderPaymentScope(OWNER), new PaymentProgressRefreshCommand("order", "payment"));
         verify(initiation, never()).start(any(), any());
     }
 
@@ -167,18 +165,18 @@ class PaymentRecoveryServiceTest {
         assertEquals(Boolean.FALSE, result.accepted());
         assertTrue(JsonUtil.toJson(result).contains("\"accepted\":false"));
         assertSame(absent, result.progress());
-        verify(outcomes).applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof);
+        verify(outcomes).applyInputExpiry(new OrderPaymentScope(OWNER), "order", "payment", proof);
         verify(outcomes, never()).refresh(any(), any());
     }
 
     @Test
     void startingPermissionAloneDoesNotGrantRecoveryAndOuterTransactionsAreRejected() {
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:start")));
+        actor.set(new AcquireActor(OWNER, Set.of("pay:acquire:payment:start")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.recover(command))
                         .getResultCode());
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:recover")));
+        actor.set(new AcquireActor(OWNER, Set.of("pay:acquire:payment:recover")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

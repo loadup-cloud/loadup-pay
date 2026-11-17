@@ -52,7 +52,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class CustomerEligibilityHttpLookupTest {
     private static final String TOKEN = "synthetic-customer-token";
     private final CustomerHttpService http = mock(CustomerHttpService.class);
-    private final ProductActor actor = new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", TOKEN, Set.of());
+    private final ProductActor actor = new ProductActor("MERCHANT_APP", "app", "merchant", TOKEN, Set.of());
     private final CustomerEligibilityHttpLookup lookup =
             new CustomerEligibilityHttpLookup(http, () -> actor, remoteContracts());
 
@@ -111,9 +111,7 @@ class CustomerEligibilityHttpLookupTest {
     @Test
     void missingAudienceAndActiveTransactionsPreventNetworkAccess() {
         var missingAudience = new CustomerEligibilityHttpLookup(
-                http,
-                () -> new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", null, Set.of()),
-                remoteContracts());
+                http, () -> new ProductActor("MERCHANT_APP", "app", "merchant", null, Set.of()), remoteContracts());
         assertThrows(CommonException.class, () -> missingAudience.authorizeNewOrder("merchant"));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertThrows(CommonException.class, () -> lookup.authorizeNewOrder("merchant"));

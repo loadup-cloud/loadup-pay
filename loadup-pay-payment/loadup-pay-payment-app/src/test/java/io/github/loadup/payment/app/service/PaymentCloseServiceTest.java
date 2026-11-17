@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -42,7 +41,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
@@ -118,7 +116,7 @@ class PaymentCloseServiceTest {
             return Optional.of(original);
         });
         when(payments.find("payment")).thenReturn(Optional.of(accepted));
-        when(locks.lock("tenant", "payment", "acquire")).thenAnswer(call -> {
+        when(locks.lock("payment", "acquire")).thenAnswer(call -> {
             write();
             return PaymentExecutionBindings.locked(accepted, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
@@ -136,7 +134,6 @@ class PaymentCloseServiceTest {
                 .insert(any());
         when(channels.close(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             assertEquals(
                     new ChannelPaymentTarget(
                             original.attempt().identity(), original.attempt().amount()),
@@ -144,7 +141,7 @@ class PaymentCloseServiceTest {
             return observation(
                     ChannelPaymentOutcome.Kind.NO_COLLECTION, PaymentObservation.Source.CLOSE_RESPONSE, "a".repeat(64));
         });
-        when(results.record(eq("tenant"), any())).thenAnswer(call -> {
+        when(results.record(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return applied;
         });
@@ -158,7 +155,7 @@ class PaymentCloseServiceTest {
 
     @Test
     void acknowledgedCloseIsCommittedBeforeY3AndReplaysTheSameSourceWithoutAnotherChannelCall() {
-        assertEquals(applied, service.close("tenant", original));
+        assertEquals(applied, service.close(original));
         var proof = saved.get();
         assertNotNull(proof);
         assertEquals(1L, proof.executionEpoch());
@@ -167,31 +164,29 @@ class PaymentCloseServiceTest {
         var ordered = inOrder(channels, evidence, results);
         ordered.verify(channels).close(any());
         ordered.verify(evidence).insert(proof);
-        ordered.verify(results).record(eq("tenant"), any());
-        service.close("tenant", original);
+        ordered.verify(results).record(any());
+        service.close(original);
         verify(channels, times(1)).close(any());
         verify(evidence, times(1)).insert(any());
         verify(results, times(2))
-                .record(
-                        eq("tenant"),
-                        argThat(value -> value.source() == PaymentObservation.Source.CLOSE_RESPONSE
-                                && value.kind() == ChannelPaymentOutcome.Kind.NO_COLLECTION
-                                && value.sourceDigest().equals(proof.sourceDigest())
-                                && value.receiptKey().equals(proof.receiptKey())));
+                .record(argThat(value -> value.source() == PaymentObservation.Source.CLOSE_RESPONSE
+                        && value.kind() == ChannelPaymentOutcome.Kind.NO_COLLECTION
+                        && value.sourceDigest().equals(proof.sourceDigest())
+                        && value.receiptKey().equals(proof.receiptKey())));
     }
 
     @Test
     void y3FailureKeepsTheOriginalProofForANewRecoveryAttempt() {
-        when(results.record(eq("tenant"), any())).thenAnswer(call -> {
+        when(results.record(any())).thenAnswer(call -> {
             assertNotNull(saved.get());
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             throw new IllegalStateException("controlled Y3 rollback");
         });
-        assertThrows(IllegalStateException.class, () -> service.close("tenant", original));
+        assertThrows(IllegalStateException.class, () -> service.close(original));
         var first = saved.get();
         assertNotNull(first);
-        when(results.record(eq("tenant"), any())).thenReturn(applied);
-        assertEquals(applied, service.close("tenant", original));
+        doReturn(applied).when(results).record(any());
+        assertEquals(applied, service.close(original));
         assertEquals(first, saved.get());
         verify(channels, times(1)).close(any());
     }
@@ -203,8 +198,8 @@ class PaymentCloseServiceTest {
         }) {
             var observed = observation(kind, PaymentObservation.Source.QUERY_RESPONSE, "b".repeat(64));
             doReturn(observed).when(channels).close(any());
-            assertEquals(applied, service.close("tenant", original));
-            verify(results).record("tenant", observed);
+            assertEquals(applied, service.close(original));
+            verify(results).record(observed);
         }
         verify(evidence, never()).insert(any());
         assertNull(saved.get());
@@ -220,7 +215,7 @@ class PaymentCloseServiceTest {
                     .close(any());
             assertEquals(
                     SNAPSHOT_INVALID,
-                    assertThrows(CommonException.class, () -> service.close("tenant", original))
+                    assertThrows(CommonException.class, () -> service.close(original))
                             .getResultCode());
         }
         verify(evidence, never()).insert(any());
@@ -230,7 +225,7 @@ class PaymentCloseServiceTest {
     @Test
     void lostNetworkResponseLeavesNoEvidenceAndDoesNotReleaseAnyFinancialState() {
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(channels).close(any());
-        assertThrows(CommonException.class, () -> service.close("tenant", original));
+        assertThrows(CommonException.class, () -> service.close(original));
         assertNull(saved.get());
         verifyNoInteractions(results);
         verify(evidence, never()).insert(any());
@@ -248,7 +243,7 @@ class PaymentCloseServiceTest {
                 AttemptFixtures.NOW));
         assertEquals(
                 SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, () -> service.close("tenant", original))
+                assertThrows(CommonException.class, () -> service.close(original))
                         .getResultCode());
         verifyNoInteractions(channels, results);
     }
@@ -272,26 +267,24 @@ class PaymentCloseServiceTest {
                 })
                 .when(channels)
                 .close(any());
-        service.close("tenant", original);
+        service.close(original);
         verify(evidence, never()).insert(any());
         assertEquals(winner, saved.get());
         verify(results)
-                .record(
-                        eq("tenant"),
-                        argThat(value -> value.receiptKey().equals("first-close")
-                                && value.sourceDigest().equals("e".repeat(64))));
+                .record(argThat(value -> value.receiptKey().equals("first-close")
+                        && value.sourceDigest().equals("e".repeat(64))));
     }
 
     @Test
     void neverSubmittedAndOuterTransactionAreRejectedBeforeAnyStateOrNetworkRead() {
         assertEquals(
                 INVALID_ARGUMENT,
-                assertThrows(CommonException.class, () -> service.close("tenant", AttemptFixtures.prepared()))
+                assertThrows(CommonException.class, () -> service.close(AttemptFixtures.prepared()))
                         .getResultCode());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertEquals(
                 INVALID_STATE,
-                assertThrows(CommonException.class, () -> service.close("tenant", original))
+                assertThrows(CommonException.class, () -> service.close(original))
                         .getResultCode());
         verifyNoInteractions(payments, attempts, locks, evidence, channels, results);
     }
@@ -301,7 +294,7 @@ class PaymentCloseServiceTest {
         when(payments.find("payment")).thenReturn(Optional.of(base));
         assertEquals(
                 INVALID_STATE,
-                assertThrows(CommonException.class, () -> service.close("tenant", original))
+                assertThrows(CommonException.class, () -> service.close(original))
                         .getResultCode());
         var terminal = new StoredPaymentAcceptance(
                 base.payment().fail(new NoCollectionEvidence("proof", "payment", true)),
@@ -314,7 +307,7 @@ class PaymentCloseServiceTest {
         when(payments.find("payment")).thenReturn(Optional.of(terminal));
         assertEquals(
                 INVALID_STATE,
-                assertThrows(CommonException.class, () -> service.close("tenant", original))
+                assertThrows(CommonException.class, () -> service.close(original))
                         .getResultCode());
         verifyNoInteractions(channels, results);
     }
@@ -336,7 +329,7 @@ class PaymentCloseServiceTest {
                 .close(any());
         assertEquals(
                 SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, () -> service.close("tenant", original))
+                assertThrows(CommonException.class, () -> service.close(original))
                         .getResultCode());
         verifyNoInteractions(results);
         verify(evidence, never()).insert(any());

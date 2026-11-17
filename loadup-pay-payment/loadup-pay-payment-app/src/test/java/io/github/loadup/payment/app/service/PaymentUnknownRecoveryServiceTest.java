@@ -37,7 +37,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.payment.app.converter.UnknownRecoveryOperationsConverter;
 import io.github.loadup.payment.app.model.UnknownRecoveryEntry;
@@ -67,7 +66,7 @@ class PaymentUnknownRecoveryServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final UnknownRecoveryReader reader = mock(UnknownRecoveryReader.class);
     final AtomicReference<PaymentActor> actor =
-            new AtomicReference<>(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:read")));
+            new AtomicReference<>(new PaymentActor("pay-ops", Set.of("pay:payment:recovery:read")));
     final PaymentUnknownRecoveryService service = new PaymentUnknownRecoveryService(
             actor::get,
             reader,
@@ -90,7 +89,6 @@ class PaymentUnknownRecoveryServiceTest {
         var review = entry(COLLECTION, "pay-b", "pay-b", at.minusMinutes(15));
         var next = entry(COLLECTION, "pay-c", "pay-c", review.firstUnknownAt());
         when(reader.list(eq(COLLECTION), any())).thenAnswer(call -> {
-            assertEquals("tenant", TenantUtil.getTenantId());
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals(
@@ -120,7 +118,6 @@ class PaymentUnknownRecoveryServiceTest {
         assertFalse(second.hasMore());
         assertNull(second.nextFirstUnknownAt());
         assertNull(second.nextRecordId());
-        assertNull(TenantUtil.getTenantId());
         assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
     }
 
@@ -152,11 +149,11 @@ class PaymentUnknownRecoveryServiceTest {
 
     @Test
     void merchantOrUnprivilegedServicesAreRejectedBeforeAnyDataAccess() {
-        actor.set(new PaymentActor("tenant", "merchant-service", Set.of("pay:payment:recovery:read")));
+        actor.set(new PaymentActor("merchant-service", Set.of("pay:payment:recovery:read")));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.list(null)).getResultCode());
-        actor.set(new PaymentActor("tenant", "pay-ops", Set.of()));
+        actor.set(new PaymentActor("pay-ops", Set.of()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.list(null)).getResultCode());
@@ -217,7 +214,6 @@ class PaymentUnknownRecoveryServiceTest {
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.list(query)).getResultCode());
-        assertNull(TenantUtil.getTenantId());
     }
 
     private UnknownRecoveryEntry entry(PaymentRecoveryKind kind, String id, String subject, LocalDateTime firstAt) {

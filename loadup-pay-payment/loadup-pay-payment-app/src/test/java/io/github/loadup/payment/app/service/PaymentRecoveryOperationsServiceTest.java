@@ -47,11 +47,11 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskResultCodeEnum;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.converter.PaymentRecoveryOperationsConverter;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.command.PaymentRecoveryRetryCommand;
@@ -82,6 +82,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -90,7 +91,7 @@ class PaymentRecoveryOperationsServiceTest {
             new AnnotationConfigApplicationContext(PaymentRecoveryOperationsConverter.class.getPackageName());
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(
-            new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:read", "pay:payment:recovery:retry")));
+            new PaymentActor("pay-ops", Set.of("pay:payment:recovery:read", "pay:payment:recovery:retry")));
     final PaymentRecoveryRetryGateway receipts = mock(PaymentRecoveryRetryGateway.class);
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
     final PaymentExecutionLocks paymentLocks = mock(PaymentExecutionLocks.class);
@@ -98,7 +99,7 @@ class PaymentRecoveryOperationsServiceTest {
     final RefundExecutionLocks refundLocks = mock(RefundExecutionLocks.class);
     final RefundGateway refunds = mock(RefundGateway.class);
     final RefundRecoveryGateway refundCursors = mock(RefundRecoveryGateway.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(false));
     final AtomicReference<PaymentRecoveryCursor> cursor =
@@ -108,7 +109,7 @@ class PaymentRecoveryOperationsServiceTest {
             RefundRecoveryCursor.init("request", refund.get().plannedAt()));
     final AtomicInteger receiptIds = new AtomicInteger();
     final Map<String, PaymentRecoveryRetryReceipt> ledger = new HashMap<>();
-    final Map<String, DelayedTask> nativeTasks = new HashMap<>();
+    final Map<String, TaskExecution> nativeTasks = new HashMap<>();
     final PaymentRecoveryOperationsService service = new PaymentRecoveryOperationsService(
             actor::get,
             receipts,
@@ -129,9 +130,8 @@ class PaymentRecoveryOperationsServiceTest {
     @BeforeEach
     void setup() {
         when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
-        when(paymentLocks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
+        when(paymentLocks.lock("payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return PaymentExecutionBindings.locked(
                     accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
@@ -145,7 +145,7 @@ class PaymentRecoveryOperationsServiceTest {
             return refund.get();
         });
         when(paymentCursors.lock("payment")).thenAnswer(c -> Optional.of(cursor.get()));
-        when(refundLocks.request("tenant", "request")).thenAnswer(c -> {
+        when(refundLocks.request("request")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return refund.get();
         });
@@ -156,16 +156,16 @@ class PaymentRecoveryOperationsServiceTest {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     var key = c.getArgument(0) + "/" + c.getArgument(1);
                     var before = nativeTasks.get(key);
-                    assertEquals(DelayedTaskStatus.FAILED, before.status());
+                    assertEquals(TaskStatus.FAILED, before.status());
                     nativeTasks.put(
                             key,
-                            new DelayedTask(
+                            new TaskExecution(
                                     before.id(),
                                     before.taskType(),
                                     before.bizId(),
                                     before.executeAt(),
                                     NOW,
-                                    DelayedTaskStatus.PENDING,
+                                    TaskStatus.PENDING,
                                     0,
                                     before.maxAttempts(),
                                     null,
@@ -173,7 +173,7 @@ class PaymentRecoveryOperationsServiceTest {
                     return null;
                 })
                 .when(tasks)
-                .retryFailed(anyString(), anyString());
+                .retryFailed(anyString(), anyString(), anyString());
         when(receipts.find(anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(ledger.get(c.getArgument(0) + "/" + c.getArgument(1))));
         doAnswer(c -> {
@@ -184,7 +184,7 @@ class PaymentRecoveryOperationsServiceTest {
                 })
                 .when(receipts)
                 .insert(any());
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, DelayedTaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, TaskStatus.FAILED);
     }
 
     @AfterEach
@@ -193,10 +193,10 @@ class PaymentRecoveryOperationsServiceTest {
         validation.close();
     }
 
-    void put(String type, String biz, LocalDateTime due, LocalDateTime next, DelayedTaskStatus status) {
+    void put(String type, String biz, LocalDateTime due, LocalDateTime next, TaskStatus status) {
         nativeTasks.put(
                 type + "/" + biz,
-                new DelayedTask(
+                new TaskExecution(
                         type.equals(RefundRecoveryService.TYPE) ? "native-refund-task" : "native-task",
                         type,
                         biz,
@@ -234,7 +234,7 @@ class PaymentRecoveryOperationsServiceTest {
         assertFalse(JsonUtil.toJson(dto).contains("private-wire-error"));
         verifyNoInteractions(paymentLocks, refundLocks);
         verify(paymentCursors, never()).lock(anyString());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
         verifyNoInteractions(refundLocks, refundCursors, receipts);
     }
 
@@ -242,11 +242,11 @@ class PaymentRecoveryOperationsServiceTest {
     void retryAndReceiptAreAtomicAndOriginalKeyCannotResetAnotherFailedCycle() {
         var first = service.retry(command());
         assertEquals("RETRIED", first.result());
-        verify(paymentLocks).lock("tenant", "payment", "acquire");
-        verify(paymentLocks, never()).lock(anyString(), anyString(), eq("pay-ops"));
+        verify(paymentLocks).lock("payment", "acquire");
+        verify(paymentLocks, never()).lock(anyString(), eq("pay-ops"));
         assertEquals("order", ledger.values().iterator().next().orderId());
         assertEquals(1, manager.commits);
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW.plusSeconds(1), DelayedTaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW.plusSeconds(1), TaskStatus.FAILED);
         clearInvocations(payments, paymentLocks, paymentCursors, tasks);
         assertEquals(first, service.retry(command()));
         verifyNoInteractions(payments, paymentLocks, paymentCursors, tasks);
@@ -255,7 +255,7 @@ class PaymentRecoveryOperationsServiceTest {
 
     @Test
     void refundInspectionNeverAcquiresParentRequestOrCursorWriteLocks() {
-        put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, DelayedTaskStatus.FAILED);
+        put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, TaskStatus.FAILED);
         assertTrue(service.detail(new PaymentRecoveryTaskQuery(PaymentRecoveryKind.REFUND_REQUEST, "request", 0L))
                 .retryable());
         verify(refunds).load("request");
@@ -268,14 +268,14 @@ class PaymentRecoveryOperationsServiceTest {
     void staleInspectionStillNeedsTheLockedOriginalRetryPreconditions() {
         assertTrue(service.detail(new PaymentRecoveryTaskQuery(PaymentRecoveryKind.COLLECTION, "payment", 0L))
                 .retryable());
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW.plusSeconds(1), DelayedTaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW.plusSeconds(1), TaskStatus.FAILED);
         assertSame(
                 VERSION_CONFLICT,
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
-        verify(paymentLocks).lock("tenant", "payment", "acquire");
+        verify(paymentLocks).lock("payment", "acquire");
         verify(paymentCursors).lock("payment");
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -286,19 +286,27 @@ class PaymentRecoveryOperationsServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.retry(changed))
                         .getResultCode());
-        verify(tasks, times(1)).retryFailed(PaymentRecoveryService.TYPE, "payment.0");
+        verify(tasks, times(1))
+                .retryFailed(
+                        ArgumentMatchers.eq("native-task"),
+                        ArgumentMatchers.anyString(),
+                        ArgumentMatchers.eq("Explicit business retry"));
     }
 
     @Test
     void refundRetryOnlyWakesItsOriginalFixedRequestAndDoesNotEnterCollectionLocks() {
-        put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, DelayedTaskStatus.FAILED);
+        put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, TaskStatus.FAILED);
         var result = service.retry(command(PaymentRecoveryKind.REFUND_REQUEST, "request", "refund-operation", NOW));
         assertEquals("RETRIED", result.result());
         assertEquals("request", result.subjectId());
-        verify(tasks).retryFailed(RefundRecoveryService.TYPE, "request.0");
+        verify(tasks)
+                .retryFailed(
+                        ArgumentMatchers.eq("native-refund-task"),
+                        ArgumentMatchers.anyString(),
+                        ArgumentMatchers.eq("Explicit business retry"));
         verifyNoInteractions(payments, paymentLocks, paymentCursors);
         var sequence = inOrder(refundLocks, refundCursors, tasks);
-        sequence.verify(refundLocks).request("tenant", "request");
+        sequence.verify(refundLocks).request("request");
         sequence.verify(refundCursors).lock("request");
         sequence.verify(tasks).find(RefundRecoveryService.TYPE, "request.0");
     }
@@ -321,7 +329,7 @@ class PaymentRecoveryOperationsServiceTest {
                 "NO_LONGER_NEEDED",
                 service.retry(command(PaymentRecoveryKind.COLLECTION, "payment", "terminal-operation", NOW))
                         .result());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -332,16 +340,12 @@ class PaymentRecoveryOperationsServiceTest {
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
         assertTrue(ledger.isEmpty());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
     void missingTasksAndNonFailedStatesCannotBeCreatedOrRescheduledThroughOperations() {
-        for (var status : List.of(
-                DelayedTaskStatus.PENDING,
-                DelayedTaskStatus.RUNNING,
-                DelayedTaskStatus.SUCCEEDED,
-                DelayedTaskStatus.CANCELLED)) {
+        for (var status : List.of(TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCEEDED, TaskStatus.CANCELLED)) {
             put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, status);
             assertSame(
                     INVALID_STATE,
@@ -353,9 +357,9 @@ class PaymentRecoveryOperationsServiceTest {
                 NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
-        verify(tasks, never()).register(anyString(), anyString(), any());
-        verify(tasks, never()).reschedule(anyString(), anyString(), any());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
+        verify(tasks, never()).reschedule(anyString(), any());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -387,13 +391,13 @@ class PaymentRecoveryOperationsServiceTest {
                             .getResultCode());
         }
         assertTrue(ledger.isEmpty());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
     void futureWakeupAndSubMicrosecondExpectationsAreRejected() {
         cursor.set(PaymentRecoveryCursor.init("payment", NOW.plusSeconds(1)));
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW.plusSeconds(1), NOW.plusSeconds(1), DelayedTaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW.plusSeconds(1), NOW.plusSeconds(1), TaskStatus.FAILED);
         assertSame(
                 INVALID_STATE,
                 assertThrows(
@@ -408,14 +412,14 @@ class PaymentRecoveryOperationsServiceTest {
                                 () -> service.retry(command(
                                         PaymentRecoveryKind.COLLECTION, "payment", "fraction", NOW.plusNanos(1))))
                         .getResultCode());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
     void nativeStateCompetitionAndAuditFailureCannotReturnAnAcknowledgement() {
-        doThrow(new CommonException(DelayedTaskResultCodeEnum.INVALID_STATE))
+        doThrow(new CommonException(TaskResultCodeEnum.INVALID_STATE))
                 .when(tasks)
-                .retryFailed(anyString(), anyString());
+                .retryFailed(anyString(), anyString(), anyString());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.retry(command()))
@@ -435,18 +439,17 @@ class PaymentRecoveryOperationsServiceTest {
 
     @Test
     void recoveryPermissionDoesNotBelongToTheOrdinaryAcquireCaller() {
-        actor.set(new PaymentActor(
-                "tenant", "acquire", Set.of("pay:payment:recovery:read", "pay:payment:recovery:retry")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:recovery:read", "pay:payment:recovery:retry")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:read")));
+        actor.set(new PaymentActor("pay-ops", Set.of("pay:payment:recovery:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.retry(command()))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:retry")));
+        actor.set(new PaymentActor("pay-ops", Set.of("pay:payment:recovery:retry")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

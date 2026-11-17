@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import io.github.loadup.acquire.app.model.productcenter.command.OrderAdmissionAuthorizeCommand;
 import io.github.loadup.acquire.app.security.AcquireActor;
 import io.github.loadup.acquire.infrastructure.converter.RemoteContractConverter;
+import io.github.loadup.acquire.infrastructure.security.DelegatedCredentialResolver;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
@@ -40,12 +41,18 @@ import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import io.github.loadup.productcenter.client.http.ProductHttpService;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -55,7 +62,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class OrderAdmissionHttpClientTest {
     static final String TOKEN = "aGVhZGVy.eyJzdWIiOiJhY3F1aXJlIn0.c2lnbmF0dXJl";
     final ProductHttpService productHttp = mock(ProductHttpService.class);
-    final AcquireActor actor = new AcquireActor("tenant", "a".repeat(64), TOKEN, Set.of());
+    final AcquireActor actor = new AcquireActor("a".repeat(64), Set.of());
     final OrderAdmissionAuthorizeCommand command =
             new OrderAdmissionAuthorizeCommand("order", "merchant", "scope", "b".repeat(64), 100, "CNY", null);
 
@@ -66,13 +73,32 @@ class OrderAdmissionHttpClientTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setup() {
-        client = new OrderAdmissionHttpClient(productHttp, () -> actor, contracts);
+        authenticate(TOKEN);
+        client = new OrderAdmissionHttpClient(productHttp, new DelegatedCredentialResolver(() -> actor), contracts);
+    }
+
+    @AfterEach
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void authenticate(String token) {
+        var jwt = Jwt.withTokenValue(token)
+                .header("alg", "RS256")
+                .subject("app")
+                .claim("principal_type", "MERCHANT_APP")
+                .claim("merchant_id", "merchant")
+                .claim("aud", List.of("acquire"))
+                .build();
+        SecurityContextHolder.getContext()
+                .setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", jwt, List.of()));
     }
 
     @Test
     void propagatesTheDelegatedTokenPerHttpRequest() {
+        var expectedToken = new AtomicReference<>(TOKEN);
         doAnswer(invocation -> {
-                    assertEquals("Bearer " + TOKEN, invocation.getArgument(0, String.class));
+                    assertEquals("Bearer " + expectedToken.get(), invocation.getArgument(0, String.class));
                     return SuccessResponse.of(new OrderAdmissionDTO(
                             "admission",
                             "order",
@@ -100,6 +126,11 @@ class OrderAdmissionHttpClientTest {
         assertEquals("order", request.getValue().orderId());
         assertEquals("merchant", request.getValue().payeeMerchantId());
         assertEquals("scope", request.getValue().productScopeKey());
+
+        expectedToken.set("synthetic-rotated-caller-token");
+        authenticate(expectedToken.get());
+        client.authorize(command);
+        Mockito.verify(productHttp).authorize(eq("Bearer " + expectedToken.get()), any());
     }
 
     @Test
@@ -129,18 +160,18 @@ class OrderAdmissionHttpClientTest {
     }
 
     @Test
-    void missingDelegationAudiencePreventsAnyNetworkRequest() {
-        var denied = new OrderAdmissionHttpClient(
-                productHttp, () -> new AcquireActor("tenant", "a".repeat(64), null, Set.of()), contracts);
+    void missingCurrentDelegatedCredentialPreventsAnyNetworkRequest() {
+        SecurityContextHolder.clearContext();
         assertSame(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> denied.authorize(command))
+                assertThrows(CommonException.class, () -> client.authorize(command))
                         .getResultCode());
         verifyNoInteractions(productHttp);
     }
 
     @Test
     void networkCannotJoinTheLocalCreationTransaction() {
+        SecurityContextHolder.clearContext();
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

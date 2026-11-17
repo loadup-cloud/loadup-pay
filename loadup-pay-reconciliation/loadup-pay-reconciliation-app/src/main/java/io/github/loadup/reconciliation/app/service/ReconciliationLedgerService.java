@@ -131,16 +131,15 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
     public ReconciliationLedgerSourceDTO prepare(ReconciliationLedgerPrepareCommand command) {
         validate(command);
         var actor = actor("prepare");
-        var batch = transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
+        var batch = transactions.readSnapshot(() -> owned(actor, command.batchId(), false));
         if (batch.batch().ledger() != null || batch.batch().state() != ReconciliationState.INIT) {
             throw new CommonException(INVALID_STATE);
         }
         // Stable keys are scoped to the original batch and caller, even when remote Create loses its response.
-        var requestKey =
-                DigestUtils.sha256(frame(actor.tenantId(), actor.serviceId(), command.batchId(), command.requestKey()));
+        var requestKey = DigestUtils.sha256(frame(actor.serviceId(), command.batchId(), command.requestKey()));
         var capture = source.create(ledger.toCreate(batch.batch().scope(), requestKey));
         scope(batch.batch().scope(), capture, capture == null ? null : capture.captureId());
-        transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
+        transactions.readSnapshot(() -> owned(actor, command.batchId(), false));
         return ledger.toDTO(capture);
     }
 
@@ -148,14 +147,14 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
     public ReconciliationLedgerSourceDTO retry(ReconciliationLedgerRetryCommand command) {
         validate(command);
         var actor = actor("retry");
-        var batch = transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
+        var batch = transactions.readSnapshot(() -> owned(actor, command.batchId(), false));
         var original = source.detail(command.captureId());
         scope(batch.batch().scope(), original, command.captureId());
         if (!command.expectedTaskId().equals(original.nativeTaskId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         // Recheck the current local grant after source lookup, before the explicit remote retry.
-        transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
+        transactions.readSnapshot(() -> owned(actor, command.batchId(), false));
         var result = source.retry(new PaymentCaptureRetryCommand(command.captureId(), command.expectedTaskId()));
         scope(batch.batch().scope(), result, command.captureId());
         if (!command.expectedTaskId().equals(result.nativeTaskId())) {
@@ -168,10 +167,9 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
     public ReconciliationBatchDTO importSealed(ReconciliationLedgerImportCommand command) {
         validate(command);
         var actor = actor("import");
-        var original = transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
+        var original = transactions.readSnapshot(() -> owned(actor, command.batchId(), false));
         if (original.batch().ledger() != null) {
-            return transactions.readSnapshot(
-                    actor.tenantId(), () -> replay(owned(actor, command.batchId(), false), command.captureId()));
+            return transactions.readSnapshot(() -> replay(owned(actor, command.batchId(), false), command.captureId()));
         }
         if (original.batch().state() != ReconciliationState.INIT) {
             throw new CommonException(INVALID_STATE);
@@ -254,7 +252,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         if (file == null || file.size() != bytes.length || !file.sha256().equals(capture.contentHash())) {
             throw new CommonException(INPUT_INVALID);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var current = owned(actor, command.batchId(), true);
             if (!current.batch().scope().equals(original.batch().scope())) {
                 throw new CommonException(SCOPE_MISMATCH);

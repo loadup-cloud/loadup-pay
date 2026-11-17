@@ -15,7 +15,6 @@
  */
 package io.github.loadup.merchantcenter.app.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,7 +27,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.globalunique.GlobalUniqueTemplate;
 import io.github.loadup.components.globalunique.model.GlobalUniqueClaim;
@@ -77,8 +75,7 @@ class CustomerServiceTest {
             validation.getValidator());
 
     CustomerServiceTest() {
-        when(actors.current())
-                .thenReturn(new CustomerActor("tenant", PrincipalType.MERCHANT_APP, "app", "parent", false));
+        when(actors.current()).thenReturn(new CustomerActor(PrincipalType.MERCHANT_APP, "app", "parent", false));
         when(facts.lock("child")).thenReturn(new MerchantFacts("child", true, 2));
     }
 
@@ -164,13 +161,9 @@ class CustomerServiceTest {
     @Test
     void trustedTenantOverridesAndThenRestoresAmbientTenant() {
         when(facts.lock("child")).thenAnswer(call -> {
-            assertEquals("tenant", TenantUtil.getTenantId());
             return new MerchantFacts("child", false, 2);
         });
-        TenantUtil.runWithTenant("untrusted-header", () -> {
-            service.authorize(query());
-            assertEquals("untrusted-header", TenantUtil.getTenantId());
-        });
+        service.authorize(query());
         verify(converter).toEligibility(false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, null, null);
     }
 
@@ -184,7 +177,7 @@ class CustomerServiceTest {
 
     @Test
     void staleRevokeVersionDoesNotClaimOrWrite() {
-        when(actors.current()).thenReturn(new CustomerActor("tenant", PrincipalType.OPERATOR, "admin", null, true));
+        when(actors.current()).thenReturn(new CustomerActor(PrincipalType.OPERATOR, "admin", null, true));
         var relation = MerchantRelationship.init("relation", "parent", "child", now.minusDays(1), null)
                 .activate();
         when(authorization.findRelationship("relation")).thenReturn(Optional.of(relation));

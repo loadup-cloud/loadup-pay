@@ -22,7 +22,6 @@ import io.github.loadup.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -36,11 +35,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtAcquireActorProvider implements AcquireActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtAcquireActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     @Override
     public AcquireActor current() {
@@ -49,9 +43,8 @@ public class JwtAcquireActorProvider implements AcquireActorProvider {
             throw forbidden();
         }
         try {
-            String tenant = databaseTenant.currentTenantId(), type = jwt.getClaimAsString("principal_type");
+            String type = jwt.getClaimAsString("principal_type");
             String principal = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
-            DomainChecks.id(tenant);
             DomainChecks.text(principal, 128);
             if (!Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) {
                 throw forbidden();
@@ -68,13 +61,10 @@ public class JwtAcquireActorProvider implements AcquireActorProvider {
             // Same immutable principal tuple as product; bearer token rotations do not change ownership.
             String scope = HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256")
-                            .digest(JsonUtil.toJson(Arrays.asList(tenant, type, principal, merchant))
+                            .digest(JsonUtil.toJson(Arrays.asList(type, principal, merchant))
                                     .getBytes(StandardCharsets.UTF_8)));
-            String delegated = jwt.getTokenValue();
             return new AcquireActor(
-                    tenant,
                     scope,
-                    delegated,
                     auth.getAuthorities().stream().map(a -> a.getAuthority()).collect(Collectors.toUnmodifiableSet()));
         } catch (RuntimeException invalid) {
             throw forbidden();

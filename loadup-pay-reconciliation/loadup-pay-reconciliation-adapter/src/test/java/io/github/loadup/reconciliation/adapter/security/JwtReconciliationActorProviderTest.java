@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -32,8 +30,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtReconciliationActorProviderTest {
-    private final JwtReconciliationActorProvider provider =
-            new JwtReconciliationActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    private final JwtReconciliationActorProvider provider = new JwtReconciliationActorProvider();
 
     @AfterEach
     void clear() {
@@ -44,7 +41,6 @@ class JwtReconciliationActorProviderTest {
     void onlyVerifiedServiceClaimsSupplyTenantCallerAndAuthorities() {
         install("SERVICE", "ops", "ops");
         var actor = provider.current();
-        assertEquals("__default__", actor.tenantId());
         assertEquals("ops", actor.serviceId());
         assertEquals(Set.of("pay:reconciliation:batch:read"), actor.permissions());
     }

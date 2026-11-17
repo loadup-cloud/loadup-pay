@@ -19,7 +19,6 @@ import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.SNAP
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
@@ -141,11 +140,9 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
 
     @Override
     public String requestDigest(String service, EventEnvelope<?> event, String factsHash) {
-        String tenant = TenantUtil.getTenantId();
         var data = new StringBuilder();
         for (var field : List.of(
                 "realtime-delivery-v1",
-                tenant == null ? "" : tenant,
                 service,
                 event.deliveryId(),
                 event.businessEventId(),

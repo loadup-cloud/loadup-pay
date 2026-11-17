@@ -26,9 +26,9 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationVerificationConverter;
 import io.github.loadup.reconciliation.app.security.ReconciliationActor;
 import io.github.loadup.reconciliation.app.security.ReconciliationActorProvider;
@@ -56,7 +56,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
     private final ReconciliationReviewService reviews;
     private final ReconciliationVerificationGateway requests;
     private final ReconciliationTransactions transactions;
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final ReconciliationVerificationConverter converter;
     private final IdGenerator ids;
     private final Validator validator;
@@ -67,7 +67,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
             ReconciliationReviewService reviews,
             ReconciliationVerificationGateway requests,
             ReconciliationTransactions transactions,
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             ReconciliationVerificationConverter converter,
             IdGenerator ids,
             Validator validator,
@@ -83,15 +83,21 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         this.clock = clock;
     }
 
-    static OutboxRecord delivery(OutboxTemplate outbox, ReconciliationVerificationRequest value) {
+    static TaskExecution delivery(TaskTemplate outbox, ReconciliationVerificationRequest value) {
         var row = outbox.find(value.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!value.deliveryId().equals(row.id())
-                || !value.id().equals(row.businessId())
-                || !ReconciliationVerificationMessages.TYPE.equals(row.type())
+                || !value.id().equals(row.bizId())
+                || !ReconciliationVerificationMessages.TYPE.equals(row.taskType())
                 || row.status() == null
-                || !Set.of("PENDING", "PROCESSING", "SUCCEEDED", "FAILED").contains(row.status())
+                || !Set.of(
+                                io.github.loadup.components.task.TaskStatus.PENDING,
+                                io.github.loadup.components.task.TaskStatus.RUNNING,
+                                io.github.loadup.components.task.TaskStatus.SUCCEEDED,
+                                io.github.loadup.components.task.TaskStatus.FAILED)
+                        .contains(row.status())
                 || row.attempts() < 0
-                || "SUCCEEDED".equals(row.status()) && value.state() == ReconciliationVerificationState.INIT) {
+                || row.status() == io.github.loadup.components.task.TaskStatus.SUCCEEDED
+                        && value.state() == ReconciliationVerificationState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return row;
@@ -102,7 +108,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         validate(command);
         var actor = actor("submit");
         var digest = digest(actor, command);
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var approved = reviews.approvedForVerification(
                     actor,
                     command.batchId(),
@@ -117,15 +123,15 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
                 if (!value.requestDigest().equals(digest)) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
-                return present(actor.tenantId(), value);
+                return present(value);
             }
             var id = ids.generate();
-            var deliveryId = outbox.publish(new OutboxMessage(
+            var deliveryId = outbox.submit(TaskSubmission.immediate(
                     ReconciliationVerificationMessages.TYPE, 1, id, ReconciliationVerificationMessages.encode(id)));
             var request =
                     converter.toRequest(approved, id, actor.serviceId(), command.requestKey(), digest, deliveryId);
             requests.insert(request);
-            return present(actor.tenantId(), request);
+            return present(request);
         });
     }
 
@@ -133,22 +139,17 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
     public ReconciliationVerificationDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(
-                actor.tenantId(),
-                () -> present(
-                        actor.tenantId(),
-                        checked(actor, requests.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
+        return transactions.readSnapshot(() ->
+                present(checked(actor, requests.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
     public ReconciliationVerificationDTO retry(ReconciliationVerificationRetryCommand command) {
         validate(command);
         var actor = actor("retry");
-        var original = transactions.readSnapshot(
-                actor.tenantId(),
-                () -> checked(
-                        actor, requests.find(command.requestId()).orElseThrow(() -> new CommonException(NOT_FOUND))));
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        var original = transactions.readSnapshot(() ->
+                checked(actor, requests.find(command.requestId()).orElseThrow(() -> new CommonException(NOT_FOUND))));
+        return transactions.writeLocal(() -> {
             // Stable batch -> review -> verification order. Retry never replaces the frozen query or recorded
             // observation.
             reviews.approvedForVerification(
@@ -164,10 +165,10 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             var delivery = delivery(outbox, value);
-            if ("FAILED".equals(delivery.status())) {
-                outbox.replay(delivery.id(), actor.serviceId(), command.reason());
+            if (delivery.status() == io.github.loadup.components.task.TaskStatus.FAILED) {
+                outbox.retryFailed(delivery.id(), actor.serviceId(), command.reason());
             }
-            return present(actor.tenantId(), value);
+            return present(value);
         });
     }
 
@@ -193,7 +194,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         return value;
     }
 
-    private ReconciliationVerificationDTO present(String tenant, ReconciliationVerificationRequest value) {
+    private ReconciliationVerificationDTO present(ReconciliationVerificationRequest value) {
         return converter.toDTO(value, delivery(outbox, value), clock);
     }
 
@@ -218,7 +219,6 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         var value = new StringBuilder();
         for (var field : List.of(
                 "reconciliation-verification-v1",
-                actor.tenantId(),
                 actor.serviceId(),
                 command.batchId(),
                 command.differenceId(),

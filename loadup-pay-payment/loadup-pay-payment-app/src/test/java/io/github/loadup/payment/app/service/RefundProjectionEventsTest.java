@@ -15,7 +15,6 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,16 +37,20 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundFinancialEvidence;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
+import io.github.loadup.payment.app.dispatch.PaymentFactRoutes;
 import io.github.loadup.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.payment.app.model.RefundSummaryFacts;
 import io.github.loadup.payment.app.port.RefundSnapshotReader;
@@ -66,9 +69,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -79,7 +84,8 @@ class RefundProjectionEventsTest {
     final RefundSummaryGateway summaries = mock(RefundSummaryGateway.class);
     final RefundSnapshotReader reader = mock(RefundSnapshotReader.class);
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final RefundFinancialEvidenceVerifier evidence = mock(RefundFinancialEvidenceVerifier.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final AtomicReference<OrderRefundSummary> summary = new AtomicReference<>();
     final AtomicReference<RefundProgressChange> current = new AtomicReference<>();
     final AtomicInteger ids = new AtomicInteger();
@@ -92,12 +98,46 @@ class RefundProjectionEventsTest {
             outbox,
             () -> "delivery-" + ids.incrementAndGet(),
             payments,
-            context.getBean(RefundSettlementConverter.class));
+            context.getBean(RefundSettlementConverter.class),
+            PaymentFactRoutes.defaults(),
+            evidence);
     final LocalDateTime createdAt = RefundResultFixtures.NOW.minusSeconds(30);
 
     @BeforeEach
     void setup() {
         when(payments.find("payment")).thenReturn(Optional.of(successfulPayment()));
+        when(evidence.freeze(any(), any())).thenAnswer(invocation -> {
+            RefundProgressChange successfulChange = invocation.getArgument(0);
+            StoredPaymentAcceptance original = invocation.getArgument(1);
+            var payment = original.payment();
+            return new RefundFinancialEvidence(
+                    1,
+                    successfulChange.refund().id(),
+                    successfulChange.request().id(),
+                    successfulChange.refund().version(),
+                    successfulChange.refund().terminalEvidenceId(),
+                    successfulChange.refund().amount().getCent(),
+                    successfulChange.capacity().refundedMinor(),
+                    successfulChange.capacity().version(),
+                    BusinessTime.external(successfulChange.succeededAt()),
+                    new PaymentFinancialEvidence(
+                            1,
+                            payment.id(),
+                            payment.orderId(),
+                            payment.allocationId(),
+                            payment.limitOperationId(),
+                            payment.payeeMerchantId(),
+                            payment.amount().getCent(),
+                            payment.amount().getCurrencyValue(),
+                            payment.state(),
+                            payment.version(),
+                            original.terminalEvidenceId(),
+                            payment.successfulAttemptId(),
+                            BusinessTime.external(payment.initiatedAt()),
+                            BusinessTime.external(successfulChange.capacity().succeededAt()),
+                            false));
+        });
+
         when(summaries.lock("order")).thenAnswer(c -> Optional.ofNullable(summary.get()));
         doAnswer(c -> {
                     summary.set(c.getArgument(0));
@@ -139,11 +179,10 @@ class RefundProjectionEventsTest {
         });
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals("tenant", TenantUtil.getTenantId());
                     return null;
                 })
                 .when(outbox)
-                .publish(any());
+                .submit(any());
     }
 
     StoredPaymentAcceptance successfulPayment() {
@@ -170,8 +209,8 @@ class RefundProjectionEventsTest {
     }
 
     void plan() {
-        transactions.writeLocal("tenant", () -> {
-            events.planned("tenant", RefundResultFixtures.initial(), ChannelAmounts.cnyAmount(10000, "CNY"));
+        transactions.writeLocal(() -> {
+            events.planned(RefundResultFixtures.initial(), ChannelAmounts.cnyAmount(10000, "CNY"));
             return true;
         });
     }
@@ -202,8 +241,8 @@ class RefundProjectionEventsTest {
 
     void changed(RefundProgressChange change) {
         current.set(change);
-        transactions.writeLocal("tenant", () -> {
-            events.changed("tenant", change);
+        transactions.writeLocal(() -> {
+            events.changed(change);
             return true;
         });
     }
@@ -211,39 +250,42 @@ class RefundProjectionEventsTest {
     @Test
     void planningFreezesEveryInitChildAndOneBoundedOrderMonetarySnapshot() {
         plan();
-        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox, times(4)).publish(capture.capture());
+        var capture = ArgumentCaptor.forClass(TaskSubmission.class);
+        verify(outbox, times(4)).submit(capture.capture());
         assertEquals(1500, summary.get().reservedMinor());
         assertEquals(1, summary.get().version());
         var message = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.SUMMARY))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_SUMMARY))
                 .findFirst()
                 .orElseThrow();
         var feeMessage = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.FEE))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_FEE))
                 .findFirst()
                 .orElseThrow();
         var json = JsonMapper.builder().build();
         Map<?, ?> envelope = json.readValue(message.payload(), Map.class);
         Map<?, ?> feeEnvelope = json.readValue(feeMessage.payload(), Map.class);
+        assertEquals(envelope.get("businessEventId"), feeEnvelope.get("businessEventId"));
+        Assertions.assertNotEquals(envelope.get("deliveryId"), feeEnvelope.get("deliveryId"));
+        assertEquals(envelope.get("data"), feeEnvelope.get("data"));
         var data = (Map<?, ?>) envelope.get("data");
         var feeData = (Map<?, ?>) feeEnvelope.get("data");
         assertFalse(data.containsKey("requests"));
         assertTrue(message.payload().length() < 2048);
         assertEquals(1500, ((Number) data.get("refundReservedMinor")).longValue());
         assertEquals("order", envelope.get("aggregateId"));
-        assertEquals(RefundProjectionEvents.FEE, feeMessage.type());
-        assertEquals(RefundProjectionEvents.FEE, feeEnvelope.get("eventType"));
+        assertEquals(PaymentDeliveryRoutes.REFUND_FEE, feeMessage.taskType());
+        assertEquals(BusinessEventTypes.ORDER_REFUND_SUMMARY, feeEnvelope.get("eventType"));
         assertEquals("order", feeEnvelope.get("aggregateId"));
         assertEquals(envelope.get("aggregateVersion"), feeEnvelope.get("aggregateVersion"));
         assertFalse(envelope.get("deliveryId").equals(feeEnvelope.get("deliveryId")));
-        assertFalse(envelope.get("businessEventId").equals(feeEnvelope.get("businessEventId")));
+        assertEquals(envelope.get("businessEventId"), feeEnvelope.get("businessEventId"));
         assertEquals(data.get("orderId"), feeData.get("orderId"));
         assertEquals(data.get("refundedMinor"), feeData.get("refundedMinor"));
         assertEquals(data.get("refundReservedMinor"), feeData.get("refundReservedMinor"));
         assertEquals(data.get("refundSummaryVersion"), feeData.get("refundSummaryVersion"));
         var child = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.CHILD))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_CHILD))
                 .findFirst()
                 .orElseThrow();
         Map<?, ?> childEnvelope = json.readValue(child.payload(), Map.class);
@@ -259,20 +301,23 @@ class RefundProjectionEventsTest {
     void successPublishesIndependentFinancialAndMerchantEvents() {
         plan();
         clearInvocations(outbox, summaries);
-        changed(change(ChannelRefundOutcome.Kind.SUCCEEDED));
+        var successfulChange = change(ChannelRefundOutcome.Kind.SUCCEEDED);
+        changed(successfulChange);
         assertEquals(1000, summary.get().refundedMinor());
         assertEquals(500, summary.get().reservedMinor());
         assertEquals(2, summary.get().version());
-        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox, times(5)).publish(capture.capture());
+        var capture = ArgumentCaptor.forClass(TaskSubmission.class);
+        verify(outbox, times(5)).submit(capture.capture());
         verify(summaries).update(any(), any());
         var limitMessage = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.LIMIT))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_LIMIT))
                 .findFirst()
                 .orElseThrow();
         var json = JsonMapper.builder().build();
         Map<?, ?> limitEnvelope = json.readValue(limitMessage.payload(), Map.class);
         var data = (Map<?, ?>) limitEnvelope.get("data");
+        assertEquals(BusinessEventTypes.REFUND_FINANCIAL, limitEnvelope.get("eventType"));
+        assertTrue(data.containsKey("financialEvidence"));
         assertEquals("refund", limitEnvelope.get("aggregateId"));
         assertEquals(2, ((Number) limitEnvelope.get("aggregateVersion")).longValue());
         assertEquals("refund", data.get("refundId"));
@@ -284,7 +329,7 @@ class RefundProjectionEventsTest {
                 OffsetDateTime.parse((String) limitEnvelope.get("occurredAt")).toInstant());
         verify(payments).find("payment");
         var merchant = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_MERCHANT))
                 .findFirst()
                 .orElseThrow();
         Map<?, ?> merchantEnvelope = json.readValue(merchant.payload(), Map.class);
@@ -305,7 +350,7 @@ class RefundProjectionEventsTest {
         assertEquals(0, summary.get().refundedMinor());
         assertEquals(1500, summary.get().reservedMinor());
         assertEquals(1, summary.get().version());
-        verify(outbox, times(1)).publish(argThat(m -> m.type().equals(RefundProjectionEvents.CHILD)));
+        verify(outbox, times(1)).submit(argThat(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_CHILD)));
         verify(summaries, never()).update(any(), any());
         verifyNoInteractions(payments);
     }
@@ -351,14 +396,14 @@ class RefundProjectionEventsTest {
                 null,
                 null));
 
-        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox, times(5)).publish(capture.capture());
+        var capture = ArgumentCaptor.forClass(TaskSubmission.class);
+        verify(outbox, times(5)).submit(capture.capture());
         var merchant = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_MERCHANT))
                 .toList();
         assertEquals(2, merchant.size());
         var message = merchant.stream()
-                .filter(m -> m.businessId().equals("request"))
+                .filter(m -> m.bizId().equals("request"))
                 .findFirst()
                 .orElseThrow();
         var envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
@@ -380,10 +425,10 @@ class RefundProjectionEventsTest {
         assertEquals(0, summary.get().refundedMinor());
         assertEquals(500, summary.get().reservedMinor());
         assertEquals(2, summary.get().version());
-        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox, times(4)).publish(capture.capture());
+        var capture = ArgumentCaptor.forClass(TaskSubmission.class);
+        verify(outbox, times(4)).submit(capture.capture());
         var merchant = capture.getAllValues().stream()
-                .filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT))
+                .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_MERCHANT))
                 .findFirst()
                 .orElseThrow();
         var envelope = JsonMapper.builder().build().readValue(merchant.payload(), Map.class);
@@ -396,7 +441,9 @@ class RefundProjectionEventsTest {
 
     @Test
     void outboxFailureAbortsTheWholeOwningTransactionBoundary() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(outbox).publish(any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
+                .when(outbox)
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         assertThrows(CommonException.class, this::plan);
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -405,27 +452,13 @@ class RefundProjectionEventsTest {
     }
 
     @Test
-    void anotherTenantOrMissingTransactionCannotPublish() {
+    void missingTransactionCannotPublish() {
         assertSame(
                 INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
                                 () -> events.planned(
-                                        "tenant",
-                                        RefundResultFixtures.initial(),
-                                        ChannelAmounts.cnyAmount(10000, "CNY")))
-                        .getResultCode());
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(
-                                CommonException.class,
-                                () -> transactions.writeLocal("other", () -> {
-                                    events.planned(
-                                            "tenant",
-                                            RefundResultFixtures.initial(),
-                                            ChannelAmounts.cnyAmount(10000, "CNY"));
-                                    return true;
-                                }))
+                                        RefundResultFixtures.initial(), ChannelAmounts.cnyAmount(10000, "CNY")))
                         .getResultCode());
         verifyNoInteractions(summaries, outbox);
     }

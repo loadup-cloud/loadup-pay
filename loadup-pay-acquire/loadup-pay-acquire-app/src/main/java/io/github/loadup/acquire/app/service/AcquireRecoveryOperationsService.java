@@ -53,10 +53,10 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskResultCodeEnum;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import jakarta.validation.Validator;
 import java.time.Clock;
@@ -81,7 +81,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
     private final AllocationRecoveryGateway cursors;
     private final AllocationRecoveryService paymentRecovery;
     private final OrderClosureOperations closure;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final AcquireRecoveryConverter converter;
     private final OrderCreationTransactions transactions;
     private final IdGenerator ids;
@@ -99,7 +99,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
             AllocationRecoveryGateway cursors,
             AllocationRecoveryService paymentRecovery,
             OrderClosureOperations closure,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             AcquireRecoveryConverter converter,
             OrderCreationTransactions transactions,
             IdGenerator ids,
@@ -130,9 +130,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         validate(query);
         key(query.kind(), query.subjectId(), query.generation());
         return transactions.readSnapshot(
-                actor.tenantId(),
-                () -> converter.toDTO(
-                        readInspection(actor.tenantId(), query.kind(), query.subjectId(), query.generation())));
+                () -> converter.toDTO(readInspection(query.kind(), query.subjectId(), query.generation())));
     }
 
     @Override
@@ -149,11 +147,9 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         if (expectedAt.getNano() % 1000 != 0 || expectedAt.getYear() < 1970 || expectedAt.getYear() > 9998) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        String scope = DigestUtils.sha256(
-                JsonUtil.toJson(List.of("acquire-recovery-operator-v1", actor.tenantId(), actor.serviceId())));
+        String scope = DigestUtils.sha256(JsonUtil.toJson(List.of("acquire-recovery-operator-v1", actor.serviceId())));
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of(
                 "acquire-recovery-retry-v1",
-                actor.tenantId(),
                 scope,
                 command.kind().name(),
                 command.subjectId(),
@@ -163,18 +159,17 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                 expectedAt.toString(),
                 command.requestKey(),
                 command.reason())));
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             var known = receipts.find(scope, command.requestKey());
             if (known.isPresent()) {
                 return replay(actor, known.get(), scope, digest);
             }
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), scope, digest);
                 }
-                var inspection =
-                        lockForRetry(actor.tenantId(), command.kind(), command.subjectId(), command.generation());
+                var inspection = lockForRetry(command.kind(), command.subjectId(), command.generation());
                 // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order
                 // key reuse.
                 existing = receipts.find(scope, command.requestKey());
@@ -187,7 +182,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                         || !task.nextExecuteAt().equals(expectedAt)) {
                     throw new CommonException(VERSION_CONFLICT);
                 }
-                if (task.status() != DelayedTaskStatus.FAILED) {
+                if (task.status() != TaskStatus.FAILED) {
                     throw new CommonException(INVALID_STATE);
                 }
                 String result = "NO_LONGER_NEEDED";
@@ -196,9 +191,9 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                         throw new CommonException(INVALID_STATE);
                     }
                     try {
-                        tasks.retryFailed(task.taskType(), task.bizId());
+                        tasks.retryFailed(task.id(), actor.serviceId(), command.reason());
                     } catch (CommonException changed) {
-                        if (changed.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE) {
+                        if (changed.getResultCode() == TaskResultCodeEnum.INVALID_STATE) {
                             throw new CommonException(CONCURRENT_UPDATE);
                         }
                         throw changed;
@@ -220,8 +215,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         });
     }
 
-    private AcquireRecoveryInspection readInspection(
-            String tenant, AcquireRecoveryKind kind, String subject, long generation) {
+    private AcquireRecoveryInspection readInspection(AcquireRecoveryKind kind, String subject, long generation) {
         var located = kind == AcquireRecoveryKind.PAYMENT_ALLOCATION
                 ? cursors.find(subject).orElseThrow(() -> new CommonException(NOT_FOUND))
                 : null;
@@ -230,12 +224,11 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         if (!order.order().id().equals(orderId)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var task = findTask(tenant, kind, subject, generation);
+        var task = findTask(kind, subject, generation);
         boolean current =
                 switch (kind) {
                     case PAYMENT_ALLOCATION ->
                         allocationCurrent(
-                                tenant,
                                 order,
                                 allocations
                                         .findPayment(orderId, subject)
@@ -244,14 +237,13 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                                 subject,
                                 generation,
                                 task);
-                    case ORDER_DEADLINE -> deadlineCurrent(tenant, order, generation, task);
-                    case ORDER_CLOSURE -> closureCurrent(tenant, order, generation, task);
+                    case ORDER_DEADLINE -> deadlineCurrent(order, generation, task);
+                    case ORDER_CLOSURE -> closureCurrent(order, generation, task);
                 };
         return inspection(kind, subject, generation, orderId, task, current);
     }
 
-    private AcquireRecoveryInspection lockForRetry(
-            String tenant, AcquireRecoveryKind kind, String subject, long generation) {
+    private AcquireRecoveryInspection lockForRetry(AcquireRecoveryKind kind, String subject, long generation) {
         String orderId = kind == AcquireRecoveryKind.PAYMENT_ALLOCATION
                 ? cursors.find(subject)
                         .orElseThrow(() -> new CommonException(NOT_FOUND))
@@ -261,12 +253,11 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         if (!order.order().id().equals(orderId)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var task = findTask(tenant, kind, subject, generation);
+        var task = findTask(kind, subject, generation);
         boolean current =
                 switch (kind) {
                     case PAYMENT_ALLOCATION ->
                         allocationCurrent(
-                                tenant,
                                 order,
                                 allocations
                                         .lockPayment(orderId, subject)
@@ -275,13 +266,13 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                                 subject,
                                 generation,
                                 task);
-                    case ORDER_DEADLINE -> deadlineCurrent(tenant, order, generation, task);
-                    case ORDER_CLOSURE -> closureCurrent(tenant, order, generation, task);
+                    case ORDER_DEADLINE -> deadlineCurrent(order, generation, task);
+                    case ORDER_CLOSURE -> closureCurrent(order, generation, task);
                 };
         return inspection(kind, subject, generation, orderId, task, current);
     }
 
-    private DelayedTask findTask(String tenant, AcquireRecoveryKind kind, String subject, long generation) {
+    private TaskExecution findTask(AcquireRecoveryKind kind, String subject, long generation) {
         String type =
                 switch (kind) {
                     case PAYMENT_ALLOCATION -> AllocationRecoveryQueue.TYPE;
@@ -299,24 +290,23 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
     }
 
     private boolean allocationCurrent(
-            String tenant,
             StoredAcquireOrder order,
             StoredPaymentAllocation allocation,
             AllocationRecoveryCursor cursor,
             String subject,
             long generation,
-            DelayedTask task) {
+            TaskExecution task) {
         if (!cursor.paymentId().equals(subject)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        boolean current = paymentRecovery.isCurrent(tenant, order, allocation, cursor, generation);
+        boolean current = paymentRecovery.isCurrent(order, allocation, cursor, generation);
         if (generation == cursor.generation() && !cursor.dueAt().equals(task.executeAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return current;
     }
 
-    private boolean deadlineCurrent(String tenant, StoredAcquireOrder order, long generation, DelayedTask task) {
+    private boolean deadlineCurrent(StoredAcquireOrder order, long generation, TaskExecution task) {
         long version = extensions.deadlineVersion(order.order());
         if (generation > version
                 || generation == version && !order.order().orderDueAt().equals(task.executeAt())) {
@@ -327,10 +317,9 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                         || order.order().state() == AcquireOrderState.PENDING);
     }
 
-    private boolean closureCurrent(String tenant, StoredAcquireOrder order, long generation, DelayedTask task) {
+    private boolean closureCurrent(StoredAcquireOrder order, long generation, TaskExecution task) {
         var intent = closes.findIntent(order.order().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        boolean current =
-                closure.isCurrent(new OrderPaymentScope(tenant, order.callerScopeHash()), order, intent, generation);
+        boolean current = closure.isCurrent(new OrderPaymentScope(order.callerScopeHash()), order, intent, generation);
         if (task.executeAt().isBefore(intent.requestedAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -342,7 +331,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
             String subject,
             long generation,
             String orderId,
-            DelayedTask task,
+            TaskExecution task,
             boolean current) {
         return new AcquireRecoveryInspection(
                 kind,
@@ -352,7 +341,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                 task,
                 current,
                 current
-                        && task.status() == DelayedTaskStatus.FAILED
+                        && task.status() == TaskStatus.FAILED
                         && !LocalDateTime.now(clock).isBefore(task.executeAt()));
     }
 

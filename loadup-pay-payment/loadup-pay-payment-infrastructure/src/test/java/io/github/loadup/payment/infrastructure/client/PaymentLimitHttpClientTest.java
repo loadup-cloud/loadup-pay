@@ -71,19 +71,17 @@ class PaymentLimitHttpClientTest {
     final LimitCenterHttpService limitCenterHttp = mock(LimitCenterHttpService.class);
     final List<String> attachments = new ArrayList<>();
     final LimitConfirmCommand confirm = new LimitConfirmCommand(
-            "operation", "payment", 2, "evidence", "evidence", 1000, "CNY", OffsetDateTime.now(clock));
+            "operation", "payment", 2, "evidence", "evidence", 1000, "CNY", OffsetDateTime.now(clock), null);
     final LimitReleaseCommand release =
-            new LimitReleaseCommand("operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED");
+            new LimitReleaseCommand("operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED", null);
     final LimitRefundRestoreCommand refundRestore = new LimitRefundRestoreCommand(
-            "operation", "payment", "refund", 3, "refund-event", 1000, 1500, "CNY", "refund-evidence");
+            "operation", "payment", "refund", 3, "refund-event", 1000, 1500, "CNY", "refund-evidence", null);
 
     PaymentLimitHttpClient client;
     String credential;
 
     Map<String, Object> claims() {
         return new HashMap<>(Map.of(
-                "tenant_id",
-                "tenant",
                 "principal_type",
                 "SERVICE",
                 "sub",
@@ -174,7 +172,8 @@ class PaymentLimitHttpClientTest {
                                 "evidence",
                                 1000,
                                 "CNY",
-                                OffsetDateTime.now(clock))));
+                                OffsetDateTime.now(clock),
+                                null)));
         assertEquals(1, attachments.size());
         assertTrue(attachments.getFirst().startsWith("Bearer "));
     }
@@ -189,7 +188,7 @@ class PaymentLimitHttpClientTest {
                 .release(
                         anyString(),
                         eq(new io.github.loadup.limitcenter.client.command.LimitReleaseCommand(
-                                "operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED")));
+                                "operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED", null)));
     }
 
     @Test
@@ -238,7 +237,8 @@ class PaymentLimitHttpClientTest {
                                 1000,
                                 1500,
                                 "CNY",
-                                "refund-evidence")));
+                                "refund-evidence",
+                                null)));
     }
 
     @Test

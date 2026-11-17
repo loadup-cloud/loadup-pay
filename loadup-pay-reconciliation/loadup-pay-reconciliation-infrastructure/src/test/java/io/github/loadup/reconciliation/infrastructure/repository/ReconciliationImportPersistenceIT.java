@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.dfs.DfsService;
 import io.github.loadup.components.dfs.model.FileDownloadResponse;
 import io.github.loadup.components.dfs.model.FileMetadata;
@@ -133,77 +132,71 @@ class ReconciliationImportPersistenceIT {
     void registrationFailureRollsBackNativeTaskBothReferencesAndBusinessIntent() {
         var fixture = fixture(validFile());
         persistence.failInsertFor(fixture.batchId());
-        assertThrows(
-                IllegalStateException.class,
-                () -> actors.call(fixture.tenant(), () -> imports.submit(fixture.command())));
-        assertEquals(0L, count("reconciliation_import", fixture.tenant()));
-        if (count("transfer_task", fixture.tenant()) != 0L) {
+        assertThrows(IllegalStateException.class, () -> actors.call(() -> imports.submit(fixture.command())));
+        assertEquals(0L, count("reconciliation_import"));
+        if (count("transfer_task") != 0L) {
             System.err.println("DIAG transfer rows="
                     + jdbc.queryForList("SELECT id, kind, handler_key, status, source_file_id FROM transfer_task"));
         }
-        assertEquals(0L, count("transfer_task", fixture.tenant()));
-        assertEquals(0L, count("file_resource_reference", fixture.tenant()));
-        assertEquals(1L, count("file_resource", fixture.tenant()));
-        var accepted = actors.call(fixture.tenant(), () -> imports.submit(fixture.command()));
-        assertEquals(2L, count("file_resource_reference", fixture.tenant()));
+        assertEquals(0L, count("transfer_task"));
+        assertEquals(0L, count("file_resource_reference"));
+        assertEquals(1L, count("file_resource"));
+        var accepted = actors.call(() -> imports.submit(fixture.command()));
+        assertEquals(2L, count("file_resource_reference"));
         assertTrue(scanner.executeQueuedTasks());
-        var sealed = actors.call(fixture.tenant(), () -> imports.detail(new IdQuery(accepted.importId())));
+        var sealed = actors.call(() -> imports.detail(new IdQuery(accepted.importId())));
         assertEquals("SEALED", sealed.state().name());
         assertEquals("SUCCEEDED", sealed.taskStatus());
-        assertEquals(1L, count("file_resource_reference", fixture.tenant()));
-        TenantUtil.runWithTenant(
-                fixture.tenant(),
-                () -> assertThrows(
-                        CommonException.class,
-                        () -> files.requestDeletion(fixture.file().fileId(), "ops", false)));
+        assertEquals(1L, count("file_resource_reference"));
+        assertThrows(
+                CommonException.class,
+                () -> files.requestDeletion(fixture.file().fileId(), "ops", false));
     }
 
     @Test
     void sealFailureRollsBackAllRowsBatchReferenceAndLogicalOutcomeThenOriginalTaskRetries() {
         var fixture = fixture(validFile());
-        var accepted = actors.call(fixture.tenant(), () -> imports.submit(fixture.command()));
+        var accepted = actors.call(() -> imports.submit(fixture.command()));
         persistence.failSealFor(fixture.batchId());
         assertFalse(scanner.executeQueuedTasks());
-        assertEquals(0L, count("reconciliation_input", fixture.tenant()));
-        assertEquals(0L, count("reconciliation_entry", fixture.tenant()));
-        var before = actors.call(fixture.tenant(), () -> imports.detail(new IdQuery(accepted.importId())));
+        assertEquals(0L, count("reconciliation_input"));
+        assertEquals(0L, count("reconciliation_entry"));
+        var before = actors.call(() -> imports.detail(new IdQuery(accepted.importId())));
         assertEquals("INIT", before.state().name());
         assertEquals("FAILED", before.taskStatus());
-        assertNull(actors.call(fixture.tenant(), () -> batches.detail(new IdQuery(fixture.batchId())))
+        assertNull(actors.call(() -> batches.detail(new IdQuery(fixture.batchId())))
                 .channelInput());
-        assertEquals(1L, count("file_resource_reference", fixture.tenant()));
+        assertEquals(1L, count("file_resource_reference"));
         var queued = actors.call(
-                fixture.tenant(),
                 () -> imports.retry(new ReconciliationImportRetryCommand(accepted.importId(), accepted.taskId())));
         assertEquals(accepted.taskId(), queued.taskId());
         assertTrue(scanner.executeQueuedTasks());
-        var sealed = actors.call(fixture.tenant(), () -> imports.detail(new IdQuery(accepted.importId())));
+        var sealed = actors.call(() -> imports.detail(new IdQuery(accepted.importId())));
         assertEquals("SEALED", sealed.state().name());
         assertEquals("SUCCEEDED", sealed.taskStatus());
-        assertEquals(1L, count("reconciliation_input", fixture.tenant()));
-        assertEquals(1L, count("reconciliation_entry", fixture.tenant()));
-        var replay = actors.call(fixture.tenant(), () -> imports.submit(fixture.command()));
+        assertEquals(1L, count("reconciliation_input"));
+        assertEquals(1L, count("reconciliation_entry"));
+        var replay = actors.call(() -> imports.submit(fixture.command()));
         assertEquals(sealed, replay);
-        assertEquals(1L, count("transfer_task", fixture.tenant()));
+        assertEquals(1L, count("transfer_task"));
     }
 
     @Test
     void invalidTrailerIsPermanentRejectionWithNoSealedRowsAndNoEmptySuccess() {
         var fixture = fixture(validFile().replace("`1,`9.00,", "`2,`9.00,"));
-        var accepted = actors.call(fixture.tenant(), () -> imports.submit(fixture.command()));
+        var accepted = actors.call(() -> imports.submit(fixture.command()));
         assertFalse(scanner.executeQueuedTasks());
-        var result = actors.call(fixture.tenant(), () -> imports.detail(new IdQuery(accepted.importId())));
+        var result = actors.call(() -> imports.detail(new IdQuery(accepted.importId())));
         assertEquals("REJECTED", result.state().name());
         assertEquals("FAILED", result.taskStatus());
         assertNull(result.artifactId());
-        assertEquals(0L, count("reconciliation_input", fixture.tenant()));
-        assertEquals(0L, count("reconciliation_entry", fixture.tenant()));
+        assertEquals(0L, count("reconciliation_input"));
+        assertEquals(0L, count("reconciliation_entry"));
         assertThrows(
                 CommonException.class,
                 () -> actors.call(
-                        fixture.tenant(),
                         () -> imports.retry(new ReconciliationImportRetryCommand(result.importId(), result.taskId()))));
-        assertNull(actors.call(fixture.tenant(), () -> batches.detail(new IdQuery(fixture.batchId())))
+        assertNull(actors.call(() -> batches.detail(new IdQuery(fixture.batchId())))
                 .channelInput());
     }
 
@@ -214,7 +207,7 @@ class ReconciliationImportPersistenceIT {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Callable<ReconciliationImportDTO> call = () -> {
                 ready.await(10, TimeUnit.SECONDS);
-                return actors.call(fixture.tenant(), () -> imports.submit(fixture.command()));
+                return actors.call(() -> imports.submit(fixture.command()));
             };
             var first = executor.submit(call);
             var second = executor.submit(call);
@@ -222,29 +215,25 @@ class ReconciliationImportPersistenceIT {
             var z = second.get(20, TimeUnit.SECONDS);
             assertEquals(a.importId(), z.importId());
             assertEquals(a.taskId(), z.taskId());
-            assertEquals(1L, count("reconciliation_import", fixture.tenant()));
-            assertEquals(1L, count("transfer_task", fixture.tenant()));
+            assertEquals(1L, count("reconciliation_import"));
+            assertEquals(1L, count("transfer_task"));
         }
         assertTrue(scanner.executeQueuedTasks());
     }
 
     private Fixture fixture(String content) {
-        String tenant = "tenant-" + UUID.randomUUID();
-        var batch = actors.call(
-                tenant,
-                () -> batches.create(new ReconciliationBatchCreateCommand(
-                        "batch-" + UUID.randomUUID(), "account", LocalDate.of(2026, 10, 26))));
+        var batch = actors.call(() -> batches.create(new ReconciliationBatchCreateCommand(
+                "batch-" + UUID.randomUUID(), "account", LocalDate.of(2026, 10, 26))));
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         var file = actors.call(
-                tenant, () -> imports.upload("bill.csv", "text/csv", bytes.length, new ByteArrayInputStream(bytes)));
+                () -> imports.upload("bill.csv", "text/csv", bytes.length, new ByteArrayInputStream(bytes)));
         return new Fixture(
-                tenant,
                 batch.batchId(),
                 file,
                 new ReconciliationChannelImportCommand(batch.batchId(), "request", file.fileId(), file.sha256()));
     }
 
-    private long count(String table, String tenant) {
+    private long count(String table) {
         // Table names are a closed test-only set; values always use bind parameters.
         if (!Set.of(
                         "reconciliation_import",
@@ -285,10 +274,7 @@ class ReconciliationImportPersistenceIT {
     }
 
     private record Fixture(
-            String tenant,
-            String batchId,
-            ReconciliationSourceFileDTO file,
-            ReconciliationChannelImportCommand command) {}
+            String batchId, ReconciliationSourceFileDTO file, ReconciliationChannelImportCommand command) {}
 
     static class Actors implements ReconciliationActorProvider {
         private final ThreadLocal<ReconciliationActor> current = new ThreadLocal<>();
@@ -298,9 +284,8 @@ class ReconciliationImportPersistenceIT {
             return current.get();
         }
 
-        <T> T call(String tenant, Supplier<T> action) {
+        <T> T call(Supplier<T> action) {
             current.set(new ReconciliationActor(
-                    tenant,
                     "ops",
                     Set.of(
                             "pay:reconciliation:batch:create",

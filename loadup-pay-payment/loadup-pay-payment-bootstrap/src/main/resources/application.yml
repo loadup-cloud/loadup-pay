@@ -47,6 +47,14 @@ management:
         http.server.requests: true
 
 loadup:
+  task:
+    enabled: true
+    batch-size: ${PAYMENT_TASK_BATCH_SIZE:100}
+    max-attempts: ${PAYMENT_TASK_MAX_ATTEMPTS:5}
+    lease: ${PAYMENT_TASK_LEASE:PT5M}
+    retry-delay: ${PAYMENT_TASK_RETRY_DELAY:PT1M}
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
   webmvc:
     request-body:
       path-prefix: /api/internal/
@@ -74,7 +82,6 @@ loadup:
         urgent-after-seconds: ${PAYMENT_RECOVERY_URGENT_AFTER_SECONDS:86400}
       recovery-inventory:
         enabled: ${PAYMENT_RECOVERY_INVENTORY_ENABLED:false}
-        tenant-ids: ${PAYMENT_RECOVERY_INVENTORY_TENANTS:}
         interval-seconds: ${PAYMENT_RECOVERY_INVENTORY_INTERVAL_SECONDS:300}
       input:
         lifetime-seconds: ${PAYMENT_INPUT_LIFETIME_SECONDS:120}
@@ -85,20 +92,12 @@ loadup:
   kms:
     enabled: false
     binder: local
-  delayedtask:
-    enabled: true
-    batch-size: ${PAYMENT_TASK_BATCH_SIZE:100}
-    max-attempts: ${PAYMENT_TASK_MAX_ATTEMPTS:5}
-    lease: ${PAYMENT_TASK_LEASE:PT5M}
-    retry-delay: ${PAYMENT_TASK_RETRY_DELAY:PT1M}
   scheduler:
     binder-type: local
     local:
       interval: ${PAYMENT_SCAN_INTERVAL:PT30S}
   database:
-    multi-tenant:
-      enabled: false
-      required: false
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:
     enabled: true
     locations:

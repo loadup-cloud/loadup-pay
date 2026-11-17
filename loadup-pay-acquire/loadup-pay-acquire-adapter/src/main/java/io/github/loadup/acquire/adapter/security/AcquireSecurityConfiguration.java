@@ -32,9 +32,9 @@ public class AcquireSecurityConfiguration implements InitializingBean {
         if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Acquire business HTTP requires the verified JWT resource server");
         }
-        if (!environment.getProperty("loadup.database.multi-tenant.enabled", Boolean.class, false)
-                || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false)) {
-            throw new IllegalStateException("Acquire business storage requires trusted tenant isolation");
+        String schema = environment.getProperty("loadup.database.schema", "");
+        if (schema.isBlank()) {
+            throw new IllegalStateException("Acquire business storage requires a fixed database schema");
         }
     }
 }

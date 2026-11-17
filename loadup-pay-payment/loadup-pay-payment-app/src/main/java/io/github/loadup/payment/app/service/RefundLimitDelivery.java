@@ -20,10 +20,14 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitRestoreResult;
 import io.github.loadup.payment.app.port.PaymentLimitClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
@@ -35,13 +39,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 public class RefundLimitDelivery {
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final RefundProjectionEnvelopeCodec codec;
     private final PaymentLimitClient client;
     private final RefundSettlementConverter converter;
 
     public RefundLimitDelivery(
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             RefundProjectionEnvelopeCodec codec,
             PaymentLimitClient client,
             RefundSettlementConverter converter) {
@@ -51,27 +55,38 @@ public class RefundLimitDelivery {
         this.converter = converter;
     }
 
-    public void deliver(OutboxEvent event) {
+    public void deliver(TaskExecution event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (event == null
-                || event.message() == null
-                || event.message().version() != 1
-                || !RefundProjectionEvents.LIMIT.equals(event.message().type())) {
+                || event.payloadVersion() != 1
+                || !PaymentDeliveryRoutes.REFUND_LIMIT.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var message = event.message();
-        String tenant = TenantUtil.getTenantId();
+        var message = event;
         var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id())
-                || !row.type().equals(message.type())
-                || !row.businessId().equals(message.businessId())
-                || !"PROCESSING".equals(row.status())) {
+                || !row.taskType().equals(message.taskType())
+                || !row.bizId().equals(message.bizId())
+                || row.status() != TaskStatus.RUNNING) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.limit(message.payload());
-        if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType())) {
+        if (!row.bizId().equals(envelope.aggregateId())
+                || !(FrozenEventTypes.accepts(
+                                PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), envelope.eventType())
+                        || BusinessEventTypes.REFUND_OUTCOME.equals(envelope.eventType()))) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (envelope.data() == null
+                || (envelope.data().financialEvidence() != null)
+                        != BusinessEventTypes.REFUND_FINANCIAL.equals(envelope.eventType())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        try {
+            envelope.data().requireEnvelope(envelope);
+        } catch (DomainViolation invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var command = converter.toRestore(envelope);

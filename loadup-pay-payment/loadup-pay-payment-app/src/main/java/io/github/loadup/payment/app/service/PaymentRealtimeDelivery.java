@@ -20,9 +20,10 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.payment.app.port.PaymentSnapshotEnvelopeCodec;
 import java.util.Set;
@@ -34,37 +35,33 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 public class PaymentRealtimeDelivery {
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final PaymentSnapshotEnvelopeCodec codec;
     private final PaymentRealtimeClient client;
 
     public PaymentRealtimeDelivery(
-            OutboxTemplate outbox, PaymentSnapshotEnvelopeCodec codec, PaymentRealtimeClient client) {
+            TaskTemplate outbox, PaymentSnapshotEnvelopeCodec codec, PaymentRealtimeClient client) {
         this.outbox = outbox;
         this.codec = codec;
         this.client = client;
     }
 
-    public void deliver(OutboxEvent event) {
+    public void deliver(TaskExecution event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.message() == null
-                || event.message().version() != 1
-                || !PaymentEvents.REALTIME.equals(event.message().type())) {
+        if (event == null || event.payloadVersion() != 1 || !PaymentDeliveryRoutes.REALTIME.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        String tenant = TenantUtil.getTenantId();
         var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id())
-                || !row.type().equals(PaymentEvents.REALTIME)
-                || !row.businessId().equals(event.message().businessId())
-                || !"PROCESSING".equals(row.status())) {
+                || !row.taskType().equals(PaymentDeliveryRoutes.REALTIME)
+                || !row.bizId().equals(event.bizId())
+                || row.status() != TaskStatus.RUNNING) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var envelope = codec.decode(event.message().payload());
-        if (!envelope.aggregateId().equals(row.businessId())) {
+        var envelope = codec.decode(event.payload());
+        if (!envelope.aggregateId().equals(row.bizId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var ack = client.apply(envelope);

@@ -33,15 +33,14 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import io.github.loadup.payment.app.model.acquire.dto.RefundNotificationAckDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +48,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class RefundMerchantDeliveryTest {
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final RefundProjectionEnvelopeCodec codec = mock(RefundProjectionEnvelopeCodec.class);
     final PaymentAcquireClient acquire = mock(PaymentAcquireClient.class);
     final RefundMerchantDelivery delivery = new RefundMerchantDelivery(outbox, codec, acquire);
@@ -78,25 +77,25 @@ class RefundMerchantDeliveryTest {
             3,
             BusinessTime.external(RefundResultFixtures.NOW),
             data);
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue",
-            new OutboxMessage(RefundMerchantEventDTO.TYPE, 1, "refund", "payload"),
+            new TaskSubmission(RefundMerchantEventDTO.TYPE, 1, "refund", "payload", LocalDateTime.now(), ""),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
-    final String merchantEventId = DigestUtils.sha256(
-            JsonUtil.toJson(List.of("pay-merchant-event-v1", "tenant", "RefundFailed", "refund", 3L)));
+    final String merchantEventId =
+            DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", "RefundFailed", "refund", 3L)));
 
     @BeforeEach
     void setup() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("queue", RefundMerchantEventDTO.TYPE, "refund", "PROCESSING", 1, null)));
+                        new TaskExecution("queue", RefundMerchantEventDTO.TYPE, "refund", "RUNNING", 1, null)));
         when(codec.merchant("payload")).thenReturn(envelope);
         when(acquire.acceptRefundNotification(envelope)).thenReturn(ack("ENQUEUED"));
     }
 
     void deliver() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event));
+        delivery.deliver(event);
     }
 
     RefundNotificationAckDTO ack(String disposition) {

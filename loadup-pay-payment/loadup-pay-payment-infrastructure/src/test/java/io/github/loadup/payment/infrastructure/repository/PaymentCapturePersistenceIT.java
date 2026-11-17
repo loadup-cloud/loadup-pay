@@ -133,7 +133,7 @@ class PaymentCapturePersistenceIT {
     void submittedUnknownPreventsAnEmptySuccessfulExport() {
         var fixture = seed(null, false);
         var scope = scope(fixture);
-        var blocked = transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(scope));
+        var blocked = transactions.readSnapshot(10, () -> reader.read(scope));
         assertEquals(PaymentCaptureBlocker.UNRESOLVED_COLLECTION, blocked.blocker());
         assertTrue(blocked.lines().isEmpty());
         assertEquals(fixture.attempt().attempt().id(), blocked.blockerSubjectId());
@@ -141,10 +141,8 @@ class PaymentCapturePersistenceIT {
                 scope.channel(), "f".repeat(64), scope.billDate(), scope.statementProfile(), scope.systemZone());
         assertEquals(
                 PaymentCaptureBlocker.ACCOUNT_SCOPE_UNKNOWN,
-                transactions
-                        .readSnapshot(fixture.tenant(), () -> reader.read(unknown))
-                        .blocker());
-        assertThrows(CommonException.class, () -> transactions.writeLocal(fixture.tenant(), () -> reader.read(scope)));
+                transactions.readSnapshot(() -> reader.read(unknown)).blocker());
+        assertThrows(CommonException.class, () -> transactions.writeLocal(() -> reader.read(scope)));
         assertThrows(CommonException.class, () -> reader.read(scope));
     }
 
@@ -163,7 +161,7 @@ class PaymentCapturePersistenceIT {
         var page = page(fixture.tenant(), original.id());
         assertEquals(1L, page.total());
         assertEquals(read.lines(), page.records());
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var value = captures.find(original.id()).orElseThrow();
             assertEquals(1L, value.version());
             assertEquals(10000L, value.paymentAmountMinor());
@@ -179,7 +177,7 @@ class PaymentCapturePersistenceIT {
         var read = read(fixture);
         captures.failAfterSeal.set(true);
         assertThrows(IllegalStateException.class, () -> seal(fixture.tenant(), original, read));
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(original, captures.find(original.id()).orElseThrow());
             assertEquals(
                     0L,
@@ -203,7 +201,7 @@ class PaymentCapturePersistenceIT {
     void repeatedSourceReadsInOneRrDoNotPickUpAConcurrentCommittedPayment() throws Exception {
         var fixture = seed(null, true);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            transactions.readSnapshot(fixture.tenant(), 20, () -> {
+            transactions.readSnapshot(20, () -> {
                 assertEquals(1, reader.read(scope(fixture)).lines().size());
                 try {
                     workers.submit(() -> seed(fixture.tenant(), true)).get(10, TimeUnit.SECONDS);
@@ -223,7 +221,7 @@ class PaymentCapturePersistenceIT {
                 ? value
                 : new Fixture(
                         tenant, value.command(), value.payment(), value.attempt(), value.head(), value.revision());
-        transactions.writeLocal(fixture.tenant(), () -> {
+        transactions.writeLocal(() -> {
             bindings.insertHead(fixture.head());
             bindings.insertRevision(fixture.revision());
             payments.insertParent(new StoredPaymentGate(
@@ -247,17 +245,15 @@ class PaymentCapturePersistenceIT {
             return true;
         });
         if (success) {
-            results.record(
-                    fixture.tenant(),
-                    new PaymentObservation(
-                            fixture.attempt().attempt().identity(),
-                            ChannelPaymentOutcome.Kind.SUCCEEDED,
-                            fixture.payment().payment().amount(),
-                            id("txn"),
-                            AT,
-                            PaymentObservation.Source.QUERY_RESPONSE,
-                            "source-success",
-                            "c".repeat(64)));
+            results.record(new PaymentObservation(
+                    fixture.attempt().attempt().identity(),
+                    ChannelPaymentOutcome.Kind.SUCCEEDED,
+                    fixture.payment().payment().amount(),
+                    id("txn"),
+                    AT,
+                    PaymentObservation.Source.QUERY_RESPONSE,
+                    "source-success",
+                    "c".repeat(64)));
         }
         return fixture;
     }
@@ -276,7 +272,7 @@ class PaymentCapturePersistenceIT {
 
     private PaymentCapture initial(Fixture fixture) {
         var root = PaymentCapture.init(id("capture"), "reconciliation", id("request"), "d".repeat(64), scope(fixture));
-        transactions.writeLocal(fixture.tenant(), () -> {
+        transactions.writeLocal(() -> {
             captures.insert(root);
             return true;
         });
@@ -284,7 +280,7 @@ class PaymentCapturePersistenceIT {
     }
 
     private PaymentCaptureRead read(Fixture fixture) {
-        return transactions.readSnapshot(fixture.tenant(), 10, () -> reader.read(scope(fixture)));
+        return transactions.readSnapshot(10, () -> reader.read(scope(fixture)));
     }
 
     private void seal(String tenant, PaymentCapture original, PaymentCaptureRead read) {
@@ -301,15 +297,14 @@ class PaymentCapturePersistenceIT {
                 read.lines().stream()
                         .map(line -> converter.toDTO(line, scope.systemZone()))
                         .toList());
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             captures.complete(original, original.complete(read, hash), read);
             return true;
         });
     }
 
     private PageResult<PaymentLedgerLine> page(String tenant, String id) {
-        return transactions.readSnapshot(
-                tenant, () -> captures.page(captures.find(id).orElseThrow(), 1, 100));
+        return transactions.readSnapshot(() -> captures.page(captures.find(id).orElseThrow(), 1, 100));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

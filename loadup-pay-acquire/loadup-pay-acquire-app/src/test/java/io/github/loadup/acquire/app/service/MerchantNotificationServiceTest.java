@@ -36,10 +36,10 @@ import io.github.loadup.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -65,27 +65,27 @@ class MerchantNotificationServiceTest {
 
     private final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
     private final MerchantNotificationTransport transport = mock(MerchantNotificationTransport.class);
-    private final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    private final TaskTemplate tasks = mock(TaskTemplate.class);
     private final CheckoutFixtures.UnitTransactions manager = new CheckoutFixtures.UnitTransactions();
     private final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
     private final AtomicReference<MerchantNotificationDelivery> current = new AtomicReference<>();
-    private final Map<String, DelayedTask> nativeTasks = new HashMap<>();
+    private final Map<String, TaskExecution> nativeTasks = new HashMap<>();
     private final ArrayList<String> operations = new ArrayList<>();
 
-    private static DelayedTask runningTask(
+    private static TaskExecution runningTask(
             String bizId,
             LocalDateTime executeAt,
             LocalDateTime nextExecuteAt,
             String id,
             int attempts,
             LocalDateTime leaseUntil) {
-        return new DelayedTask(
+        return new TaskExecution(
                 id,
                 MerchantNotificationService.TYPE,
                 bizId,
                 executeAt,
                 nextExecuteAt,
-                DelayedTaskStatus.RUNNING,
+                TaskStatus.RUNNING,
                 attempts,
                 5,
                 leaseUntil,
@@ -108,7 +108,6 @@ class MerchantNotificationServiceTest {
         when(deliveries.lock("delivery")).thenAnswer(call -> Optional.of(current.get()));
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(TENANT, TenantUtil.getTenantId());
                     assertEquals(current.get(), call.getArgument(0));
                     current.set(call.getArgument(1));
                     operations.add("update:" + current.get().state());
@@ -120,12 +119,12 @@ class MerchantNotificationServiceTest {
                 .thenAnswer(call -> Optional.ofNullable(nativeTasks.get(call.getArgument(1))));
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(TENANT, TenantUtil.getTenantId());
-                    operations.add("register:" + call.getArgument(1));
+                    TaskSubmission submission = call.getArgument(0);
+                    operations.add("register:" + submission.bizId());
                     return null;
                 })
                 .when(tasks)
-                .register(eq(MerchantNotificationService.TYPE), anyString(), ArgumentMatchers.any());
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         when(transport.fingerprint(ArgumentMatchers.any())).thenReturn(ROUTE);
         when(transport.send(ArgumentMatchers.any())).thenReturn(false);
     }
@@ -156,10 +155,10 @@ class MerchantNotificationServiceTest {
         assertEquals(ROUTE, current.get().routeFingerprint());
         assertTrue(operations.indexOf("register:delivery:1") < operations.indexOf("send"));
         verify(tasks)
-                .register(
-                        eq(MerchantNotificationService.TYPE),
-                        eq("delivery:1"),
-                        eq(current.get().nextAttemptAt()));
+                .submit(ArgumentMatchers.eq(TaskSubmission.scheduled(
+                        MerchantNotificationService.TYPE,
+                        "delivery:1",
+                        current.get().nextAttemptAt())));
     }
 
     @Test
@@ -265,7 +264,7 @@ class MerchantNotificationServiceTest {
         return new MerchantNotificationService(deliveries, transport, tasks, transactions, clock);
     }
 
-    private void invoke(DelayedTask task, MerchantNotificationService service) {
-        TenantUtil.runWithTenant(TENANT, () -> service.handle(task));
+    private void invoke(TaskExecution task, MerchantNotificationService service) {
+        service.handle(task);
     }
 }

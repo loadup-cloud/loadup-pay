@@ -5,7 +5,7 @@ Mapper、Gateway、Codec、MapStruct、事务管理器与
 `TradeProjectionService`。
 只由测试提供可信服务主体；没有 mock 数据源、事务、投影或 receipt 仓储，也不需要调用上游服务。
 
-## 已补测试源码
+## 测试入口
 
 五组参数化用例覆盖订单、付款、退款、订单退款汇总四类投影，共 20 个输入；另有一例付款完整生命周期，共 21 个测试输入。
 
@@ -23,14 +23,14 @@ ACK 丢失用调用方丢弃返回值建模，不声称已验证实际 HTTP 网�
 
 ## 运行与当前状态
 
-显式 `postgresql-it` Failsafe profile；默认单测不会启动这些 IT。需要 Docker 和当前依赖，以下命令尚未执行：
+父 POM 的 Failsafe 在 verify 阶段执行 IT；普通 test 阶段不运行这些 IT。需要 Docker 和当前依赖，以下命令尚未执行：
 
 ```bash
-mvnd clean verify -pl realtime/realtime-service -Ppostgresql-it -Dit.test=ProjectionPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
+mvnd clean verify -pl loadup-pay-realtime/loadup-pay-realtime-service -Dit.test=ProjectionPersistenceIT -Dspotless.skip=true -Dspotbugs.skip=true
 ```
 
-当前只有测试源码，未运行 IDEA、编译、单测、Docker 或 PostgreSQL。R1 仍无本轮通过证据。
-这些用例不证明真实 HTTP/JWT/TLS、上游 Outbox 投递、查询负载或投影重建/检查点已经验收。
+待记录当前版本的编译及真实 PostgreSQL 运行结果；源码存在不代表通过。
+这些用例不证明真实 HTTP/JWT/TLS、上游 Task 投递、查询负载或投影重建/检查点已经验收。
 
 ## 2026-10-27 付款生命周期用例源码
 

@@ -23,9 +23,8 @@ import java.util.Set;
 /**
  * Merchant identity and permissions extracted only from a verified credential.
  */
-public record RefundActor(String tenantId, String merchantId, String subjectHash, Set<String> permissions) {
+public record RefundActor(String merchantId, String subjectHash, Set<String> permissions) {
     public RefundActor {
-        DomainChecks.id(tenantId);
         DomainChecks.id(merchantId);
         DomainViolation.require(
                 subjectHash != null && subjectHash.matches("[0-9a-f]{64}"), DomainViolation.Reason.INVALID_ARGUMENT);

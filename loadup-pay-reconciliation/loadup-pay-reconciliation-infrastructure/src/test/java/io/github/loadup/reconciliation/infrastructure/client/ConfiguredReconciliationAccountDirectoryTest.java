@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
@@ -35,75 +34,63 @@ class ConfiguredReconciliationAccountDirectoryTest {
     private final LocalDate date = LocalDate.of(2026, 10, 26);
 
     @Test
-    void emptyCatalogAndMissingTenantCallerOrCodeDenyByDefault() {
+    void emptyCatalogCallerOrCodeDenyByDefault() {
         denied(
                 new ConfiguredReconciliationAccountDirectory(new ReconciliationAccountsProperties(null)),
-                "tenant",
                 "ops",
                 "account");
         var directory = directory("a".repeat(64), "profile");
-        denied(directory, "other-tenant", "ops", "account");
-        denied(directory, "tenant", "other-service", "account");
-        denied(directory, "tenant", "ops", "other-account");
+        denied(directory, "other-service", "account");
+        denied(directory, "ops", "other-account");
     }
 
     @Test
     void profileChangeDoesNotReinterpretOldScopeButAccountReplacementAndRevocationStillDeny() {
-        TenantUtil.runWithTenant("tenant", () -> {
-            var original = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, "profile-v1");
-            var current = directory("a".repeat(64), "profile-v2");
-            assertEquals("profile-v2", current.resolve("ops", "account", date).statementProfile());
-            assertDoesNotThrow(() -> current.authorize("ops", "account", original));
-            assertThrows(
-                    CommonException.class,
-                    () -> directory("b".repeat(64), "profile-v2").authorize("ops", "account", original));
-            assertThrows(CommonException.class, () -> current.authorize("revoked", "account", original));
-        });
+        var original = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, "profile-v1");
+        var current = directory("a".repeat(64), "profile-v2");
+        assertEquals("profile-v2", current.resolve("ops", "account", date).statementProfile());
+        assertDoesNotThrow(() -> current.authorize("ops", "account", original));
+        assertThrows(
+                CommonException.class,
+                () -> directory("b".repeat(64), "profile-v2").authorize("ops", "account", original));
+        assertThrows(CommonException.class, () -> current.authorize("revoked", "account", original));
     }
 
     @Test
     void originalRevisionIsOnlyReturnedForAuthorizedOfficialSourceAccounts() {
-        TenantUtil.runWithTenant("tenant", () -> {
-            var current = directory("a".repeat(64), "profile");
-            var scope = current.resolve("ops", "account", date);
-            assertEquals("revision", current.statementBindingRevision("ops", "account", scope));
-            assertThrows(CommonException.class, () -> current.statementBindingRevision("other", "account", scope));
-            var manualOnly = new ConfiguredReconciliationAccountDirectory(new ReconciliationAccountsProperties(Map.of(
-                    "tenant",
-                    Map.of(
-                            "account",
-                            new ReconciliationAccountsProperties.Account(
-                                    Channel.WECHAT,
-                                    "a".repeat(64),
-                                    "profile",
-                                    new ReconciliationStatementAccount("1234567890", null),
-                                    null,
-                                    Set.of("ops"))))));
-            assertDoesNotThrow(() -> manualOnly.authorize("ops", "account", scope));
-            assertThrows(CommonException.class, () -> manualOnly.statementBindingRevision("ops", "account", scope));
-        });
+        var current = directory("a".repeat(64), "profile");
+        var scope = current.resolve("ops", "account", date);
+        assertEquals("revision", current.statementBindingRevision("ops", "account", scope));
+        assertThrows(CommonException.class, () -> current.statementBindingRevision("other", "account", scope));
+        var manualOnly = new ConfiguredReconciliationAccountDirectory(new ReconciliationAccountsProperties(Map.of(
+                "account",
+                new ReconciliationAccountsProperties.Account(
+                        Channel.WECHAT,
+                        "a".repeat(64),
+                        "profile",
+                        new ReconciliationStatementAccount("1234567890", null),
+                        null,
+                        Set.of("ops")))));
+        assertDoesNotThrow(() -> manualOnly.authorize("ops", "account", scope));
+        assertThrows(CommonException.class, () -> manualOnly.statementBindingRevision("ops", "account", scope));
     }
 
     private ConfiguredReconciliationAccountDirectory directory(String hash, String profile) {
         return new ConfiguredReconciliationAccountDirectory(new ReconciliationAccountsProperties(Map.of(
-                "tenant",
-                Map.of(
-                        "account",
-                        new ReconciliationAccountsProperties.Account(
-                                Channel.WECHAT,
-                                hash,
-                                profile,
-                                new ReconciliationStatementAccount("1234567890", null),
-                                "revision",
-                                Set.of("ops"))))));
+                "account",
+                new ReconciliationAccountsProperties.Account(
+                        Channel.WECHAT,
+                        hash,
+                        profile,
+                        new ReconciliationStatementAccount("1234567890", null),
+                        "revision",
+                        Set.of("ops")))));
     }
 
-    private void denied(ConfiguredReconciliationAccountDirectory directory, String tenant, String caller, String code) {
+    private void denied(ConfiguredReconciliationAccountDirectory directory, String caller, String code) {
         assertEquals(
                 ACTION_FORBIDDEN,
-                TenantUtil.callWithTenant(
-                        tenant,
-                        () -> assertThrows(CommonException.class, () -> directory.resolve(caller, code, date))
-                                .getResultCode()));
+                assertThrows(CommonException.class, () -> directory.resolve(caller, code, date))
+                        .getResultCode());
     }
 }

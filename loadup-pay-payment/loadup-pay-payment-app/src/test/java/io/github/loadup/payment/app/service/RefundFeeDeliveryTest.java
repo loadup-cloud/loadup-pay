@@ -29,21 +29,21 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.acquire.dto.FeeRefundAckDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class RefundFeeDeliveryTest {
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final RefundProjectionEnvelopeCodec codec = mock(RefundProjectionEnvelopeCodec.class);
     final PaymentAcquireClient acquire = mock(PaymentAcquireClient.class);
     final RefundFeeDelivery delivery = new RefundFeeDelivery(outbox, codec, acquire);
@@ -51,15 +51,15 @@ class RefundFeeDeliveryTest {
             "delivery-fee",
             "business-fee",
             "payment",
-            RefundProjectionEvents.FEE,
+            PaymentDeliveryRoutes.REFUND_FEE,
             1,
             "order",
             3,
             BusinessTime.external(RefundResultFixtures.NOW),
             new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3));
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue-fee",
-            new OutboxMessage(RefundProjectionEvents.FEE, 1, "order", "fee-payload"),
+            new TaskSubmission(PaymentDeliveryRoutes.REFUND_FEE, 1, "order", "fee-payload", LocalDateTime.now(), ""),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
@@ -67,14 +67,14 @@ class RefundFeeDeliveryTest {
     void setup() {
         when(outbox.find("queue-fee"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("queue-fee", RefundProjectionEvents.FEE, "order", "PROCESSING", 1, null)));
+                        new TaskExecution("queue-fee", PaymentDeliveryRoutes.REFUND_FEE, "order", "RUNNING", 1, null)));
         when(codec.fee("fee-payload")).thenReturn(envelope);
         when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("delivery-fee", "business-fee", "order", 3, 4, true));
     }
 
     void deliver() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event));
+        delivery.deliver(event);
     }
 
     @Test
@@ -113,7 +113,7 @@ class RefundFeeDeliveryTest {
                 assertThrows(CommonException.class, this::deliver).getResultCode());
         when(outbox.find("queue-fee"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("queue-fee", RefundProjectionEvents.FEE, "order", "PENDING", 1, null)));
+                        new TaskExecution("queue-fee", PaymentDeliveryRoutes.REFUND_FEE, "order", "PENDING", 1, null)));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());

@@ -26,7 +26,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.payment.infrastructure.converter.RefundCallbackStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundOrderDO;
@@ -51,16 +50,13 @@ class RefundCallbackTargetGatewayImplTest {
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of());
-        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.find("original-revision", "order", "refund"))
-                .isEmpty());
+        assertTrue(gateway.find("original-revision", "order", "refund").isEmpty());
         when(capacities.query(
                         contains("FROM refund_order"),
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of(new RefundOrderDO(), new RefundOrderDO()));
-        TenantUtil.runWithTenant(
-                "tenant",
-                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
+        assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund"));
         verify(capacities, never())
                 .query(
                         contains("FROM payment_refund_capacity"),
@@ -78,9 +74,7 @@ class RefundCallbackTargetGatewayImplTest {
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of(row));
-        TenantUtil.runWithTenant(
-                "tenant",
-                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
+        assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund"));
         verify(capacities, never())
                 .query(
                         contains("FROM payment_refund_capacity"),
@@ -110,14 +104,10 @@ class RefundCallbackTargetGatewayImplTest {
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any()))
                 .thenReturn(List.of(capacity));
-        TenantUtil.runWithTenant(
-                "tenant",
-                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
+        assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund"));
         capacity.setSucceededAt(row.getOriginalSucceededAt());
         capacity.setCurrency("USD");
-        TenantUtil.runWithTenant(
-                "tenant",
-                () -> assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund")));
+        assertThrows(CommonException.class, () -> gateway.find("original-revision", "order", "refund"));
         verifyNoInteractions(converter);
     }
 

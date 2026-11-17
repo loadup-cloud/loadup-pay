@@ -149,7 +149,6 @@ class ReconciliationReviewServiceTest {
 
     static ReconciliationActor actor(String service) {
         return new ReconciliationActor(
-                "tenant",
                 service,
                 Set.of(
                         "pay:reconciliation:review:read",
@@ -285,7 +284,7 @@ class ReconciliationReviewServiceTest {
 
     @Test
     void permissionsCurrentAccountGrantAndOriginalRunAreRequiredBeforeEvidenceIo() {
-        actor.set(new ReconciliationActor("tenant", "maker", Set.of()));
+        actor.set(new ReconciliationActor("maker", Set.of()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.propose(command("request", 0L, "file")))
@@ -324,26 +323,22 @@ class ReconciliationReviewServiceTest {
         var approved = service.decide(new ReconciliationReviewDecideCommand(
                 "batch", "difference", pending.proposalId(), "approve", 1L, true, "independent check"));
         var tx = new ReconciliationTransactions(new Tx());
-        var scope = tx.readSnapshot(
-                "tenant",
-                () -> service.approvedForVerification(
-                        actor.get(), "batch", "difference", pending.proposalId(), approved.eventId(), 2L, false));
+        var scope = tx.readSnapshot(() -> service.approvedForVerification(
+                actor.get(), "batch", "difference", pending.proposalId(), approved.eventId(), 2L, false));
         assertEquals("payment", scope.merchantPaymentNo());
         assertEquals(2L, scope.reviewVersion());
         assertEquals(
                 REVIEW_VERSION_CONFLICT,
                 assertThrows(
                                 CommonException.class,
-                                () -> tx.readSnapshot(
-                                        "tenant",
-                                        () -> service.approvedForVerification(
-                                                actor.get(),
-                                                "batch",
-                                                "difference",
-                                                pending.proposalId(),
-                                                "different-event",
-                                                2L,
-                                                false)))
+                                () -> tx.readSnapshot(() -> service.approvedForVerification(
+                                        actor.get(),
+                                        "batch",
+                                        "difference",
+                                        pending.proposalId(),
+                                        "different-event",
+                                        2L,
+                                        false)))
                         .getResultCode());
     }
 

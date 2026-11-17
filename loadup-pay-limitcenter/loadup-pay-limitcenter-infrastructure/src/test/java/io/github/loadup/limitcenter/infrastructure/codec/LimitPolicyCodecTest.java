@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.app.converter.LimitConverterImpl;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
@@ -76,7 +75,7 @@ class LimitPolicyCodecTest {
         var command = new LimitPolicyActivateCommand(
                 "policy",
                 1,
-                LimitPolicyHash.compute("tenant", unsigned),
+                LimitPolicyHash.compute(unsigned),
                 "merchant",
                 unsigned.refundAmountRestore(),
                 unsigned.refundCountRestore(),
@@ -96,17 +95,16 @@ class LimitPolicyCodecTest {
     @Test
     void largeIntegerThresholdAndActivationMicrosecondsSurviveStorage() {
         var row = row();
-        var value = decode("tenant", row);
+        var value = codec.decode(row);
         assertEquals(9007199254740993L, value.rules().getFirst().threshold());
         assertEquals(row.getActivatedAt(), value.activatedAt());
     }
 
     @Test
-    void tamperingWithThresholdOrTenantDoesNotYieldAnActivatedPolicy() {
+    void tamperingWithThresholdDoesNotYieldAnActivatedPolicy() {
         var row = row();
         row.setCompiledRules(row.getCompiledRules().replace("9007199254740993", "9007199254740992"));
         assertThrows(CommonException.class, () -> codec.decode(row));
-        assertThrows(CommonException.class, () -> codec.decode(row()));
     }
 
     @Test
@@ -116,7 +114,7 @@ class LimitPolicyCodecTest {
         assertFalse(row.toString().contains("synthetic-private-policy"));
     }
 
-    private ActivatedLimitPolicy decode(String tenant, LimitPolicyRevisionDO row) {
-        return TenantUtil.callWithTenant(tenant, () -> codec.decode(row));
+    private ActivatedLimitPolicy decode(LimitPolicyRevisionDO row) {
+        return codec.decode(row);
     }
 }

@@ -1,13 +1,13 @@
-> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng，后续加入 notificationcenter。以 [总体架构](../ARCHITECTURE.md) 的当前应用边界为准。两个后管无数据库，center 仅内部访问。
-
 # 构建与部署脚本
 
-用于十一个应用（十个业务应用和 OAuth server）的本地JAR、Docker镜像和OrbStack Kubernetes部署。所有脚本统一使用 Python 入口；应用目录不再提供 shell wrapper，使用 `python3 scripts/build.py <应用名>`、`python3 scripts/deploy.py <应用名>` 等命令。
+> 当前目录改名尚未完全同步到脚本：common.py/build.py 仍使用旧短目录及 bootstrap 布局，gen-migrations.py 仍有旧映射。以下为入口和设计说明；使用前先完成 [路线图](../ROADMAP.md) 中的脚本收口。当前文档整理未运行任何命令示例。
+
+用于十个应用（九个业务/管理应用和 OAuth server）的本地JAR、Docker镜像和OrbStack Kubernetes部署。所有脚本统一使用 Python 入口；应用目录不再提供 shell wrapper，使用 `python3 scripts/build.py <应用名>`、`python3 scripts/deploy.py <应用名>` 等命令。
 
 | 入口                                | 行为                                            |
 |-------------------------------------|-------------------------------------------------|
-| `python3 scripts/build.py all`            | 一次Maven构建十一个应用及其依赖，然后构建十一个镜像 |
-| `python3 scripts/deploy.py all`           | 构建JAR/镜像、部署十一个应用、等待就绪端点        |
+| `python3 scripts/build.py all`            | 一次Maven构建十个应用及其依赖，然后构建十个镜像 |
+| `python3 scripts/deploy.py all`           | 构建JAR/镜像、部署十个应用、等待就绪端点        |
 | `python3 scripts/build.py payment`        | 仅构建payment及其必需依赖，生成payment镜像        |
 | `python3 scripts/deploy.py payment`       | 构建并部署payment，不修改其他应用                 |
 | `python3 scripts/verify.py [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice |
@@ -39,7 +39,7 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused python3 scripts/configmap.py
 
 up.py 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，创建不可变快照并发布。普通配置进入 ConfigMap 摘要，密码及 PKCS12 进入 Secret 摘要；相同对象复用，同名不同内容拒绝。CONFIG_DIR 可覆盖完整环境目录；单应用与 all 摘要范围不同，回退使用归档中的实际版本。
 
-业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。私钥仅挂载 OAuth server，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
+业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。签名私钥供 OAuth server 与 admin 各自使用，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
 
 ## Framework 初始化 SQL 手动导入
 
@@ -116,7 +116,7 @@ curl --noproxy '*' --resolve pay.loadup.local:443:192.168.139.2 \
 
 版本变化通过滚动重启生效，不承诺 ConfigMap 自动刷新 Bean。test/prod 默认要求 HTTPS token endpoint。凭证与签名密钥轮换、回退限制见 [发布约定](../deploy/CONFIGURATION.md)。
 
-应用清单：oauth2-server、merchantcenter、merchantmng、productcenter、productmng、limitcenter、payment、acquire、realtime、reconciliation、notificationcenter。up.py 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；OAuth server 本身已纳入应用清单。dev 的 all/oauth2-server 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
+应用清单：oauth2-server、admin、merchantcenter、productcenter、limitcenter、payment、acquire、realtime、reconciliation、notificationcenter。up.py 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；OAuth server 本身已纳入应用清单。dev 的 all/oauth2-server 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
 
 ## 前提与默认行为
 
@@ -158,8 +158,8 @@ python3 scripts/build.py payment -Dmaven.test.skip=false
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render_deploy.py`只处理`deploy/pay.yml`
-经 kubectl 本地 dry-run 输出的 JSON：全量选择 34 个资源（Namespace、十一组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
-渲染器要求十一个应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
+经 kubectl 本地 dry-run 输出的 JSON：全量选择 31 个资源（Namespace、十组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
+渲染器要求十个应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
 全量发布先应用 OAuth server 并等待就绪，再逐个发布十个业务应用；保留完整发布归档，OAuth server 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
@@ -172,46 +172,38 @@ rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator
 
 ## 配置与 HTTP 发布边界
 
-十一个应用均使用标准 HTTP Service Clients，内部路径 /api/internal/v1/，目标按应用名约定 http://<app>:8080，仅特殊地址单独配置。
+十个应用均使用标准 HTTP Service Clients，内部路径 /api/internal/v1/，目标按应用名约定 http://<app>:8080，仅特殊地址单独配置。
 非 Kubernetes 环境使用同一制品，覆盖服务基础地址即可；无需 nacos profile 或 DUBBO_REGISTRY_ADDRESS。
-当前开发阶段没有协议双栈或自动回退，十一个应用须使用匹配镜像、地址、JWT 与配置；旧协议回退也须恢复整套匹配配置和 Service。
+当前开发阶段没有协议双栈或自动回退，十个应用须使用匹配镜像、地址、JWT 与配置；旧协议回退也须恢复整套匹配配置和 Service。
 
 部署前准备版本化 <app>-config-<CONFIG_VERSION> ConfigMap 与 <app>-secret-<SECRET_VERSION> Secret，二者必须 immutable。
-仅 OAuth server 挂载版本化 oauth2-server-files-<SECRET_VERSION> KeyStore Secret，业务应用不再挂载令牌文件。
+admin 和 OAuth server 都需要签名 KeyStore。当前渲染器仍使用共同的 oauth2-server-files 名称；发布前必须核对各自实际文件及密钥别名，不将共享挂载名称视为独立材料准备完成。业务应用不再挂载令牌文件。
 共享默认绑定前缀为 loadup.http.client，模块显式配置优先，旧 loadup.rpc.client 不再读取。
 渲染器将配置版本写入 Pod template 并绑定具体资源名，配置换版触发滚动。环境变量/Bean 默认重启生效，OAuth 客户端按有效期自动续取令牌。
 发布前只预检资源存在性及 immutable 元数据，归档可回退的镜像/引用组合；配置值与业务权限仍需应用和环境验证。
 完整创建、轮换、回退、排空与未执行验证见 [版本化配置与发布](../deploy/CONFIGURATION.md)。
 
-源清单不再包含 Triple 端口、Headless Service 或旧 RPC NetworkPolicy，改为八个每应用 HTTP 入站策略。apply 不会删除旧集群资源，发布方需确认旧调用退出后明确清理。
+源清单使用 HTTP 入站策略，实际应用集合需与当前 reactor 核对。apply 不会删除旧集群资源，发布方需确认旧调用退出后明确清理。
 HTTP NetworkPolicy 和 Envoy Gateway 配置已补，运行仍待验收。网络策略随核心清单，网关 chart 独立由平台发布者安装，二者不自动安装控制器。verify.py 仅检查 Deployment/HTTP ready EndpointSlice，
 不证明完整 JWT、业务幂等、PostgreSQL 事务、多副本连接分布、滚动排空或回退通过。
 
-原生成类可能残留于增量输出，按约定 clean 构建。测试源码与未执行验收见 [迁移清单](../HTTP_MIGRATION.md)。
+原生成类可能残留于增量输出，按约定 clean 构建。当前协议及未执行验收见 [总体架构](../ARCHITECTURE.md)。
 不把本说明视为部署或发送真实金融请求的授权。
 
 ## 托管收银台浏览器核心测试源码
 
-H5 页面核心使用原生 ES module/BigInt，无新增前端依赖。用户恢复验证后，可在 loadup-pay 根目录单独执行：
+H5 页面核心使用原生 ES module/BigInt，无新增前端依赖。需要验证时，可在 loadup-pay 根目录单独执行：
 
 ```bash
-node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
+node --test loadup-pay-acquire/loadup-pay-acquire-adapter/src/test/javascript/checkout-core.test.mjs
 ```
 
 本轮没有执行此命令。该测试只覆盖纯逻辑，不替代 Java 生成代码/事务、浏览器/CSP/标签页存储、可信代理、渠道域名及真实 H5
 跳转验收。静态页面与 /checkout.js、/checkout-core.mjs、/checkout.css 通过独立 GET 安全链公开；原金融 POST 仍使用逐次校验的会话能力。
 
-## Reconciliation 业务镜像
+## Reconciliation 接入
 
-`python3 scripts/build.py reconciliation` 构建独立对账服务。
-配置独立 RECONCILIATION_JDBC_*、RECONCILIATION_JWT_* 和受控账户目录，详见 [对账服务](../reconciliation/README.md)。
-十一个应用清单、镜像允许路径和 HTTP 选择器已同步为源码；本轮未构建镜像或运行渲染、部署、就绪脚本。
-当前批次/查询/核对源码不包含已完成的实际账单下载与权威数据导入；不能将 Pod 就绪当成对账业务验收。
-
-Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码；除 JDBC/JWT/账户目录，还需私有 RECONCILIATION_S3_BUCKET，
-可选 REGION/ENDPOINT/PATH_STYLE 和一对 S3_ACCESS_KEY/S3_SECRET_KEY（或默认凭证链）。不自动创建 bucket；statement-account
-显式配置实际主/子商户。
-部署所需 Secret 内容及存储策略需由部署环境提供，本轮未发布或访问存储。当前未接官方账单自动下载/验签来源或 payment 权威导出。
+对账的数据库、File/Transfer/S3、账户目录、官方 CHANNEL 与 payment LEDGER 输入接入见 [对账服务](../loadup-pay-reconciliation/README.md)。脚本就绪检查不证明封存、来源验真或业务核对通过。
 
 网关和平台安装见 [Gateway API / Envoy Gateway](../deploy/gateway/README.md)，选择器与 CNI 验收见 [HTTP 网络策略](../deploy/NETWORK_POLICY.md)。
 部署前使用 check_kubernetes.py 检查客户端/服务端版本差距；deploy.py 也执行此检查，不自动安装或升级 kubectl。

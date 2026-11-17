@@ -24,11 +24,10 @@ import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.OrderTaskKey;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskHandler;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -39,8 +38,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * Native at-least-once close continuation; the persisted original C0 supplies scope, reason and financial identities.
  */
 @Service
-public class OrderClosureRecoveryService implements DelayedTaskHandler {
-    private final DelayedTaskTemplate tasks;
+public class OrderClosureRecoveryService implements TaskHandler {
+    private final TaskTemplate tasks;
     private final OrderCreationGateway orders;
     private final OrderClosureGateway closes;
     private final OrderClosureOperations operations;
@@ -48,7 +47,7 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
     private final Clock clock;
 
     public OrderClosureRecoveryService(
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             OrderCreationGateway orders,
             OrderClosureGateway closes,
             OrderClosureOperations operations,
@@ -68,10 +67,9 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
     }
 
     @Override
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         var key = validate(task);
-        String tenant = TenantUtil.getTenantId();
-        var pending = transactions.writeLocal(tenant, () -> {
+        var pending = transactions.writeLocal(() -> {
             var order = orders.lockOrder(key.orderId());
             var intent = closes.findIntent(key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!order.order().id().equals(key.orderId())
@@ -79,18 +77,18 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
                     || task.executeAt().isBefore(intent.requestedAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var scope = new OrderPaymentScope(tenant, order.callerScopeHash());
+            var scope = new OrderPaymentScope(order.callerScopeHash());
             return operations.isCurrent(scope, order, intent, key.generation())
                     ? Optional.of(intent)
                     : Optional.<OrderCloseIntent>empty();
         });
         if (pending.isPresent()) {
             var intent = pending.get();
-            operations.resume(new OrderPaymentScope(tenant, intent.callerScopeHash()), intent);
+            operations.resume(new OrderPaymentScope(intent.callerScopeHash()), intent);
         }
     }
 
-    private OrderTaskKey validate(DelayedTask task) {
+    private OrderTaskKey validate(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -109,7 +107,7 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
                 || !taskType().equals(nativeTask.taskType())
                 || !task.bizId().equals(nativeTask.bizId())
                 || !task.executeAt().equals(nativeTask.executeAt())
-                || nativeTask.status() != DelayedTaskStatus.RUNNING
+                || nativeTask.status() != TaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts()
                 || nativeTask.leaseUntil() == null
                 || !at.isBefore(nativeTask.leaseUntil())

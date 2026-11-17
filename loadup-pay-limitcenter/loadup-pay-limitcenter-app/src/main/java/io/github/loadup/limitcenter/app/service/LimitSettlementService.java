@@ -28,6 +28,7 @@ import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.limitcenter.app.converter.LimitSettlementConverter;
@@ -102,13 +103,13 @@ public class LimitSettlementService implements LimitSettlementFacade {
     @Override
     public LimitReservationDTO confirm(LimitConfirmCommand command) {
         var actor = actor(command, "pay:limit:confirm");
-        return transactions.withTenantContext(actor, () -> {
+        return transactions.guarded(() -> {
             ids(command.operationId(), command.paymentId(), command.businessEventId(), command.successEvidenceId());
             var first = reservations
                     .findByOperation(command.operationId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             owner(actor, first);
-            var facts = facts(actor, command.operationId(), command.paymentId());
+            var facts = facts(actor, command.operationId(), command.paymentId(), command.financialEvidence());
             var source = facts.payment();
             if (source.state() != PaymentState.SUCCEEDED
                     || source.version() != command.paymentVersion()
@@ -116,12 +117,16 @@ public class LimitSettlementService implements LimitSettlementFacade {
                     || source.activeAttemptId() == null
                     || source.activeAttemptId().isBlank()
                     || source.amountMinor() != command.amountMinor()
-                    || !source.currency().equals(command.currency())) {
+                    || !source.currency().equals(command.currency())
+                    || command.financialEvidence() != null
+                            && !command.succeededAt()
+                                    .equals(command.financialEvidence().succeededAt())) {
                 throw new CommonException(OUTCOME_CONFLICT);
             }
             String digest = digest(
                     "CONFIRM",
                     actor,
+                    command.financialEvidence(),
                     command.operationId(),
                     command.paymentId(),
                     Long.toString(command.paymentVersion()),
@@ -129,7 +134,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
                     Long.toString(command.amountMinor()),
                     command.currency(),
                     BusinessTime.local(command.succeededAt()).toString());
-            return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
+            return transactions.writeLocal(OUTCOME_CONFLICT, () -> {
                 var gate = reservations
                         .lockGate(command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -138,6 +143,10 @@ public class LimitSettlementService implements LimitSettlementFacade {
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 owner(actor, current);
                 bind(current, facts);
+                if (command.financialEvidence() != null
+                        && !Objects.equals(current.reservation().activeAttemptId(), source.activeAttemptId())) {
+                    throw new CommonException(OUTCOME_CONFLICT);
+                }
                 var prior = settlements.findReceipt(command.operationId());
                 if (prior.isPresent()) {
                     prior.get()
@@ -190,7 +199,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
     @Override
     public LimitReleaseDTO release(LimitReleaseCommand command) {
         var actor = actor(command, "pay:limit:release");
-        return transactions.withTenantContext(actor, () -> {
+        return transactions.guarded(() -> {
             ids(
                     command.operationId(),
                     command.paymentId(),
@@ -199,7 +208,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
             DomainChecks.text(command.reasonCode(), 64);
             var existing = reservations.findByOperation(command.operationId());
             existing.ifPresent(value -> owner(actor, value));
-            var facts = facts(actor, command.operationId(), command.paymentId());
+            var facts = facts(actor, command.operationId(), command.paymentId(), command.financialEvidence());
             var source = facts.payment();
             if (!(source.state() == PaymentState.CLOSED || source.state() == PaymentState.FAILED)
                     || !facts.executionFenced()
@@ -210,12 +219,13 @@ public class LimitSettlementService implements LimitSettlementFacade {
             String digest = digest(
                     "RELEASE",
                     actor,
+                    command.financialEvidence(),
                     command.operationId(),
                     command.paymentId(),
                     Long.toString(command.paymentVersion()),
                     command.noCollectionEvidenceId(),
                     command.reasonCode());
-            return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
+            return transactions.writeLocal(OUTCOME_CONFLICT, () -> {
                 var gate = reservations.lockOrCreateGate(command.operationId(), command.paymentId());
                 if (!gate.paymentId().equals(command.paymentId())) {
                     throw new CommonException(OUTCOME_CONFLICT);
@@ -302,8 +312,9 @@ public class LimitSettlementService implements LimitSettlementFacade {
         return actor;
     }
 
-    private PaymentSettlementFactsDTO facts(LimitActor actor, String operation, String paymentId) {
-        var result = payment.paymentFacts(paymentId);
+    private PaymentSettlementFactsDTO facts(
+            LimitActor actor, String operation, String paymentId, PaymentFinancialEvidence evidence) {
+        var result = evidence == null ? payment.paymentFacts(paymentId) : mapping.toFacts(evidence);
         if (result == null || !validator.validate(result).isEmpty() || !operation.equals(result.limitOperationId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -393,16 +404,23 @@ public class LimitSettlementService implements LimitSettlementFacade {
         DomainChecks.id(evidence);
     }
 
-    private String digest(String kind, LimitActor actor, String... fields) {
+    private String digest(String kind, LimitActor actor, PaymentFinancialEvidence evidence, String... fields) {
         var canonical = new StringBuilder();
         for (String value : Stream.concat(
-                        Stream.of("limit.settlement.v1", kind, actor.tenantId(), actor.serviceId()),
-                        Arrays.stream(fields))
+                        Stream.of("limit.settlement.v1", kind, actor.serviceId()), Arrays.stream(fields))
                 .toList()) {
             canonical
                     .append(value.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(value);
+        }
+        if (evidence != null) {
+            for (String field : evidence.canonicalFields()) {
+                canonical
+                        .append(field.getBytes(StandardCharsets.UTF_8).length)
+                        .append(':')
+                        .append(field);
+            }
         }
         return DigestUtils.sha256(canonical.toString());
     }

@@ -28,12 +28,13 @@ import io.github.loadup.productcenter.domain.model.TypedValue;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class AcquiringTermsCompilerTest {
     private final ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-    private final AcquiringTermsCompiler compiler = new AcquiringTermsCompiler(factory.getValidator());
+    private final AcquiringTermsCompiler compiler = AcquiringFixtures.compiler(factory.getValidator());
     private final ActivatedLimitPolicy policy =
             new ActivatedLimitPolicy("policy", 1, "a".repeat(64), "ACTIVE", LocalDateTime.of(2026, 10, 21, 0, 0));
 
@@ -44,7 +45,7 @@ class AcquiringTermsCompilerTest {
 
     @Test
     void compilesFixedTotalTermsAndPreservesVersionedRoutingReferences() {
-        var terms = compiler.compile(AcquiringFixtures.configuration(AcquiringFixtures.values()), policy);
+        var terms = compiler.compile(AcquiringFixtures.validated(AcquiringFixtures.values()), policy);
         assertEquals("routing-v1", terms.routingProfileRef());
         assertEquals("RETURN_V1", terms.returnTargetCode());
         assertEquals("a".repeat(64), terms.limits().policyHash());
@@ -56,40 +57,40 @@ class AcquiringTermsCompilerTest {
     void unknownPathsAndWrongScalarTypesAreRejected() {
         var values = AcquiringFixtures.values();
         values.put("order.allowReopen", TypedValue.bool(true));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
         values.remove("order.allowReopen");
         values.put("order.waitSeconds", TypedValue.text("600"));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
     }
 
     @Test
     void unsupportedRefundOrderingAndAutomaticLateCollectionAreRejected() {
         var values = AcquiringFixtures.values();
         values.put("refund.allocationPolicy", TypedValue.text("LIFO"));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
         values.put("refund.allocationPolicy", TypedValue.text("FIFO"));
         values.put("refund.lateCollectionPolicy", TypedValue.text("VERIFIED_AUTO_REFUND"));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
     }
 
     @Test
     void enabledZeroThresholdIsValidAndMissingThresholdIsRejected() {
         var values = AcquiringFixtures.values();
         values.put("limit.MONTH.AMOUNT.enabled", TypedValue.bool(true));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
         values.put("limit.MONTH.AMOUNT.threshold", TypedValue.integer(0));
-        assertDoesNotThrow(() -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertDoesNotThrow(() -> compiler.compile(AcquiringFixtures.validated(values), policy));
     }
 
     @Test
     void parentAggregationRequiresAndRetainsItsControlledPolicyReference() {
         var values = AcquiringFixtures.values();
         values.put("limit.parentAggregationEnabled", TypedValue.bool(true));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
         values.put("limit.parentPolicyRef", TypedValue.text("parent-v1"));
         assertEquals(
                 "parent-v1",
-                compiler.compile(AcquiringFixtures.configuration(values), policy)
+                compiler.compile(AcquiringFixtures.validated(values), policy)
                         .limits()
                         .parentPolicyRef());
     }
@@ -99,7 +100,7 @@ class AcquiringTermsCompilerTest {
         var other = new ActivatedLimitPolicy("different", 1, "a".repeat(64), "ACTIVE", policy.activatedAt());
         var failure = assertThrows(
                 CommonException.class,
-                () -> compiler.compile(AcquiringFixtures.configuration(AcquiringFixtures.values()), other));
+                () -> compiler.compile(AcquiringFixtures.validated(AcquiringFixtures.values()), other));
         assertSame(ProductResultCodeEnum.UNSUPPORTED_POLICY, failure.getResultCode());
     }
 
@@ -107,6 +108,17 @@ class AcquiringTermsCompilerTest {
     void aRuleWithoutAnyAllowedPaymentMethodCannotBePublished() {
         var values = AcquiringFixtures.values();
         values.put("channel.WECHAT.DIRECT.H5.enabled", TypedValue.bool(false));
-        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
+        assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.validated(values), policy));
+    }
+
+    @Test
+    void invalidReceiptVersionAndHashKeepTheUnsupportedPolicyFailure() {
+        var validated = AcquiringFixtures.validated(AcquiringFixtures.values());
+        for (var receipt : List.of(
+                new ActivatedLimitPolicy("policy", 0, "a".repeat(64), "ACTIVE", policy.activatedAt()),
+                new ActivatedLimitPolicy("policy", 1, "invalid-hash", "ACTIVE", policy.activatedAt()))) {
+            var failure = assertThrows(CommonException.class, () -> compiler.compile(validated, receipt));
+            assertSame(ProductResultCodeEnum.UNSUPPORTED_POLICY, failure.getResultCode());
+        }
     }
 }

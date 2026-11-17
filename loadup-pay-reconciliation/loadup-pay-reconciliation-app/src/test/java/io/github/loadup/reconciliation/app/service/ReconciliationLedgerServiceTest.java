@@ -105,7 +105,6 @@ class ReconciliationLedgerServiceTest {
             ReconciliationBatch.init("batch", scope), "ops", "batch-request", "b".repeat(64), "account"));
     final AtomicReference<ReconciliationDataset> sealed = new AtomicReference<>();
     final ReconciliationActor actor = new ReconciliationActor(
-            "tenant",
             "ops",
             Set.of(
                     "pay:reconciliation:ledger:prepare",

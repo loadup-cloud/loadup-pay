@@ -15,7 +15,6 @@
  */
 package io.github.loadup.acquire.infrastructure.notification;
 
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
@@ -31,7 +30,6 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.http.HttpCall;
 import io.github.loadup.components.http.HttpProperties;
@@ -88,12 +86,10 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
 
     @Override
     public String fingerprint(MerchantNotificationDelivery delivery) {
-        String tenant = tenant();
         var target = target(delivery);
         var identity = signing(delivery).identity();
         return DigestUtils.sha256(JsonUtil.toJson(List.of(
                 "merchant-notification-route-v1",
-                tenant,
                 delivery.payeeMerchantId(),
                 delivery.policy().targetRef(),
                 delivery.policy().signingIdentityRef(),
@@ -110,7 +106,6 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
 
     @Override
     public boolean send(MerchantNotificationDelivery delivery) {
-        String tenant = tenant();
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -312,11 +307,7 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
     }
 
     private MerchantNotificationProperties.Target target(MerchantNotificationDelivery delivery) {
-        String tenant = tenant();
-        var target = properties
-                .targets()
-                .getOrDefault(tenant, Map.of())
-                .get(delivery.policy().targetRef());
+        var target = properties.targets().get(delivery.policy().targetRef());
         if (target == null || !delivery.payeeMerchantId().equals(target.payeeMerchantId())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
@@ -324,22 +315,10 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
     }
 
     private MerchantNotificationProperties.Signing signing(MerchantNotificationDelivery delivery) {
-        String tenant = tenant();
-        var identity = properties
-                .signingIdentities()
-                .getOrDefault(tenant, Map.of())
-                .get(delivery.policy().signingIdentityRef());
+        var identity = properties.signingIdentities().get(delivery.policy().signingIdentityRef());
         if (identity == null || !delivery.payeeMerchantId().equals(identity.payeeMerchantId())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         return identity;
-    }
-
-    private String tenant() {
-        String tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
-        return tenant;
     }
 }

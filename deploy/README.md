@@ -86,7 +86,7 @@ Collector 日志接入 Loki 是独立链路，当前仓库的 debug exporter 不
 rule_files 加载，当前没有修改现有监控 release。
 规则按本进程阈值、采样间隔及完整样本新鲜度判断 REVIEW/URGENT，旧/未初始化库存单独告警，不把缺失当零库存。默认仍需显式启用
 PAYMENT_RECOVERY_INVENTORY_ENABLED 和可信租户范围。
-指标来源、运营 API 及限制见 [分级查证](../payment/ARCHITECTURE.md)。现有 Alertmanager 关闭，没有配置接收方或实际通知送达。
+指标来源、运营 API 及限制见 [分级查证](../loadup-pay-payment/ARCHITECTURE.md)。现有 Alertmanager 关闭，没有配置接收方或实际通知送达。
 [promtool 用例](payment-recovery-alerts-test.yml) 覆盖阈值与互斥、新鲜度/初始化、禁用和 target-down；可后续在 deploy 目录运行
 promtool test rules payment-recovery-alerts-test.yml，本轮不执行。
 exporter 实际名称、PromQL 匹配、规则触发/恢复、多副本重复与真实通知均待运行验收；本文不将规则源码视为已上线告警。

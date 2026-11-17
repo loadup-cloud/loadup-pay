@@ -15,14 +15,12 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.components.payment.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentExecution;
@@ -79,12 +77,8 @@ public class PaymentActionService {
     }
 
     public void record(
-            String tenant,
-            LockedPayment locked,
-            ChannelPaymentExecution original,
-            ChannelPaymentSubmission result,
-            String receiptId) {
-        writable(tenant);
+            LockedPayment locked, ChannelPaymentExecution original, ChannelPaymentSubmission result, String receiptId) {
+        writable();
         if (original == null
                 || result == null
                 || !original.identity().equals(result.identity())
@@ -156,8 +150,8 @@ public class PaymentActionService {
         actions.insert(proposed);
     }
 
-    public PaymentExecutionDTO present(String tenant, LockedPayment locked) {
-        readable(tenant);
+    public PaymentExecutionDTO present(LockedPayment locked) {
+        readable();
         var base = views.toDTO(locked.payment());
         if (!active(locked)) {
             return base;
@@ -210,17 +204,14 @@ public class PaymentActionService {
         }
     }
 
-    private void readable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private void readable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
     }
 
-    private void writable(String tenant) {
-        readable(tenant);
+    private void writable() {
+        readable();
         if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }

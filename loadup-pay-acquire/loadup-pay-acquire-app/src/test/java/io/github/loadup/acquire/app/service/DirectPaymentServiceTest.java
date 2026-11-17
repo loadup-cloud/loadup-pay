@@ -79,9 +79,7 @@ class DirectPaymentServiceTest {
     final PaymentInitiationFacade payments = mock(PaymentInitiationFacade.class);
     final PaymentRecoveryFacade recovery = mock(PaymentRecoveryFacade.class);
     final AtomicReference<AcquireActor> actor = new AtomicReference<>(new AcquireActor(
-            "tenant",
             OWNER,
-            null,
             Set.of(
                     "pay:acquire:create",
                     "pay:acquire:read",
@@ -210,8 +208,8 @@ class DirectPaymentServiceTest {
 
     @Test
     void permissionsAndFirstAmountAreCheckedBeforeCreation() {
-        actor.set(new AcquireActor(
-                "tenant", OWNER, null, Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start")));
+        actor.set(
+                new AcquireActor(OWNER, Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.directPay(command))

@@ -19,9 +19,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
-public record PublicationActor(String tenantId, String principalId, Set<String> permissions) {
+public record PublicationActor(String principalId, Set<String> permissions) {
     public PublicationActor {
-        DomainChecks.id(tenantId);
         DomainChecks.id(principalId);
         permissions = Set.copyOf(permissions);
     }

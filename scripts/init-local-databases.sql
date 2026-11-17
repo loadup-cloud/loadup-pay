@@ -1,6 +1,6 @@
 -- Local PostgreSQL setup; run with psql as admin, outside a transaction.
 -- Each database uses its default public schema.
--- Service migrations, including Outbox, are applied by Flyway at application startup.
+-- Service migrations, including Task, are applied by Flyway at application startup.
 \set ON_ERROR_STOP on
 
 SELECT 'CREATE DATABASE loadup_payment OWNER admin'

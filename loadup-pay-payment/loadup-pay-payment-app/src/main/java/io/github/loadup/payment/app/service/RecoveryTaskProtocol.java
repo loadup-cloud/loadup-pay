@@ -20,9 +20,8 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
 import io.github.loadup.payment.domain.model.RecoveryPosition;
 import io.github.loadup.payment.domain.model.RecoveryTaskKey;
 import java.time.LocalDateTime;
@@ -34,19 +33,19 @@ import java.util.Objects;
 public final class RecoveryTaskProtocol {
     private RecoveryTaskProtocol() {}
 
-    public static RecoveryTaskKey receive(String expectedType, DelayedTask task, String trustedTenant) {
+    public static RecoveryTaskKey receive(String expectedType, TaskExecution task) {
         if (task == null || expectedType == null || !expectedType.equals(task.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         try {
-            DomainChecks.id(trustedTenant);
             return RecoveryTaskKey.parse(task.bizId());
         } catch (DomainViolation | NullPointerException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
 
-    public static void requireClaim(String expectedType, DelayedTask task, DelayedTask registered, LocalDateTime now) {
+    public static void requireClaim(
+            String expectedType, TaskExecution task, TaskExecution registered, LocalDateTime now) {
         if (task == null
                 || registered == null
                 || now == null
@@ -54,7 +53,7 @@ public final class RecoveryTaskProtocol {
                 || task.id() == null
                 || task.bizId() == null
                 || task.executeAt() == null
-                || task.status() != DelayedTaskStatus.RUNNING
+                || task.status() != TaskStatus.RUNNING
                 || task.attempts() < 1
                 || task.maxAttempts() < 1
                 || !task.id().equals(registered.id())
@@ -62,7 +61,7 @@ public final class RecoveryTaskProtocol {
                 || !expectedType.equals(task.taskType())
                 || !Objects.equals(task.bizId(), registered.bizId())
                 || !task.executeAt().equals(registered.executeAt())
-                || registered.status() != DelayedTaskStatus.RUNNING
+                || registered.status() != TaskStatus.RUNNING
                 || registered.attempts() != task.attempts()
                 || registered.maxAttempts() != task.maxAttempts()
                 || registered.leaseUntil() == null

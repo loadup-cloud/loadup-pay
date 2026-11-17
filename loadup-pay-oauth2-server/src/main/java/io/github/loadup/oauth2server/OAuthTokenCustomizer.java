@@ -15,32 +15,37 @@
  */
 package io.github.loadup.oauth2server;
 
+import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.oauth.OAuthClientSettings;
+import io.github.loadup.components.oauth.client.OAuthClientTokenValidator;
 import java.util.List;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
 final class OAuthTokenCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext> {
-    private final RegisteredClientRepository clients;
+    private final OAuthClientTokenValidator clients;
+    private final PayOAuthClientPolicy policy;
 
-    OAuthTokenCustomizer(RegisteredClientRepository clients) {
+    OAuthTokenCustomizer(OAuthClientTokenValidator clients, PayOAuthClientPolicy policy) {
         this.clients = clients;
+        this.policy = policy;
     }
 
     @Override
     public void customize(JwtEncodingContext context) {
-        var client = clients.findById(context.getRegisteredClient().getId());
         if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())
-                || !AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())
-                || client == null
-                || !Boolean.TRUE.equals(client.getClientSettings().getSetting(OAuthClientSettings.ENABLED))
-                || !client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                || !client.getScopes().containsAll(context.getAuthorizedScopes())) {
+                || !AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())) {
+            throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
+        }
+        var client = clients.requireAuthorizedClient(context);
+        // Business policy is also checked at issuance in case records were imported administratively.
+        try {
+            policy.validate(client);
+        } catch (CommonException invalid) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
         }
         String service = client.getClientSettings().getSetting(PayOAuthClientSettings.SERVICE);

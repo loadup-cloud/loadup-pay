@@ -22,10 +22,9 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.modules.transfer.client.enums.TransferKind;
 import io.github.loadup.modules.transfer.client.enums.TransferStatus;
 import io.github.loadup.modules.transfer.client.facade.TransferTaskFacade;
@@ -55,7 +54,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 public class ReconciliationStatementExecutionService {
     public static final String TYPE = "pay.reconciliation.statement";
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final TransferTaskFacade transfers;
     private final ReconciliationStatementGateway sources;
     private final ReconciliationBatchGateway batches;
@@ -69,7 +68,7 @@ public class ReconciliationStatementExecutionService {
     private final Clock clock;
 
     public ReconciliationStatementExecutionService(
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             TransferTaskFacade transfers,
             ReconciliationStatementGateway sources,
             ReconciliationBatchGateway batches,
@@ -95,18 +94,17 @@ public class ReconciliationStatementExecutionService {
         this.clock = clock;
     }
 
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         lease(task);
-        String tenant = TenantUtil.getTenantId();
-        var original = transactions.readSnapshot(tenant, () -> {
+        var original = transactions.readSnapshot(() -> {
             var value = sources.find(task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            ReconciliationStatementService.task(task, tenant, value);
-            authorized(tenant, value, false);
+            ReconciliationStatementService.task(task, value);
+            authorized(value, false);
             if (value.state() == ReconciliationStatementState.READY) {
-                linked(tenant, value);
+                linked(value);
             }
             return value;
         });
@@ -114,12 +112,12 @@ public class ReconciliationStatementExecutionService {
             return;
         }
         // Short transaction can terminate a superseded request before any network/file IO.
-        boolean pending = transactions.writeLocal(tenant, () -> {
-            var batch = authorized(tenant, original, true);
+        boolean pending = transactions.writeLocal(() -> {
+            var batch = authorized(original, true);
             var current = sources.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() != ReconciliationStatementState.INIT) {
                 if (current.state() == ReconciliationStatementState.READY) {
-                    linked(tenant, current);
+                    linked(current);
                 }
                 return false;
             }
@@ -163,12 +161,12 @@ public class ReconciliationStatementExecutionService {
             throw new CommonException(INPUT_INVALID);
         }
         var receipt = converter.toReceipt(downloaded, file, proof);
-        transactions.writeLocal(tenant, () -> {
-            var batch = authorized(tenant, original, true);
+        transactions.writeLocal(() -> {
+            var batch = authorized(original, true);
             var current = sources.lock(original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.state() != ReconciliationStatementState.INIT) {
                 if (current.state() == ReconciliationStatementState.READY) {
-                    linked(tenant, current);
+                    linked(current);
                 }
                 return false;
             }
@@ -203,18 +201,18 @@ public class ReconciliationStatementExecutionService {
             ready.verifyImport(request);
             sources.update(ready, current.version());
             imports.insert(request);
-            official.verify(tenant, request);
+            official.verify(request);
             return true;
         });
     }
 
-    private void linked(String tenant, ReconciliationStatementRequest source) {
+    private void linked(ReconciliationStatementRequest source) {
         var request = imports.find(source.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         source.verifyImport(request);
-        official.verify(tenant, request);
+        official.verify(request);
     }
 
-    private StoredReconciliationBatch authorized(String tenant, ReconciliationStatementRequest source, boolean lock) {
+    private StoredReconciliationBatch authorized(ReconciliationStatementRequest source, boolean lock) {
         var batch = (lock ? batches.lock(source.batchId()) : batches.find(source.batchId()))
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!source.callerServiceId().equals(batch.callerServiceId())
@@ -244,12 +242,12 @@ public class ReconciliationStatementExecutionService {
         }
     }
 
-    private void lease(DelayedTask task) {
+    private void lease(TaskExecution task) {
         if (task == null
                 || !TYPE.equals(task.taskType())
                 || task.id() == null
                 || task.bizId() == null
-                || task.status() != DelayedTaskStatus.RUNNING
+                || task.status() != TaskStatus.RUNNING
                 || task.attempts() < 1) {
             throw new CommonException(INVALID_STATE);
         }
@@ -258,7 +256,7 @@ public class ReconciliationStatementExecutionService {
         if (!Objects.equals(actual.id(), task.id())
                 || !TYPE.equals(actual.taskType())
                 || !Objects.equals(actual.bizId(), task.bizId())
-                || actual.status() != DelayedTaskStatus.RUNNING
+                || actual.status() != TaskStatus.RUNNING
                 || actual.attempts() != task.attempts()
                 || actual.maxAttempts() != task.maxAttempts()
                 || actual.maxAttempts() < actual.attempts()

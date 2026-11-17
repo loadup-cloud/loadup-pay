@@ -23,6 +23,7 @@ import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.NOT_FO
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.acquire.app.converter.PaymentEventConverter;
+import io.github.loadup.acquire.app.model.payment.dto.PaymentOutcomeDTO;
 import io.github.loadup.acquire.app.port.PaymentEventCodec;
 import io.github.loadup.acquire.app.port.PaymentOutcomeClient;
 import io.github.loadup.acquire.app.security.AcquireServiceActor;
@@ -38,6 +39,8 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import java.time.Clock;
@@ -50,7 +53,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
-    public static final String TYPE = "pay.payment.outcome.acquire.v1";
+    public static final String TYPE = BusinessEventTypes.PAYMENT_OUTCOME;
     private final AcquireServiceActorProvider actors;
     private final PaymentOutcomeClient payment;
     private final OrderCreationGateway orders;
@@ -101,7 +104,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
             throw new CommonException(INVALID_STATE);
         }
         validate(event);
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             String digest = codec.digest(actor.serviceId(), event);
             var prior = receipts.find(event.deliveryId());
             if (prior.isPresent()) {
@@ -113,7 +116,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                     .findPayment(data.orderId(), data.paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             // Original ownership is restored from the stored order, never from an event-supplied merchant scope.
-            var owner = new OrderPaymentScope(actor.tenantId(), order.callerScopeHash());
+            var owner = new OrderPaymentScope(order.callerScopeHash());
             var command = outcomes.bound(owner, order, allocation);
             if (!command.payeeMerchantId().equals(data.payeeMerchantId())
                     || !command.allocationId().equals(data.allocationId())
@@ -121,13 +124,19 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                     || !command.currency().equals(data.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var facts = payment.facts(data.paymentId()); // No local transaction or lock is held.
-            if (facts == null
-                    || !data.operationId().equals(facts.limitOperationId())
-                    || !data.payeeMerchantId().equals(facts.payeeMerchantId())) {
-                throw new CommonException(SNAPSHOT_INVALID);
+            final PaymentOutcomeDTO observed;
+            if (data.financialEvidence() != null) {
+                observed = converter.toObserved(data.financialEvidence());
+            } else {
+                var facts =
+                        payment.facts(data.paymentId()); // Frozen legacy payloads still require source verification.
+                if (facts == null
+                        || !data.operationId().equals(facts.limitOperationId())
+                        || !data.payeeMerchantId().equals(facts.payeeMerchantId())) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
+                observed = converter.toObserved(facts);
             }
-            var observed = converter.toObserved(facts);
             var verified = outcomes.terminal(command, observed);
             if (verified == null
                     || observed.payment().state() != data.state()
@@ -136,7 +145,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                     || data.executionFenced() && !observed.executionFenced()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(event.deliveryId());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
@@ -171,7 +180,8 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             event.data().requireEnvelope(event);
-            if (!TYPE.equals(event.eventType())
+            if (!(FrozenEventTypes.accepts(TYPE, "pay.payment.outcome.acquire.v1", event.eventType())
+                            || BusinessEventTypes.PAYMENT_FINANCIAL.equals(event.eventType()))
                     || !event.businessEventId().equals(event.data().evidenceId())
                     || !Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED)
                             .contains(event.data().state())) {

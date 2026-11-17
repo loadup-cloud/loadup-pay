@@ -89,7 +89,7 @@ class PaymentInputServiceTest {
     final PaymentInputCipher cipher = mock(PaymentInputCipher.class);
     final AtomicReference<PaymentInput> persisted = new AtomicReference<>();
     final AtomicReference<PaymentActor> actor =
-            new AtomicReference<>(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:prepare")));
+            new AtomicReference<>(new PaymentActor("acquire", Set.of("pay:payment:input:prepare")));
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
     final PaymentInputPrepareCommand command =
@@ -335,12 +335,12 @@ class PaymentInputServiceTest {
 
     @Test
     void otherServiceOrMissingPermissionIsRejectedBeforeStorage() {
-        actor.set(new PaymentActor("tenant", "unrelated", Set.of("pay:payment:input:prepare")));
+        actor.set(new PaymentActor("unrelated", Set.of("pay:payment:input:prepare")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.prepare(command))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "acquire", Set.of()));
+        actor.set(new PaymentActor("acquire", Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.prepare(command))
@@ -377,7 +377,7 @@ class PaymentInputServiceTest {
     @Test
     void lookupReturnsOnlyOriginalMetadataWithoutCipherOrAnotherWrite() {
         var prepared = service.prepare(command);
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:read")));
         clearInvocations(cipher, store);
         var result = service.lookup(lookupQuery());
         assertTrue(result.found());
@@ -392,7 +392,7 @@ class PaymentInputServiceTest {
 
     @Test
     void missingInputIsExplicitAndBoundExpiredInputRetainsItsOriginalReferenceAndDeadline() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read", "pay:payment:input:prepare")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:read", "pay:payment:input:prepare")));
         var missing = service.lookup(lookupQuery());
         assertFalse(missing.found());
         assertNull(missing.input());
@@ -421,7 +421,7 @@ class PaymentInputServiceTest {
     @Test
     void lookupRejectsWrongOriginalScopeRatherThanReturningAnotherInput() {
         service.prepare(command);
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:read")));
         var q = lookupQuery();
         for (var changed : List.of(
                 new PaymentInputLookupQuery(
@@ -491,12 +491,12 @@ class PaymentInputServiceTest {
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.lookup(lookupQuery()))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "unrelated", Set.of("pay:payment:input:read")));
+        actor.set(new PaymentActor("unrelated", Set.of("pay:payment:input:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.lookup(lookupQuery()))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:read")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
@@ -522,7 +522,7 @@ class PaymentInputServiceTest {
                         new EncryptedPaymentInput("key", 1, "ciphertext"),
                         now,
                         now.plusMinutes(2)));
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.lookup(lookupQuery()))

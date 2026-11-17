@@ -41,7 +41,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.modules.transfer.client.dto.TransferTaskDTO;
 import io.github.loadup.modules.transfer.client.enums.TransferKind;
@@ -114,7 +113,6 @@ class ReconciliationImportServiceTest {
             new AtomicReference<>(new StoredReconciliationBatch(
                     ReconciliationBatch.init("batch", scope), "ops", "batch-request", "c".repeat(64), "account"));
     private final ReconciliationActor actor = new ReconciliationActor(
-            "tenant",
             "ops",
             Set.of(
                     "pay:reconciliation:import:upload",
@@ -247,10 +245,10 @@ class ReconciliationImportServiceTest {
         });
         when(inputs.sealedManifest("import")).thenReturn(Optional.of(data.manifest()));
         var execution = execution();
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream()));
+        execution.handle(nativeContext(), InputStream.nullInputStream());
         assertEquals(ReconciliationImportState.SEALED, stored.get().state());
         assertEquals(data.manifest(), batch.get().batch().channel());
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream()));
+        execution.handle(nativeContext(), InputStream.nullInputStream());
         verify(parser, times(1)).parse(any(), any());
         verify(inputs, times(1)).insertSealed("file", data);
         verify(imports, times(1)).update(any(), eq(0L));
@@ -262,19 +260,14 @@ class ReconciliationImportServiceTest {
         when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         when(parser.parse(any(), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         var execution = execution();
-        assertThrows(
-                CommonException.class,
-                () -> TenantUtil.runWithTenant(
-                        "tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream())));
+        assertThrows(CommonException.class, () -> execution.handle(nativeContext(), InputStream.nullInputStream()));
         assertEquals(ReconciliationImportState.INIT, stored.get().state());
         doReturn(data("d".repeat(64))).when(parser).parse(any(), any());
         assertEquals(
                 INPUT_INVALID,
                 assertThrows(
                                 CommonException.class,
-                                () -> TenantUtil.runWithTenant(
-                                        "tenant",
-                                        () -> execution.handle(nativeContext(), InputStream.nullInputStream())))
+                                () -> execution.handle(nativeContext(), InputStream.nullInputStream()))
                         .getResultCode());
         assertEquals(ReconciliationImportState.REJECTED, stored.get().state());
         assertNull(batch.get().batch().channel());
@@ -288,15 +281,10 @@ class ReconciliationImportServiceTest {
         when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         var execution = execution();
         var forged = new TransferContext("other-task", "ops", Map.of("importId", "import"), (done, total) -> {});
-        assertThrows(
-                CommonException.class,
-                () -> TenantUtil.runWithTenant(
-                        "tenant", () -> execution.handle(forged, InputStream.nullInputStream())));
+        assertThrows(CommonException.class, () -> execution.handle(forged, InputStream.nullInputStream()));
         var extra = new TransferContext(
                 "task", "ops", Map.of("importId", "import", "complete", "true"), (done, total) -> {});
-        assertThrows(
-                CommonException.class,
-                () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(extra, InputStream.nullInputStream())));
+        assertThrows(CommonException.class, () -> execution.handle(extra, InputStream.nullInputStream()));
         assertThrows(
                 CommonException.class, () -> service.retry(new ReconciliationImportRetryCommand("import", "task")));
         verify(parser, never()).parse(any(), any());

@@ -25,6 +25,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.Set;
@@ -68,6 +70,7 @@ public record RefundMerchantEventDTO(
 
         @Schema(description = "Verified child success time; absent for failed children and request completion")
         OffsetDateTime succeededAt) {
+    /** Frozen delivery label; newly published fact types are defined by BusinessEventTypes. */
     public static final String TYPE = "pay.payment.refund.merchant.v1";
 
     public RefundMerchantEventDTO {
@@ -119,7 +122,8 @@ public record RefundMerchantEventDTO(
 
     public void requireEnvelope(EventEnvelope<?> event) {
         require(event != null && equals(event.data()), CONFLICT);
-        event.requireSource(TYPE, "payment", aggregateId(), sourceVersion);
+        FrozenEventTypes.requireSource(
+                event, BusinessEventTypes.REFUND_PROGRESS, "payment", aggregateId(), sourceVersion, TYPE);
     }
 
     @Override

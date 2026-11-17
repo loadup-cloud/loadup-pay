@@ -32,9 +32,9 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskResultCodeEnum;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.converter.PaymentRecoveryOperationsConverter;
 import io.github.loadup.payment.app.model.PaymentRecoveryInspection;
 import io.github.loadup.payment.app.security.PaymentActor;
@@ -76,7 +76,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
     private final RefundExecutionLocks refundLocks;
     private final RefundGateway refunds;
     private final RefundRecoveryGateway refundCursors;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final PaymentRecoveryOperationsConverter converter;
     private final PaymentAcceptanceTransactions transactions;
     private final IdGenerator ids;
@@ -93,7 +93,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             RefundExecutionLocks refundLocks,
             RefundGateway refunds,
             RefundRecoveryGateway refundCursors,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             PaymentRecoveryOperationsConverter converter,
             PaymentAcceptanceTransactions transactions,
             IdGenerator ids,
@@ -123,9 +123,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         validate(query);
         identifier(query.subjectId());
         return transactions.readSnapshot(
-                actor.tenantId(),
-                () -> converter.toDTO(
-                        readInspection(actor.tenantId(), query.kind(), query.subjectId(), query.generation())));
+                () -> converter.toDTO(readInspection(query.kind(), query.subjectId(), query.generation())));
     }
 
     @Override
@@ -142,11 +140,9 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         if (expectedAt.getNano() % 1000 != 0 || expectedAt.getYear() < 1970 || expectedAt.getYear() > 9998) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        String scope = DigestUtils.sha256(
-                JsonUtil.toJson(List.of("payment-recovery-operator-v1", actor.tenantId(), actor.serviceId())));
+        String scope = DigestUtils.sha256(JsonUtil.toJson(List.of("payment-recovery-operator-v1", actor.serviceId())));
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of(
                 "payment-recovery-retry-v1",
-                actor.tenantId(),
                 scope,
                 command.kind().name(),
                 command.subjectId(),
@@ -156,18 +152,17 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 expectedAt.toString(),
                 command.requestKey(),
                 command.reason())));
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             var known = receipts.find(scope, command.requestKey());
             if (known.isPresent()) {
                 return replay(actor, known.get(), scope, digest);
             }
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), scope, digest);
                 }
-                var inspection =
-                        lockForRetry(actor.tenantId(), command.kind(), command.subjectId(), command.generation());
+                var inspection = lockForRetry(command.kind(), command.subjectId(), command.generation());
                 // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order
                 // key reuse.
                 existing = receipts.find(scope, command.requestKey());
@@ -180,7 +175,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                         || !task.nextExecuteAt().equals(expectedAt)) {
                     throw new CommonException(VERSION_CONFLICT);
                 }
-                if (task.status() != DelayedTaskStatus.FAILED) {
+                if (task.status() != TaskStatus.FAILED) {
                     throw new CommonException(INVALID_STATE);
                 }
                 String result = "NO_LONGER_NEEDED";
@@ -189,9 +184,9 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                         throw new CommonException(INVALID_STATE);
                     }
                     try {
-                        tasks.retryFailed(task.taskType(), task.bizId());
+                        tasks.retryFailed(task.id(), actor.serviceId(), command.reason());
                     } catch (CommonException changed) {
-                        if (changed.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE) {
+                        if (changed.getResultCode() == TaskResultCodeEnum.INVALID_STATE) {
                             throw new CommonException(CONCURRENT_UPDATE);
                         }
                         throw changed;
@@ -213,8 +208,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         });
     }
 
-    private PaymentRecoveryInspection lockForRetry(
-            String tenant, PaymentRecoveryKind kind, String subject, long generation) {
+    private PaymentRecoveryInspection lockForRetry(PaymentRecoveryKind kind, String subject, long generation) {
         final String orderId;
         final long cursorGeneration;
         final LocalDateTime dueAt;
@@ -225,9 +219,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 var initial = payments.find(subject).orElseThrow(() -> new CommonException(NOT_FOUND));
                 // The persisted calling service only validates the original binding; it is not the operator's
                 // authority.
-                var original = paymentLocks
-                        .lock(tenant, subject, initial.callerServiceId())
-                        .payment();
+                var original =
+                        paymentLocks.lock(subject, initial.callerServiceId()).payment();
                 if (!original.payment().id().equals(subject)
                         || !original.payment()
                                 .orderId()
@@ -245,7 +238,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 terminal = PaymentExecutionService.terminal(original.payment().state());
             }
             case REFUND_REQUEST -> {
-                var original = refundLocks.request(tenant, subject);
+                var original = refundLocks.request(subject);
                 if (!original.request().id().equals(subject)) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
@@ -262,18 +255,13 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             default -> throw new CommonException(INVALID_ARGUMENT);
         }
         return inspection(
-                tenant,
-                kind,
-                subject,
-                generation,
-                new RecoveryView(orderId, cursorGeneration, dueAt, completed, terminal));
+                kind, subject, generation, new RecoveryView(orderId, cursorGeneration, dueAt, completed, terminal));
     }
 
     /**
      * Nonlocking reads only. Snapshot isolation, not execution locks, supplies the bounded multi-table view.
      */
-    private PaymentRecoveryInspection readInspection(
-            String tenant, PaymentRecoveryKind kind, String subject, long generation) {
+    private PaymentRecoveryInspection readInspection(PaymentRecoveryKind kind, String subject, long generation) {
         final RecoveryView view;
         switch (kind) {
             case COLLECTION -> {
@@ -304,11 +292,11 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             }
             default -> throw new CommonException(INVALID_ARGUMENT);
         }
-        return inspection(tenant, kind, subject, generation, view);
+        return inspection(kind, subject, generation, view);
     }
 
     private PaymentRecoveryInspection inspection(
-            String tenant, PaymentRecoveryKind kind, String subject, long generation, RecoveryView view) {
+            PaymentRecoveryKind kind, String subject, long generation, RecoveryView view) {
         if (generation > view.generation() || view.completed() && !view.terminal()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -332,7 +320,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 task,
                 current,
                 current
-                        && task.status() == DelayedTaskStatus.FAILED
+                        && task.status() == TaskStatus.FAILED
                         && !LocalDateTime.now(clock).isBefore(task.executeAt()));
     }
 

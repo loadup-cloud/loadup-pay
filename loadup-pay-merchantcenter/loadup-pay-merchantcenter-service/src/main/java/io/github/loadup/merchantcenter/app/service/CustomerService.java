@@ -27,7 +27,6 @@ import static io.github.loadup.merchantcenter.client.error.CustomerResultCodeEnu
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.merchantcenter.app.converter.CustomerConverter;
 import io.github.loadup.merchantcenter.app.security.CustomerActor;
@@ -317,7 +316,7 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            return TenantUtil.callWithTenant(actor.tenantId(), () -> operation.apply(actor));
+            return operation.apply(actor);
         } catch (DomainViolation violation) {
             throw new CommonException(
                     switch (violation.reason()) {

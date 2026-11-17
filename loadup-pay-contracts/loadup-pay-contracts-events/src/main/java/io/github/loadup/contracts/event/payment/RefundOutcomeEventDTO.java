@@ -15,13 +15,16 @@
  */
 package io.github.loadup.contracts.event.payment;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.Set;
+import java.util.Objects;
 
 public record RefundOutcomeEventDTO(
         @Schema(description = "Refund id") String refundId,
@@ -38,8 +41,25 @@ public record RefundOutcomeEventDTO(
         @Schema(description = "Cumulative payment refunded minor")
         long cumulativePaymentRefundedMinor,
 
-        @Schema(description = "Evidence id") String evidenceId) {
+        @Schema(description = "Evidence id") String evidenceId,
+        @JsonInclude(JsonInclude.Include.NON_NULL) RefundFinancialEvidence financialEvidence) {
     public RefundOutcomeEventDTO {
+        if (financialEvidence != null) {
+            DomainViolation.require(
+                    financialEvidence.refundId().equals(refundId)
+                            && financialEvidence.refundRequestId().equals(refundRequestId)
+                            && financialEvidence.refundVersion() == refundVersion
+                            && financialEvidence.refundEvidenceId().equals(evidenceId)
+                            && financialEvidence.amountMinor() == amountMinor
+                            && financialEvidence.cumulativePaymentRefundedMinor() == cumulativePaymentRefundedMinor
+                            && financialEvidence.payment().paymentId().equals(paymentId)
+                            && financialEvidence.payment().orderId().equals(orderId)
+                            && financialEvidence.payment().operationId().equals(operationId)
+                            && financialEvidence.payment().payeeMerchantId().equals(payeeMerchantId)
+                            && financialEvidence.payment().currency().equals(currency)
+                            && state == RefundState.SUCCEEDED,
+                    DomainViolation.Reason.CONFLICT);
+        }
         DomainChecks.id(refundId);
         DomainChecks.id(refundRequestId);
         DomainChecks.id(paymentId);
@@ -59,10 +79,52 @@ public record RefundOutcomeEventDTO(
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {
-        DomainViolation.require(
-                equals(envelope.data()) && Set.of("pay.payment.refund.limit.v1").contains(envelope.eventType()),
-                DomainViolation.Reason.CONFLICT);
-        envelope.requireSource(envelope.eventType(), "payment", refundId, refundVersion);
+        DomainViolation.require(equals(envelope.data()), DomainViolation.Reason.CONFLICT);
+        if (financialEvidence != null) {
+            envelope.requireSource(BusinessEventTypes.REFUND_FINANCIAL, "payment", refundId, refundVersion);
+            return;
+        }
+        FrozenEventTypes.requireSource(
+                envelope,
+                BusinessEventTypes.REFUND_OUTCOME,
+                "payment",
+                refundId,
+                refundVersion,
+                "pay.payment.refund.limit.v1");
+    }
+
+    public RefundOutcomeEventDTO withFinancialEvidence(RefundFinancialEvidence evidence) {
+        return new RefundOutcomeEventDTO(
+                refundId,
+                refundRequestId,
+                paymentId,
+                orderId,
+                operationId,
+                payeeMerchantId,
+                amountMinor,
+                currency,
+                state,
+                refundVersion,
+                cumulativePaymentRefundedMinor,
+                evidenceId,
+                Objects.requireNonNull(evidence));
+    }
+
+    public RefundOutcomeEventDTO withoutFinancialEvidence() {
+        return new RefundOutcomeEventDTO(
+                refundId,
+                refundRequestId,
+                paymentId,
+                orderId,
+                operationId,
+                payeeMerchantId,
+                amountMinor,
+                currency,
+                state,
+                refundVersion,
+                cumulativePaymentRefundedMinor,
+                evidenceId,
+                null);
     }
 
     @Override

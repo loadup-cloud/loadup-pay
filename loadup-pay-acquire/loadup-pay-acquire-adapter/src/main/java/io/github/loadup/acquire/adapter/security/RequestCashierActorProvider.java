@@ -41,8 +41,7 @@ public class RequestCashierActorProvider implements CashierActorProvider {
         if (!authorization.startsWith("Bearer ")) {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
-        return authentication.authenticate(
-                single("X-Checkout-Tenant", 64, true), authorization.substring(7), single("Origin", 512, false));
+        return authentication.authenticate(authorization.substring(7), single("Origin", 512, false));
     }
 
     private String single(String name, int maximum, boolean required) {

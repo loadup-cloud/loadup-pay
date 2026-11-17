@@ -21,11 +21,10 @@ import io.github.loadup.components.payment.channel.contract.Channel;
 import java.util.Objects;
 
 /**
- * Trusted configuration selects tenant and immutable binding; request metadata cannot override them.
+ * Trusted configuration selects the immutable binding; request metadata cannot override it.
  */
-public record ChannelCallbackEndpoint(String tenantId, Channel channel, String bindingRevisionId) {
+public record ChannelCallbackEndpoint(Channel channel, String bindingRevisionId) {
     public ChannelCallbackEndpoint {
-        DomainChecks.id(tenantId);
         Objects.requireNonNull(channel);
         DomainChecks.id(bindingRevisionId);
     }

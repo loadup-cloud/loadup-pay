@@ -33,7 +33,6 @@ import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
@@ -97,8 +96,8 @@ public class OrderClosureOperations {
         if (command == null || !validator.validate(command).isEmpty()) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
-            var intent = transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
+            var intent = transactions.writeLocal(() -> {
                 var order = orders.lockOrder(command.id());
                 return startLocked(actor, order, command);
             });
@@ -113,9 +112,6 @@ public class OrderClosureOperations {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (!actor.tenantId().equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         if (command == null || !validator.validate(command).isEmpty()) {
             throw new CommonException(INVALID_ARGUMENT);
@@ -141,8 +137,8 @@ public class OrderClosureOperations {
         var closing = order.order().requestClose();
         var intent = converter.toIntent(command, closing, ids.generate(), actor.scopeHash(), digest, now());
         store.start(closing, intent, order.order().version());
-        tasks.register(actor.tenantId(), intent);
-        snapshots.publish(actor.tenantId(), closing.id(), closing.version());
+        tasks.register(intent);
+        snapshots.publish(closing.id(), closing.version());
         return intent;
     }
 
@@ -151,7 +147,7 @@ public class OrderClosureOperations {
      */
     AcquireOrderDTO resume(OrderPaymentScope actor, OrderCloseIntent intent) {
         requireNoTransaction(actor);
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             var original = current(actor, intent);
             if (terminal(original.order())) {
                 return orderConverter.toDTO(original, now());
@@ -163,10 +159,10 @@ public class OrderClosureOperations {
                 batch = store.heldAfter(intent.orderId(), "", BATCH_SIZE);
             }
             for (var allocation : batch) {
-                outcomes.bound(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), original, allocation);
+                outcomes.bound(new OrderPaymentScope(actor.scopeHash()), original, allocation);
                 var request = converter.toPaymentClose(intent, allocation);
                 var closed = payment.close(request);
-                outcomes.applyClose(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), request, closed);
+                outcomes.applyClose(new OrderPaymentScope(actor.scopeHash()), request, closed);
             }
             String nextCursor =
                     batch.size() == BATCH_SIZE ? batch.getLast().allocation().paymentId() : "";
@@ -174,7 +170,7 @@ public class OrderClosureOperations {
             var status = payment.parentFenceStatus(converter.toStatusQuery(intent));
             requireParent(intent, status);
             // Fencing alone never proves that all local holds or remote collection attempts have converged.
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var order = orders.lockOrder(intent.orderId());
                 owned(actor, order);
                 bound(
@@ -191,7 +187,7 @@ public class OrderClosureOperations {
                 }
                 var closed = order.order().finishClose(converter.toEvidence(intent, status));
                 store.finish(closed, order.order().version(), now());
-                snapshots.publish(actor.tenantId(), closed.id(), closed.version());
+                snapshots.publish(closed.id(), closed.version());
                 return orderConverter.toDTO(
                         orders.findOrder(intent.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
                         now());
@@ -221,7 +217,7 @@ public class OrderClosureOperations {
     }
 
     private void advance(OrderPaymentScope actor, OrderCloseIntent attempted, String nextCursor) {
-        transactions.writeLocal(actor.tenantId(), () -> {
+        transactions.writeLocal(() -> {
             var order = orders.lockOrder(attempted.orderId());
             owned(actor, order);
             var latest = store.findIntent(attempted.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -230,7 +226,7 @@ public class OrderClosureOperations {
             if (!terminal(order.order()) && latest.rowVersion() == attempted.rowVersion()) {
                 var advanced = latest.advanceCursor(nextCursor);
                 store.advanceCursor(advanced, latest.rowVersion());
-                tasks.schedule(actor.tenantId(), advanced, now());
+                tasks.schedule(advanced, now());
             }
             return true;
         });
@@ -279,7 +275,6 @@ public class OrderClosureOperations {
         var canonical = new StringBuilder();
         for (String field : List.of(
                 "acquire.order-close.v1",
-                actor.tenantId(),
                 actor.scopeHash(),
                 command.id(),
                 command.requestKey(),

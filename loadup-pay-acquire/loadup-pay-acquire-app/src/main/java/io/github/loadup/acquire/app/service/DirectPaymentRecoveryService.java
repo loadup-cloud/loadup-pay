@@ -96,7 +96,7 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.id(command.merchantOrderNo());
             var observed = find(actor, command);

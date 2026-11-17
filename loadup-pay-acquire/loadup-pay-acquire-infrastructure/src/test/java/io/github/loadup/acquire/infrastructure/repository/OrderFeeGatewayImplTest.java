@@ -32,7 +32,6 @@ import io.github.loadup.acquire.infrastructure.converter.OrderFeeStorageConverte
 import io.github.loadup.acquire.infrastructure.dataobject.OrderFeeDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -129,8 +128,7 @@ class OrderFeeGatewayImplTest {
     }
 
     void write(Runnable work) {
-        TenantUtil.runWithTenant(
-                "tenant", () -> new TransactionTemplate(manager).executeWithoutResult(s -> work.run()));
+        new TransactionTemplate(manager).executeWithoutResult(s -> work.run());
     }
 
     void basis(long version, long amount) {

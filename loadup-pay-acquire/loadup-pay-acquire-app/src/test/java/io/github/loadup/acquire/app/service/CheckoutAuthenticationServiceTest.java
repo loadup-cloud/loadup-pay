@@ -54,18 +54,17 @@ class CheckoutAuthenticationServiceTest {
 
     @Test
     void checksTheCapabilityBeforeReturningAnOrderOnlyActor() {
-        var actor = service.authenticate("tenant", TOKEN, ORIGIN);
+        var actor = service.authenticate(TOKEN, ORIGIN);
         assertEquals("order", actor.orderId());
         assertEquals("session", actor.sessionId());
-        assertEquals("__default__", actor.tenantId());
     }
 
     @Test
     void tenantLocatorAloneCannotSwitchTheAuthenticatedOrderScope() {
         when(sessions.find("session")).thenReturn(Optional.empty());
-        assertThrows(CommonException.class, () -> service.authenticate("other", TOKEN, ORIGIN));
+        assertThrows(CommonException.class, () -> service.authenticate(TOKEN, ORIGIN));
         when(tokens.matches(eq(TOKEN), any())).thenReturn(false);
-        assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+        assertThrows(CommonException.class, () -> service.authenticate(TOKEN, ORIGIN));
     }
 
     @Test
@@ -73,14 +72,14 @@ class CheckoutAuthenticationServiceTest {
         for (var state :
                 List.of(CheckoutSessionState.INIT, CheckoutSessionState.CANCELLED, CheckoutSessionState.EXPIRED)) {
             when(sessions.find("session")).thenReturn(Optional.of(session(state, NOW.plusMinutes(5))));
-            assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+            assertThrows(CommonException.class, () -> service.authenticate(TOKEN, ORIGIN));
         }
         var boundary = NOW.withNano(0);
         var expired = session(CheckoutSessionState.ACTIVE, boundary);
         when(sessions.find("session")).thenReturn(Optional.of(expired));
         var atCutoff = new CheckoutAuthenticationService(
                 sessions, tokens, new OrderCreationTransactions(new UnitTransactions()), clock(boundary));
-        assertThrows(CommonException.class, () -> atCutoff.authenticate("tenant", TOKEN, ORIGIN));
+        assertThrows(CommonException.class, () -> atCutoff.authenticate(TOKEN, ORIGIN));
     }
 
     @Test
@@ -88,7 +87,7 @@ class CheckoutAuthenticationServiceTest {
         for (var state : List.of(CheckoutSessionState.ACTIVE, CheckoutSessionState.COMPLETED)) {
             var revoked = session(state, NOW.plusMinutes(5)).revoke(0L, NOW);
             when(sessions.find("session")).thenReturn(Optional.of(revoked));
-            assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+            assertThrows(CommonException.class, () -> service.authenticate(TOKEN, ORIGIN));
         }
     }
 
@@ -96,15 +95,15 @@ class CheckoutAuthenticationServiceTest {
     void completedSessionsRemainReadOnlyUntilTheirOriginalExpiry() {
         when(sessions.find("session"))
                 .thenReturn(Optional.of(session(CheckoutSessionState.COMPLETED, NOW.plusMinutes(5))));
-        assertEquals("order", service.authenticate("tenant", TOKEN, ORIGIN).orderId());
+        assertEquals("order", service.authenticate(TOKEN, ORIGIN).orderId());
     }
 
     @Test
     void aBrowserOriginMustMatchAndMalformedCredentialsDoNotTriggerALookup() {
-        assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, "https://evil.example"));
+        assertThrows(CommonException.class, () -> service.authenticate(TOKEN, "https://evil.example"));
         clearInvocations(sessions);
-        assertThrows(CommonException.class, () -> service.authenticate("tenant", "arbitrary", null));
-        assertThrows(CommonException.class, () -> service.authenticate(" tenant", TOKEN, null));
+        assertThrows(CommonException.class, () -> service.authenticate(null, null));
+        assertThrows(CommonException.class, () -> service.authenticate("arbitrary", null));
         verifyNoInteractions(sessions);
     }
 }

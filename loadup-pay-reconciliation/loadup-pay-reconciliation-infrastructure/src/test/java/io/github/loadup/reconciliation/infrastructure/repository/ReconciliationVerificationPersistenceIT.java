@@ -26,13 +26,13 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.dfs.DfsService;
-import io.github.loadup.components.outbox.JdbcOutboxRepository;
-import io.github.loadup.components.outbox.OutboxDispatcher;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxHandler;
-import io.github.loadup.components.outbox.OutboxProperties;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.JdbcTaskRepository;
+import io.github.loadup.components.task.TaskDispatcher;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
+import io.github.loadup.components.task.TaskProperties;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.reconciliation.app.converter.ReconciliationReviewConverter;
@@ -86,7 +86,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -126,8 +125,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @SpringBootTest(
         classes = ReconciliationVerificationPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = {"loadup.outbox.worker-enabled=false", "loadup.outbox.max-attempts=1", "loadup.outbox.batch-size=1"
-        })
+        properties = {"loadup.task.worker-enabled=false", "loadup.task.max-attempts=1", "loadup.task.batch-size=1"})
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 @Execution(ExecutionMode.SAME_THREAD)
 @ExtendWith(DatabaseResetExtension.class)
@@ -143,12 +141,11 @@ class ReconciliationVerificationPersistenceIT {
     final JdbcTemplate jdbc;
     final Actors actors;
     final Payment payment;
-    final OutboxTemplate outbox;
-    final OutboxDispatcher dispatcher;
+    final TaskTemplate outbox;
+    final TaskDispatcher dispatcher;
     final Handler handler;
     final DataSource dataSource;
     final PlatformTransactionManager transactionManager;
-    final Set<String> tenants = new HashSet<>();
 
     @Autowired
     ReconciliationVerificationPersistenceIT(
@@ -163,8 +160,8 @@ class ReconciliationVerificationPersistenceIT {
             JdbcTemplate jdbc,
             Actors actors,
             Payment payment,
-            OutboxTemplate outbox,
-            OutboxDispatcher dispatcher,
+            TaskTemplate outbox,
+            TaskDispatcher dispatcher,
             Handler handler,
             DataSource dataSource,
             PlatformTransactionManager transactionManager) {
@@ -207,8 +204,8 @@ class ReconciliationVerificationPersistenceIT {
     @AfterEach
     void cleanQueue() {
         // No worker is started by this test context.
-        jdbc.update("DELETE FROM loadup_outbox_replay");
-        jdbc.update("DELETE FROM loadup_outbox_event");
+        jdbc.update("DELETE FROM loadup_task_operation");
+        jdbc.update("DELETE FROM loadup_task");
     }
 
     @Test
@@ -216,16 +213,16 @@ class ReconciliationVerificationPersistenceIT {
         var fixture = fixture();
         requests.failure.set("insert");
         assertThrows(IllegalStateException.class, () -> submit(fixture));
-        assertEquals(0L, count("reconciliation_verification_request", fixture.tenant()));
-        assertEquals(0L, count("loadup_outbox_event", fixture.tenant()));
+        assertEquals(0L, count("reconciliation_verification_request"));
+        assertEquals(0L, count("loadup_task"));
         assertEquals(0, payment.calls.get());
         var first = submit(fixture);
         var replay = submit(fixture);
         assertEquals(first, replay);
         assertEquals("INIT", first.state().name());
         assertNull(first.receipt());
-        assertEquals(1L, count("reconciliation_verification_request", fixture.tenant()));
-        assertEquals(1L, count("loadup_outbox_event", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_verification_request"));
+        assertEquals(1L, count("loadup_task"));
         assertOriginal(fixture);
     }
 
@@ -234,7 +231,7 @@ class ReconciliationVerificationPersistenceIT {
         var fixture = fixture();
         var initial = submit(fixture);
         requests.failure.set("update");
-        assertEquals(1, dispatcher.dispatchBatch());
+        dispatcher.execute();
         var failed = detail(fixture, initial.requestId());
         assertEquals("INIT", failed.state().name());
         assertNull(failed.receipt());
@@ -247,14 +244,14 @@ class ReconciliationVerificationPersistenceIT {
         assertEquals(initial.deliveryId(), pending.deliveryId());
         assertEquals("PENDING", pending.deliveryStatus());
         assertNull(pending.receipt());
-        assertEquals(1L, count("loadup_outbox_replay", fixture.tenant()));
+        assertEquals(1L, count("loadup_task_operation"));
         assertEquals(
                 "ops",
                 jdbc.queryForObject(
-                        "SELECT operator_id FROM loadup_outbox_replay WHERE event_id = ?",
+                        "SELECT operator_id FROM loadup_task_operation WHERE task_id = ?",
                         String.class,
                         initial.deliveryId()));
-        assertEquals(1, dispatcher.dispatchBatch());
+        dispatcher.execute();
         var recorded = detail(fixture, initial.requestId());
         assertEquals("RECORDED", recorded.state().name());
         assertEquals(1L, recorded.version());
@@ -269,20 +266,20 @@ class ReconciliationVerificationPersistenceIT {
         var fixture = fixture();
         var initial = submit(fixture);
         handler.failAfterCommit.set(true);
-        assertEquals(1, dispatcher.dispatchBatch());
+        dispatcher.execute();
         var committed = detail(fixture, initial.requestId());
         assertEquals("RECORDED", committed.state().name());
         assertEquals("FAILED", committed.deliveryStatus());
         assertNotNull(committed.receipt());
         assertEquals(1, payment.calls.get());
         retry(fixture, initial);
-        assertEquals(1, dispatcher.dispatchBatch());
+        dispatcher.execute();
         var recovered = detail(fixture, initial.requestId());
         assertEquals("SUCCEEDED", recovered.deliveryStatus());
         assertEquals(committed.receipt(), recovered.receipt());
         assertEquals(committed.version(), recovered.version());
         assertEquals(1, payment.calls.get());
-        assertEquals(1L, count("reconciliation_verification_request", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_verification_request"));
         assertOriginal(fixture);
     }
 
@@ -299,8 +296,8 @@ class ReconciliationVerificationPersistenceIT {
             var second = executor.submit(action);
             assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
         }
-        assertEquals(1L, count("reconciliation_verification_request", fixture.tenant()));
-        assertEquals(1L, count("loadup_outbox_event", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_verification_request"));
+        assertEquals(1L, count("loadup_task"));
         assertEquals(0, payment.calls.get());
     }
 
@@ -319,27 +316,24 @@ class ReconciliationVerificationPersistenceIT {
             }
             return Payment.observed(query, "d".repeat(64));
         });
-        var properties = new OutboxProperties();
+        var properties = new TaskProperties();
         properties.setWorkerEnabled(false);
         properties.setBatchSize(1);
         properties.setMaxAttempts(3);
-        var secondWorker = new OutboxDispatcher(
-                new JdbcOutboxRepository(dataSource, transactionManager, properties),
-                properties,
-                List.of(handler),
-                null);
+        var secondWorker = new TaskDispatcher(
+                new JdbcTaskRepository(dataSource, transactionManager, properties), properties, List.of(handler), null);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var oldWorker = executor.submit(dispatcher::dispatchBatch);
+            var oldWorker = executor.submit(dispatcher::execute);
             try {
                 assertTrue(entered.await(10, TimeUnit.SECONDS));
                 // Expire only this test claim instead of relying on wall-clock sleeps.
                 assertEquals(
                         1,
                         jdbc.update(
-                                "UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1"
-                                        + " seconds') WHERE id = ? AND status = 'PROCESSING'",
+                                "UPDATE loadup_task SET lease_until = (clock_timestamp() + INTERVAL '-1"
+                                        + " seconds') WHERE id = ? AND status = 'RUNNING'",
                                 initial.deliveryId()));
-                assertEquals(1, secondWorker.dispatchBatch());
+                secondWorker.execute();
                 var winner = detail(fixture, initial.requestId());
                 assertEquals("d".repeat(64), winner.receipt().sourceDigest());
                 assertEquals("SUCCEEDED", winner.deliveryStatus());
@@ -382,7 +376,7 @@ class ReconciliationVerificationPersistenceIT {
                     at,
                     null);
         });
-        assertEquals(1, dispatcher.dispatchBatch());
+        dispatcher.execute();
         var value = detail(fixture, initial.requestId());
         assertEquals("NO_LOCAL_TARGET", value.receipt().disposition().name());
         assertNull(value.receipt().amount());
@@ -390,14 +384,12 @@ class ReconciliationVerificationPersistenceIT {
         assertNull(value.receipt().sourceVersion());
         assertThrows(
                 CommonException.class,
-                () -> actors.call(
-                        "other-" + UUID.randomUUID(), "ops", () -> service.detail(new IdQuery(initial.requestId()))));
+                () -> actors.call("ops", () -> service.detail(new IdQuery(initial.requestId()))));
         assertOriginal(fixture);
     }
 
     private ReconciliationVerificationDTO submit(Fixture fixture) {
         return actors.call(
-                fixture.tenant(),
                 "ops",
                 () -> service.submit(new ReconciliationVerificationSubmitCommand(
                         fixture.batchId(),
@@ -409,12 +401,11 @@ class ReconciliationVerificationPersistenceIT {
     }
 
     private ReconciliationVerificationDTO detail(Fixture fixture, String id) {
-        return actors.call(fixture.tenant(), "ops", () -> service.detail(new IdQuery(id)));
+        return actors.call("ops", () -> service.detail(new IdQuery(id)));
     }
 
     private ReconciliationVerificationDTO retry(Fixture fixture, ReconciliationVerificationDTO initial) {
         return actors.call(
-                fixture.tenant(),
                 "ops",
                 () -> service.retry(new ReconciliationVerificationRetryCommand(
                         initial.requestId(), initial.deliveryId(), "retry original query delivery")));
@@ -422,18 +413,15 @@ class ReconciliationVerificationPersistenceIT {
 
     private void assertOriginal(Fixture fixture) {
         var original = transactions.readSnapshot(
-                fixture.tenant(),
                 () -> batches.find(fixture.batchId()).orElseThrow().batch());
         assertEquals("DIFFERENCES", original.state().name());
         assertEquals(fixture.resultHash(), original.result().resultHash());
         assertEquals(1L, original.result().differenceCount());
-        assertEquals(1L, count("reconciliation_difference", fixture.tenant()));
-        assertEquals(2L, count("reconciliation_review_event", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_difference"));
+        assertEquals(2L, count("reconciliation_review_event"));
     }
 
     private Fixture fixture() {
-        String tenant = "tenant-" + UUID.randomUUID();
-        tenants.add(tenant);
         String batchId = UUID.randomUUID().toString();
         String run = UUID.randomUUID().toString();
         var scope = new ReconciliationScope(
@@ -443,12 +431,12 @@ class ReconciliationVerificationPersistenceIT {
                 key, "statement-request", Money.ofMinor(100L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
         var ledgerLine = new ReconciliationLine(
                 key, "ledger-request", Money.ofMinor(90L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
-        var cFile = upload(tenant, "channel");
-        var lFile = upload(tenant, "ledger");
+        var cFile = upload("channel");
+        var lFile = upload("ledger");
         var channel = dataset(scope, cFile, channelLine, ReconciliationSide.CHANNEL);
         var ledger = dataset(scope, lFile, ledgerLine, ReconciliationSide.LEDGER);
         var result = new ReconciliationMatcher().compare(channel, ledger);
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             var initial = ReconciliationBatch.init(batchId, scope);
             batches.insert(stored(initial));
             batches.lock(batchId).orElseThrow();
@@ -469,7 +457,6 @@ class ReconciliationVerificationPersistenceIT {
         String differenceId = jdbc.queryForObject(
                 "SELECT id FROM reconciliation_difference WHERE batch_id = ?", String.class, batchId);
         var proposed = actors.call(
-                tenant,
                 "maker",
                 () -> reviews.propose(new ReconciliationReviewProposeCommand(
                         batchId,
@@ -480,7 +467,6 @@ class ReconciliationVerificationPersistenceIT {
                         "independent source query required",
                         null)));
         var approved = actors.call(
-                tenant,
                 "checker",
                 () -> reviews.decide(new ReconciliationReviewDecideCommand(
                         batchId,
@@ -491,15 +477,10 @@ class ReconciliationVerificationPersistenceIT {
                         true,
                         "approved read-only source consultation")));
         return new Fixture(
-                tenant,
-                batchId,
-                differenceId,
-                result.summary().resultHash(),
-                proposed.proposalId(),
-                approved.eventId());
+                batchId, differenceId, result.summary().resultHash(), proposed.proposalId(), approved.eventId());
     }
 
-    private ReconciliationFileSnapshot upload(String tenant, String name) {
+    private ReconciliationFileSnapshot upload(String name) {
         byte[] bytes = name.getBytes(StandardCharsets.UTF_8);
         return files.upload(
                 "batch-owner",
@@ -531,26 +512,22 @@ class ReconciliationVerificationPersistenceIT {
                 List.of(line));
     }
 
-    private long count(String table, String tenant) {
+    private long count(String table) {
         if (!Set.of(
                         "reconciliation_verification_request",
-                        "loadup_outbox_event",
-                        "loadup_outbox_replay",
+                        "loadup_task",
+                        "loadup_task_operation",
                         "reconciliation_difference",
                         "reconciliation_review_event")
                 .contains(table)) {
             throw new AssertionError("Unexpected table");
         }
-        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM " + table + ("loadup_task".equals(table) ? " WHERE payload IS NOT NULL" : ""),
+                Long.class);
     }
 
-    record Fixture(
-            String tenant,
-            String batchId,
-            String differenceId,
-            String resultHash,
-            String proposalId,
-            String approvalId) {}
+    record Fixture(String batchId, String differenceId, String resultHash, String proposalId, String approvalId) {}
 
     static class Actors implements ReconciliationActorProvider {
         final ThreadLocal<ReconciliationActor> actor = new ThreadLocal<>();
@@ -560,9 +537,8 @@ class ReconciliationVerificationPersistenceIT {
             return actor.get();
         }
 
-        <T> T call(String tenant, String caller, Supplier<T> action) {
+        <T> T call(String caller, Supplier<T> action) {
             actor.set(new ReconciliationActor(
-                    tenant,
                     caller,
                     Set.of(
                             "pay:reconciliation:review:propose",
@@ -644,7 +620,7 @@ class ReconciliationVerificationPersistenceIT {
         }
     }
 
-    static class Handler implements OutboxHandler {
+    static class Handler implements TaskHandler {
         final ReconciliationVerificationDelivery delivery;
         final AtomicBoolean failAfterCommit = new AtomicBoolean();
 
@@ -653,12 +629,12 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         @Override
-        public String eventType() {
+        public String taskType() {
             return ReconciliationVerificationMessages.TYPE;
         }
 
         @Override
-        public void handle(OutboxEvent event) {
+        public void handle(TaskExecution event) {
             delivery.deliver(event);
             if (failAfterCommit.compareAndSet(true, false)) {
                 throw new IllegalStateException("Injected after receipt commit before native ACK");

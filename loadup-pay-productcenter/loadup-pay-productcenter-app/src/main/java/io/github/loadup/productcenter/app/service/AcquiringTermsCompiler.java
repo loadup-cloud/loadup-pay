@@ -18,235 +18,36 @@ package io.github.loadup.productcenter.app.service;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.payment.channel.contract.AccessMode;
-import io.github.loadup.components.payment.channel.contract.Channel;
-import io.github.loadup.components.payment.channel.contract.PaymentMethod;
+import io.github.loadup.productcenter.app.converter.CommercialPolicyConverter;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.client.dto.terms.AcquiringTermsDTO;
-import io.github.loadup.productcenter.client.dto.terms.ChannelCapabilityDTO;
-import io.github.loadup.productcenter.client.dto.terms.FeeTermsDTO;
-import io.github.loadup.productcenter.client.dto.terms.LimitPolicyRefDTO;
-import io.github.loadup.productcenter.client.dto.terms.NotificationTermsDTO;
-import io.github.loadup.productcenter.client.dto.terms.OrderTermsDTO;
-import io.github.loadup.productcenter.client.dto.terms.PaymentTermsDTO;
-import io.github.loadup.productcenter.client.dto.terms.RefundTermsDTO;
-import io.github.loadup.productcenter.client.enums.FeeRefundPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAllocationPolicy;
-import io.github.loadup.productcenter.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.productcenter.client.enums.RefundCountRestorePolicy;
-import io.github.loadup.productcenter.client.enums.UnpaidOrderAction;
-import io.github.loadup.productcenter.domain.model.ResolvedConfiguration;
-import io.github.loadup.productcenter.domain.model.TypedValue;
-import io.github.loadup.productcenter.domain.model.ValueType;
+import io.github.loadup.productcenter.domain.policy.ValidatedCommercialPolicy;
 import jakarta.validation.Validator;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
-/**
- * Version one accepts a closed scalar vocabulary and a trusted, matching policy receipt.
- */
+/** Projects a validated policy and its matching receipt into the existing public terms schema. */
 @Component
 public class AcquiringTermsCompiler {
     private final Validator validator;
+    private final CommercialPolicyConverter converter;
 
-    public AcquiringTermsCompiler(Validator validator) {
+    public AcquiringTermsCompiler(Validator validator, CommercialPolicyConverter converter) {
         this.validator = validator;
+        this.converter = converter;
     }
 
-    private static CommonException unsupported() {
-        return new CommonException(UNSUPPORTED_POLICY);
-    }
-
-    public AcquiringTermsDTO compile(ResolvedConfiguration configuration, ActivatedLimitPolicy policy) {
-        Map<String, TypedValue> values = configuration.values();
+    public AcquiringTermsDTO compile(ValidatedCommercialPolicy policy, ActivatedLimitPolicy activation) {
         try {
-            Reader r = new Reader(values);
-            r.exact("trade.defaultCurrency", "CNY");
-            r.exact("trade.amountModel", "FIXED_TOTAL");
-            r.exact("trade.completionRule", "SUCCESS_SUM_EQUALS_TOTAL");
-            r.exact("fee.base", "ORDER_AMOUNT");
-            r.exact("fee.confirmationTrigger", "ORDER_FULLY_PAID");
-            r.exact("refund.executionMode", "SEQUENTIAL");
-            r.exact("refund.lateCollectionPolicy", "MANUAL_REVIEW");
-            r.exact("refund.allocationPolicy", "FIFO");
-            r.exact("limit.countingBasis", "INITIATED_AT");
-            long weekStart = r.integer("limit.weekStart");
-            if (weekStart < 1 || weekStart > 7) {
-                throw unsupported();
+            if (!policy.limits().policyId().equals(activation.policyId())) {
+                throw new CommonException(UNSUPPORTED_POLICY);
             }
-            String policyId = r.text("limit.policyRef");
-            if (!policyId.equals(policy.policyId())) {
-                throw unsupported();
-            }
-            boolean parent = r.bool("limit.parentAggregationEnabled");
-            String parentRef = r.optionalText("limit.parentPolicyRef");
-            if (parent && (parentRef == null || parentRef.isBlank())) {
-                throw unsupported();
-            }
-            for (String window : List.of("DAY", "WEEK", "MONTH", "LIFETIME")) {
-                for (String metric : List.of("AMOUNT", "PAYMENT_COUNT")) {
-                    String prefix = "limit." + window + "." + metric;
-                    boolean enabled = r.optionalBool(prefix + ".enabled");
-                    Long threshold = r.optionalInteger(prefix + ".threshold");
-                    if (enabled && threshold == null || threshold != null && threshold < 0) {
-                        throw unsupported();
-                    }
-                }
-            }
-            boolean countEnabled = r.bool("payment.maxSuccessfulPaymentsEnabled");
-            Long count = r.optionalInteger("payment.maxSuccessfulPayments");
-            if (countEnabled && count == null || count != null && count <= 0) {
-                throw unsupported();
-            }
-            boolean maximumEnabled = r.bool("fee.maximumEnabled");
-            Long maximum = r.optionalInteger("fee.maximumMinor");
-            if (maximumEnabled && maximum == null || maximum != null && maximum < 0) {
-                throw unsupported();
-            }
-            List<ChannelCapabilityDTO> capabilities = new ArrayList<>();
-            for (Channel channel : Channel.values()) {
-                for (AccessMode mode : AccessMode.values()) {
-                    Set<PaymentMethod> methods = EnumSet.noneOf(PaymentMethod.class);
-                    for (PaymentMethod method : PaymentMethod.values()) {
-                        if (r.optionalBool(
-                                "channel." + channel.name() + "." + mode.name() + "." + method.name() + ".enabled")) {
-                            methods.add(method);
-                        }
-                    }
-                    if (!methods.isEmpty()) {
-                        capabilities.add(new ChannelCapabilityDTO(channel, mode, methods));
-                    }
-                }
-            }
-            if ("UNNECESSARY".equals(r.text("fee.rounding"))) {
-                throw unsupported();
-            }
-            var terms = new AcquiringTermsDTO(
-                    1,
-                    new OrderTermsDTO(
-                            r.integer("order.waitSeconds"),
-                            r.integer("order.maxWaitSeconds"),
-                            UnpaidOrderAction.valueOf(r.text("order.unpaidAction")),
-                            r.bool("order.extensionAllowed"),
-                            r.integer("order.extensionMaxSeconds"),
-                            r.integer("checkout.sessionSeconds")),
-                    new PaymentTermsDTO(
-                            r.integer("payment.minAmountMinor"),
-                            r.integer("payment.maxAmountMinor"),
-                            countEnabled ? Math.toIntExact(count) : null,
-                            r.bool("payment.allowExactRemainderBelowMin")),
-                    new FeeTermsDTO(
-                            r.decimal("fee.rate"),
-                            r.integer("fee.fixedMinor"),
-                            RoundingMode.valueOf(r.text("fee.rounding")),
-                            r.integer("fee.minimumMinor"),
-                            maximumEnabled ? maximum : null,
-                            FeeRefundPolicy.valueOf(r.text("fee.refundPolicy"))),
-                    new RefundTermsDTO(
-                            r.bool("refund.enabled"),
-                            r.bool("refund.partialAllowed"),
-                            r.integer("refund.windowSeconds"),
-                            RefundAllocationPolicy.FIFO),
-                    new NotificationTermsDTO(
-                            r.bool("notify.enabled"),
-                            r.optionalText("notify.targetRef"),
-                            r.optionalText("notify.signingIdentityRef"),
-                            Math.toIntExact(r.integer("notify.timeoutMillis")),
-                            r.integer("notify.retryInitialSeconds"),
-                            r.decimal("notify.retryMultiplier"),
-                            r.integer("notify.retryMaximumSeconds"),
-                            Math.toIntExact(r.integer("notify.retryMaxAttempts")),
-                            r.integer("notify.retryWindowSeconds")),
-                    new LimitPolicyRefDTO(
-                            policyId,
-                            policy.policyVersion(),
-                            policy.policyHash(),
-                            parent,
-                            parentRef,
-                            RefundAmountRestorePolicy.valueOf(r.text("limit.refundAmountRestore")),
-                            RefundCountRestorePolicy.valueOf(r.text("limit.refundCountRestore"))),
-                    capabilities,
-                    r.text("channel.routingProfileRef"),
-                    r.text("checkout.returnTargetCode"));
-            r.requireAllConsumed();
+            var terms = converter.toTerms(policy, activation);
             if (!validator.validate(terms).isEmpty()) {
-                throw unsupported();
+                throw new CommonException(UNSUPPORTED_POLICY);
             }
             return terms;
-        } catch (IllegalArgumentException | ArithmeticException failure) {
-            throw unsupported();
-        }
-    }
-
-    private static final class Reader {
-        private final Map<String, TypedValue> values;
-        private final Set<String> consumed = new HashSet<>();
-
-        Reader(Map<String, TypedValue> values) {
-            this.values = values;
-        }
-
-        private TypedValue get(String key, ValueType type, boolean optional) {
-            consumed.add(key);
-            TypedValue value = values.get(key);
-            if (value == null && optional) {
-                return null;
-            }
-            if (value == null || value.type() != type) {
-                throw unsupported();
-            }
-            return value;
-        }
-
-        String text(String key) {
-            return get(key, ValueType.STRING, false).value();
-        }
-
-        String optionalText(String key) {
-            TypedValue value = get(key, ValueType.STRING, true);
-            return value == null ? null : value.value();
-        }
-
-        long integer(String key) {
-            return new BigInteger(get(key, ValueType.INTEGER, false).value()).longValueExact();
-        }
-
-        Long optionalInteger(String key) {
-            TypedValue value = get(key, ValueType.INTEGER, true);
-            return value == null ? null : new BigInteger(value.value()).longValueExact();
-        }
-
-        boolean bool(String key) {
-            return Boolean.parseBoolean(get(key, ValueType.BOOLEAN, false).value());
-        }
-
-        boolean optionalBool(String key) {
-            TypedValue value = get(key, ValueType.BOOLEAN, true);
-            return value != null && Boolean.parseBoolean(value.value());
-        }
-
-        BigDecimal decimal(String key) {
-            return new BigDecimal(get(key, ValueType.DECIMAL, false).value());
-        }
-
-        void exact(String key, String expected) {
-            if (!expected.equals(text(key))) {
-                throw unsupported();
-            }
-        }
-
-        void requireAllConsumed() {
-            if (!consumed.containsAll(values.keySet())) {
-                throw unsupported();
-            }
+        } catch (IllegalArgumentException | ArithmeticException invalid) {
+            throw new CommonException(UNSUPPORTED_POLICY);
         }
     }
 }

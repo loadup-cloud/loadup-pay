@@ -26,25 +26,21 @@ LOCK_PATH = PAY_ROOT / "scripts/component-migrations.lock.json"
 # Application migration directories. The versions below stay before every
 # application-owned migration so shared infrastructure tables exist first.
 APP_DIRS = {
-    "acquire": "acquire/acquire-infrastructure/src/main/resources/db/migration/pay/acquire",
-    "payment": "payment/payment-infrastructure/src/main/resources/db/migration/pay/payment",
-    "reconciliation": "reconciliation/reconciliation-infrastructure/src/main/resources/db/migration/pay/reconciliation",
-    "merchantcenter": "merchantcenter/merchantcenter-service/src/main/resources/db/migration/pay/merchantcenter",
-    "productcenter": "productcenter/productcenter-infrastructure/src/main/resources/db/migration/pay/productcenter",
-    "notificationcenter": "notificationcenter/notificationcenter-bootstrap/src/main/resources/db/migration/pay/notificationcenter",
-    "limitcenter": "limitcenter/limitcenter-infrastructure/src/main/resources/db/migration/pay/limitcenter",
-    "realtime": "realtime/realtime-service/src/main/resources/db/migration/pay/realtime",
-    "admin": "admin/admin-bootstrap/src/main/resources/db/migration/pay/admin",
+    "acquire": "loadup-pay-acquire/loadup-pay-acquire-infrastructure/src/main/resources/db/migration/pay/acquire",
+    "payment": "loadup-pay-payment/loadup-pay-payment-infrastructure/src/main/resources/db/migration/pay/payment",
+    "reconciliation": "loadup-pay-reconciliation/loadup-pay-reconciliation-infrastructure/src/main/resources/db/migration/pay/reconciliation",
+    "merchantcenter": "loadup-pay-merchantcenter/loadup-pay-merchantcenter-service/src/main/resources/db/migration/pay/merchantcenter",
+    "productcenter": "loadup-pay-productcenter/loadup-pay-productcenter-infrastructure/src/main/resources/db/migration/pay/productcenter",
+    "notificationcenter": "loadup-pay-notificationcenter/src/main/resources/db/migration/pay/notificationcenter",
+    "limitcenter": "loadup-pay-limitcenter/loadup-pay-limitcenter-infrastructure/src/main/resources/db/migration/pay/limitcenter",
+    "realtime": "loadup-pay-realtime/loadup-pay-realtime-service/src/main/resources/db/migration/pay/realtime",
+    "admin": "loadup-pay-admin/src/main/resources/db/migration/pay/admin",
 }
 
 SCHEMAS = {
-    "outbox": (
+    "task": (
         "20260101000001",
-        "loadup-components/reliability/loadup-components-outbox/src/main/resources/db/schema/outbox.sql",
-    ),
-    "delayed_task": (
-        "20260101000002",
-        "loadup-components/reliability/loadup-components-delayedtask/src/main/resources/db/schema/delayed_task.sql",
+        "loadup-components/reliability/loadup-components-task/src/main/resources/db/schema/task.sql",
     ),
     "global_unique": (
         "20260101000003",
@@ -67,11 +63,11 @@ SCHEMAS = {
 # Reviewable per-application component usage. Add an entry when an application
 # starts using a component that owns tables.
 APP_SCHEMAS = {
-    "acquire": ["outbox", "delayed_task", "sequence_allocation"],
-    "payment": ["outbox", "delayed_task", "sequence_allocation"],
-    "reconciliation": ["outbox", "delayed_task", "sequence_allocation"],
+    "acquire": ["task", "sequence_allocation"],
+    "payment": ["task", "sequence_allocation"],
+    "reconciliation": ["task", "sequence_allocation"],
     "merchantcenter": ["global_unique", "sequence_allocation"],
-    "productcenter": ["outbox", "sequence_allocation"],
+    "productcenter": ["task", "sequence_allocation"],
     "notificationcenter": ["gotone_store"],
     "limitcenter": ["sequence_allocation"],
     "realtime": ["sequence_allocation"],

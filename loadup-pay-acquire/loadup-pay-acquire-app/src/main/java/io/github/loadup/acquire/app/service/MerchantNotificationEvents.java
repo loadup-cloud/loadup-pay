@@ -15,7 +15,6 @@
  */
 package io.github.loadup.acquire.app.service;
 
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
@@ -39,9 +38,9 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.RefundMerchantEventDTO;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,7 +58,7 @@ public class MerchantNotificationEvents {
     private final OrderSnapshotReader facts;
     private final MerchantNotificationConverter converter;
     private final MerchantNotificationGateway deliveries;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final IdGenerator ids;
 
     public MerchantNotificationEvents(
@@ -68,7 +67,7 @@ public class MerchantNotificationEvents {
             OrderSnapshotReader facts,
             MerchantNotificationConverter converter,
             MerchantNotificationGateway deliveries,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             IdGenerator ids) {
         this.orders = orders;
         this.admissions = admissions;
@@ -79,8 +78,8 @@ public class MerchantNotificationEvents {
         this.ids = ids;
     }
 
-    public void order(String tenant, OrderSnapshotFacts header) {
-        writable(tenant);
+    public void order(OrderSnapshotFacts header) {
+        writable();
         String type =
                 switch (header.state()) {
                     case "PAID" -> "OrderFullyPaid";
@@ -89,7 +88,6 @@ public class MerchantNotificationEvents {
                 };
         if (type != null) {
             publish(
-                    tenant,
                     header,
                     type,
                     "AcquireOrder",
@@ -100,8 +98,8 @@ public class MerchantNotificationEvents {
         }
     }
 
-    public void payment(String tenant, String orderId, VerifiedPaymentOutcome payment) {
-        writable(tenant);
+    public void payment(String orderId, VerifiedPaymentOutcome payment) {
+        writable();
         if (payment.kind() != VerifiedPaymentOutcome.Kind.SUCCEEDED) {
             return;
         }
@@ -112,7 +110,6 @@ public class MerchantNotificationEvents {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         publish(
-                tenant,
                 header,
                 "PaymentSucceeded",
                 "PaymentOrder",
@@ -122,8 +119,8 @@ public class MerchantNotificationEvents {
                 payment.amount().getCent());
     }
 
-    public MerchantNotificationRegistration refund(String tenant, EventEnvelope<RefundMerchantEventDTO> source) {
-        writable(tenant);
+    public MerchantNotificationRegistration refund(EventEnvelope<RefundMerchantEventDTO> source) {
+        writable();
         source.data().requireEnvelope(source);
         var data = source.data();
         var stored = orders.lockOrder(data.orderId());
@@ -135,7 +132,7 @@ public class MerchantNotificationEvents {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         String type = data.merchantEventType();
-        String eventId = eventId(tenant, type, source.aggregateId(), source.aggregateVersion());
+        String eventId = eventId(type, source.aggregateId(), source.aggregateVersion());
         var policy = policy(stored);
         if (policy.isEmpty()) {
             return new MerchantNotificationRegistration(eventId, "DISABLED");
@@ -153,7 +150,6 @@ public class MerchantNotificationEvents {
         var occurredAt =
                 source.occurredAt().atZoneSameInstant(BusinessTime.zone()).toLocalDateTime();
         enqueue(
-                tenant,
                 order.id(),
                 order.payeeMerchantId(),
                 type,
@@ -167,7 +163,6 @@ public class MerchantNotificationEvents {
     }
 
     private void publish(
-            String tenant,
             OrderSnapshotFacts header,
             String type,
             String aggregateType,
@@ -187,7 +182,7 @@ public class MerchantNotificationEvents {
         if (policy.isEmpty()) {
             return;
         }
-        String eventId = eventId(tenant, type, aggregate, version);
+        String eventId = eventId(type, aggregate, version);
         var envelope = new MerchantNotificationBody<>(
                 eventId,
                 type,
@@ -199,7 +194,6 @@ public class MerchantNotificationEvents {
                 BusinessTime.external(header.sourceUpdatedAt()),
                 converter.toData(header, paymentId, amount));
         enqueue(
-                tenant,
                 header.orderId(),
                 header.payeeMerchantId(),
                 type,
@@ -229,12 +223,11 @@ public class MerchantNotificationEvents {
         return terms.enabled() ? Optional.of(converter.toPolicy(terms)) : Optional.empty();
     }
 
-    private String eventId(String tenant, String type, String aggregate, long version) {
-        return DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", tenant, type, aggregate, version)));
+    private String eventId(String type, String aggregate, long version) {
+        return DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", type, aggregate, version)));
     }
 
     private void enqueue(
-            String tenant,
             String orderId,
             String merchantId,
             String type,
@@ -270,19 +263,16 @@ public class MerchantNotificationEvents {
                 policy,
                 occurredAt);
         deliveries.insert(delivery);
-        tasks.register(
+        tasks.submit(TaskSubmission.scheduled(
                 MerchantNotificationService.TYPE,
                 new MerchantNotificationKey(delivery.id(), 0).bizId(),
-                delivery.nextAttemptAt());
+                delivery.nextAttemptAt()));
     }
 
-    private void writable(String tenant) {
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
     }
 }

@@ -18,7 +18,6 @@ package io.github.loadup.productcenter.infrastructure.codec;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.productcenter.app.model.limitcenter.command.LimitPolicyActivateCommand;
 import io.github.loadup.productcenter.app.model.limitcenter.support.LimitPolicyHash;
 import io.github.loadup.productcenter.app.port.PolicyPublicationCodec;
@@ -38,15 +37,13 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
     }
 
     private void check(LimitPolicyActivateCommand value) {
-        String tenant = TenantUtil.getTenantId();
-        if (tenant == null
-                || value == null
+        if (value == null
                 || !validator.validate(value).isEmpty()
                 || value.policyVersion() != 1
                 || value.rules().size() != 8
                 || value.rules().stream()
                         .anyMatch(rule -> !value.payeeMerchantId().equals(rule.merchantId()))
-                || !value.policyHash().equals(LimitPolicyHash.compute(tenant, value))) {
+                || !value.policyHash().equals(LimitPolicyHash.compute(value))) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }

@@ -25,8 +25,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
 import io.github.loadup.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.payment.app.service.PaymentRecoveryService;
 import io.github.loadup.payment.app.service.RecoveryExecutionMetrics;
@@ -44,10 +44,9 @@ class RecoveryTaskHandlerMetricsTest {
                 new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class));
     }
 
-    private static DelayedTask task(String type) {
+    private static TaskExecution task(String type) {
         var at = LocalDateTime.of(2026, 10, 27, 12, 0);
-        return new DelayedTask(
-                "task", type, "original.0", at, at, DelayedTaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
+        return new TaskExecution("task", type, "original.0", at, at, TaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
     }
 
     @Test

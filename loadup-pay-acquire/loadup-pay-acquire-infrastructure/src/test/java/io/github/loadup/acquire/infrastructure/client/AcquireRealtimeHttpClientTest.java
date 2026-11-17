@@ -92,8 +92,6 @@ class AcquireRealtimeHttpClientTest {
     String credential(String tenant, String service, String audience, long expires, String revision) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
         var claims = Map.of(
-                "tenant_id",
-                tenant,
                 "sub",
                 service,
                 "service_id",

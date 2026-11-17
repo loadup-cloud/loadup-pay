@@ -17,13 +17,11 @@ package io.github.loadup.payment.app.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.client.error.PaymentResultCodeEnum;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,27 +39,21 @@ class PaymentAcceptanceTransactionsTest {
 
     @Test
     void readSnapshotHasAnExplicitReadonlyRepeatableReadBoundaryAndRestoresTenant() {
-        TenantUtil.callWithTenant("outer", () -> {
-            assertTrue(transactions.readSnapshot("inner", () -> {
-                assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
-                assertEquals("inner", TenantUtil.getTenantId());
-                assertThrows(CommonException.class, () -> transactions.writeLocal("inner", () -> true));
-                return true;
-            }));
-            assertEquals("outer", TenantUtil.getTenantId());
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+        assertTrue(transactions.readSnapshot(() -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
+            assertThrows(CommonException.class, () -> transactions.writeLocal(() -> true));
             return true;
-        });
+        }));
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         assertEquals(1, manager.commits);
     }
 
     @Test
-    void withTenantContextDoesNotCreateATransactionAroundRemoteIo() {
-        transactions.withTenantContext("tenant", () -> {
+    void guardedDoesNotCreateATransactionAroundRemoteIo() {
+        transactions.guarded(() -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return true;
         });
         assertEquals(0, manager.commits);
@@ -70,41 +62,32 @@ class PaymentAcceptanceTransactionsTest {
     @Test
     void snapshotFailureRestoresContextAndDoesNotRetryTheCallback() {
         var failure = new IllegalStateException("Synthetic snapshot failure");
-        TenantUtil.callWithTenant("outer", () -> {
-            assertSame(
-                    failure,
-                    assertThrows(
-                            IllegalStateException.class,
-                            () -> transactions.readSnapshot("inner", () -> {
-                                throw failure;
-                            })));
-            assertEquals("outer", TenantUtil.getTenantId());
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return true;
-        });
+        assertSame(
+                failure,
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> transactions.readSnapshot(() -> {
+                            throw failure;
+                        })));
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         assertEquals(1, manager.rollbacks);
     }
 
     @Test
     void localWriteRetriesOnlyAfterRollbackAndRetainsTenantAcrossFreshReadCommittedAttempts() {
         var calls = new AtomicInteger();
-        TenantUtil.callWithTenant("outer", () -> {
-            assertEquals("committed", transactions.writeLocal("inner", () -> {
-                assertEquals("inner", TenantUtil.getTenantId());
-                assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
-                int attempt = calls.incrementAndGet();
-                assertEquals(attempt - 1, manager.rollbacks);
-                if (attempt < 3) {
-                    throw new PaymentWriteConflictException("Synthetic local race");
-                }
-                return "committed";
-            }));
-            assertEquals("outer", TenantUtil.getTenantId());
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return true;
-        });
+        assertEquals("committed", transactions.writeLocal(() -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
+            int attempt = calls.incrementAndGet();
+            assertEquals(attempt - 1, manager.rollbacks);
+            if (attempt < 3) {
+                throw new PaymentWriteConflictException("Synthetic local race");
+            }
+            return "committed";
+        }));
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         assertEquals(3, calls.get());
         assertEquals(3, manager.begins);
         assertEquals(2, manager.rollbacks);
@@ -119,7 +102,7 @@ class PaymentAcceptanceTransactionsTest {
                 failure,
                 assertThrows(
                         DuplicateKeyException.class,
-                        () -> transactions.writeLocal("tenant", () -> {
+                        () -> transactions.writeLocal(() -> {
                             calls.incrementAndGet();
                             throw failure;
                         })));
@@ -132,7 +115,7 @@ class PaymentAcceptanceTransactionsTest {
         var calls = new AtomicInteger();
         var exhausted = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> {
+                () -> transactions.writeLocal(() -> {
                     calls.incrementAndGet();
                     throw new ConcurrencyFailureException("Synthetic local contention");
                 }));
@@ -145,32 +128,29 @@ class PaymentAcceptanceTransactionsTest {
                 original,
                 assertThrows(
                         CommonException.class,
-                        () -> transactions.writeLocal("tenant", () -> {
+                        () -> transactions.writeLocal(() -> {
                             calls.incrementAndGet();
                             throw original;
                         })));
         assertEquals(4, calls.get());
         assertEquals(4, manager.rollbacks);
-        assertNull(TenantUtil.getTenantId());
         assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
     }
 
     @Test
     void contextScopeCanInheritTheCallersTransactionButCannotCreateANestedLocalWriteOrSnapshot() {
-        transactions.writeLocal("tenant", () -> {
-            assertTrue(transactions.withTenantContext("inner", () -> {
+        transactions.writeLocal(() -> {
+            assertTrue(transactions.guarded(() -> {
                 assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                assertEquals("inner", TenantUtil.getTenantId());
                 return true;
             }));
-            assertEquals("tenant", TenantUtil.getTenantId());
             assertEquals(
                     PaymentResultCodeEnum.INVALID_STATE,
-                    assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> true))
+                    assertThrows(CommonException.class, () -> transactions.writeLocal(() -> true))
                             .getResultCode());
             assertEquals(
                     PaymentResultCodeEnum.INVALID_STATE,
-                    assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", () -> true))
+                    assertThrows(CommonException.class, () -> transactions.readSnapshot(() -> true))
                             .getResultCode());
             return true;
         });
@@ -180,13 +160,13 @@ class PaymentAcceptanceTransactionsTest {
 
     @Test
     void boundedSnapshotAddsATimeoutWithoutChangingTheDefaultSnapshot() {
-        assertEquals(7, transactions.readSnapshot("tenant", 7, () -> manager.timeout));
+        assertEquals(7, transactions.readSnapshot(7, () -> manager.timeout));
         assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
-        assertEquals(TransactionDefinition.TIMEOUT_DEFAULT, transactions.readSnapshot("tenant", () -> manager.timeout));
-        assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", 0, () -> true));
-        assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", 61, () -> true));
-        transactions.writeLocal("tenant", () -> {
-            assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", 7, () -> true));
+        assertEquals(TransactionDefinition.TIMEOUT_DEFAULT, transactions.readSnapshot(() -> manager.timeout));
+        assertThrows(CommonException.class, () -> transactions.readSnapshot(0, () -> true));
+        assertThrows(CommonException.class, () -> transactions.readSnapshot(61, () -> true));
+        transactions.writeLocal(() -> {
+            assertThrows(CommonException.class, () -> transactions.readSnapshot(7, () -> true));
             return true;
         });
     }

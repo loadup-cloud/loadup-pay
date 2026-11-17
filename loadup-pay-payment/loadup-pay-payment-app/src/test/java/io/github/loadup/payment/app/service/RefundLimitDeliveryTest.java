@@ -29,29 +29,35 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundFinancialEvidence;
 import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.limitcenter.command.LimitRefundRestoreCommand;
 import io.github.loadup.payment.app.model.limitcenter.dto.LimitRestoreDTO;
 import io.github.loadup.payment.app.model.limitcenter.enums.LimitRestoreResult;
 import io.github.loadup.payment.app.port.PaymentLimitClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class RefundLimitDeliveryTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(RefundSettlementConverter.class.getPackageName());
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final RefundProjectionEnvelopeCodec codec = mock(RefundProjectionEnvelopeCodec.class);
     final PaymentLimitClient client = mock(PaymentLimitClient.class);
     final RefundSettlementConverter converter = context.getBean(RefundSettlementConverter.class);
@@ -60,7 +66,7 @@ class RefundLimitDeliveryTest {
             "delivery-limit",
             "business-limit",
             "payment",
-            RefundProjectionEvents.LIMIT,
+            PaymentDeliveryRoutes.REFUND_LIMIT,
             1,
             "refund",
             2,
@@ -77,18 +83,20 @@ class RefundLimitDeliveryTest {
                     RefundState.SUCCEEDED,
                     2,
                     1000,
-                    "refund-evidence"));
-    final OutboxEvent event = new OutboxEvent(
+                    "refund-evidence",
+                    null));
+    final TaskExecution event = new TaskExecution(
             "queue-limit",
-            new OutboxMessage(RefundProjectionEvents.LIMIT, 1, "refund", "limit-payload"),
+            new TaskSubmission(
+                    PaymentDeliveryRoutes.REFUND_LIMIT, 1, "refund", "limit-payload", LocalDateTime.now(), ""),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
     @BeforeEach
     void setup() {
         when(outbox.find("queue-limit"))
-                .thenReturn(Optional.of(new OutboxRecord(
-                        "queue-limit", RefundProjectionEvents.LIMIT, "refund", "PROCESSING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-limit", PaymentDeliveryRoutes.REFUND_LIMIT, "refund", "RUNNING", 1, null)));
         when(codec.limit("limit-payload")).thenReturn(envelope);
         when(client.restoreRefund(any())).thenReturn(validAck());
     }
@@ -115,7 +123,7 @@ class RefundLimitDeliveryTest {
     }
 
     void deliver() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event));
+        delivery.deliver(event);
     }
 
     @Test
@@ -321,11 +329,73 @@ class RefundLimitDeliveryTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
         when(outbox.find("queue-limit"))
-                .thenReturn(Optional.of(
-                        new OutboxRecord("queue-limit", RefundProjectionEvents.LIMIT, "refund", "PENDING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-limit", PaymentDeliveryRoutes.REFUND_LIMIT, "refund", "PENDING", 1, null)));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
         verify(client, never()).restoreRefund(any());
+    }
+
+    @Test
+    void completeRefundEvidenceIsForwardedIntoTheOriginalRestoreCommand() {
+        var at = BusinessTime.external(RefundResultFixtures.NOW);
+        var proof = new RefundFinancialEvidence(
+                1,
+                "refund",
+                "request",
+                2,
+                "refund-evidence",
+                1000,
+                1000,
+                2,
+                at,
+                new PaymentFinancialEvidence(
+                        1,
+                        "payment",
+                        "order",
+                        "allocation",
+                        "operation",
+                        "merchant",
+                        4000,
+                        "CNY",
+                        PaymentState.SUCCEEDED,
+                        3,
+                        "payment-proof",
+                        "attempt",
+                        at.minusHours(2),
+                        at.minusHours(1),
+                        false));
+        var complete = new EventEnvelope<>(
+                envelope.deliveryId(),
+                envelope.businessEventId(),
+                envelope.producer(),
+                BusinessEventTypes.REFUND_FINANCIAL,
+                1,
+                envelope.aggregateId(),
+                envelope.aggregateVersion(),
+                envelope.occurredAt(),
+                envelope.data().withFinancialEvidence(proof));
+        when(codec.limit("limit-payload")).thenReturn(complete);
+        deliver();
+        verify(client).restoreRefund(converter.toRestore(complete));
+        Assertions.assertEquals(proof, converter.toRestore(complete).financialEvidence());
+    }
+
+    @Test
+    void newRefundTypeCannotSendAnIncompleteProofAsALegacyRestoreCommand() {
+        var missing = new EventEnvelope<>(
+                envelope.deliveryId(),
+                envelope.businessEventId(),
+                envelope.producer(),
+                BusinessEventTypes.REFUND_FINANCIAL,
+                1,
+                envelope.aggregateId(),
+                envelope.aggregateVersion(),
+                envelope.occurredAt(),
+                envelope.data());
+        when(codec.limit("limit-payload")).thenReturn(missing);
+        assertThrows(CommonException.class, this::deliver);
+        verify(client, Mockito.never()).restoreRefund(any());
     }
 }

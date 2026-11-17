@@ -15,8 +15,10 @@
  */
 package io.github.loadup.limitcenter.client.command;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -40,7 +42,8 @@ public record LimitConfirmCommand(
 
         @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY") String currency,
 
-        @Schema(description = "Succeeded at") @NotNull OffsetDateTime succeededAt) {
+        @Schema(description = "Succeeded at") @NotNull OffsetDateTime succeededAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) PaymentFinancialEvidence financialEvidence) {
     public LimitConfirmCommand {
         if (succeededAt != null) {
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();

@@ -22,9 +22,8 @@ import java.util.Set;
 /**
  * Created only from a verified service credential by the transport adapter.
  */
-public record PaymentActor(String tenantId, String serviceId, Set<String> permissions) {
+public record PaymentActor(String serviceId, Set<String> permissions) {
     public PaymentActor {
-        DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         permissions = Set.copyOf(permissions);
     }

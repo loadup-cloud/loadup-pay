@@ -20,7 +20,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
@@ -76,19 +75,18 @@ public class PaymentCloseService {
         this.clock = clock;
     }
 
-    public PaymentResultApplication close(String tenant, StoredPaymentAttempt original) {
+    public PaymentResultApplication close(StoredPaymentAttempt original) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        DomainChecks.id(tenant);
         if (original == null || original.attempt().executionEpoch() <= 0) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(tenant, () -> closeOriginal(tenant, original));
+        return transactions.guarded(() -> closeOriginal(original));
     }
 
-    private PaymentResultApplication closeOriginal(String tenant, StoredPaymentAttempt original) {
-        var saved = transactions.readSnapshot(tenant, () -> {
+    private PaymentResultApplication closeOriginal(StoredPaymentAttempt original) {
+        var saved = transactions.readSnapshot(() -> {
             var current =
                     attempts.find(original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var accepted = payments.find(original.attempt().paymentId())
@@ -102,7 +100,7 @@ public class PaymentCloseService {
             return known;
         });
         if (saved.isPresent()) {
-            return results.record(tenant, converter.toObservation(saved.get()));
+            return results.record(converter.toObservation(saved.get()));
         }
 
         var target = new ChannelPaymentTarget(
@@ -116,15 +114,15 @@ public class PaymentCloseService {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (observed.kind() != ChannelPaymentOutcome.Kind.NO_COLLECTION) {
-            return results.record(tenant, observed);
+            return results.record(observed);
         }
         if (observed.source() != PaymentObservation.Source.CLOSE_RESPONSE) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var recordedAt = LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
-        var proof = transactions.writeLocal(tenant, () -> {
+        var proof = transactions.writeLocal(() -> {
             // The same parent -> payment gate -> payment -> attempt order as Y3; no remote IO under these locks.
-            var locked = locks.lock(tenant, original.attempt().paymentId(), original.callerServiceId());
+            var locked = locks.lock(original.attempt().paymentId(), original.callerServiceId());
             var current =
                     attempts.lock(original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             PaymentExecutionBindings.observableContext(locked, current);
@@ -138,7 +136,7 @@ public class PaymentCloseService {
             return value;
         });
         // Failure here leaves the immutable proof committed. A later recovery applies this original observation only.
-        return results.record(tenant, converter.toObservation(proof));
+        return results.record(converter.toObservation(proof));
     }
 
     private Optional<PaymentCloseEvidence> checked(Optional<PaymentCloseEvidence> value, StoredPaymentAttempt current) {

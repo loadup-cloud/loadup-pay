@@ -37,11 +37,11 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.payment.app.security.PaymentActor;
@@ -68,6 +68,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -81,20 +82,19 @@ class PaymentCaptureServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final PaymentCaptureGateway captures = mock(PaymentCaptureGateway.class);
     final PaymentCaptureReader reader = mock(PaymentCaptureReader.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final Tx manager = new Tx();
     final PaymentAcceptanceTransactions transactions = new PaymentAcceptanceTransactions(manager);
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
     final Clock clock = Clock.fixed(at.atZone(ZoneId.of("Asia/Shanghai")).toInstant(), ZoneId.of("Asia/Shanghai"));
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(new PaymentActor(
-            "tenant",
             "reconciliation",
             Set.of(
                     "pay:payment:reconciliation:capture:create",
                     "pay:payment:reconciliation:capture:read",
                     "pay:payment:reconciliation:capture:retry")));
     final AtomicReference<PaymentCapture> stored = new AtomicReference<>();
-    final AtomicReference<DelayedTask> nativeTask = new AtomicReference<>();
+    final AtomicReference<TaskExecution> nativeTask = new AtomicReference<>();
     final PaymentCaptureCreateCommand command = new PaymentCaptureCreateCommand(
             "request", Channel.WECHAT, "a".repeat(64), at.toLocalDate().minusDays(1), PaymentCaptureScope.WECHAT_ALL);
     final PaymentCaptureService service = new PaymentCaptureService(
@@ -128,11 +128,15 @@ class PaymentCaptureServiceTest {
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertNotNull(stored.get());
-                    nativeTask.set(task(DelayedTaskStatus.PENDING, 0));
-                    return null;
+                    TaskSubmission submission = call.getArgument(0);
+                    assertEquals(PaymentCaptureExecutionService.TYPE, submission.taskType());
+                    assertEquals("capture", submission.bizId());
+                    assertEquals(at, submission.executeAt());
+                    nativeTask.set(task(TaskStatus.PENDING, 0));
+                    return nativeTask.get().id();
                 })
                 .when(tasks)
-                .register(PaymentCaptureExecutionService.TYPE, "capture", at);
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         when(tasks.find(PaymentCaptureExecutionService.TYPE, "capture"))
                 .thenAnswer(call -> Optional.ofNullable(nativeTask.get()));
         doAnswer(call -> {
@@ -156,7 +160,9 @@ class PaymentCaptureServiceTest {
         var first = service.create(command);
         assertEquals("native", first.nativeTaskId());
         assertEquals(first, service.create(command));
-        verify(tasks, times(1)).register(PaymentCaptureExecutionService.TYPE, "capture", at);
+        verify(tasks, times(1))
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(PaymentCaptureExecutionService.TYPE, "capture", at)));
         assertEquals(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(
@@ -175,13 +181,12 @@ class PaymentCaptureServiceTest {
     @Test
     void workerReadsOnceUnderBoundedReadonlyRrThenSealsOutsideTheReadTransaction() {
         service.create(command);
-        nativeTask.set(task(DelayedTaskStatus.RUNNING, 1));
+        nativeTask.set(task(TaskStatus.RUNNING, 1));
         var scope = stored.get().scope();
         when(reader.read(scope)).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
             assertEquals(7, manager.timeout);
-            assertEquals("tenant", TenantUtil.getTenantId());
             return new PaymentCaptureRead(
                     scope,
                     at,
@@ -201,10 +206,10 @@ class PaymentCaptureServiceTest {
                     null,
                     null);
         });
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeTask.get()));
+        execution.handle(nativeTask.get());
         assertEquals(PaymentCaptureState.SEALED, stored.get().state());
         assertNotNull(stored.get().contentHash());
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeTask.get()));
+        execution.handle(nativeTask.get());
         verify(reader, times(1)).read(scope);
         verify(captures, times(1)).complete(any(), any(), any());
     }
@@ -212,13 +217,11 @@ class PaymentCaptureServiceTest {
     @Test
     void blockedIsAFinalNonExportableResultAndStaleNativeMetadataDoesNotReadTheSource() {
         service.create(command);
-        var running = task(DelayedTaskStatus.RUNNING, 1);
-        nativeTask.set(task(DelayedTaskStatus.RUNNING, 2));
+        var running = task(TaskStatus.RUNNING, 1);
+        nativeTask.set(task(TaskStatus.RUNNING, 2));
         assertEquals(
                 INVALID_STATE,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(running)))
+                assertThrows(CommonException.class, () -> execution.handle(running))
                         .getResultCode());
         verifyNoInteractions(reader);
         nativeTask.set(running);
@@ -230,7 +233,7 @@ class PaymentCaptureServiceTest {
                         List.of(),
                         PaymentCaptureBlocker.REFUND_ACCEPTANCE_MISSING,
                         "refund"));
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(running));
+        execution.handle(running);
         assertEquals(PaymentCaptureState.BLOCKED, stored.get().state());
         assertNull(stored.get().contentHash());
         assertNull(stored.get().paymentCount());
@@ -239,20 +242,27 @@ class PaymentCaptureServiceTest {
     @Test
     void failedTaskRetryKeepsItsOriginalIdentityAndCannotRefreshAFinalCapture() {
         service.create(command);
-        nativeTask.set(task(DelayedTaskStatus.FAILED, 8));
+        nativeTask.set(task(TaskStatus.FAILED, 8));
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    nativeTask.set(task(DelayedTaskStatus.PENDING, 0));
+                    nativeTask.set(task(TaskStatus.PENDING, 0));
                     return null;
                 })
                 .when(tasks)
-                .retryFailed(PaymentCaptureExecutionService.TYPE, "capture");
+                .retryFailed(
+                        ArgumentMatchers.eq("native"),
+                        ArgumentMatchers.eq("reconciliation"),
+                        ArgumentMatchers.eq("Explicit capture retry"));
         var original = stored.get();
         var result = service.retry(new PaymentCaptureRetryCommand("capture", "native"));
         assertEquals("PENDING", result.nativeStatus());
         assertEquals(original, stored.get());
         service.retry(new PaymentCaptureRetryCommand("capture", "native"));
-        verify(tasks, times(1)).retryFailed(PaymentCaptureExecutionService.TYPE, "capture");
+        verify(tasks, times(1))
+                .retryFailed(
+                        ArgumentMatchers.eq("native"),
+                        ArgumentMatchers.eq("reconciliation"),
+                        ArgumentMatchers.eq("Explicit capture retry"));
         assertEquals(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(
@@ -263,17 +273,17 @@ class PaymentCaptureServiceTest {
 
     @Test
     void exactServiceIdentityAndPermissionsAreBothRequiredAndTodaysBillCannotBeCaptured() {
-        actor.set(new PaymentActor("tenant", "other", actor.get().permissions()));
+        actor.set(new PaymentActor("other", actor.get().permissions()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.create(command))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "reconciliation", Set.of()));
+        actor.set(new PaymentActor("reconciliation", Set.of()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.create(command))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "reconciliation", Set.of("pay:payment:reconciliation:capture:create")));
+        actor.set(new PaymentActor("reconciliation", Set.of("pay:payment:reconciliation:capture:create")));
         assertEquals(
                 INVALID_ARGUMENT,
                 assertThrows(
@@ -288,8 +298,8 @@ class PaymentCaptureServiceTest {
         verifyNoInteractions(captures, tasks, reader);
     }
 
-    DelayedTask task(DelayedTaskStatus status, int attempts) {
-        return new DelayedTask(
+    TaskExecution task(TaskStatus status, int attempts) {
+        return new TaskExecution(
                 "native",
                 PaymentCaptureExecutionService.TYPE,
                 "capture",
@@ -298,7 +308,7 @@ class PaymentCaptureServiceTest {
                 status,
                 attempts,
                 8,
-                status == DelayedTaskStatus.RUNNING ? at.plusMinutes(1) : null,
+                status == TaskStatus.RUNNING ? at.plusMinutes(1) : null,
                 null);
     }
 

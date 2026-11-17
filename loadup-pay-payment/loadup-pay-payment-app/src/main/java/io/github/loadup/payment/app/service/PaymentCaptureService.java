@@ -28,7 +28,8 @@ import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.app.security.PaymentActorProvider;
@@ -59,7 +60,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     private final PaymentActorProvider actors;
     private final PaymentCaptureGateway captures;
     private final PaymentAcceptanceTransactions transactions;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final PaymentCaptureConverter converter;
     private final IdGenerator ids;
     private final Validator validator;
@@ -70,7 +71,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
             PaymentActorProvider actors,
             PaymentCaptureGateway captures,
             PaymentAcceptanceTransactions transactions,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             PaymentCaptureConverter converter,
             IdGenerator ids,
             Validator validator,
@@ -91,14 +92,12 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     public PaymentCaptureDTO create(PaymentCaptureCreateCommand command) {
         validate(command);
         var actor = actor("create");
-        var scope = transactions.withTenantContext(
-                actor.tenantId(),
-                () -> new PaymentCaptureScope(
-                        command.channel(),
-                        command.accountScopeHash(),
-                        command.billDate(),
-                        command.statementProfile(),
-                        clock.getZone().getId()));
+        var scope = transactions.guarded(() -> new PaymentCaptureScope(
+                command.channel(),
+                command.accountScopeHash(),
+                command.billDate(),
+                command.statementProfile(),
+                clock.getZone().getId()));
         if (!command.billDate()
                 .isBefore(OffsetDateTime.now(clock)
                         .withOffsetSameInstant(ZoneOffset.ofHours(8))
@@ -106,22 +105,22 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         String digest = digest(actor, command, scope.systemZone());
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var existing = captures.findRequest(actor.serviceId(), command.requestKey());
             if (existing.isPresent()) {
                 var value = authorized(actor, existing.get());
                 if (!value.requestDigest().equals(digest)) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
-                return present(actor.tenantId(), value);
+                return present(value);
             }
             var value = PaymentCapture.init(ids.generate(), actor.serviceId(), command.requestKey(), digest, scope);
             captures.insert(value);
-            tasks.register(
+            tasks.submit(TaskSubmission.scheduled(
                     PaymentCaptureExecutionService.TYPE,
                     value.id(),
-                    LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
-            return present(actor.tenantId(), value);
+                    LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS)));
+            return present(value);
         });
     }
 
@@ -129,10 +128,10 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     public PaymentCaptureDTO retry(PaymentCaptureRetryCommand command) {
         validate(command);
         var actor = actor("retry");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var value = authorized(
                     actor, captures.lock(command.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
-            var task = present(actor.tenantId(), value);
+            var task = present(value);
             if (!command.expectedTaskId().equals(task.nativeTaskId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
@@ -141,12 +140,12 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
             }
             if ("FAILED".equals(task.nativeStatus())) {
                 try {
-                    tasks.retryFailed(PaymentCaptureExecutionService.TYPE, value.id());
+                    tasks.retryFailed(task.nativeTaskId(), actor.serviceId(), "Explicit capture retry");
                 } catch (CommonException failure) {
                     throw new CommonException(INVALID_STATE);
                 }
             }
-            return present(actor.tenantId(), value);
+            return present(value);
         });
     }
 
@@ -154,19 +153,15 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     public PaymentCaptureDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(
-                actor.tenantId(),
-                () -> present(
-                        actor.tenantId(),
-                        authorized(
-                                actor, captures.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
+        return transactions.readSnapshot(() -> present(
+                authorized(actor, captures.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
     public PageDTO<PaymentLedgerLineDTO> lines(PaymentCaptureLinesQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var capture = authorized(
                     actor, captures.find(query.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (capture.state() != PaymentCaptureState.SEALED) {
@@ -183,7 +178,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         });
     }
 
-    private PaymentCaptureDTO present(String tenant, PaymentCapture value) {
+    private PaymentCaptureDTO present(PaymentCapture value) {
         var task = tasks.find(PaymentCaptureExecutionService.TYPE, value.id())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!value.id().equals(task.bizId()) || !PaymentCaptureExecutionService.TYPE.equals(task.taskType())) {
@@ -222,7 +217,6 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         var framed = new StringBuilder();
         for (var field : List.of(
                 "payment-capture-request-v1",
-                actor.tenantId(),
                 actor.serviceId(),
                 command.requestKey(),
                 command.channel().name(),

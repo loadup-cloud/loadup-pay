@@ -85,12 +85,10 @@ public class PaymentStatementService implements PaymentStatementFacade {
         if (query == null || !validator.validate(query).isEmpty()) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             // Resolve only the original immutable revision. A disabled route must not hide historical evidence.
-            var binding = transactions.readSnapshot(
-                    actor.tenantId(),
-                    () -> bindings.findRevision(query.bindingRevisionId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var binding = transactions.readSnapshot(() ->
+                    bindings.findRevision(query.bindingRevisionId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!query.bindingRevisionId().equals(binding.id())
                     || binding.channel() != query.channel()
                     || !binding.accountScopeHash().equals(query.accountScopeHash())) {
@@ -102,7 +100,7 @@ public class PaymentStatementService implements PaymentStatementFacade {
                     query.maxBytes());
             final VerifiedChannelStatement source;
             try {
-                source = channels.download(new ChannelExecutionContext(actor.tenantId(), binding), request);
+                source = channels.download(new ChannelExecutionContext(binding), request);
             } catch (CommonException failure) {
                 throw translate(failure);
             }

@@ -15,20 +15,26 @@
  */
 package io.github.loadup.oauth2server;
 
+import io.github.loadup.components.oauth.client.OAuthClientTokenValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration(proxyBeanMethods = false)
 class OAuth2ServerConfiguration {
     @Bean
-    OAuthTokenCustomizer oauthTokenCustomizer(RegisteredClientRepository clients) {
-        return new OAuthTokenCustomizer(clients);
+    OAuthTokenCustomizer oauthTokenCustomizer(OAuthClientTokenValidator clients, PayOAuthClientPolicy policy) {
+        return new OAuthTokenCustomizer(clients, policy);
+    }
+
+    @Bean
+    PayOAuthClientPolicy payOAuthClientPolicy() {
+        return new PayOAuthClientPolicy();
     }
 
     @Bean
@@ -41,7 +47,7 @@ class OAuth2ServerConfiguration {
     }
 
     @Bean
-    @Order(10)
+    @Order(Ordered.LOWEST_PRECEDENCE)
     SecurityFilterChain denyOtherEndpoints(HttpSecurity http) {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

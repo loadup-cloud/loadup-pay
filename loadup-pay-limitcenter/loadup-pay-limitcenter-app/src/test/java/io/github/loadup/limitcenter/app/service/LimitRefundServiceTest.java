@@ -39,6 +39,9 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
+import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.contracts.event.payment.RefundFinancialEvidence;
 import io.github.loadup.contracts.event.payment.RefundOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.limitcenter.app.converter.LimitRefundConverter;
@@ -98,7 +101,7 @@ class LimitRefundServiceTest {
     final LimitRefundGateway receipts = mock(LimitRefundGateway.class);
     final PaymentEvidenceClient payment = mock(PaymentEvidenceClient.class);
     final AtomicReference<LimitActor> actor =
-            new AtomicReference<>(new LimitActor("tenant", "payment", Set.of("pay:limit:refund:restore")));
+            new AtomicReference<>(new LimitActor("payment", Set.of("pay:limit:refund:restore")));
     final LimitServiceFixture.UnitTransactions manager = new LimitServiceFixture.UnitTransactions();
     final LocalDateTime initiated = LocalDateTime.of(2026, 9, 30, 23, 59);
     final LocalDateTime now = LocalDateTime.of(2026, 10, 23, 12, 0);
@@ -188,7 +191,7 @@ class LimitRefundServiceTest {
 
     LimitRefundRestoreCommand command(String refund, long delivered) {
         return new LimitRefundRestoreCommand(
-                "operation", "payment", refund, 2, "event-" + refund, 1000, delivered, "CNY", "proof-" + refund);
+                "operation", "payment", refund, 2, "event-" + refund, 1000, delivered, "CNY", "proof-" + refund, null);
     }
 
     @BeforeEach
@@ -245,7 +248,8 @@ class LimitRefundServiceTest {
                     RefundState.SUCCEEDED,
                     2,
                     cumulative.get(),
-                    "proof-" + refund);
+                    "proof-" + refund,
+                    null);
             return new RefundSettlementFactsDTO(
                     outcome, 10000, 3, "payment-proof", "attempt", BusinessTime.external(initiated), cumulative.get());
         });
@@ -316,7 +320,7 @@ class LimitRefundServiceTest {
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(payment).refundFacts(anyString());
         assertEquals(first, service.restoreRefund(original));
         var changed = new LimitRefundRestoreCommand(
-                "operation", "payment", "refund1", 2, "event-refund1", 999, 1000, "CNY", "proof-refund1");
+                "operation", "payment", "refund1", 2, "event-refund1", 999, 1000, "CNY", "proof-refund1", null);
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.restoreRefund(changed))
@@ -374,7 +378,7 @@ class LimitRefundServiceTest {
                 OUTCOME_CONFLICT,
                 assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 2000)))
                         .getResultCode());
-        actor.set(new LimitActor("tenant", "other-service", Set.of("pay:limit:refund:restore")));
+        actor.set(new LimitActor("other-service", Set.of("pay:limit:refund:restore")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 1000)))
@@ -390,5 +394,78 @@ class LimitRefundServiceTest {
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         // This in-memory fixture cannot prove database rollback; the production mutations share the same transaction.
+    }
+
+    LimitRefundRestoreCommand captured(String refund, long capacityVersion) {
+        var payment = new PaymentFinancialEvidence(
+                1,
+                "payment",
+                "order",
+                "allocation",
+                "operation",
+                "merchant",
+                10000,
+                "CNY",
+                PaymentState.SUCCEEDED,
+                3,
+                "payment-proof",
+                "attempt",
+                BusinessTime.external(initiated),
+                BusinessTime.external(initiated.plusSeconds(1)),
+                false);
+        var proof = new RefundFinancialEvidence(
+                1,
+                refund,
+                "request",
+                2,
+                "proof-" + refund,
+                1000,
+                1000,
+                capacityVersion,
+                BusinessTime.external(now),
+                payment);
+        return new LimitRefundRestoreCommand(
+                "operation", "payment", refund, 2, "event-" + refund, 1000, 1000, "CNY", "proof-" + refund, proof);
+    }
+
+    @Test
+    void capturedRefundEvidenceStillAppliesLatestCumulativeSourceAndReplaysWithoutASecondRead() {
+        cumulative.set(4000);
+        var command = captured("captured", 1000);
+        var ack = service.restoreRefund(command);
+        assertEquals(1000, ack.cumulativePaymentRefundedMinor());
+        assertEquals(4000, ack.verifiedPaymentRefundedMinor());
+        assertEquals(4000, ack.verifiedPaymentRefundVersion());
+        assertEquals(4000, ack.restoredAmountMinor());
+        assertEquals(ack, service.restoreRefund(command));
+        verify(payment, times(1)).refundFacts("captured");
+        assertSame(
+                IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> service.restoreRefund(captured("captured", 999)))
+                        .getResultCode());
+        verify(receipts, times(1)).insert(any());
+    }
+
+    @Test
+    void capturedRefundVersionAheadOfAuthorityIsRejectedBeforeLocalWrites() {
+        assertSame(
+                OUTCOME_CONFLICT,
+                assertThrows(CommonException.class, () -> service.restoreRefund(captured("future", 1001)))
+                        .getResultCode());
+        verify(payment).refundFacts("future");
+        verify(reservations, never()).updateBuckets(any(), any());
+        verify(receipts, never()).insert(any());
+        assertEquals(0, manager.commits);
+    }
+
+    @Test
+    void equalCapacityVersionCannotDescribeDifferentCumulativeMoney() {
+        cumulative.set(4000);
+        assertSame(
+                OUTCOME_CONFLICT,
+                assertThrows(CommonException.class, () -> service.restoreRefund(captured("same-version", 4000)))
+                        .getResultCode());
+        verify(reservations, never()).updateBuckets(any(), any());
+        verify(receipts, never()).insert(any());
     }
 }

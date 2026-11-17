@@ -59,6 +59,6 @@ public class PaymentProgressService implements PaymentProgressFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return outcomes.refresh(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), command);
+        return outcomes.refresh(new OrderPaymentScope(actor.scopeHash()), command);
     }
 }

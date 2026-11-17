@@ -104,7 +104,6 @@ def main(argv: list[str] | None = None) -> None:
         default="pay:acquire:create,pay:product:admit",
         help="Comma-separated permissions (default: pay:acquire:create,pay:product:admit).",
     )
-    parser.add_argument("--tenant", default="__default__", help="tenant_id claim (default: __default__).")
     parser.add_argument("--ttl-seconds", type=int, default=3600, help="Token lifetime in seconds (default: 3600).")
     parser.add_argument("--issuer", help="Override iss; defaults to CONFIG_DIR/common.env JWT_ISSUER_URI.")
     parser.add_argument("--kid", help="Override JWT kid; defaults to <AUTHSERVER_SIGNING_KEY>-v1.")
@@ -142,7 +141,6 @@ def main(argv: list[str] | None = None) -> None:
     subject = value("subject", args.subject or merchant, 64)
     if args.principal_type == "MERCHANT" and subject != merchant:
         common.fail("MERCHANT tokens require --subject to equal --merchant-id.")
-    tenant = value("tenant", args.tenant, 64)
     audiences = csv("audience", args.audience, 128)
     permissions = csv("permissions", args.permissions, 128)
 
@@ -157,7 +155,6 @@ def main(argv: list[str] | None = None) -> None:
         "aud": audiences,
         "principal_type": args.principal_type,
         "merchant_id": merchant,
-        "tenant_id": tenant,
         "token_use": "access",
         "permissions": permissions,
         "iat": now,

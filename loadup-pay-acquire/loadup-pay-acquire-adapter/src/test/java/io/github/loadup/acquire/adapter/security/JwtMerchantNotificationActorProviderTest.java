@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -32,8 +30,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtMerchantNotificationActorProviderTest {
-    final JwtMerchantNotificationActorProvider provider =
-            new JwtMerchantNotificationActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    final JwtMerchantNotificationActorProvider provider = new JwtMerchantNotificationActorProvider();
 
     void authenticate(String type, String subject, String merchant, String service) {
         var jwt = Jwt.withTokenValue("synthetic-token")

@@ -30,23 +30,23 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
 import io.github.loadup.contracts.event.payment.RefundState;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class RefundRealtimeDeliveryTest {
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final RefundProjectionEnvelopeCodec codec = mock(RefundProjectionEnvelopeCodec.class);
     final PaymentRealtimeClient client = mock(PaymentRealtimeClient.class);
     final RefundRealtimeDelivery delivery = new RefundRealtimeDelivery(outbox, codec, client);
@@ -54,7 +54,7 @@ class RefundRealtimeDeliveryTest {
             "delivery-child",
             "change-child",
             "payment",
-            RefundProjectionEvents.CHILD,
+            PaymentDeliveryRoutes.REFUND_CHILD,
             1,
             "refund",
             2,
@@ -75,19 +75,19 @@ class RefundRealtimeDeliveryTest {
             "delivery-summary",
             "change-summary",
             "payment",
-            RefundProjectionEvents.SUMMARY,
+            PaymentDeliveryRoutes.REFUND_SUMMARY,
             1,
             "order",
             3,
             BusinessTime.external(RefundResultFixtures.NOW),
             new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3));
-    final OutboxEvent childEvent = event("child", RefundProjectionEvents.CHILD, "refund");
-    final OutboxEvent summaryEvent = event("summary", RefundProjectionEvents.SUMMARY, "order");
+    final TaskExecution childEvent = event("child", PaymentDeliveryRoutes.REFUND_CHILD, "refund");
+    final TaskExecution summaryEvent = event("summary", PaymentDeliveryRoutes.REFUND_SUMMARY, "order");
 
-    OutboxEvent event(String queue, String type, String aggregate) {
-        return new OutboxEvent(
+    TaskExecution event(String queue, String type, String aggregate) {
+        return new TaskExecution(
                 queue,
-                new OutboxMessage(type, 1, aggregate, queue + "-payload"),
+                new TaskSubmission(type, 1, aggregate, queue + "-payload", LocalDateTime.now(), ""),
                 RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
                 null);
     }
@@ -96,10 +96,10 @@ class RefundRealtimeDeliveryTest {
     void setup() {
         when(outbox.find("child"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("child", RefundProjectionEvents.CHILD, "refund", "PROCESSING", 1, null)));
+                        new TaskExecution("child", PaymentDeliveryRoutes.REFUND_CHILD, "refund", "RUNNING", 1, null)));
         when(outbox.find("summary"))
-                .thenReturn(Optional.of(
-                        new OutboxRecord("summary", RefundProjectionEvents.SUMMARY, "order", "PROCESSING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "summary", PaymentDeliveryRoutes.REFUND_SUMMARY, "order", "RUNNING", 1, null)));
         when(codec.child("child-payload")).thenReturn(child);
         when(codec.summary("summary-payload")).thenReturn(summary);
         when(client.applyRefund(child))
@@ -111,11 +111,11 @@ class RefundRealtimeDeliveryTest {
     }
 
     void child() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.child(childEvent));
+        delivery.child(childEvent);
     }
 
     void summary() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.summary(summaryEvent));
+        delivery.summary(summaryEvent);
     }
 
     @Test

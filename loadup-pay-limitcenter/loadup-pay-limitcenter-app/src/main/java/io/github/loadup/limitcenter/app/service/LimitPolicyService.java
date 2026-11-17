@@ -50,9 +50,9 @@ public class LimitPolicyService implements LimitPolicyFacade {
     @Override
     public LimitPolicyActivationDTO activate(LimitPolicyActivateCommand command) {
         var actor = transactions.authorize(command, "pay:limit:activate");
-        return transactions.writeLocal(actor, POLICY_CONFLICT, () -> {
+        return transactions.writeLocal(POLICY_CONFLICT, () -> {
             var next = converter.toPolicy(command, LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
-            if (!command.policyHash().equals(LimitPolicyHash.compute(actor.tenantId(), command))) {
+            if (!command.policyHash().equals(LimitPolicyHash.compute(command))) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             var head = policies.lockOrCreateHead(next.policyId(), next.payeeMerchantId());

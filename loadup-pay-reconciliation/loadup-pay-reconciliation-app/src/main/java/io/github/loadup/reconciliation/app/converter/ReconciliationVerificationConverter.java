@@ -16,8 +16,8 @@
 package io.github.loadup.reconciliation.app.converter;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.task.TaskExecution;
 import io.github.loadup.reconciliation.app.model.ApprovedReconciliationReview;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;
 import io.github.loadup.reconciliation.app.model.payment.query.PaymentVerificationQuery;
@@ -93,7 +93,7 @@ public interface ReconciliationVerificationConverter {
     @Mapping(target = "deliveryStatus", source = "delivery.status")
     @Mapping(target = "attempts", source = "delivery.attempts")
     ReconciliationVerificationDTO toDTO(
-            ReconciliationVerificationRequest value, OutboxRecord delivery, @Context Clock clock);
+            ReconciliationVerificationRequest value, TaskExecution delivery, @Context Clock clock);
 
     @Named("verificationMicros")
     default Long micros(OffsetDateTime value) {

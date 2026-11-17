@@ -28,13 +28,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import io.github.loadup.acquire.client.enums.UnpaidOrderAction;
 import io.github.loadup.acquire.domain.model.AcquireOrder;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 class OrderDeadlineTasksTest {
-    final DelayedTaskTemplate nativeTasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate nativeTasks = mock(TaskTemplate.class);
     final OrderDeadlineTasks tasks = new OrderDeadlineTasks(nativeTasks);
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
@@ -44,17 +45,21 @@ class OrderDeadlineTasksTest {
 
     @Test
     void initialAndExtendedDeadlinesHaveSeparateNativeBusinessKeys() {
-        transactions.writeLocal("tenant", () -> {
-            tasks.register("tenant", order, 1L);
+        transactions.writeLocal(() -> {
+            tasks.register(order, 1L);
             return true;
         });
         var extended = order.extend(NOW.plusMinutes(15), order.orderDueAt(), true, 3600L, NOW);
-        transactions.writeLocal("tenant", () -> {
-            tasks.register("tenant", extended, 2L);
+        transactions.writeLocal(() -> {
+            tasks.register(extended, 2L);
             return true;
         });
-        verify(nativeTasks).register(OrderDeadlineTasks.TYPE, "order.1", order.orderDueAt());
-        verify(nativeTasks).register(OrderDeadlineTasks.TYPE, "order.2", extended.orderDueAt());
+        verify(nativeTasks)
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(OrderDeadlineTasks.TYPE, "order.1", order.orderDueAt())));
+        verify(nativeTasks)
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(OrderDeadlineTasks.TYPE, "order.2", extended.orderDueAt())));
         verifyNoMoreInteractions(nativeTasks);
     }
 
@@ -62,16 +67,14 @@ class OrderDeadlineTasksTest {
     void registrationRequiresTheOriginalWriteTransactionAndPositiveDeadlineVersion() {
         assertSame(
                 INVALID_STATE,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant("tenant", () -> tasks.register("tenant", order, 1L)))
+                assertThrows(CommonException.class, () -> tasks.register(order, 1L))
                         .getResultCode());
         assertSame(
                 INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
-                                () -> transactions.writeLocal("tenant", () -> {
-                                    tasks.register("tenant", order, 0L);
+                                () -> transactions.writeLocal(() -> {
+                                    tasks.register(order, 0L);
                                     return true;
                                 }))
                         .getResultCode());

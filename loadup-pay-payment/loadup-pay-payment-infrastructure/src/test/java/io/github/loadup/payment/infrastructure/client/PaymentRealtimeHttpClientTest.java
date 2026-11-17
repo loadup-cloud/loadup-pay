@@ -92,8 +92,6 @@ class PaymentRealtimeHttpClientTest {
     void credential(String audience) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
         var claims = Map.of(
-                "tenant_id",
-                "tenant",
                 "sub",
                 "payment",
                 "service_id",

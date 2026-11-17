@@ -29,12 +29,10 @@ import java.util.function.BiConsumer;
  * Ephemeral internal authority bound by an authenticated entry point or a committed original recovery intent.
  */
 record PaymentInitiationPrincipal(
-        String tenantId,
         String scopeHash,
         String actionScope,
         @DiagnosticHidden BiConsumer<StoredAcquireOrder, Boolean> guard) {
     PaymentInitiationPrincipal {
-        DomainChecks.id(tenantId);
         DomainChecks.text(actionScope, 128);
         Objects.requireNonNull(guard);
         require(scopeHash != null && scopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);

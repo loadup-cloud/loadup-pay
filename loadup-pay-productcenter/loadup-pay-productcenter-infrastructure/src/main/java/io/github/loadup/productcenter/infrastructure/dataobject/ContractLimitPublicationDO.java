@@ -46,120 +46,120 @@ public class ContractLimitPublicationDO extends BaseDO {
         return contractId;
     }
 
-    public void setContractId(String value) {
-        contractId = value;
+    public void setContractId(String contractId) {
+        this.contractId = contractId;
     }
 
     public Integer getContractRevision() {
         return contractRevision;
     }
 
-    public void setContractRevision(Integer value) {
-        contractRevision = value;
+    public void setContractRevision(Integer contractRevision) {
+        this.contractRevision = contractRevision;
     }
 
     public String getPolicyId() {
         return policyId;
     }
 
-    public void setPolicyId(String value) {
-        policyId = value;
+    public void setPolicyId(String policyId) {
+        this.policyId = policyId;
     }
 
     public Integer getPolicyVersion() {
         return policyVersion;
     }
 
-    public void setPolicyVersion(Integer value) {
-        policyVersion = value;
+    public void setPolicyVersion(Integer policyVersion) {
+        this.policyVersion = policyVersion;
     }
 
     public String getPolicyHash() {
         return policyHash;
     }
 
-    public void setPolicyHash(String value) {
-        policyHash = value;
+    public void setPolicyHash(String policyHash) {
+        this.policyHash = policyHash;
     }
 
     public String getState() {
         return state;
     }
 
-    public void setState(String value) {
-        state = value;
+    public void setState(String state) {
+        this.state = state;
     }
 
     public LocalDateTime getActivatedAt() {
         return activatedAt;
     }
 
-    public void setActivatedAt(LocalDateTime value) {
-        activatedAt = value;
+    public void setActivatedAt(LocalDateTime activatedAt) {
+        this.activatedAt = activatedAt;
     }
 
     public Long getRowVersion() {
         return rowVersion;
     }
 
-    public void setRowVersion(Long value) {
-        rowVersion = value;
+    public void setRowVersion(Long rowVersion) {
+        this.rowVersion = rowVersion;
     }
 
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
 
-    public void setPayeeMerchantId(String value) {
-        payeeMerchantId = value;
+    public void setPayeeMerchantId(String payeeMerchantId) {
+        this.payeeMerchantId = payeeMerchantId;
     }
 
     public String getProductScopeKey() {
         return productScopeKey;
     }
 
-    public void setProductScopeKey(String value) {
-        productScopeKey = value;
+    public void setProductScopeKey(String productScopeKey) {
+        this.productScopeKey = productScopeKey;
     }
 
     public String getSnapshotHash() {
         return snapshotHash;
     }
 
-    public void setSnapshotHash(String value) {
-        snapshotHash = value;
+    public void setSnapshotHash(String snapshotHash) {
+        this.snapshotHash = snapshotHash;
     }
 
     public String getActivationPayload() {
         return activationPayload;
     }
 
-    public void setActivationPayload(String value) {
-        activationPayload = value;
+    public void setActivationPayload(String activationPayload) {
+        this.activationPayload = activationPayload;
     }
 
     public String getOutboxEventId() {
         return outboxEventId;
     }
 
-    public void setOutboxEventId(String value) {
-        outboxEventId = value;
+    public void setOutboxEventId(String outboxEventId) {
+        this.outboxEventId = outboxEventId;
     }
 
     public LocalDateTime getRequestedAt() {
         return requestedAt;
     }
 
-    public void setRequestedAt(LocalDateTime value) {
-        requestedAt = value;
+    public void setRequestedAt(LocalDateTime requestedAt) {
+        this.requestedAt = requestedAt;
     }
 
     public Integer getPublicationSchemaVersion() {
         return publicationSchemaVersion;
     }
 
-    public void setPublicationSchemaVersion(Integer value) {
-        publicationSchemaVersion = value;
+    public void setPublicationSchemaVersion(Integer publicationSchemaVersion) {
+        this.publicationSchemaVersion = publicationSchemaVersion;
     }
 
     @Override

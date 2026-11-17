@@ -18,13 +18,11 @@ package io.github.loadup.reconciliation.infrastructure.client;
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.reconciliation.infrastructure.config.ReconciliationAccountsProperties;
 import java.time.LocalDate;
-import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
@@ -72,10 +70,7 @@ public class ConfiguredReconciliationAccountDirectory implements ReconciliationA
     }
 
     private ReconciliationAccountsProperties.Account account(String caller, String code) {
-        var account = properties
-                .tenants()
-                .getOrDefault(TenantUtil.getTenantId(), Map.of())
-                .get(code);
+        var account = properties.accounts().get(code);
         if (account == null || !account.serviceIds().contains(caller)) {
             throw new CommonException(ACTION_FORBIDDEN);
         }

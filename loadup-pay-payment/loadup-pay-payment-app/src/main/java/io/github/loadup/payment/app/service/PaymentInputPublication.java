@@ -21,7 +21,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.payment.app.security.PaymentActor;
 import io.github.loadup.payment.client.command.PaymentInputPrepareCommand;
@@ -104,7 +103,7 @@ public class PaymentInputPublication {
     }
 
     private void writable(PaymentActor actor) {
-        if (actor == null || !actor.tenantId().equals(TenantUtil.getTenantId())) {
+        if (actor == null) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (!TransactionSynchronizationManager.isActualTransactionActive()

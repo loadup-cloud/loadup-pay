@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -37,11 +36,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.payment.domain.model.RefundRecoveryCursor;
@@ -55,11 +54,12 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class RefundRecoveryServiceTest {
     final RefundRecoveryGateway cursors = mock(RefundRecoveryGateway.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final RefundExecutionLocks locks = mock(RefundExecutionLocks.class);
     final RefundExecutionService execution = mock(RefundExecutionService.class);
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
@@ -70,13 +70,13 @@ class RefundRecoveryServiceTest {
     final Clock clock = Clock.fixed(NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final RefundRecoveryService recovery = new RefundRecoveryService(
             cursors, tasks, locks, execution, transactions, clock, new RecoveryPollingPolicy(30, 1800, 900, 0));
-    final DelayedTask task = new DelayedTask(
+    final TaskExecution task = new TaskExecution(
             "task",
             RefundRecoveryService.TYPE,
             "request.0",
             request.get().plannedAt(),
             request.get().plannedAt(),
-            DelayedTaskStatus.RUNNING,
+            TaskStatus.RUNNING,
             1,
             5,
             NOW.plusMinutes(5),
@@ -85,9 +85,8 @@ class RefundRecoveryServiceTest {
     @BeforeEach
     void setup() {
         when(tasks.find(RefundRecoveryService.TYPE, "request.0")).thenReturn(Optional.of(task));
-        when(locks.request("tenant", "request")).thenAnswer(c -> {
+        when(locks.request("request")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return request.get();
         });
         when(cursors.lock("request")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
@@ -111,18 +110,18 @@ class RefundRecoveryServiceTest {
                     return null;
                 })
                 .when(tasks)
-                .register(anyString(), anyString(), any());
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         doAnswer(c -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                     assertTrue(manager.commits > 0);
                     return null;
                 })
                 .when(execution)
-                .progress("tenant", "request");
+                .progress("request");
     }
 
     RecoveryHandlingOutcome handle() {
-        return TenantUtil.callWithTenant("tenant", () -> recovery.handle(task));
+        return recovery.handle(task);
     }
 
     StoredRefundRequest terminal() {
@@ -160,14 +159,12 @@ class RefundRecoveryServiceTest {
     @Test
     void fixedPlanAndInitialWakeUpUseTheSameTransactionAndOriginalPlanningTime() {
         cursor.set(null);
-        transactions.writeLocal("tenant", () -> {
-            recovery.register("tenant", request.get());
+        transactions.writeLocal(() -> {
+            recovery.register(request.get());
             return true;
         });
         assertEquals(0, cursor.get().generation());
         assertEquals(request.get().plannedAt(), cursor.get().dueAt());
-        verify(tasks)
-                .register(RefundRecoveryService.TYPE, "request.0", request.get().plannedAt());
         assertEquals(1, manager.commits);
         verifyNoInteractions(execution);
     }
@@ -178,8 +175,10 @@ class RefundRecoveryServiceTest {
         assertEquals(1, cursor.get().generation());
         assertEquals(NOW.plusSeconds(30), cursor.get().dueAt());
         assertFalse(cursor.get().completed());
-        verify(execution).progress("tenant", "request");
-        verify(tasks).register(RefundRecoveryService.TYPE, "request.1", NOW.plusSeconds(30));
+        verify(execution).progress("request");
+        verify(tasks)
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(RefundRecoveryService.TYPE, "request.1", NOW.plusSeconds(30))));
         assertEquals(2, manager.commits);
     }
 
@@ -188,7 +187,7 @@ class RefundRecoveryServiceTest {
         cursor.set(cursor.get().schedule(NOW.plusSeconds(30), 0));
         assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
         verifyNoInteractions(execution);
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
@@ -200,7 +199,7 @@ class RefundRecoveryServiceTest {
         assertEquals(0, cursor.get().generation());
         verify(cursors, times(1)).update(any(), any());
         verifyNoInteractions(execution);
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
@@ -210,28 +209,30 @@ class RefundRecoveryServiceTest {
                     return null;
                 })
                 .when(execution)
-                .progress("tenant", "request");
+                .progress("request");
         assertEquals(RecoveryHandlingOutcome.COMPLETED, handle());
         assertTrue(cursor.get().completed());
         assertEquals(0, cursor.get().generation());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
     void channelFailureLeavesTheSameGenerationForNativeRetryAndLeaseRecovery() {
         var before = cursor.get();
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(execution).progress("tenant", "request");
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(execution).progress("request");
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, this::handle).getResultCode());
         assertEquals(before, cursor.get());
         verify(cursors, never()).update(any(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
     void failedSuccessorRegistrationPreventsAcknowledgingTheCurrentTaskAsSuccessful() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(tasks).register(anyString(), anyString(), any());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
+                .when(tasks)
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         assertThrows(CommonException.class, this::handle);
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -245,9 +246,9 @@ class RefundRecoveryServiceTest {
                     return null;
                 })
                 .when(execution)
-                .progress("tenant", "request");
+                .progress("request");
         assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
         verify(cursors, never()).update(any(), any());
     }
 
@@ -257,8 +258,8 @@ class RefundRecoveryServiceTest {
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> recovery.handle(task)));
-        var expired = new DelayedTask(
+        assertThrows(CommonException.class, () -> recovery.handle(task));
+        var expired = new TaskExecution(
                 task.id(),
                 task.taskType(),
                 task.bizId(),
@@ -280,7 +281,7 @@ class RefundRecoveryServiceTest {
         var original = request.get();
         var late = original.plannedAt().plusDays(1);
         var lateClock = Clock.fixed(late.atZone(clock.getZone()).toInstant(), clock.getZone());
-        var delayed = new DelayedTask(
+        var delayed = new TaskExecution(
                 task.id(),
                 task.taskType(),
                 task.bizId(),
@@ -294,13 +295,15 @@ class RefundRecoveryServiceTest {
         when(tasks.find(RefundRecoveryService.TYPE, task.bizId())).thenReturn(Optional.of(delayed));
         var handler = new RefundRecoveryService(
                 cursors, tasks, locks, execution, transactions, lateClock, new RecoveryPollingPolicy(30, 1800, 900, 0));
-        TenantUtil.runWithTenant("tenant", () -> handler.handle(delayed));
+        handler.handle(delayed);
         assertSame(original, request.get());
         assertFalse(cursor.get().completed());
         assertEquals(1L, cursor.get().generation());
         assertEquals(late.plusMinutes(30), cursor.get().dueAt());
-        verify(execution).progress("tenant", "request");
-        verify(tasks).register(RefundRecoveryService.TYPE, "request.1", late.plusMinutes(30));
+        verify(execution).progress("request");
+        verify(tasks)
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(RefundRecoveryService.TYPE, "request.1", late.plusMinutes(30))));
     }
 
     @Test
@@ -315,11 +318,11 @@ class RefundRecoveryServiceTest {
                     return null;
                 })
                 .when(execution)
-                .progress("tenant", "request");
+                .progress("request");
         assertEquals(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::handle).getResultCode());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
         verify(cursors, never()).update(any(), any());
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);

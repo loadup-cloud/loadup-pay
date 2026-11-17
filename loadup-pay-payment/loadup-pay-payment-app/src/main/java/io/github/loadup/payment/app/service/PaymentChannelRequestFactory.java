@@ -63,14 +63,14 @@ public class PaymentChannelRequestFactory {
         this.clock = clock;
     }
 
-    public ChannelPaymentRequest create(String tenant, PreparedChannelPayment prepared) {
+    public ChannelPaymentRequest create(PreparedChannelPayment prepared) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (prepared == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(tenant, () -> {
+        return transactions.guarded(() -> {
             var accepted =
                     payments.find(prepared.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var stored =
@@ -94,7 +94,7 @@ public class PaymentChannelRequestFactory {
                 throw new CommonException(PAYMENT_EXPIRED);
             }
             var input = inputs.openForAttempt(
-                    tenant, prepared.identity().paymentId(), prepared.identity().attemptId());
+                    prepared.identity().paymentId(), prepared.identity().attemptId());
             return converter.toRequest(prepared, original, converter.toInput(input));
         });
     }

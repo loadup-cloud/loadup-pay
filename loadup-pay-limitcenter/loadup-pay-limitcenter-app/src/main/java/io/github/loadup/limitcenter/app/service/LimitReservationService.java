@@ -93,11 +93,10 @@ public class LimitReservationService implements LimitReservationFacade {
     @Override
     public LimitReservationDTO reserve(LimitReserveCommand command) {
         var actor = transactions.authorize(command, "pay:limit:reserve");
-        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> reserve(actor, command));
+        return transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> reserve(actor, command));
     }
 
     private LimitReservationDTO reserve(LimitActor actor, LimitReserveCommand command) {
-        String tenant = actor.tenantId();
         DomainChecks.id(command.operationId());
         DomainChecks.id(command.paymentId());
         DomainChecks.id(command.orderId());
@@ -204,7 +203,7 @@ public class LimitReservationService implements LimitReservationFacade {
     @Override
     public LimitReservationDTO detail(LimitOperationQuery query) {
         var actor = transactions.authorize(query, "pay:limit:read");
-        return transactions.withTenantContext(actor, () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.operationId());
             var stored =
                     reservations.findByOperation(query.operationId()).orElseThrow(() -> new CommonException(NOT_FOUND));

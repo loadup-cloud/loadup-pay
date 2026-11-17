@@ -92,7 +92,7 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
     public CheckoutSessionStatusDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:acquire:session:read");
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.id());
             var session = sessions.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var order = orders.findOrder(session.session().orderId())
@@ -109,13 +109,12 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
             DomainChecks.text(command.reason(), 500);
             String digest = DigestUtils.sha256(JsonUtil.toJson(List.of(
                     "checkout-session-revoke-v1",
-                    actor.tenantId(),
                     actor.scopeHash(),
                     command.id(),
                     command.requestKey(),
@@ -126,7 +125,7 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
                 return replay(actor, known.get(), digest);
             }
             var observed = sessions.find(command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(actor.scopeHash(), command.requestKey());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
@@ -159,7 +158,7 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
     public PageDTO<CheckoutSessionRevocationDTO> revocations(CheckoutSessionRevocationPageQuery query) {
         validate(query);
         var actor = actor("pay:acquire:session:read");
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.sessionId());
             var session = sessions.find(query.sessionId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var order = orders.findOrder(session.session().orderId())

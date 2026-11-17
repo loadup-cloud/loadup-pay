@@ -44,12 +44,12 @@ class CashierAccessTest {
     final StoredAcquireOrder order = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
     final StoredCheckoutSession active = session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5));
     final CashierActor actor =
-            new CashierActor("tenant", "session", "order", active.session().expiresAt());
+            new CashierActor("session", "order", active.session().expiresAt());
 
     @Test
     void originalSessionAndOwnerMustMatchBeforeAReservation() {
         when(sessions.lock("session")).thenReturn(Optional.of(active));
-        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal(() -> {
             access.authorize(actor, OWNER, order, true);
             assertThrows(CommonException.class, () -> access.authorize(actor, "x".repeat(64), order, true));
             return true;
@@ -61,7 +61,7 @@ class CashierAccessTest {
     void expiredOrCancelledSessionCannotCreateButCommittedIntentsRemainBoundForCompletion() {
         var cancelled = session(CheckoutSessionState.CANCELLED, NOW.plusMinutes(5));
         when(sessions.lock("session")).thenReturn(Optional.of(cancelled));
-        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal(() -> {
             assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
             access.authorize(actor, OWNER, order, false);
             return true;
@@ -75,13 +75,11 @@ class CashierAccessTest {
         when(sessions.find("session")).thenReturn(Optional.of(active));
         assertThrows(
                 CommonException.class,
-                () -> access.read(
-                        new CashierActor("tenant", "session", "other", actor.expiresAt()), order, "ORDER_SUMMARY"));
+                () -> access.read(new CashierActor("session", "other", actor.expiresAt()), order, "ORDER_SUMMARY"));
         assertThrows(
                 CommonException.class,
                 () -> access.read(
-                        new CashierActor(
-                                "tenant", "session", "order", actor.expiresAt().plusSeconds(1)),
+                        new CashierActor("session", "order", actor.expiresAt().plusSeconds(1)),
                         order,
                         "ORDER_SUMMARY"));
     }
@@ -90,7 +88,7 @@ class CashierAccessTest {
     void revocationBlocksNewReservationsAndReadsButPreservesCommittedIntentCompletion() {
         var revoked = active.revoke(0L, NOW);
         when(sessions.lock("session")).thenReturn(Optional.of(revoked));
-        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal(() -> {
             assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
             access.authorize(actor, OWNER, order, false);
             return true;

@@ -17,12 +17,16 @@ package io.github.loadup.payment.infrastructure.codec;
 
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import java.time.OffsetDateTime;
@@ -45,7 +49,8 @@ class PaymentOutcomeEnvelopeCodecImplTest {
                 PaymentState.SUCCEEDED,
                 2,
                 "evidence",
-                false);
+                false,
+                null);
         return new EventEnvelope<>(
                 "delivery",
                 "evidence",
@@ -62,6 +67,85 @@ class PaymentOutcomeEnvelopeCodecImplTest {
     void canonicalTypedEnvelopeRoundTrips() {
         var expected = event("payment", 1, "payment");
         assertEquals(expected, codec.decode(mapper.writeValueAsString(expected)));
+    }
+
+    PaymentOutcomeEventDTO financialData() {
+        return event("payment", 1, "payment")
+                .data()
+                .withFinancialEvidence(new PaymentFinancialEvidence(
+                        1,
+                        "payment",
+                        "order",
+                        "allocation",
+                        "operation",
+                        "merchant",
+                        1000,
+                        "CNY",
+                        PaymentState.SUCCEEDED,
+                        2,
+                        "evidence",
+                        "attempt",
+                        OffsetDateTime.parse("2026-10-23T11:00:00+08:00"),
+                        OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
+                        false));
+    }
+
+    EventEnvelope<PaymentOutcomeEventDTO> financialEvent(int schemaVersion, PaymentOutcomeEventDTO data) {
+        return new EventEnvelope<>(
+                "delivery",
+                "evidence",
+                "payment",
+                BusinessEventTypes.PAYMENT_FINANCIAL,
+                schemaVersion,
+                "payment",
+                2,
+                OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
+                data);
+    }
+
+    @Test
+    void financialEvidenceEnvelopeRoundTripsAndLegacyNullProofStaysOmitted() {
+        var expected = financialEvent(1, financialData());
+        assertEquals(expected, codec.decode(mapper.writeValueAsString(expected)));
+
+        var legacy = event("payment", 1, "payment");
+        var payload = mapper.writeValueAsString(legacy);
+        assertFalse(payload.contains("financialEvidence"));
+        assertNull(codec.decode(payload).data().financialEvidence());
+    }
+
+    @Test
+    void financialEnvelopeRequiresMatchingProofAndCurrentSchema() {
+        var legacyData = event("payment", 1, "payment").data();
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> codec.decode(mapper.writeValueAsString(financialEvent(1, legacyData))))
+                        .getResultCode());
+
+        var proofData = financialData();
+        var legacyTypeWithProof = new EventEnvelope<>(
+                "delivery",
+                "evidence",
+                "payment",
+                "pay.payment.outcome.limit.v1",
+                1,
+                "payment",
+                2,
+                OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
+                proofData);
+        assertThrows(CommonException.class, () -> codec.decode(mapper.writeValueAsString(legacyTypeWithProof)));
+
+        var valid = financialEvent(1, proofData);
+        assertThrows(
+                CommonException.class, () -> codec.decode(mapper.writeValueAsString(financialEvent(2, proofData))));
+        var mismatchedAmount =
+                mapper.writeValueAsString(valid).replaceFirst("\"amountMinor\":1000", "\"amountMinor\":999");
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, () -> codec.decode(mismatchedAmount))
+                        .getResultCode());
     }
 
     @Test

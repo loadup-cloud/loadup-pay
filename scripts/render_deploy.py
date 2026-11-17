@@ -25,13 +25,23 @@ INTERNAL_NAMESPACE_APPS = {"notificationcenter"}
 CALLERS = {
     "merchantcenter": ["productcenter", "admin", "oauth2-server"],
     "productcenter": ["acquire", "admin"],
-    "admin": [],
+    "admin": ["oauth2-server"],
     "limitcenter": ["productcenter", "payment"],
     "payment": ["acquire", "limitcenter", "reconciliation"],
     "acquire": ["payment"],
     "realtime": ["acquire", "payment"],
     "reconciliation": [],
-    "oauth2-server": ["merchantcenter", "productcenter", "limitcenter", "payment", "acquire", "realtime", "reconciliation", "notificationcenter"],
+    "oauth2-server": [
+        "merchantcenter",
+        "productcenter",
+        "limitcenter",
+        "payment",
+        "acquire",
+        "realtime",
+        "reconciliation",
+        "notificationcenter",
+        "admin",
+    ],
     "notificationcenter": [],
 }
 

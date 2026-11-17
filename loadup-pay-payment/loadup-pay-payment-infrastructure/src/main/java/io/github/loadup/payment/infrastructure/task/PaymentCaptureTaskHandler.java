@@ -15,13 +15,13 @@
  */
 package io.github.loadup.payment.infrastructure.task;
 
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
 import io.github.loadup.payment.app.service.PaymentCaptureExecutionService;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PaymentCaptureTaskHandler implements DelayedTaskHandler {
+public class PaymentCaptureTaskHandler implements TaskHandler {
     private final PaymentCaptureExecutionService service;
 
     public PaymentCaptureTaskHandler(PaymentCaptureExecutionService service) {
@@ -34,7 +34,7 @@ public class PaymentCaptureTaskHandler implements DelayedTaskHandler {
     }
 
     @Override
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         service.handle(task);
     }
 }

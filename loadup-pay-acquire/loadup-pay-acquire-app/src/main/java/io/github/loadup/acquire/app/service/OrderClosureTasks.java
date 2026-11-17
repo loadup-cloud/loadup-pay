@@ -15,15 +15,14 @@
  */
 package io.github.loadup.acquire.app.service;
 
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.acquire.domain.model.OrderTaskKey;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,11 +35,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 public class OrderClosureTasks {
     public static final String TYPE = "pay.acquire.order.close.progress";
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final long pollDelaySeconds;
 
     public OrderClosureTasks(
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             @Value("${loadup.modules.acquire.order-close.poll-delay-seconds:30}") long pollDelaySeconds) {
         DomainViolation.require(
                 pollDelaySeconds >= 1 && pollDelaySeconds <= 86400, DomainViolation.Reason.INVALID_ARGUMENT);
@@ -48,29 +47,27 @@ public class OrderClosureTasks {
         this.pollDelaySeconds = pollDelaySeconds;
     }
 
-    public void register(String tenant, OrderCloseIntent intent) {
-        writable(tenant);
+    public void register(OrderCloseIntent intent) {
+        writable();
         if (intent.rowVersion() != 0L || !intent.cursorPaymentId().isEmpty()) {
             throw new CommonException(INVALID_STATE);
         }
-        tasks.register(TYPE, new OrderTaskKey(intent.orderId(), intent.rowVersion()).bizId(), intent.requestedAt());
+        tasks.submit(TaskSubmission.scheduled(
+                TYPE, new OrderTaskKey(intent.orderId(), intent.rowVersion()).bizId(), intent.requestedAt()));
     }
 
-    void schedule(String tenant, OrderCloseIntent advanced, LocalDateTime at) {
-        writable(tenant);
+    void schedule(OrderCloseIntent advanced, LocalDateTime at) {
+        writable();
         if (advanced.rowVersion() < 1) {
             throw new CommonException(INVALID_STATE);
         }
-        tasks.register(
+        tasks.submit(TaskSubmission.scheduled(
                 TYPE,
                 new OrderTaskKey(advanced.orderId(), advanced.rowVersion()).bizId(),
-                at.truncatedTo(ChronoUnit.MICROS).plusSeconds(pollDelaySeconds));
+                at.truncatedTo(ChronoUnit.MICROS).plusSeconds(pollDelaySeconds)));
     }
 
-    private void writable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);

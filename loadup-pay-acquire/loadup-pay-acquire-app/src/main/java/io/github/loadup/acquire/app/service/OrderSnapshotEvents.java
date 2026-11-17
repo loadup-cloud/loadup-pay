@@ -15,7 +15,6 @@
  */
 package io.github.loadup.acquire.app.service;
 
-import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
@@ -25,28 +24,28 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
 import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class OrderSnapshotEvents {
-    public static final String TYPE = "pay.acquire.snapshot.realtime.v1";
+    public static final String DELIVERY_TYPE = "pay.acquire.snapshot.realtime.v1";
     private final OrderSnapshotReader headers;
     private final OrderSnapshotConverter converter;
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final IdGenerator ids;
     private final MerchantNotificationEvents notifications;
 
     public OrderSnapshotEvents(
             OrderSnapshotReader headers,
             OrderSnapshotConverter converter,
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             IdGenerator ids,
             MerchantNotificationEvents notifications) {
         this.headers = headers;
@@ -56,13 +55,10 @@ public class OrderSnapshotEvents {
         this.notifications = notifications;
     }
 
-    public void publish(String tenant, String orderId, long expectedVersion) {
+    public void publish(String orderId, long expectedVersion) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        }
-        if (!tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
         }
         DomainChecks.id(orderId);
         var header = headers.lockCurrent(orderId);
@@ -79,13 +75,13 @@ public class OrderSnapshotEvents {
                 ids.generate(),
                 ids.generate(),
                 "acquire",
-                TYPE,
+                BusinessEventTypes.ORDER_SNAPSHOT,
                 1,
                 orderId,
                 expectedVersion,
                 BusinessTime.external(header.sourceUpdatedAt()),
                 data);
-        outbox.publish(new OutboxMessage(TYPE, 1, orderId, JsonUtil.toJson(event)));
-        notifications.order(tenant, header);
+        outbox.submit(TaskSubmission.immediate(DELIVERY_TYPE, 1, orderId, JsonUtil.toJson(event)));
+        notifications.order(header);
     }
 }

@@ -23,10 +23,8 @@ import java.util.Objects;
 /**
  * Identity facts established by the transport's verified credentials.
  */
-public record CustomerActor(
-        String tenantId, PrincipalType principalType, String principalId, String merchantId, boolean canManage) {
+public record CustomerActor(PrincipalType principalType, String principalId, String merchantId, boolean canManage) {
     public CustomerActor {
-        DomainChecks.id(tenantId);
         Objects.requireNonNull(principalType);
         DomainChecks.text(principalId, 128);
         if (merchantId != null) {

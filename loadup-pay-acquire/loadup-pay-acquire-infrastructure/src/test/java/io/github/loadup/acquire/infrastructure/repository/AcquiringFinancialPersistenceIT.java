@@ -66,11 +66,10 @@ import io.github.loadup.acquire.infrastructure.codec.PaymentInitiationCodecImpl;
 import io.github.loadup.acquire.infrastructure.converter.OrderCreationStorageConverter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
@@ -167,7 +166,7 @@ class AcquiringFinancialPersistenceIT {
     @ValueSource(strings = {"ORDER", "DIRECT_PAY"})
     void originalCreationModesRebuildFromTheirOwnPayloadAndDigest(String mode) {
         var fixture = seed(mode);
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var rebuilt = orders.findOrder(fixture.stored().order().id()).orElseThrow();
             assertEquals(fixture.stored(), rebuilt);
             return true;
@@ -196,7 +195,7 @@ class AcquiringFinancialPersistenceIT {
         } finally {
             start.countDown();
         }
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var order = current(fixture).order();
             assertEquals(2000L, order.paymentReservedMinor());
             assertEquals(1, order.reservedPaymentCount());
@@ -215,7 +214,7 @@ class AcquiringFinancialPersistenceIT {
         var fixture = seed("ORDER");
         remote.failSnapshot.set(true);
         assertThrows(IllegalStateException.class, () -> starts.startPayment(startCommand(fixture, 2000L)));
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(AcquireOrderState.INIT, current(fixture).order().state());
             assertEquals(0L, current(fixture).order().paymentReservedMinor());
             assertEquals(0L, allocationCount(fixture));
@@ -237,7 +236,7 @@ class AcquiringFinancialPersistenceIT {
                 IllegalStateException.class,
                 () -> progress.refresh(new PaymentProgressRefreshCommand(
                         fixture.stored().order().id(), payment)));
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var order = current(fixture).order();
             assertEquals(AcquireOrderState.PENDING, order.state());
             assertEquals(0L, order.paidAmountMinor());
@@ -305,7 +304,7 @@ class AcquiringFinancialPersistenceIT {
 
     private AcquiringPersistenceFixtures.Fixture seed(String mode) {
         var fixture = AcquiringPersistenceFixtures.order(codec, converter, mode);
-        transactions.writeLocal(fixture.tenant(), () -> {
+        transactions.writeLocal(() -> {
             orders.insertIntent(fixture.intent());
             orders.insertOrder(fixture.stored(), fixture.fee(), fixture.feePayload());
             orders.updateIntent(
@@ -318,8 +317,7 @@ class AcquiringFinancialPersistenceIT {
                     0L);
             return true;
         });
-        remote.actor.set(new AcquireActor(
-                fixture.tenant(), OWNER, null, Set.of("pay:acquire:payment:start", "pay:acquire:payment:refresh")));
+        remote.actor.set(new AcquireActor(OWNER, Set.of("pay:acquire:payment:start", "pay:acquire:payment:refresh")));
         return fixture;
     }
 
@@ -337,7 +335,7 @@ class AcquiringFinancialPersistenceIT {
     }
 
     private void assertPaidOnce(AcquiringPersistenceFixtures.Fixture fixture, String payment) {
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var order = current(fixture).order();
             assertEquals(AcquireOrderState.PAID, order.state());
             assertEquals(10000L, order.paidAmountMinor());
@@ -387,15 +385,15 @@ class AcquiringFinancialPersistenceIT {
     }
 
     private long nativeCount(AcquiringPersistenceFixtures.Fixture f) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM delayed_task", Long.class);
+        return jdbc.queryForObject("SELECT COUNT(*) FROM loadup_task WHERE payload IS NULL", Long.class);
     }
 
     private long outboxCount(AcquiringPersistenceFixtures.Fixture f) {
         return Objects.requireNonNull(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM loadup_outbox_event WHERE business_id = ? AND event_type = ?",
+                "SELECT COUNT(*) FROM loadup_task WHERE payload IS NOT NULL AND biz_id = ? AND task_type = ?",
                 Long.class,
                 f.stored().order().id(),
-                OrderSnapshotEvents.TYPE));
+                OrderSnapshotEvents.DELIVERY_TYPE));
     }
 
     private String feeState(AcquiringPersistenceFixtures.Fixture f) {
@@ -426,7 +424,7 @@ class AcquiringFinancialPersistenceIT {
             when(acceptance.accept(any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                 PaymentExecuteCommand command = c.getArgument(0);
-                String key = TenantUtil.getTenantId() + "/" + command.paymentId();
+                String key = command.paymentId();
                 commands.compute(key, (ignored, old) -> {
                     if (old != null) {
                         assertEquals(old, command);
@@ -437,7 +435,7 @@ class AcquiringFinancialPersistenceIT {
             });
             when(outcomes.outcome(anyString())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                PaymentExecuteCommand command = commands.get(TenantUtil.getTenantId() + "/" + c.getArgument(0));
+                PaymentExecuteCommand command = commands.get(c.getArgument(0));
                 assertNotNull(command);
                 return new PaymentOutcomeDTO(response(command, successful.contains(command.paymentId())), false);
             });
@@ -468,7 +466,7 @@ class AcquiringFinancialPersistenceIT {
         FaultingSnapshotEvents(
                 OrderSnapshotReader reader,
                 OrderSnapshotConverter converter,
-                OutboxTemplate outbox,
+                TaskTemplate outbox,
                 IdGenerator ids,
                 MerchantNotificationEvents notifications,
                 RemotePayment remote) {
@@ -476,9 +474,8 @@ class AcquiringFinancialPersistenceIT {
             this.remote = remote;
         }
 
-        @Override
-        public void publish(String tenant, String orderId, long expectedVersion) {
-            super.publish(tenant, orderId, expectedVersion);
+        public void publish(String orderId, long expectedVersion) {
+            super.publish(orderId, expectedVersion);
             if (remote.failSnapshot.getAndSet(false)) {
                 throw new IllegalStateException("Injected after real snapshot Outbox publication");
             }
@@ -541,7 +538,7 @@ class AcquiringFinancialPersistenceIT {
         OrderSnapshotEvents snapshotEvents(
                 OrderSnapshotReader reader,
                 OrderSnapshotConverter converter,
-                OutboxTemplate outbox,
+                TaskTemplate outbox,
                 IdGenerator ids,
                 MerchantNotificationEvents notifications,
                 RemotePayment remote) {

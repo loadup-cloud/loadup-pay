@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.contracts.event.payment.RefundSnapshotEventDTO;
@@ -47,7 +48,8 @@ class PaymentEventContractTest {
                         PaymentState.FAILED,
                         2,
                         "evidence",
-                        false));
+                        false,
+                        null));
         assertThrows(
                 DomainViolation.class,
                 () -> new PaymentOutcomeEventDTO(
@@ -61,7 +63,8 @@ class PaymentEventContractTest {
                         PaymentState.SUCCEEDED,
                         2,
                         null,
-                        false));
+                        false,
+                        null));
         var event = new PaymentOutcomeEventDTO(
                 "payment",
                 "order",
@@ -73,7 +76,8 @@ class PaymentEventContractTest {
                 PaymentState.UNKNOWN,
                 2,
                 null,
-                false);
+                false,
+                null);
         assertEquals(PaymentState.UNKNOWN, event.state());
     }
 
@@ -141,5 +145,98 @@ class PaymentEventContractTest {
                         3,
                         created,
                         event)));
+    }
+
+    @Test
+    void completeFinancialEvidenceRequiresTerminalCollectionOrPermanentNoCollection() {
+        var initiated = OffsetDateTime.parse("2026-11-16T11:59:00+08:00");
+        assertThrows(
+                DomainViolation.class,
+                () -> new PaymentFinancialEvidence(
+                        1,
+                        "payment",
+                        "order",
+                        "allocation",
+                        "operation",
+                        "merchant",
+                        100,
+                        "CNY",
+                        PaymentState.SUCCEEDED,
+                        2,
+                        "proof",
+                        null,
+                        initiated,
+                        initiated.plusSeconds(1),
+                        false));
+        assertThrows(
+                DomainViolation.class,
+                () -> new PaymentFinancialEvidence(
+                        1,
+                        "payment",
+                        "order",
+                        "allocation",
+                        "operation",
+                        "merchant",
+                        100,
+                        "CNY",
+                        PaymentState.UNKNOWN,
+                        2,
+                        "proof",
+                        "attempt",
+                        initiated,
+                        null,
+                        true));
+        assertThrows(
+                DomainViolation.class,
+                () -> new PaymentFinancialEvidence(
+                        1,
+                        "payment",
+                        "order",
+                        "allocation",
+                        "operation",
+                        "merchant",
+                        100,
+                        "CNY",
+                        PaymentState.FAILED,
+                        2,
+                        "proof",
+                        "attempt",
+                        initiated,
+                        null,
+                        false));
+        assertThrows(
+                DomainViolation.class,
+                () -> new PaymentFinancialEvidence(
+                        1,
+                        "payment",
+                        "order",
+                        "allocation",
+                        "operation",
+                        "merchant",
+                        100,
+                        "CNY",
+                        PaymentState.SUCCEEDED,
+                        2,
+                        "proof",
+                        "attempt",
+                        initiated,
+                        initiated.minusSeconds(1),
+                        false));
+        assertDoesNotThrow(() -> new PaymentFinancialEvidence(
+                1,
+                "payment",
+                "order",
+                "allocation",
+                "operation",
+                "merchant",
+                100,
+                "CNY",
+                PaymentState.CLOSED,
+                2,
+                "proof",
+                null,
+                initiated,
+                null,
+                true));
     }
 }

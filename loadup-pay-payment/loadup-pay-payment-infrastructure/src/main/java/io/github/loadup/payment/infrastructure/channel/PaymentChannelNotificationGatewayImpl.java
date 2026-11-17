@@ -15,13 +15,11 @@
  */
 package io.github.loadup.payment.infrastructure.channel;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.facade.ChannelNotificationFacade;
 import io.github.loadup.components.payment.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
@@ -57,16 +55,12 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
         if (channel == null || bindingRevisionId == null || input == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var binding = bindings.findRevision(bindingRevisionId)
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         if (binding.channel() != channel) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return notifications.identify(new ChannelExecutionContext(tenant, binding), input);
+        return notifications.identify(new ChannelExecutionContext(binding), input);
     }
 
     @Override
@@ -77,13 +71,9 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
         if (target == null || input == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var binding = bindings.findRevision(target.identity().bindingRevisionId())
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-        return notifications.verify(new ChannelExecutionContext(tenant, binding), target, input);
+        return notifications.verify(new ChannelExecutionContext(binding), target, input);
     }
 
     @Override
@@ -109,16 +99,12 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
         if (channel == null || revision == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var binding =
                 bindings.findRevision(revision).orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         if (binding.channel() != channel) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return new ChannelExecutionContext(tenant, binding);
+        return new ChannelExecutionContext(binding);
     }
 
     @Override

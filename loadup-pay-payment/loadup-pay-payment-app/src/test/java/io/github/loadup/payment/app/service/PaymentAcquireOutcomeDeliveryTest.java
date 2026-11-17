@@ -27,10 +27,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.acquire.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -39,10 +41,10 @@ class PaymentAcquireOutcomeDeliveryTest {
     final PaymentOutcomeDeliverySupport support = mock(PaymentOutcomeDeliverySupport.class);
     final PaymentAcquireClient acquire = mock(PaymentAcquireClient.class);
     final PaymentAcquireOutcomeDelivery delivery = new PaymentAcquireOutcomeDelivery(support, acquire);
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue-event",
-            new OutboxMessage(PaymentEvents.ACQUIRE, 1, "payment", "{}"),
-            OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE)
+            new TaskSubmission(PaymentDeliveryRoutes.ACQUIRE, 1, "payment", "{}", LocalDateTime.now(), ""),
+            OutcomeDeliveryFixtures.snapshot(true, true, PaymentDeliveryRoutes.ACQUIRE)
                     .envelope()
                     .occurredAt()
                     .toInstant(),
@@ -50,8 +52,8 @@ class PaymentAcquireOutcomeDeliveryTest {
 
     @BeforeEach
     void setup() {
-        when(support.load(event, PaymentEvents.ACQUIRE))
-                .thenReturn(OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE));
+        when(support.load(event, PaymentDeliveryRoutes.ACQUIRE))
+                .thenReturn(OutcomeDeliveryFixtures.snapshot(true, true, PaymentDeliveryRoutes.ACQUIRE));
         when(acquire.accept(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "evidence", 2, true);
@@ -63,7 +65,7 @@ class PaymentAcquireOutcomeDeliveryTest {
         delivery.deliver(event);
         delivery.deliver(event);
         verify(acquire, times(2))
-                .accept(OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE)
+                .accept(OutcomeDeliveryFixtures.snapshot(true, true, PaymentDeliveryRoutes.ACQUIRE)
                         .envelope());
     }
 

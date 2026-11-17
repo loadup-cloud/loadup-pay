@@ -29,8 +29,9 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationConverter;
 import io.github.loadup.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.reconciliation.app.port.ReconciliationDifferenceReader;
@@ -69,7 +70,7 @@ public class ReconciliationService implements ReconciliationFacade {
     private final ReconciliationDifferenceReader differences;
     private final ReconciliationTransactions transactions;
     private final ReconciliationConverter converter;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
@@ -82,7 +83,7 @@ public class ReconciliationService implements ReconciliationFacade {
             ReconciliationDifferenceReader differences,
             ReconciliationTransactions transactions,
             ReconciliationConverter converter,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             IdGenerator ids,
             Validator validator,
             Clock clock) {
@@ -104,13 +105,12 @@ public class ReconciliationService implements ReconciliationFacade {
         validate(command);
         var actor = actor("create");
         var digest = digest(actor, command);
-        var existing = transactions.readSnapshot(
-                actor.tenantId(), () -> batches.findRequest(actor.serviceId(), command.requestKey()));
+        var existing = transactions.readSnapshot(() -> batches.findRequest(actor.serviceId(), command.requestKey()));
         if (existing.isPresent()) {
             return replay(actor, existing.get(), digest);
         }
         var scope = accounts.resolve(actor.serviceId(), command.channelAccountCode(), command.billDate());
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var raced = batches.findRequest(actor.serviceId(), command.requestKey());
             if (raced.isPresent()) {
                 return replay(actor, raced.get(), digest);
@@ -127,7 +127,7 @@ public class ReconciliationService implements ReconciliationFacade {
     public ReconciliationBatchDTO attach(ReconciliationInputAttachCommand command) {
         validate(command);
         var actor = actor("attach");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var stored =
                     checked(actor, batches.lock(command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var input = inputs.sealedManifest(command.artifactId())
@@ -155,7 +155,7 @@ public class ReconciliationService implements ReconciliationFacade {
     public ReconciliationBatchDTO start(ReconciliationBatchStartCommand command) {
         validate(command);
         var actor = actor("start");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var stored =
                     checked(actor, batches.lock(command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (stored.batch().state() == ReconciliationState.RUNNING || terminal(stored.batch())) {
@@ -166,10 +166,10 @@ public class ReconciliationService implements ReconciliationFacade {
             }
             var next = stored.batch().begin(ids.generate());
             batches.update(converter.withBatch(stored, next), stored.batch().version());
-            tasks.register(
+            tasks.submit(TaskSubmission.scheduled(
                     ReconciliationExecutionService.TYPE,
                     next.runId(),
-                    LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
+                    LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS)));
             return converter.toDTO(next);
         });
     }
@@ -178,7 +178,7 @@ public class ReconciliationService implements ReconciliationFacade {
     public ReconciliationBatchDTO retry(ReconciliationBatchRetryCommand command) {
         validate(command);
         var actor = actor("retry");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var stored =
                     checked(actor, batches.lock(command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var batch = stored.batch();
@@ -196,10 +196,10 @@ public class ReconciliationService implements ReconciliationFacade {
             if (!command.expectedTaskId().equals(task.id())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
-            if (task.status() != DelayedTaskStatus.FAILED) {
+            if (task.status() != TaskStatus.FAILED) {
                 throw new CommonException(INVALID_STATE);
             }
-            tasks.retryFailed(ReconciliationExecutionService.TYPE, batch.runId());
+            tasks.retryFailed(task.id(), actor.serviceId(), "Explicit business retry");
             return converter.toDTO(batch);
         });
     }
@@ -208,14 +208,14 @@ public class ReconciliationService implements ReconciliationFacade {
     public ReconciliationBatchDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var batch = checked(actor, batches.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))
                     .batch();
             var dto = converter.toDTO(batch);
             if (batch.runId() == null) {
                 return dto;
             }
-            var task = nativeTask(actor.tenantId(), batch);
+            var task = nativeTask(batch);
             return new ReconciliationBatchDTO(
                     dto.batchId(),
                     dto.channel(),
@@ -239,13 +239,13 @@ public class ReconciliationService implements ReconciliationFacade {
     public ReconciliationBatchTaskDTO task(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var batch = checked(actor, batches.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))
                     .batch();
             if (batch.runId() == null) {
                 throw new CommonException(INVALID_STATE);
             }
-            return nativeTask(actor.tenantId(), batch);
+            return nativeTask(batch);
         });
     }
 
@@ -253,7 +253,7 @@ public class ReconciliationService implements ReconciliationFacade {
     public PageDTO<ReconciliationDifferenceDTO> differences(ReconciliationDifferenceQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var stored =
                     checked(actor, batches.find(query.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!terminal(stored.batch())) {
@@ -282,7 +282,7 @@ public class ReconciliationService implements ReconciliationFacade {
         });
     }
 
-    private ReconciliationBatchTaskDTO nativeTask(String tenant, ReconciliationBatch batch) {
+    private ReconciliationBatchTaskDTO nativeTask(ReconciliationBatch batch) {
         var task = tasks.find(ReconciliationExecutionService.TYPE, batch.runId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!batch.runId().equals(task.bizId())
@@ -337,7 +337,6 @@ public class ReconciliationService implements ReconciliationFacade {
         var value = new StringBuilder();
         for (String part : List.of(
                 "reconciliation-create-v1",
-                actor.tenantId(),
                 actor.serviceId(),
                 command.requestKey(),
                 command.channelAccountCode(),

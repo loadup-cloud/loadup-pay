@@ -50,6 +50,6 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
         if (!actor.permissions().contains("pay:acquire:close")) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        return operations.close(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), command);
+        return operations.close(new OrderPaymentScope(actor.scopeHash()), command);
     }
 }

@@ -23,9 +23,8 @@ import java.util.Set;
 /**
  * Exactly one service or merchant scope, supplied only by the verified JWT adapter.
  */
-public record RealtimeActor(String tenantId, String serviceId, String merchantId, Set<String> permissions) {
+public record RealtimeActor(String serviceId, String merchantId, Set<String> permissions) {
     public RealtimeActor {
-        DomainChecks.id(tenantId);
         permissions = Set.copyOf(permissions);
         DomainViolation.require((serviceId == null) != (merchantId == null), DomainViolation.Reason.INVALID_ARGUMENT);
         if (serviceId != null) {

@@ -19,7 +19,6 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.limitcenter.infrastructure.config.LimitPermitProperties;
@@ -49,7 +48,6 @@ public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
             long executionEpoch,
             String requestKey,
             String permitKeyId) {
-        String tenant = TenantUtil.getTenantId();
         String secret = properties.keys().get(permitKeyId);
         if (secret == null) {
             throw new CommonException(PERMIT_UNAVAILABLE);
@@ -58,7 +56,6 @@ public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
         var data = new StringBuilder();
         Object[] fields = {
             "loadup-pay-limit-execution-v1",
-            tenant,
             stored.callerServiceId(),
             value.id(),
             value.operationId(),

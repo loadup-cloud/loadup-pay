@@ -30,7 +30,7 @@ import io.github.loadup.acquire.infrastructure.client.CheckoutPresentationImpl;
 import io.github.loadup.acquire.infrastructure.config.CheckoutProperties;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.runtime.deployment.DeploymentIdentity;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -139,14 +139,16 @@ class HmacCheckoutTokensTest {
 
     @Test
     void pageOriginIsServerControlledAndCapabilitiesRemainOnlyInTheFragment() {
-        var presentation = new CheckoutPresentationImpl(properties("v1", Map.of("v1", oldSecret)));
-        var url = URI.create(
-                TenantUtil.callWithTenant("tenant", () -> presentation.url("order", "synthetic-capability")));
+        var presentation = new CheckoutPresentationImpl(
+                properties("v1", Map.of("v1", oldSecret)), new DeploymentIdentity("local"));
+        var url = URI.create(presentation.url("order", "synthetic-capability"));
         assertNull(url.getQuery());
         assertTrue(url.getFragment().contains("synthetic-capability"));
         assertEquals("https://pay.example", presentation.allowedOrigin());
-        var canonical = new CheckoutPresentationImpl(new CheckoutProperties(
-                URI.create("https://PAY.example:443/checkout"), "checkout", "v1", Map.of("v1", oldSecret)));
+        var canonical = new CheckoutPresentationImpl(
+                new CheckoutProperties(
+                        URI.create("https://PAY.example:443/checkout"), "checkout", "v1", Map.of("v1", oldSecret)),
+                new DeploymentIdentity("local"));
         assertEquals("https://pay.example", canonical.allowedOrigin());
     }
 

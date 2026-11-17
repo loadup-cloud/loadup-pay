@@ -15,12 +15,10 @@
  */
 package io.github.loadup.payment.infrastructure.channel;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.facade.ChannelPaymentFacade;
 import io.github.loadup.components.payment.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
@@ -62,7 +60,7 @@ public class PaymentChannelGatewayImpl implements PaymentChannelGateway {
     @Override
     public ChannelPaymentSubmission submit(PreparedChannelPayment payment) {
         var context = context(payment.identity());
-        return channels.submit(context, requests.create(context.tenantId(), payment));
+        return channels.submit(context, requests.create(payment));
     }
 
     @Override
@@ -105,12 +103,8 @@ public class PaymentChannelGatewayImpl implements PaymentChannelGateway {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
         var binding = bindings.findRevision(identity.bindingRevisionId())
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-        return new ChannelExecutionContext(tenant, binding);
+        return new ChannelExecutionContext(binding);
     }
 }

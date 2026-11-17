@@ -21,14 +21,12 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_ARGUMENT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.limitcenter.app.security.LimitActor;
 import io.github.loadup.limitcenter.domain.gateway.LimitWriteRaceException;
 import jakarta.validation.Validation;
@@ -47,7 +45,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class LimitTransactionsTest {
     final Manager manager = new Manager();
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
-    final LimitActor actor = new LimitActor("tenant", "payment", Set.of("pay:limit:reserve"));
+    final LimitActor actor = new LimitActor("payment", Set.of("pay:limit:reserve"));
     final LimitTransactions transactions = new LimitTransactions(() -> actor, validation.getValidator(), manager);
 
     @AfterEach
@@ -58,27 +56,21 @@ class LimitTransactionsTest {
     @Test
     void contextScopeDoesNotStartATransactionAndRestoresTenantOnFailure() {
         var original = new IllegalStateException("Synthetic scope failure");
-        TenantUtil.callWithTenant("outer", () -> {
-            assertSame(
-                    original,
-                    assertThrows(
-                            IllegalStateException.class,
-                            () -> transactions.withTenantContext(actor, () -> {
-                                assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                                assertEquals("tenant", TenantUtil.getTenantId());
-                                throw original;
-                            })));
-            assertEquals("outer", TenantUtil.getTenantId());
-            return true;
-        });
+        assertSame(
+                original,
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> transactions.guarded(() -> {
+                            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+                            throw original;
+                        })));
         assertEquals(0, manager.begins);
     }
 
     @Test
     void localReservationRetriesAfterRollbackWithTheOriginalActorAndConflictPolicy() {
         var calls = new AtomicInteger();
-        assertEquals("reserved", transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
-            assertEquals("tenant", TenantUtil.getTenantId());
+        assertEquals("reserved", transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
@@ -94,7 +86,7 @@ class LimitTransactionsTest {
         assertEquals(1, manager.commits);
         var exhausted = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+                () -> transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
                     throw new ConcurrencyFailureException("Synthetic repeated reservation contention");
                 }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
@@ -106,32 +98,28 @@ class LimitTransactionsTest {
     void domainFailuresKeepTheirModuleMappingAndNeverTriggerDatabaseRetry() {
         var conflict = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal(actor, INVALID_ARGUMENT, () -> {
+                () -> transactions.writeLocal(INVALID_ARGUMENT, () -> {
                     throw new DomainViolation(DomainViolation.Reason.CONFLICT);
                 }));
         assertEquals(INVALID_ARGUMENT, conflict.getResultCode());
         var exceeded = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+                () -> transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
                     throw new DomainViolation(DomainViolation.Reason.AMOUNT_EXCEEDED);
                 }));
         assertEquals(EXCEEDED, exceeded.getResultCode());
         assertEquals(2, manager.begins);
         assertEquals(2, manager.rollbacks);
-        transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
-            assertTrue(transactions.withTenantContext(
-                    actor, () -> TransactionSynchronizationManager.isActualTransactionActive()));
+        transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
+            assertTrue(transactions.guarded(() -> TransactionSynchronizationManager.isActualTransactionActive()));
             assertEquals(
                     CONCURRENT_UPDATE,
-                    assertThrows(
-                                    CommonException.class,
-                                    () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> true))
+                    assertThrows(CommonException.class, () -> transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> true))
                             .getResultCode());
             return true;
         });
         assertEquals(3, manager.begins);
         assertEquals(1, manager.commits);
-        assertNull(TenantUtil.getTenantId());
     }
 
     @Test
@@ -142,7 +130,7 @@ class LimitTransactionsTest {
                 failure,
                 assertThrows(
                         DuplicateKeyException.class,
-                        () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+                        () -> transactions.writeLocal(IDEMPOTENCY_CONFLICT, () -> {
                             calls.incrementAndGet();
                             throw failure;
                         })));

@@ -117,21 +117,20 @@ public class PaymentExecutionService {
         return state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED;
     }
 
-    public void progress(String tenant, String paymentId) {
+    public void progress(String paymentId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        DomainChecks.id(tenant);
         DomainChecks.id(paymentId);
-        transactions.withTenantContext(tenant, () -> {
+        transactions.guarded(() -> {
             final Optional<Work> pending;
             try {
-                pending = snapshot(tenant, paymentId, false);
+                pending = snapshot(paymentId, false);
             } catch (CommonException rejected) {
                 if (!initialRejection(rejected)) {
                     throw rejected;
                 }
-                snapshot(tenant, paymentId, true);
+                snapshot(paymentId, true);
                 return true;
             }
             if (pending.isEmpty()) {
@@ -142,7 +141,7 @@ public class PaymentExecutionService {
                 final Optional<PaymentSubmissionTicket> ticket;
                 try {
                     ticket = submission.prepare(
-                            tenant, paymentId, work.attempt().attempt().id());
+                            paymentId, work.attempt().attempt().id());
                 } catch (CommonException rejected) {
                     if (initialRejection(rejected)
                             || rejected.getResultCode() == LIMIT_EXCEEDED
@@ -151,7 +150,7 @@ public class PaymentExecutionService {
                             || rejected.getResultCode() == ChannelResultCodeEnum.INVALID_ARGUMENT
                             || rejected.getResultCode() == ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
                             || rejected.getResultCode() == ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH) {
-                        snapshot(tenant, paymentId, true);
+                        snapshot(paymentId, true);
                         return true;
                     }
                     throw rejected;
@@ -161,7 +160,7 @@ public class PaymentExecutionService {
                 }
                 // This in-memory Y2 winner is consumed exactly once, even when the response or Y3 commit is lost.
                 var prepared = ticket.get().payment();
-                var applied = results.recordSubmission(tenant, prepared, channels.submit(prepared));
+                var applied = results.recordSubmission(prepared, channels.submit(prepared));
                 if (applied.disposition() == PaymentReceiptDisposition.CONFLICT) {
                     throw new CommonException(OUTCOME_UNKNOWN);
                 }
@@ -174,10 +173,10 @@ public class PaymentExecutionService {
                 }
                 final PaymentResultApplication applied;
                 if (work.closing()) {
-                    applied = closing.close(tenant, work.attempt());
+                    applied = closing.close(work.attempt());
                 } else {
                     var recovery = conversions.toRecovery(work.attempt(), work.payableUntil());
-                    applied = results.recordRecovery(tenant, recovery, channels.recover(recovery));
+                    applied = results.recordRecovery(recovery, channels.recover(recovery));
                 }
                 if (applied.disposition() == PaymentReceiptDisposition.CONFLICT) {
                     throw new CommonException(OUTCOME_UNKNOWN);
@@ -187,10 +186,10 @@ public class PaymentExecutionService {
         });
     }
 
-    private Optional<Work> snapshot(String tenant, String paymentId, boolean rejectUnsubmitted) {
-        return transactions.writeLocal(tenant, () -> {
+    private Optional<Work> snapshot(String paymentId, boolean rejectUnsubmitted) {
+        return transactions.writeLocal(() -> {
             var found = payments.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
-            var locked = locks.lock(tenant, paymentId, found.callerServiceId());
+            var locked = locks.lock(paymentId, found.callerServiceId());
             var accepted = locked.payment();
             var order = accepted.payment();
             if (terminal(order.state())) {
@@ -249,11 +248,11 @@ public class PaymentExecutionService {
                 if (nextOrder.version() != order.version()) {
                     changes.updatePayment(updated, order.version());
                     if (!terminal(nextOrder.state())) {
-                        events.publishSnapshot(tenant, updated, now());
+                        events.publishSnapshot(updated, now());
                     }
                 }
                 if (terminal(nextOrder.state())) {
-                    events.publish(tenant, updated, true, now());
+                    events.publish(updated, true, now());
                     return Optional.empty();
                 }
                 return Optional.of(new Work(stored, true, payableUntil));
@@ -262,7 +261,7 @@ public class PaymentExecutionService {
                 String requestKey = "initial/" + paymentId;
                 // The original complete request digest already binds tenant, caller and frozen payment parameters.
                 var updated = initial.create(
-                        tenant, accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
+                        accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
                 stored = attempts.lock(updated.payment().activeAttemptId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 PaymentExecutionBindings.activeContext(

@@ -16,7 +16,6 @@
 package io.github.loadup.limitcenter.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.limitcenter.app.security.LimitActor;
 import io.github.loadup.limitcenter.app.security.LimitActorProvider;
 import io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum;
@@ -27,11 +26,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtLimitActorProvider implements LimitActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtLimitActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     private static CommonException forbidden() {
         return new CommonException(LimitCenterResultCodeEnum.ACTION_FORBIDDEN);
@@ -46,7 +40,6 @@ public class JwtLimitActorProvider implements LimitActorProvider {
             throw forbidden();
         }
         try {
-            String tenant = databaseTenant.currentTenantId();
             String service = jwt.getClaimAsString("service_id");
             if (!"SERVICE".equals(jwt.getClaimAsString("principal_type"))
                     || service == null
@@ -55,7 +48,6 @@ public class JwtLimitActorProvider implements LimitActorProvider {
                 throw forbidden();
             }
             return new LimitActor(
-                    tenant,
                     service,
                     authentication.getAuthorities().stream()
                             .map(authority -> authority.getAuthority())

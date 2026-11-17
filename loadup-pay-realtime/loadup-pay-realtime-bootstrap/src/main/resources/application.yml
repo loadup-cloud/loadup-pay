@@ -45,6 +45,8 @@ management:
         http.server.requests: true
 
 loadup:
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
   webmvc:
     request-body:
       path-prefix: /api/internal/
@@ -54,9 +56,7 @@ loadup:
       payment-service-id: ${REALTIME_PAYMENT_SERVICE_ID:payment}
       acquire-service-id: ${REALTIME_ACQUIRE_SERVICE_ID:acquire}
   database:
-    multi-tenant:
-      enabled: false
-      required: false
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:
     enabled: true
     locations:

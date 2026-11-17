@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.domain.model.RefundAcceptanceEvidence;
@@ -121,7 +120,7 @@ class RefundAcceptanceGatewayImplTest {
 
     @Test
     void firstAcceptanceHasOneImmutableReceiptAndDifferentTimeNeverOverwritesIt() {
-        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 2L)));
+        assertTrue(gateway.remember(first, 2L));
         var stored = converter.toDO(first);
         assertEquals(first, converter.toModel(stored));
         when(receipts.query(
@@ -129,16 +128,11 @@ class RefundAcceptanceGatewayImplTest {
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
                 .thenReturn(List.of(stored));
-        assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember(evidence(at, "later-receipt"), 2L)));
-        assertFalse(TenantUtil.callWithTenant(
-                "tenant", () -> gateway.remember(evidence(at.plusMinutes(1), "later-receipt"), 2L)));
+        assertTrue(gateway.remember(evidence(at, "later-receipt"), 2L));
+        assertFalse(gateway.remember(evidence(at.plusMinutes(1), "later-receipt"), 2L));
         verify(receipts, times(1))
                 .update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class));
-        assertEquals(
-                "receipt",
-                TenantUtil.callWithTenant("tenant", () -> gateway.find("refund"))
-                        .orElseThrow()
-                        .receiptId());
+        assertEquals("receipt", gateway.find("refund").orElseThrow().receiptId());
         assertEquals(at, stored.getAcceptedAt());
     }
 
@@ -146,21 +140,15 @@ class RefundAcceptanceGatewayImplTest {
     void missingReceiptWrongVersionOrTimeBeforePaymentCannotCreateMetadata() {
         assertEquals(
                 SNAPSHOT_INVALID,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 1L)))
+                assertThrows(CommonException.class, () -> gateway.remember(first, 1L))
                         .getResultCode());
-        assertThrows(
-                CommonException.class,
-                () -> TenantUtil.callWithTenant(
-                        "tenant", () -> gateway.remember(evidence(at.minusDays(1), "receipt"), 2L)));
+        assertThrows(CommonException.class, () -> gateway.remember(evidence(at.minusDays(1), "receipt"), 2L));
         when(receipts.query(
                         contains("FROM refund_channel_receipt"),
                         any(SqlParameterSource.class),
                         ArgumentMatchers.<RowMapper<String>>any()))
                 .thenReturn(List.of());
-        assertThrows(
-                CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 2L)));
+        assertThrows(CommonException.class, () -> gateway.remember(first, 2L));
         verify(receipts, never())
                 .update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class));
     }
@@ -170,9 +158,7 @@ class RefundAcceptanceGatewayImplTest {
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
         assertEquals(
                 INVALID_STATE,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember(first, 2L)))
+                assertThrows(CommonException.class, () -> gateway.remember(first, 2L))
                         .getResultCode());
         verifyNoInteractions(receipts);
     }

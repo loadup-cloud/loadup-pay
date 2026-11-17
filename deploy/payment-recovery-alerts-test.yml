@@ -34,7 +34,7 @@ tests:
               kind: payment
             exp_annotations:
               summary: "Payment UNKNOWN inventory needs investigation (payment)"
-              description: "Use the authenticated UNKNOWN list for the configured tenant scope. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
+              description: "Use the authenticated UNKNOWN list for this deployment. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
       - eval_time: 3m
         alertname: LoadUpPaymentUnknownUrgent
         exp_alerts: [ ]
@@ -153,7 +153,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: "Payment recovery inventory has no fresh complete sample"
-              description: "Check configured tenant scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
+              description: "Check the fixed deployment scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
   - name: not-initialized-is-not-empty
     interval: 1m
     input_series:
@@ -186,7 +186,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: "Payment recovery inventory has no fresh complete sample"
-              description: "Check configured tenant scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
+              description: "Check the fixed deployment scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
   - name: disabled-inventory
     interval: 1m
     input_series:

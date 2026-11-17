@@ -1,6 +1,6 @@
 # LoadUp Pay
 
-面向商户和子商户的外部渠道收单平台。当前 reactor 包含十一个应用；支付宝/微信渠道协议由 LoadUp Framework 的
+面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用；支付宝/微信渠道协议由 LoadUp Framework 的
 `loadup-components-payment-channel` 组件族提供。项目采用 Java 25、Spring Boot 4.1.2、LoadUp Framework
 0.0.1-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
@@ -8,37 +8,36 @@
 
 | 模块 | 职责 |
 |---|---|
-| [merchantcenter](merchantcenter/README.md) | 商户主档、资格、关系与授权核心 |
-| [merchantmng](merchantmng/README.md) | 商户后管与签约入口 |
-| [productcenter](productcenter/README.md) | 产品、合约、下单准入、规则发布核心 |
-| [productmng](productmng/README.md) | 产品与合约后管 |
-| [notificationcenter](notificationcenter/README.md) | 通用通知中心；当前组装站内信，可靠渠道投递按设计分阶段实施 |
-| [authserver](authserver/README.md) | 应用凭证和令牌签发 |
-| [acquire](acquire/README.md) | 订单、Checkout/DirectPay、多笔付款占用与通知 |
-| [payment](payment/README.md) | 付款、退款、渠道绑定、回调及未知结果恢复 |
-| [limitcenter](limitcenter/README.md) | 限额预占、执行门禁、确认与释放 |
-| [realtime](realtime/README.md) | 商户查询投影和重放 |
-| [reconciliation](reconciliation/README.md) | 后置账单核对、差错与独立复核 |
+| [merchantcenter](loadup-pay-merchantcenter/README.md) | 商户主档、资格、关系与授权核心 |
+| [productcenter](loadup-pay-productcenter/README.md) | 产品、合约、下单准入、规则发布核心 |
+| [notificationcenter](loadup-pay-notificationcenter/README.md) | 通用通知中心；当前组装站内信，可靠渠道投递按设计分阶段实施 |
+| [admin](loadup-pay-admin/README.md) | UPMS 登录、RBAC、审计及商户/产品/OAuth 客户端管理 BFF |
+| [oauth2-server](loadup-pay-oauth2-server/README.md) | 机器/商户应用凭证和令牌签发 |
+| [acquire](loadup-pay-acquire/README.md) | 订单、Checkout/DirectPay、多笔付款占用与通知 |
+| [payment](loadup-pay-payment/README.md) | 付款、退款、渠道绑定、回调及未知结果恢复 |
+| [limitcenter](loadup-pay-limitcenter/README.md) | 限额预占、执行门禁、确认与释放 |
+| [realtime](loadup-pay-realtime/README.md) | 商户查询投影和重放 |
+| [reconciliation](loadup-pay-reconciliation/README.md) | 后置账单核对、差错与独立复核 |
 
 渠道 SPI、路由引擎和支付宝/微信协议 binder 位于
 [Framework payment-channel](../loadup-framework/loadup-components/integration/loadup-components-payment-channel/README.md)；
 payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，bootstrap 以 runtime 依赖装配 core 和厂商 binder。
 
-通知体系设计及实施状态见 [Notification Center](notificationcenter/ARCHITECTURE.md)。
+通知体系设计及实施状态见 [Notification Center](loadup-pay-notificationcenter/ARCHITECTURE.md)。
 
-架构、RPC 与数据库约束见 [ARCHITECTURE](ARCHITECTURE.md)，脚本用法见 [scripts](scripts/README.md)，监控部署见 [deploy](deploy/README.md)。
+架构、HTTP 与数据库约束见 [ARCHITECTURE](ARCHITECTURE.md)，脚本用法见 [scripts](scripts/README.md)，监控部署见 [deploy](deploy/README.md)。
 
-后续完整迁移按 [Roadmap](ROADMAP.md) 执行：K8s Service DNS、HTTP Service Clients、版本化配置及 Gateway API / Envoy Gateway 为目标默认；当前实现与迁移验收状态分别记录。
+后续工作及验收按 [Roadmap](ROADMAP.md) 执行：K8s Service DNS、HTTP Service Clients、版本化配置及 Gateway API / Envoy Gateway 为目标默认；当前实现与迁移验收状态分别记录。
 
 ## 本地准备
 
 跨服务请求响应由提供方 client 拥有，消费方基础设施负责转换为本地模型；公共事件包只包含事件和事件状态。
-模块位置与依赖约束见 [Pay 契约说明](pay-contracts/README.md)。
+模块位置与依赖约束见 [Pay 契约说明](loadup-pay-contracts/README.md)。
 
 1. 准备 Java 25、Maven Daemon，以及 LoadUp Framework 对应版本的制品。
-2. 两个 mng 后管不使用数据库；为其余核心应用准备独立 PostgreSQL 数据库或隔离 schema。配置对应 `<SERVICE>_JDBC_URL`、`<SERVICE>_JDBC_USERNAME`、`<SERVICE>_JDBC_PASSWORD`；不要直接复用旧 MySQL 库。
-3. 按各 bootstrap 的 `application.yml` 配置 JWT issuer/audience/JWK、受信租户、服务令牌挂载及所用渠道/KMS/存储参数。内部与业务入口均为 HTTP，默认 8080；本地 profile 按核心服务配置独立端口及出站基础地址。
-4. 选择所需模块的 build/start 脚本。编译必须使用 `clean`，避免旧生成代码或已删除迁移留在构建产物中。数据库初始化、启动和真实渠道验收由开发者执行。
+2. 为各应用准备独立 PostgreSQL 数据库或隔离 schema；admin 持有自己的 UPMS/审计数据，通过 BFF 调用两个 center。配置对应 `<SERVICE>_JDBC_URL`、`<SERVICE>_JDBC_USERNAME`、`<SERVICE>_JDBC_PASSWORD`；以当前 PostgreSQL 迁移初始化独立业务库。
+3. 按各应用的 `application.yml` 配置 JWT issuer/audience/JWK、本地部署租户、OAuth 客户端凭证及所用渠道/KMS/存储参数。内部与业务入口均为 HTTP，默认 8080；本地 profile 按核心服务配置独立端口及出站基础地址。
+4. 按各应用 README 配置启动入口；构建脚本的目录适配缺口见 [路线图](ROADMAP.md)。编译必须使用 `clean`，避免旧生成代码或已删除迁移留在构建产物中。数据库初始化、启动和真实渠道验收由开发者执行。
 
 当前迁移由每个服务的 infrastructure 初始文件及实际依赖组件的迁移共同组成。初次初始化使用可丢弃开发库，不自动对既有库 clean/repair 或搬迁数据。
 
@@ -76,30 +75,14 @@ CI 格式检查使用 Spotless 完整插件坐标，版本读取根 POM 的 `spo
 
 ## 本地数据库配置
 
-八个 bootstrap 提供 `application-local.yml`（authserver、payment、acquire、merchantcenter、productcenter、limitcenter、realtime、reconciliation）；notificationcenter 通过环境变量配置。启动时启用 `local` profile，例如在 IDEA 的 Active profiles 中填写 `local`，或传入 `--spring.profiles.active=local`。
+payment、acquire、merchantcenter、productcenter、limitcenter、realtime、reconciliation 的 bootstrap，以及单模块 oauth2-server 提供 `application-local.yml`。启用 `local` profile 后，HTTP 端口为 payment 8081、acquire 8082、merchantcenter 8083、limitcenter 8084、productcenter 8085、realtime 8086、reconciliation 8087，oauth2-server 为 8089。当前内部通信使用 HTTP；旧 RPC 端口已移除。
 
-本地 PostgreSQL 使用 `admin` / `123456`，每个服务使用独立数据库，schema 统一使用默认的 `public`：
+admin、notificationcenter 使用各自 `src/main/resources/application.yml` 和环境目录配置。admin、notificationcenter、oauth2-server 都是单模块可执行应用。
 
-| 服务 | 数据库 | schema | HTTP | RPC |
-|---|---|---|---|---|
-| payment | loadup_payment | public | 8081 | 50051 |
-| acquire | loadup_acquire | public | 8082 | 50052 |
-| merchantcenter | loadup_merchantcenter | public | 8083 | 50053 |
-| limitcenter | loadup_limitcenter | public | 8084 | 50054 |
-| productcenter | loadup_product | public | 8085 | 50055 |
-| realtime | loadup_realtime | public | 8086 | 50056 |
-| reconciliation | loadup_reconciliation | public | 8087 | 50057 |
-| authserver | loadup_authserver | public | 8089 | - |
-| notificationcenter | loadup_notificationcenter | public | 8080 | - |
-
-初始化使用 `scripts/init-local-databases.sql`，以 `admin` 通过 psql 执行，不包裹事务。脚本可重复执行，仅创建缺失的数据库（PostgreSQL 自动提供 `public` schema）。当前本地 OrbStack PostgreSQL 可执行：
-
-```bash
-docker --context orbstack exec -i postgres psql -U admin -d loadup -v ON_ERROR_STOP=1 < scripts/init-local-databases.sql
-```
+本地数据库与端口以各应用配置为准。`scripts/init-local-databases.sql` 仅创建数据库，不负责业务建表，且尚未包含 admin；admin 数据库须单独准备。不要把该脚本视为十应用完整初始化入口。
 
 本地配置沿用 PostgreSQL 和框架的默认 `public` schema，业务 SQL 与 Flyway 迁移均使用该 schema。
-Outbox 等组件使用已冻结的应用级初始快照；框架业务模块的自动迁移通过显式命名空间选择。
+Task 等组件使用已冻结的应用级初始快照；框架业务模块的自动迁移通过显式命名空间选择。
 各应用维护自己的迁移历史，模板升级通过新增版本处理，不能覆盖旧快照。启用 local profile 后，其他 JWT、服务令牌、渠道及存储配置仍按各服务要求提供。
 
 ## 实现与验证边界
@@ -121,9 +104,9 @@ Outbox 等组件使用已冻结的应用级初始快照；框架业务模块的�
 | 检查依赖禁用规则 | `mvnd enforcer:enforce` |
 | 检查可更新依赖 / 插件 | `mvnd versions:display-dependency-updates` / `mvnd versions:display-plugin-updates` |
 
-SpotBugs 需要编译产物，例如 `mvnd -pl payment/payment-infrastructure -am clean compile spotbugs:check`。
+SpotBugs 需要编译产物，例如 `mvnd -pl loadup-pay-payment/loadup-pay-payment-infrastructure -am clean compile spotbugs:check`。
 JaCoCo 不会自动注入测试代理；需要覆盖率时显式执行，例如
-`mvnd -pl payment/payment-app -am clean jacoco:prepare-agent test jacoco:report`。
+`mvnd -pl loadup-pay-payment/loadup-pay-payment-app -am clean jacoco:prepare-agent test jacoco:report`。
 Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同步的规则文件。
 
 ## HTTP 调用默认配置
@@ -151,11 +134,11 @@ loadup:
 
 单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.http.client` > 框架约定。service-auth 注册项只需声明 `scopes`，身份字段按上表推导；入站 HTTP audience 使用各服务的 `spring.application.name`，不再需要 `<SERVICE>_JWT_AUDIENCE`。出站目标 audience 可通过模块配置分别覆盖。服务令牌由独立 AuthServer 按调用方、目标服务及权限签发；共享 OAuth 客户端负责缓存和续取，资源端继续验签与授权。见 [OAuth2 Server](loadup-pay-oauth2-server/README.md)。
 
-K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，仅 AuthServer 挂载其签名 KeyStore。资源准备、预览、排空和回退见 [配置与发布](deploy/CONFIGURATION.md)。
+K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，admin 与 oauth2-server 分别使用各自签名 KeyStore。资源准备、预览、排空和回退见 [配置与发布](deploy/CONFIGURATION.md)。
 
 平台入口配置见 [Gateway API / Envoy Gateway](deploy/gateway/README.md)，HTTP 入站选择器见 [网络策略](deploy/NETWORK_POLICY.md)。
 
-线程模型使用显式 virtual-threads 候选 profile，默认平台线程；正确性、A/B 容量及七服务收口见 [最终验收](deploy/ACCEPTANCE.md)。
+线程模型使用显式 virtual-threads 候选 profile，默认平台线程；正确性、A/B 容量及全部应用收口见 [最终验收](deploy/ACCEPTANCE.md)。
 
 ## Database 编译期处理器
 

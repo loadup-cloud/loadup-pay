@@ -72,30 +72,27 @@ public class RefundExecutionService {
         this.projections = projections;
     }
 
-    public void progress(String tenant, String requestId) {
+    public void progress(String requestId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        DomainChecks.id(tenant);
         DomainChecks.id(requestId);
         var channel = channels.getIfAvailable();
         if (channel == null) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
-        var work = transactions.writeLocal(tenant, () -> prepare(tenant, requestId, channel));
+        var work = transactions.writeLocal(() -> prepare(requestId, channel));
         if (work.isEmpty()) {
             return;
         }
         var step = work.get();
         final RefundObservation observation;
         try {
-            observation = transactions.withTenantContext(
-                    tenant,
-                    () -> step.firstSubmission()
-                            ? channel.submitRefund(step.prepared())
-                            : channel.recoverRefund(step.prepared()));
+            observation = transactions.guarded(() -> step.firstSubmission()
+                    ? channel.submitRefund(step.prepared())
+                    : channel.recoverRefund(step.prepared()));
         } catch (RuntimeException unavailable) {
-            results.uncertain(tenant, requestId, step.prepared().refundId());
+            results.uncertain(requestId, step.prepared().refundId());
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         boolean validSource = observation != null
@@ -106,24 +103,24 @@ public class RefundExecutionService {
                                         && (observation.kind() == ChannelRefundOutcome.Kind.ACCEPTED
                                                 || observation.kind() == ChannelRefundOutcome.Kind.UNKNOWN));
         if (!validSource || !observation.refundId().equals(step.prepared().refundId())) {
-            results.uncertain(tenant, requestId, step.prepared().refundId());
+            results.uncertain(requestId, step.prepared().refundId());
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
-        var application = results.record(tenant, observation);
+        var application = results.record(observation);
         if (application.disposition() == RefundReceiptDisposition.CONFLICT) {
             throw new CommonException(OUTCOME_UNKNOWN);
         }
     }
 
-    private Optional<RefundExecutionWork> prepare(String tenant, String requestId, PaymentChannelGateway channel) {
-        var stored = locks.request(tenant, requestId);
+    private Optional<RefundExecutionWork> prepare(String requestId, PaymentChannelGateway channel) {
+        var stored = locks.request(requestId);
         var first = stored.allocations().stream()
                 .filter(c -> !c.refund().terminal())
                 .findFirst();
         if (first.isEmpty()) {
             return Optional.empty();
         }
-        var locked = locks.child(tenant, stored, first.get().refund().id());
+        var locked = locks.child(stored, first.get().refund().id());
         var prepared = converter.toPrepared(locked.child().child(), locked.capacity());
         // Strictly a local registry lookup. Capability checks must not load credentials or make network requests.
         if (!channel.canRefund(prepared)) {
@@ -143,7 +140,7 @@ public class RefundExecutionService {
                     null,
                     null);
             changes.update(change);
-            projections.changed(tenant, change);
+            projections.changed(change);
         }
         return Optional.of(new RefundExecutionWork(requestId, prepared, winner));
     }

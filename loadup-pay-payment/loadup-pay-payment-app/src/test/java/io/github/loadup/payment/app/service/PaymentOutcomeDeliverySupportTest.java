@@ -19,7 +19,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,14 +28,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.BusinessEventTypes;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.payment.app.port.PaymentOutcomeEnvelopeCodec;
@@ -48,6 +48,7 @@ import io.github.loadup.payment.domain.model.PaymentOrder;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -59,7 +60,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class PaymentOutcomeDeliverySupportTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentResultConverter.class.getPackageName());
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final PaymentOutcomeEnvelopeCodec envelopes = mock(PaymentOutcomeEnvelopeCodec.class);
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
@@ -79,14 +80,14 @@ class PaymentOutcomeDeliverySupportTest {
             context.getBean(PaymentResultConverter.class));
     final AtomicReference<PaymentDeliverySnapshot> source = new AtomicReference<>();
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>();
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue-event",
-            new OutboxMessage(PaymentEvents.LIMIT, 1, "payment", "payload"),
+            new TaskSubmission(PaymentDeliveryRoutes.LIMIT, 1, "payment", "payload", LocalDateTime.now(), ""),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
     void source(boolean succeeded) {
-        var snapshot = OutcomeDeliveryFixtures.snapshot(succeeded, true, PaymentEvents.LIMIT);
+        var snapshot = OutcomeDeliveryFixtures.snapshot(succeeded, true, PaymentDeliveryRoutes.LIMIT);
         source.set(snapshot);
         var initial = AttemptFixtures.gate(false);
         gate.set(
@@ -102,17 +103,17 @@ class PaymentOutcomeDeliverySupportTest {
     }
 
     PaymentDeliverySnapshot load() {
-        return TenantUtil.callWithTenant("tenant", () -> support.load(event, PaymentEvents.LIMIT));
+        return support.load(event, PaymentDeliveryRoutes.LIMIT);
     }
 
     @BeforeEach
     void setup() {
         source(true);
         when(outbox.find("queue-event"))
-                .thenReturn(Optional.of(
-                        new OutboxRecord("queue-event", PaymentEvents.LIMIT, "payment", "PROCESSING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-event", PaymentDeliveryRoutes.LIMIT, "payment", "PROCESSING", 1, null)));
         when(payments.find("payment")).thenAnswer(c -> Optional.of(source.get().payment()));
-        when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
+        when(locks.lock("payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(source.get().payment(), AttemptFixtures.gate(true), gate.get());
         });
@@ -153,7 +154,6 @@ class PaymentOutcomeDeliverySupportTest {
         assertEquals(AttemptFixtures.NOW, loaded.succeededAt());
         assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         assertEquals(1, manager.commits);
-        assertNull(TenantUtil.getTenantId());
     }
 
     @Test
@@ -195,8 +195,8 @@ class PaymentOutcomeDeliverySupportTest {
     @Test
     void mismatchedQueueTargetIsRejectedBeforeReadingBusinessFacts() {
         when(outbox.find("queue-event"))
-                .thenReturn(Optional.of(
-                        new OutboxRecord("queue-event", PaymentEvents.RISK, "payment", "PROCESSING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-event", PaymentDeliveryRoutes.RISK, "payment", "PROCESSING", 1, null)));
         assertThrows(CommonException.class, this::load);
         verifyNoInteractions(payments, locks, results);
     }
@@ -204,8 +204,8 @@ class PaymentOutcomeDeliverySupportTest {
     @Test
     void completedOrFailedRowsCannotBeUsedAsArbitraryManualDispatchTickets() {
         when(outbox.find("queue-event"))
-                .thenReturn(Optional.of(
-                        new OutboxRecord("queue-event", PaymentEvents.LIMIT, "payment", "FAILED", 5, "Failure")));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-event", PaymentDeliveryRoutes.LIMIT, "payment", "FAILED", 5, "Failure")));
         assertThrows(CommonException.class, this::load);
         verifyNoInteractions(payments, results);
     }
@@ -276,5 +276,61 @@ class PaymentOutcomeDeliverySupportTest {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
         verifyNoInteractions(outbox, payments, results);
+    }
+
+    @Test
+    void frozenFinancialProofMustMatchThePermanentSourceClaimBeforeSending() {
+        var legacy = source.get().envelope();
+        var proof = context.getBean(PaymentResultConverter.class)
+                .toFinancialEvidence(source.get().payment(), BusinessTime.external(AttemptFixtures.NOW), false);
+        var complete = new EventEnvelope<>(
+                legacy.deliveryId(),
+                legacy.businessEventId(),
+                legacy.producer(),
+                BusinessEventTypes.PAYMENT_FINANCIAL,
+                1,
+                legacy.aggregateId(),
+                legacy.aggregateVersion(),
+                legacy.occurredAt(),
+                legacy.data().withFinancialEvidence(proof));
+        when(envelopes.decode("payload")).thenReturn(complete);
+        assertEquals(proof, load().envelope().data().financialEvidence());
+        var wrongTime = context.getBean(PaymentResultConverter.class)
+                .toFinancialEvidence(
+                        source.get().payment(), BusinessTime.external(AttemptFixtures.NOW.plusSeconds(1)), false);
+        when(envelopes.decode("payload"))
+                .thenReturn(new EventEnvelope<>(
+                        complete.deliveryId(),
+                        complete.businessEventId(),
+                        complete.producer(),
+                        complete.eventType(),
+                        1,
+                        complete.aggregateId(),
+                        complete.aggregateVersion(),
+                        complete.occurredAt(),
+                        legacy.data().withFinancialEvidence(wrongTime)));
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, this::load).getResultCode());
+    }
+
+    @Test
+    void missingFinancialProofCannotBeReinterpretedAsALegacyPayloadByTheSender() {
+        var legacy = source.get().envelope();
+        when(envelopes.decode("payload"))
+                .thenReturn(new EventEnvelope<>(
+                        legacy.deliveryId(),
+                        legacy.businessEventId(),
+                        legacy.producer(),
+                        BusinessEventTypes.PAYMENT_FINANCIAL,
+                        1,
+                        legacy.aggregateId(),
+                        legacy.aggregateVersion(),
+                        legacy.occurredAt(),
+                        legacy.data()));
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, this::load).getResultCode());
+        verifyNoInteractions(payments, locks, results);
     }
 }

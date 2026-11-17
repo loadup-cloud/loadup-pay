@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +29,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtPaymentActorProviderTest {
-    final JwtPaymentActorProvider provider = new JwtPaymentActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    final JwtPaymentActorProvider provider = new JwtPaymentActorProvider();
 
     @AfterEach
     void clear() {
@@ -54,7 +52,6 @@ class JwtPaymentActorProviderTest {
     void verifiedServiceClaimsProvideTheTenantAndExactPermissions() {
         authenticated("SERVICE", "acquire");
         assertEquals("acquire", provider.current().serviceId());
-        assertEquals("__default__", provider.current().tenantId());
         assertTrue(provider.current().permissions().contains("pay:payment:accept"));
     }
 

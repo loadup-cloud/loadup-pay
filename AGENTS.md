@@ -37,12 +37,7 @@
 
 ## 项目定位
 
-LoadUp 是一个 **被消费的框架/SDK**，通过 `loadup-framework-bom` BOM 对外提供能力。
-集成方在自有 Spring Boot / Spring Cloud 项目中引入 BOM，按需使用组件和业务模块。
-
-- `loadup-application` 仅为集成测试验证器和本地开发启动器， **不是生产部署单元**
-- `loadup-modules/` 下的 UPMS、审计、数据字典、文件资源等是 **可复用业务能力**，不是测试代码
-- 单体应用通过 Spring MVC Controller 暴露接口；外部 API 调用规划为独立 HTTP 客户端组件
+LoadUp Pay 是基于 Framework 与 Modules 的支付应用仓库。当前十个部署应用、数据所有权与认证边界见 [总体架构](ARCHITECTURE.md)。前端位于并列的 loadup-admin，通用业务模块位于并列的 loadup-modules，测试工具位于并列的 loadup-testify。
 
 ---
 
@@ -63,56 +58,11 @@ LoadUp 是一个 **被消费的框架/SDK**，通过 `loadup-framework-bom` BOM 
 
 ---
 
-## 项目结构
+## 项目结构与依赖
 
-```
-loadup-cloud/
-├── loadup-framework-bom/        # BOM，统一依赖版本
-├── loadup-commons/             # 最底层通用基础
-│   ├── loadup-commons-context/ # JDK 25 ScopedValue 只读执行链上下文
-│   ├── loadup-commons-dto/     # 通用响应、分页与共享值
-│   ├── loadup-commons-util/    # 工具类：StringUtils、DateUtils、MoneyUtil
-│   ├── loadup-commons-log/     # 统一日志格式与 trace MDC 约定
-├── loadup-components/          # 技术组件，分类目录不增加 Maven 层级
-│   ├── security/       # authorization, authserver, resource-server, captcha, kms, signature
-│   ├── web/            # webmvc, springdoc
-│   ├── data/           # cache, database, dfs
-│   ├── integration/    # http, gotone
-│   ├── reliability/    # lock, outbox, delayedtask, globalunique, resilience4j
-│   ├── execution/      # scheduler, pipeline
-│   └── platform/       # configcenter, extension, observability, testcontainers
-├── loadup-modules/             # 通用业务聚合，各自包含 COLA 分层与可选 web 子模块
-│   ├── loadup-modules-upms/    # 用户与权限管理、账号安全
-│   ├── loadup-modules-audit/   # 审计中心
-│   ├── loadup-modules-dictionary/ # 数据字典
-│   ├── loadup-modules-file/    # 文件资源
-│   ├── loadup-modules-notification/ # 站内通知
-│   └── loadup-modules-transfer/ # 导入导出任务
-├── loadup-testify/             # 集成测试框架
-├── loadup-application/         # 集成测试启动器（非生产部署单元）
-├── frontend/                   # Vue 3 管理端
-└── docs/                       # 独立的 Hugo + Hextra 文档站
-```
+当前 reactor 的目录名统一为 loadup-pay-*。admin、notificationcenter、oauth2-server 为单模块应用；merchantcenter/realtime 使用 client/service/bootstrap，复杂服务保留完整分层。模块以根 pom.xml 为准。
 
----
-
-## 模块依赖方向（严格单向）
-
-```
-loadup-framework-bom (BOM)
-        ↑
-   loadup-commons/*
-        ↑
-  loadup-components/{category}/*   ← 通过 API/binder 模式解耦横向依赖
-        ↑
-   loadup-modules/*     ← 模块间依赖应明确且尽量减少
-        ↑
-loadup-application
-
-loadup-testify  → 仅 test scope，深度依赖框架内部类型
-```
-
-业务模块通过可选 `*-web` 适配模块提供 Spring MVC Controller；业务服务不依赖 HTTP 客户端实现。
+Pay BOM 导入 Framework/Modules BOM；Testify 只用于 test scope。服务间请求响应归提供方 client，消费方 infrastructure 映射为本地模型；commercial/events 为共享不可变契约。详细约束见 [契约架构](loadup-pay-contracts/ARCHITECTURE.md)。
 
 ---
 
@@ -212,7 +162,7 @@ payment、acquire 等业务代码量大的服务保留
 | 9  | 表主键 `BIGINT AUTO_INCREMENT`                          | 主键 `VARCHAR(64)`，默认由 database 的 `IdGenerator` 生成业务 ID；序列表元数据显式使用 UUID 防止递归                                                                          |
 | 10 | 无必要的业务模块横向依赖                                | 保持清晰依赖方向，跨模块能力优先通过公开接口集成                                                                                                                              |
 | 11 | Java 文件中写中文注释或 Javadoc                         | 注释/Javadoc 统一使用英文；中文只允许出现在 `*.md` 文档文件中                                                                                                                 |
-| 12 | `BOOLEAN`/`BOOL` 类型                                   | 统一使用 `SMALLINT`（0/1），并加 CHECK                                                                                                                                        |
+| 12 | 脱离当前迁移定义修改布尔字段类型 | PostgreSQL 布尔字段按所属迁移的 BOOLEAN 定义；枚举/标记整数按对应 CHECK 约束                                                                                                                                        |
 | 13 | DO 中重复定义 id/createdAt/updatedAt/deleted            | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
 | 14 | Mapper 中写额外 SQL 方法                                | 用 `QueryWrapper` 在 GatewayImpl 中操作                                                                                                                                       |
 | 15 | 新增三方依赖不在 BOM 中声明                             | 版本管理集中在 `loadup-framework-bom/pom.xml`                                                                                                                                  |
@@ -226,16 +176,16 @@ payment、acquire 等业务代码量大的服务保留
 创建与更新时间统一命名：Java 属性和 JSON 字段使用 `createdAt`、`updatedAt`，数据库列使用 `created_at`、`updated_at`。领域对象、DTO
 和查询排序字段遵循同一命名，不使用 `createdTime`、`updatedTime`。
 
-每张表必须包含 5 个标准字段：
+使用 BaseDO 的业务表维护以下 4 个标准字段，实际类型以所属 PostgreSQL 迁移为准：
 
 ```sql
 id         VARCHAR(64)  NOT NULL PRIMARY KEY,
 created_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
 updated_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
-deleted    SMALLINT NOT NULL DEFAULT 0 CHECK (deleted IN (0, 1))
+deleted    BOOLEAN NOT NULL DEFAULT FALSE
 ```
 
-- 各服务的 PostgreSQL 初始结构统一放在 `db/migration/` 下的一个 Flyway 文件；开发库按需重建。
+- Pay 迁移按 `db/migration/pay/<app>` 分应用维护；组件冻结快照、框架业务模块及 OAuth 专用迁移按应用配置显式选择。已登记历史只追加，不覆盖，不将共享根路径当作隔离。
 - Flyway 版本统一使用 14 位时间戳，文件命名为 `V<yyyyMMddHHmmss>__desc.sql`，例如
   `V20261020153000__create_user_table.sql`。
 
@@ -247,7 +197,7 @@ POM 的 `<name>` 统一采用 `LoadUp <模块族> <能力> [职责/实现]`，�
 Commons、Components、Modules、Testify，例如 `LoadUp Commons JSON`、`LoadUp Components Cache Binder Redis`、
 `LoadUp Modules UPMS App`。API/DTO/JSON/HTTP/KMS/JDBC/SMS/DFS/UPMS/SAS/S3
 保持大写，JetCache、JobRunr、ConfigCenter、AuthServer、RetryTask、GlobalUnique、WebMVC、SpringDoc、Testcontainers、Resilience4j、NanoCaptcha
-保持约定拼写。根项目、应用、BOM 分别使用 `LoadUp Framework`、`LoadUp Application`、`LoadUp Dependencies`；Gotone channels 聚合为
+保持约定拼写。根项目、应用、BOM 分别使用 `LoadUp Framework`、`LoadUp Pay <应用名>`、`LoadUp Dependencies`；Gotone channels 聚合为
 `LoadUp Components Gotone Channels`。详细用途写入 description，名称保持空格分隔的统一结构。 每个 POM 均显式声明简短英文
 `<description>`，说明实际职责；client/service/bootstrap（或保留完整分层模块的 domain/app/infrastructure/adapter）分别描述公开契约、服务实现、HTTP 入口与启动装配、持久化适配，未实现的传输能力如实标明状态。
 
@@ -434,9 +384,10 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   from public Facades.
 - Persistence stays in infrastructure. Use Spring Data JDBC for suitable simple aggregates and parameterized Spring
   JDBC for conditional writes, locking and complex queries. Keep MapStruct converters separate and Spring-managed.
-- Tenant isolation uses a dedicated PostgreSQL schema per tenant. Resolve the trusted tenant before acquiring a
-  connection and route every transaction to its schema. Business tables, data objects, SQL predicates and indexes do
-  not contain `tenant_id`; apply the same rule to new migrations and repository changes.
+- One deployment serves one tenant. `loadup.deployment.code` is a deployment constant and `loadup.database.schema` is
+  the single fixed business schema; there is no request tenant, runtime routing or per-tenant schema selection. Business
+  tables, data objects, SQL predicates and indexes do not contain `tenant_id`; apply the same rule to new migrations and
+  repository changes.
 - Explicit SQL maintains ID, audit and soft-delete fields; use the shared `IdGenerator` and injected `Clock` where
   applicable. Check affected rows for state and version updates.
 - Business writes and reliability records use the same Spring-managed data source and JDBC transaction manager. Sort
@@ -477,7 +428,7 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   persistence; login accepts existing credentials without applying a new-password policy.
 - Public business pagination defaults to page 1 and size 20; explicit invalid values are rejected and size is capped at
     100. Sort fields use declared whitelists and fixed SQL columns; never pass user input to SQL ordering.
-         Audit Controller and Facade share AuditPageQuery; trusted tenant identity is supplied by the application layer.
+         Audit Controller and Facade share AuditPageQuery; trusted actor identity is supplied by the application layer.
 - JDBC writes explicitly maintain persistence createdAt/updatedAt. Business event and expiry timestamps use injected
   Clock with
   Clock.systemDefaultZone () defaults and convert using clock.getZone (). Each module qualifies its named
@@ -533,19 +484,19 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   configuration, dispatch, context and observation tests in the binder; real-platform acceptance runs against a
   separately provisioned environment.
 
-## Scheduler and DelayedTask
+## Scheduler and Task
 
-- For deadline tasks read Scheduler and DelayedTask README/ARCHITECTURE. Scheduler uses one Provider binder (local
+- For deadline tasks read Scheduler and Task README/ARCHITECTURE. Scheduler uses one Provider binder (local
   Spring @Scheduled or PowerJob); it only wakes scanners. Do not use @Async as a timer or create a remote engine job per
   business record.
-- DelayedTask owns bizId/executeAt, transactional registration, conditional claims, leases and retries. Register within
+- Task uses its own TaskWorker poller and owns transactional submission, planned execution, conditional claims, leases and retries. Submit within
   the business transaction on the same DataSource. Expired-lease recovery is at-least-once: handlers must be idempotent;
   token fencing protects task acknowledgements, not external side effects. XXL-JOB/JobRunr binders are not implemented.
 
 ## 应用间调用与系统时区
 
-- 按 [Roadmap](ROADMAP.md) 和 [迁移清单](HTTP_MIGRATION.md) 维护 Spring HTTP Service Clients + RestClient。
-  七应用 44/44 个旧内部操作已迁移源码；配置版本化/排空源码已接入，HTTP 网络策略/Envoy Gateway 配置已补，虚拟线程候选配置及回归源码已补，真实环境验收仍待完成。
+- 按 [Roadmap](ROADMAP.md) 和 [当前 HTTP 架构](ARCHITECTURE.md) 维护 Spring HTTP Service Clients + RestClient。
+  当前应用间使用 HTTP；源码能力与部署、测试及真实业务验收分别核对，不延用历史操作数作为当前覆盖率。
   Pay 已清除内部 Protobuf/Wire/Dubbo 生成与运行依赖；框架可选 binder 独立保留。
 - 使用现有 HTTP 组件的命名客户端共享资源，按提供方配置基础地址、超时、池容量与 TLS。K8s 默认普通 Service DNS，
   支持环境地址覆盖；写调用无自动重试/重定向，保留幂等键、事务外联网与未知结果恢复。Nacos 按需启用。
@@ -553,8 +504,8 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   阶段完成以运行验收为准，未执行构建、测试或真实调用时明确记录。
 - 修改线程模型、任务传播或默认启用策略时读取 [最终验收](deploy/ACCEPTANCE.md)；压测及正确性证据缺失时保留默认平台线程。
 - 修改公网路由、Envoy 策略或 Pod 选择器时读取 [网关说明](deploy/gateway/README.md) 和 [HTTP 网络策略](deploy/NETWORK_POLICY.md)；保留内部 API/Actuator 不公开及无自动重试约束。
-- 修改部署渲染或凭证挂载时读取 [配置与发布](deploy/CONFIGURATION.md)，保留不可变环境快照与可变 token 目录的区分。
-- 修改调用或发布配置时读取 [总体架构](ARCHITECTURE.md) 和迁移清单；HTTP 使用完整 JWT 校验，原 RPC 共享配置前缀改为 loadup.http.client。
+- 修改部署渲染或凭证挂载时读取 [配置与发布](deploy/CONFIGURATION.md)，保留不可变环境快照、签名 KeyStore 与自动获取的短期令牌之间的职责边界。
+- 修改调用或发布配置时读取 [总体架构](ARCHITECTURE.md) 和当前 HTTP 架构；HTTP 使用完整 JWT 校验，原 RPC 共享配置前缀改为 loadup.http.client。
 - 业务时间采用系统默认 zone 或业务 Clock 的 zone；JWT epoch、Instant 保持绝对时间。不强制 JVM/JDBC/K8s 固定时区。
 
 ## 代码质量审查

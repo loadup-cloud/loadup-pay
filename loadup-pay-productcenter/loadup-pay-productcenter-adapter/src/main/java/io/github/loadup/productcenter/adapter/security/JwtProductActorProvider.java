@@ -16,7 +16,6 @@
 package io.github.loadup.productcenter.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.productcenter.app.security.ProductActor;
 import io.github.loadup.productcenter.app.security.ProductActorProvider;
 import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
@@ -30,16 +29,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtProductActorProvider implements ProductActorProvider {
     private final String merchantcenterAudience;
-    private final DatabaseTenant databaseTenant;
 
     public JwtProductActorProvider(
-            @Value("${loadup.modules.productcenter.merchantcenter-audience}") String merchantcenterAudience,
-            DatabaseTenant databaseTenant) {
+            @Value("${loadup.modules.productcenter.merchantcenter-audience}") String merchantcenterAudience) {
         if (merchantcenterAudience.isBlank()) {
             throw new IllegalArgumentException("Merchantcenter JWT audience is required");
         }
         this.merchantcenterAudience = merchantcenterAudience;
-        this.databaseTenant = databaseTenant;
     }
 
     private static CommonException forbidden() {
@@ -55,7 +51,6 @@ public class JwtProductActorProvider implements ProductActorProvider {
             throw forbidden();
         }
         try {
-            String tenant = databaseTenant.currentTenantId();
             String type = jwt.getClaimAsString("principal_type");
             String merchant = jwt.getClaimAsString("merchant_id");
             if (type == null
@@ -73,7 +68,6 @@ public class JwtProductActorProvider implements ProductActorProvider {
                     ? jwt.getTokenValue()
                     : null;
             return new ProductActor(
-                    tenant,
                     type,
                     jwt.getSubject(),
                     merchant,

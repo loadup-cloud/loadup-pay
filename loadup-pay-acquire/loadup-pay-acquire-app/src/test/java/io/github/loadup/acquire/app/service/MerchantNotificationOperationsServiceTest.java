@@ -53,11 +53,11 @@ import io.github.loadup.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.acquire.domain.model.MerchantNotificationWakeReceipt;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskResultCodeEnum;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -82,9 +83,9 @@ class MerchantNotificationOperationsServiceTest {
     final AtomicReference<MerchantNotificationActor> actor = new AtomicReference<>(operator("operator-a"));
     final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
     final MerchantNotificationWakeGateway receipts = mock(MerchantNotificationWakeGateway.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final AtomicReference<MerchantNotificationDelivery> current = new AtomicReference<>(delivery(NOW.minusMinutes(1)));
-    final AtomicReference<DelayedTask> nativeTask = new AtomicReference<>();
+    final AtomicReference<TaskExecution> nativeTask = new AtomicReference<>();
     final Map<String, MerchantNotificationWakeReceipt> accepted = new HashMap<>();
     final UnitTransactions manager = new UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
@@ -100,8 +101,7 @@ class MerchantNotificationOperationsServiceTest {
             clock(NOW));
 
     static MerchantNotificationActor operator(String subject) {
-        return new MerchantNotificationActor(
-                "tenant", "OPERATOR", subject, null, Set.of("pay:acquire:notification:manage"));
+        return new MerchantNotificationActor("OPERATOR", subject, null, Set.of("pay:acquire:notification:manage"));
     }
 
     static MerchantNotificationDelivery delivery(LocalDateTime at) {
@@ -124,9 +124,9 @@ class MerchantNotificationOperationsServiceTest {
                 "delivery", "operation", current.get().rowVersion(), "Recover the current task");
     }
 
-    DelayedTask task(DelayedTaskStatus status) {
+    TaskExecution task(TaskStatus status) {
         var row = current.get();
-        return new DelayedTask(
+        return new TaskExecution(
                 "native-task",
                 MerchantNotificationService.TYPE,
                 new MerchantNotificationKey(row.id(), row.attemptCount()).bizId(),
@@ -135,7 +135,7 @@ class MerchantNotificationOperationsServiceTest {
                 status,
                 5,
                 5,
-                status == DelayedTaskStatus.RUNNING ? NOW.plusMinutes(1) : null,
+                status == TaskStatus.RUNNING ? NOW.plusMinutes(1) : null,
                 null);
     }
 
@@ -143,7 +143,6 @@ class MerchantNotificationOperationsServiceTest {
     void setup() {
         when(deliveries.lock("delivery")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return Optional.of(current.get());
         });
         when(deliveries.find("delivery")).thenAnswer(c -> Optional.of(current.get()));
@@ -160,12 +159,18 @@ class MerchantNotificationOperationsServiceTest {
                 .insert(any());
         when(tasks.find(eq(MerchantNotificationService.TYPE), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(nativeTask.get()));
-        when(tasks.register(eq(MerchantNotificationService.TYPE), anyString(), any()))
-                .thenAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(current.get().nextAttemptAt(), c.getArgument(2));
-                    return task(DelayedTaskStatus.PENDING);
-                });
+        when(tasks.find(anyString()))
+                .thenAnswer(c -> Optional.ofNullable(nativeTask.get())
+                        .filter(task -> task.id().equals(c.getArgument(0))));
+        when(tasks.submit(ArgumentMatchers.any(TaskSubmission.class))).thenAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            TaskSubmission submission = c.getArgument(0);
+            assertEquals(MerchantNotificationService.TYPE, submission.taskType());
+            assertEquals("delivery:0", submission.bizId());
+            assertEquals(current.get().nextAttemptAt(), submission.executeAt());
+            nativeTask.set(task(TaskStatus.PENDING));
+            return nativeTask.get().id();
+        });
     }
 
     @AfterEach
@@ -179,12 +184,14 @@ class MerchantNotificationOperationsServiceTest {
         var original = current.get();
         var result = service.wake(command());
         assertEquals("REGISTERED", result.result());
-        assertEquals("event", result.eventId());
+        assertEquals("native-task", result.eventId());
         assertEquals(0, result.attemptCount());
         assertEquals(original, current.get());
         assertEquals(1, accepted.size());
         assertEquals(1, manager.commits);
-        verify(tasks).register(MerchantNotificationService.TYPE, "delivery:0", original.nextAttemptAt());
+        verify(tasks)
+                .submit(ArgumentMatchers.eq(TaskSubmission.scheduled(
+                        MerchantNotificationService.TYPE, "delivery:0", original.nextAttemptAt())));
         verify(deliveries, never()).update(any(), any());
     }
 
@@ -194,7 +201,7 @@ class MerchantNotificationOperationsServiceTest {
         var first = service.wake(command);
         when(deliveries.lock(anyString())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertEquals(first, service.wake(command));
-        verify(tasks, times(1)).register(anyString(), anyString(), any());
+        verify(tasks, times(1)).submit(ArgumentMatchers.any(TaskSubmission.class));
         verify(receipts, times(1)).insert(any());
         assertEquals(1, manager.commits);
     }
@@ -223,38 +230,34 @@ class MerchantNotificationOperationsServiceTest {
                                         original.expectedVersion() + 1,
                                         original.reason())))
                         .getResultCode());
-        verify(tasks, times(1)).register(anyString(), anyString(), any());
+        verify(tasks, times(1)).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
     void failedNativeTaskRetriesAndCancelledTaskReschedulesOnlyTheOriginalDueTime() {
-        nativeTask.set(task(DelayedTaskStatus.FAILED));
+        nativeTask.set(task(TaskStatus.FAILED));
         assertEquals("RETRIED", service.wake(command()).result());
-        verify(tasks).retryFailed(MerchantNotificationService.TYPE, "delivery:0");
-        nativeTask.set(task(DelayedTaskStatus.CANCELLED));
+        verify(tasks).retryFailed("native-task", "operator-a", "Recover the current task");
+        nativeTask.set(task(TaskStatus.CANCELLED));
         var other = new MerchantNotificationWakeCommand(
                 "delivery", "operation-2", current.get().rowVersion(), "Resume cancelled wake");
         assertEquals("RESCHEDULED", service.wake(other).result());
-        verify(tasks)
-                .reschedule(
-                        MerchantNotificationService.TYPE,
-                        "delivery:0",
-                        current.get().nextAttemptAt());
+        verify(tasks).reschedule("native-task", current.get().nextAttemptAt());
         verify(deliveries, never()).update(any(), any());
     }
 
     @Test
     void pendingAndRunningTasksAreNotResetOrStolen() {
-        nativeTask.set(task(DelayedTaskStatus.PENDING));
+        nativeTask.set(task(TaskStatus.PENDING));
         assertEquals("PENDING", service.wake(command()).result());
-        nativeTask.set(task(DelayedTaskStatus.RUNNING));
+        nativeTask.set(task(TaskStatus.RUNNING));
         assertEquals(
                 "RUNNING",
                 service.wake(new MerchantNotificationWakeCommand("delivery", "operation-2", 0L, "Observe running task"))
                         .result());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
-        verify(tasks, never()).reschedule(anyString(), anyString(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
+        verify(tasks, never()).reschedule(anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
@@ -297,7 +300,7 @@ class MerchantNotificationOperationsServiceTest {
                                 () -> service.wake(new MerchantNotificationWakeCommand(
                                         "delivery", "operation", 1L, "Stale observation")))
                         .getResultCode());
-        nativeTask.set(task(DelayedTaskStatus.SUCCEEDED));
+        nativeTask.set(task(TaskStatus.SUCCEEDED));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> service.wake(command()))
@@ -308,19 +311,17 @@ class MerchantNotificationOperationsServiceTest {
     @Test
     void onlyOperatorsOrTheConfiguredOperationsServiceCanWake() {
         actor.set(new MerchantNotificationActor(
-                "tenant", "MERCHANT", "merchant", "merchant", Set.of("pay:acquire:notification:manage")));
+                "MERCHANT", "merchant", "merchant", Set.of("pay:acquire:notification:manage")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.wake(command()))
                         .getResultCode());
-        actor.set(new MerchantNotificationActor(
-                "tenant", "SERVICE", "payment", null, Set.of("pay:acquire:notification:manage")));
+        actor.set(new MerchantNotificationActor("SERVICE", "payment", null, Set.of("pay:acquire:notification:manage")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.wake(command()))
                         .getResultCode());
-        actor.set(new MerchantNotificationActor(
-                "tenant", "SERVICE", "pay-ops", null, Set.of("pay:acquire:notification:manage")));
+        actor.set(new MerchantNotificationActor("SERVICE", "pay-ops", null, Set.of("pay:acquire:notification:manage")));
         assertEquals("REGISTERED", service.wake(command()).result());
     }
 
@@ -335,10 +336,10 @@ class MerchantNotificationOperationsServiceTest {
 
     @Test
     void nativeStateRaceReturnsModuleConflictWithoutAnAuditSuccess() {
-        nativeTask.set(task(DelayedTaskStatus.FAILED));
-        doThrow(new CommonException(DelayedTaskResultCodeEnum.INVALID_STATE))
+        nativeTask.set(task(TaskStatus.FAILED));
+        doThrow(new CommonException(TaskResultCodeEnum.INVALID_STATE))
                 .when(tasks)
-                .retryFailed(anyString(), anyString());
+                .retryFailed(anyString(), anyString(), anyString());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> service.wake(command()))
@@ -357,7 +358,7 @@ class MerchantNotificationOperationsServiceTest {
         assertEquals(record.id(), wake.id());
         assertEquals(record.reason(), wake.reason());
         actor.set(new MerchantNotificationActor(
-                "tenant", "MERCHANT_APP", "app", "merchant", Set.of("pay:acquire:notification:read")));
+                "MERCHANT_APP", "app", "merchant", Set.of("pay:acquire:notification:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(

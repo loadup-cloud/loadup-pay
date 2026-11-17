@@ -121,11 +121,11 @@ public class PaymentSubmissionPreparation {
     /**
      * Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query, never resubmit.
      */
-    public Optional<PaymentSubmissionTicket> prepare(String tenant, String paymentId, String attemptId) {
+    public Optional<PaymentSubmissionTicket> prepare(String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(tenant, () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
             var accepted = payments.find(paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -142,15 +142,15 @@ public class PaymentSubmissionPreparation {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
             if (decision.decision() == RiskDecisionType.DENY) {
-                rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                rejectUnsubmitted(accepted, attemptId, decision);
                 return Optional.empty();
             }
             if (!clock.instant().isBefore(original.payableUntil().toInstant())) {
-                rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                rejectUnsubmitted(accepted, attemptId, decision);
                 throw new CommonException(PAYMENT_EXPIRED);
             }
             try {
-                var interaction = inputs.openForPreparation(tenant, accepted, attemptId);
+                var interaction = inputs.openForPreparation(accepted, attemptId);
                 channels.validate(channelInputs.toValidation(stored, original, channelInputs.toInput(interaction)));
             } catch (CommonException rejected) {
                 var code = rejected.getResultCode();
@@ -158,7 +158,7 @@ public class PaymentSubmissionPreparation {
                         || code == ChannelResultCodeEnum.INVALID_ARGUMENT
                         || code == ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
                         || code == ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH) {
-                    rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                    rejectUnsubmitted(accepted, attemptId, decision);
                 }
                 throw rejected;
             }
@@ -177,14 +177,14 @@ public class PaymentSubmissionPreparation {
                 if (rejected.getResultCode() == LIMIT_EXCEEDED
                         || rejected.getResultCode() == LIMIT_RESERVATION_EXPIRED
                         || rejected.getResultCode() == EXECUTION_FENCED) {
-                    rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                    rejectUnsubmitted(accepted, attemptId, decision);
                 }
                 throw rejected;
             }
             String permitHash = codec.checksum(permit.permit());
             try {
-                return transactions.writeLocal(tenant, () -> {
-                    var locked = locks.lock(tenant, paymentId, accepted.callerServiceId());
+                return transactions.writeLocal(() -> {
+                    var locked = locks.lock(paymentId, accepted.callerServiceId());
                     var current = attempts.lock(attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     requireBinding(locked.payment(), current);
                     if (current.attempt().state() != PaymentAttemptState.INIT) {
@@ -194,15 +194,15 @@ public class PaymentSubmissionPreparation {
                     if (!clock.instant().isBefore(original.payableUntil().toInstant())) {
                         throw new CommonException(PAYMENT_EXPIRED);
                     }
-                    inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
+                    inputs.bindToAttempt(locked.payment(), attemptId, now());
                     var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
                     attempts.update(started, current.rowVersion());
                     return Optional.of(
-                            new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
+                            new PaymentSubmissionTicket(paymentId, attemptId, converter.toPrepared(started)));
                 });
             } catch (CommonException rejected) {
                 if (rejected.getResultCode() == INPUT_EXPIRED || rejected.getResultCode() == PAYMENT_EXPIRED) {
-                    rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                    rejectUnsubmitted(accepted, attemptId, decision);
                 }
                 throw rejected;
             }
@@ -257,10 +257,9 @@ public class PaymentSubmissionPreparation {
                 original.preparedInputRef());
     }
 
-    private void rejectUnsubmitted(
-            String tenant, StoredPaymentAcceptance original, String attemptId, RiskDecision decision) {
-        transactions.writeLocal(tenant, () -> {
-            var locked = locks.lock(tenant, original.payment().id(), original.callerServiceId());
+    private void rejectUnsubmitted(StoredPaymentAcceptance original, String attemptId, RiskDecision decision) {
+        transactions.writeLocal(() -> {
+            var locked = locks.lock(original.payment().id(), original.callerServiceId());
             var current = attempts.lock(attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(locked.payment(), current);
             if (current.attempt().state() != PaymentAttemptState.INIT) {
@@ -283,7 +282,7 @@ public class PaymentSubmissionPreparation {
             var proof = new NoCollectionEvidence(evidence, order.id(), true);
             var failed = order.state() == PaymentState.CLOSING ? order.close(proof) : order.fail(proof);
             changes.updatePayment(updates.withPayment(locked.payment(), failed, evidence), order.version());
-            events.publish(tenant, updates.withPayment(locked.payment(), failed, evidence), true, now());
+            events.publish(updates.withPayment(locked.payment(), failed, evidence), true, now());
             return true;
         });
     }

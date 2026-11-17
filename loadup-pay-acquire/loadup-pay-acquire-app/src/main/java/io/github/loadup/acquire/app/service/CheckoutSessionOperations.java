@@ -107,7 +107,7 @@ public class CheckoutSessionOperations {
         return prepared;
     }
 
-    public void insertInitial(String tenant, StoredCheckoutSession prepared) {
+    public void insertInitial(StoredCheckoutSession prepared) {
         requireTransaction();
         sessions.insert(prepared);
     }
@@ -227,12 +227,7 @@ public class CheckoutSessionOperations {
     private String digest(AcquireActor actor, CheckoutSessionCreateCommand command, String target) {
         var framed = new StringBuilder();
         for (String field : List.of(
-                "pay-checkout-session-v1",
-                actor.tenantId(),
-                actor.scopeHash(),
-                command.orderId(),
-                command.requestKey(),
-                target)) {
+                "pay-checkout-session-v1", actor.scopeHash(), command.orderId(), command.requestKey(), target)) {
             framed.append(field.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(field);

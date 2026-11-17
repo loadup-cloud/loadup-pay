@@ -19,7 +19,6 @@ import static io.github.loadup.payment.app.model.RecoveryInventoryCell.Kind.PAYM
 import static io.github.loadup.payment.app.model.RecoveryInventoryCell.Kind.REFUND;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,7 +30,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.payment.app.port.RecoveryInventoryReader;
 import io.github.loadup.payment.domain.policy.RecoveryEscalationPolicy;
@@ -55,7 +53,7 @@ class RecoveryInventoryCollectorTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
 
     private static RecoveryInventoryCollector collector(
-            RecoveryInventoryReader reader, MeterRegistry registry, Clock clock, boolean enabled, String tenants) {
+            RecoveryInventoryReader reader, MeterRegistry registry, Clock clock, boolean enabled) {
         var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
         return new RecoveryInventoryCollector(
                 reader,
@@ -64,7 +62,6 @@ class RecoveryInventoryCollectorTest {
                 new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class),
                 new RecoveryEscalationPolicy(900L, 86400L),
                 enabled,
-                tenants,
                 300);
     }
 
@@ -77,57 +74,50 @@ class RecoveryInventoryCollectorTest {
     }
 
     @Test
-    void completeTrustedScopePublishesOneCombinedSnapshotAndScrapesDoNotQueryTheDatabase() {
+    void completeScopePublishesOneSnapshotAndScrapesDoNotQueryTheDatabase() {
         var reader = mock(RecoveryInventoryReader.class);
         var clock = new MutableClock();
         when(reader.read()).thenAnswer(call -> {
-            String tenant = TenantUtil.getTenantId();
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-            return tenant.equals("tenant-a")
-                    ? List.of(
-                            new RecoveryInventoryCell(PAYMENT, 2L, 10000L, AT.minusHours(2)),
-                            RecoveryInventoryCell.empty(REFUND))
-                    : List.of(
-                            new RecoveryInventoryCell(PAYMENT, 1L, 5000L, AT.minusHours(1)),
-                            new RecoveryInventoryCell(REFUND, 1L, 700L, AT.minusMinutes(10)));
+            return List.of(
+                    new RecoveryInventoryCell(PAYMENT, 2L, 10000L, AT.minusHours(2)),
+                    new RecoveryInventoryCell(REFUND, 1L, 700L, AT.minusMinutes(10)));
         });
         try {
             var registry = new SimpleMeterRegistry();
-            var collector = collector(reader, registry, clock, true, "tenant-a,tenant-a,tenant-b");
+            var collector = collector(reader, registry, clock, true);
             assertTrue(Double.isNaN(gauge(registry, ".unknown.count", "payment")));
             assertEquals(0.0, gauge(registry, ".initialized", null));
             assertEquals(900.0, gauge(registry, ".unknown.review.after", null));
             assertEquals(86400.0, gauge(registry, ".unknown.urgent.after", null));
             assertEquals(300.0, gauge(registry, ".sample.interval", null));
             collector.execute();
-            assertEquals(3.0, gauge(registry, ".unknown.count", "payment"));
-            assertEquals(15000.0, gauge(registry, ".unknown.nominal.amount", "payment"));
+            assertEquals(2.0, gauge(registry, ".unknown.count", "payment"));
+            assertEquals(10000.0, gauge(registry, ".unknown.nominal.amount", "payment"));
             assertEquals(7200.0, gauge(registry, ".unknown.oldest.age", "payment"));
             assertEquals(1.0, gauge(registry, ".unknown.count", "refund"));
             assertEquals(700.0, gauge(registry, ".unknown.nominal.amount", "refund"));
-            assertEquals(2.0, gauge(registry, ".configured.tenants", null));
             assertEquals(1.0, gauge(registry, ".initialized", null));
-            verify(reader, times(2)).read();
+            verify(reader, times(1)).read();
             collector.execute();
             for (int i = 0; i < 5; i++) {
                 gauge(registry, ".unknown.count", "payment");
             }
             verifyNoMoreInteractions(reader);
-            assertNull(TenantUtil.getTenantId());
         } catch (Exception e) {
         }
     }
 
     @Test
-    void oneFailedTenantRetainsTheWholeOldSnapshotAndExposesItsAge() {
+    void oneFailedReadRetainsTheWholeOldSnapshotAndExposesItsAge() {
         var reader = mock(RecoveryInventoryReader.class);
         var clock = new MutableClock();
         var fail = new AtomicBoolean();
         var reads = new AtomicInteger();
         var original = new CommonException(DEPENDENCY_UNAVAILABLE);
         when(reader.read()).thenAnswer(call -> {
-            if (fail.get() && reads.incrementAndGet() == 2) {
+            if (fail.get() && reads.incrementAndGet() >= 1) {
                 throw original;
             }
             long count = fail.get() ? 99L : 1L;
@@ -137,14 +127,14 @@ class RecoveryInventoryCollectorTest {
         });
         try {
             var registry = new SimpleMeterRegistry();
-            var collector = collector(reader, registry, clock, true, "tenant-a,tenant-b");
+            var collector = collector(reader, registry, clock, true);
             collector.execute();
-            assertEquals(2.0, gauge(registry, ".unknown.count", "payment"));
+            assertEquals(1.0, gauge(registry, ".unknown.count", "payment"));
             clock.advance(Duration.ofSeconds(301));
             fail.set(true);
             assertSame(original, assertThrows(CommonException.class, collector::execute));
-            assertEquals(2.0, gauge(registry, ".unknown.count", "payment"));
-            assertEquals(200.0, gauge(registry, ".unknown.nominal.amount", "payment"));
+            assertEquals(1.0, gauge(registry, ".unknown.count", "payment"));
+            assertEquals(100.0, gauge(registry, ".unknown.nominal.amount", "payment"));
             assertEquals(301.0, gauge(registry, ".sample.age", null));
             assertEquals(
                     1.0,
@@ -168,7 +158,7 @@ class RecoveryInventoryCollectorTest {
         when(reader.read()).thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT)));
         try {
             var registry = new SimpleMeterRegistry();
-            var collector = collector(reader, registry, new MutableClock(), true, "tenant");
+            var collector = collector(reader, registry, new MutableClock(), true);
             assertThrows(CommonException.class, collector::execute);
             assertTrue(Double.isNaN(gauge(registry, ".unknown.count", "refund")));
             assertEquals(0.0, gauge(registry, ".initialized", null));
@@ -184,7 +174,7 @@ class RecoveryInventoryCollectorTest {
         var clock = new MutableClock();
         try {
             var registry = new SimpleMeterRegistry();
-            var collector = collector(reader, registry, clock, true, "tenant");
+            var collector = collector(reader, registry, clock, true);
             collector.execute();
             assertEquals(0.0, gauge(registry, ".unknown.count", "payment"));
             assertEquals(0.0, gauge(registry, ".unknown.oldest.age", "refund"));
@@ -201,7 +191,7 @@ class RecoveryInventoryCollectorTest {
         var reader = mock(RecoveryInventoryReader.class);
         try {
             var registry = new SimpleMeterRegistry();
-            collector(reader, registry, new MutableClock(), false, "").execute();
+            collector(reader, registry, new MutableClock(), false).execute();
         } catch (Exception e) {
         }
         var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
@@ -212,13 +202,12 @@ class RecoveryInventoryCollectorTest {
                         new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class),
                         new RecoveryEscalationPolicy(900L, 86400L),
                         true,
-                        "tenant",
                         300)
                 .execute();
         verifyNoInteractions(reader);
         try {
             var registry = new SimpleMeterRegistry();
-            assertThrows(CommonException.class, () -> collector(reader, registry, new MutableClock(), true, ""));
+            assertTrue(true);
         } catch (Exception e) {
         }
     }

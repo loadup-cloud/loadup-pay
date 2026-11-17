@@ -62,23 +62,24 @@ import io.github.loadup.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class AllocationRecoveryServiceTest {
     final AllocationRecoveryGateway cursors = mock(AllocationRecoveryGateway.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
     final PaymentOutcomeGateway allocations = mock(PaymentOutcomeGateway.class);
     final PaymentInitiationOperations initiation = mock(PaymentInitiationOperations.class);
@@ -119,7 +120,7 @@ class AllocationRecoveryServiceTest {
                     terms()),
             "Original subject",
             BusinessTime.external(NOW.minusSeconds(1)));
-    final DelayedTask task = nativeTask(NOW.plusMinutes(5));
+    final TaskExecution task = nativeTask(NOW.plusMinutes(5));
 
     static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
         return new StoredAcquireOrder(
@@ -134,14 +135,14 @@ class AllocationRecoveryServiceTest {
                 original.payloadHash());
     }
 
-    DelayedTask nativeTask(LocalDateTime leaseUntil) {
-        return new DelayedTask(
+    TaskExecution nativeTask(LocalDateTime leaseUntil) {
+        return new TaskExecution(
                 "task",
                 AllocationRecoveryQueue.TYPE,
                 "payment.0",
                 NOW,
                 NOW,
-                DelayedTaskStatus.RUNNING,
+                TaskStatus.RUNNING,
                 1,
                 5,
                 leaseUntil,
@@ -190,11 +191,10 @@ class AllocationRecoveryServiceTest {
                 .update(any(), any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals("tenant", TenantUtil.getTenantId());
                     return null;
                 })
                 .when(tasks)
-                .register(anyString(), anyString(), any());
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         when(initiation.recover(any(), eq("order"), eq("action"), eq(1000L), eq(choice)))
                 .thenAnswer(c -> {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -212,7 +212,7 @@ class AllocationRecoveryServiceTest {
     }
 
     void handle() {
-        TenantUtil.runWithTenant("tenant", () -> service.handle(task));
+        service.handle(task);
     }
 
     @Test
@@ -225,9 +225,9 @@ class AllocationRecoveryServiceTest {
         assertEquals(1L, cursor.get().generation());
         assertEquals(NOW.plusSeconds(30), cursor.get().dueAt());
         assertFalse(cursor.get().completed());
-        verify(outcomes)
-                .refresh(new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
-        verify(tasks).register(AllocationRecoveryQueue.TYPE, "payment.1", NOW.plusSeconds(30));
+        verify(outcomes).refresh(new OrderPaymentScope(OWNER), new PaymentProgressRefreshCommand("order", "payment"));
+        verify(tasks)
+                .submit(eq(TaskSubmission.scheduled(AllocationRecoveryQueue.TYPE, "payment.1", NOW.plusSeconds(30))));
         verify(initiation, never()).start(any(), any());
         assertEquals(2, manager.commits);
     }
@@ -259,9 +259,9 @@ class AllocationRecoveryServiceTest {
         assertTrue(cursor.get().completed());
         assertEquals(0L, cursor.get().generation());
         assertEquals(0L, order.get().order().paymentReservedMinor());
-        verify(outcomes).applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof);
+        verify(outcomes).applyInputExpiry(new OrderPaymentScope(OWNER), "order", "payment", proof);
         verify(outcomes, never()).refresh(any(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
@@ -271,7 +271,7 @@ class AllocationRecoveryServiceTest {
         assertTrue(cursor.get().completed());
         verifyNoInteractions(initiation);
         verify(outcomes, never()).refresh(any(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
@@ -284,7 +284,7 @@ class AllocationRecoveryServiceTest {
         handle();
         assertEquals(1L, cursor.get().generation());
         verify(cursors, never()).update(any(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
@@ -321,7 +321,7 @@ class AllocationRecoveryServiceTest {
         cursor.set(cursor.get().finish());
         handle();
         verifyNoInteractions(initiation, outcomes);
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
         verify(cursors, never()).update(any(), any());
     }
 
@@ -333,7 +333,7 @@ class AllocationRecoveryServiceTest {
         assertSame(failure, assertThrows(CommonException.class, this::handle));
         assertEquals(0L, cursor.get().generation());
         assertFalse(cursor.get().completed());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
         verify(outcomes, never()).refresh(any(), any());
         verify(cursors, never()).update(any(), any());
     }
@@ -352,7 +352,7 @@ class AllocationRecoveryServiceTest {
                 assertThrows(CommonException.class, this::handle).getResultCode());
         verify(initiation, never()).start(any(), any());
         verify(outcomes, never()).refresh(any(), any());
-        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(tasks, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test

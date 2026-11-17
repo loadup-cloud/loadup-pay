@@ -16,7 +16,6 @@
 package io.github.loadup.merchantcenter.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import io.github.loadup.merchantcenter.app.security.CustomerActor;
 import io.github.loadup.merchantcenter.app.security.CustomerActorProvider;
 import io.github.loadup.merchantcenter.client.enums.PrincipalType;
@@ -29,11 +28,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtCustomerActorProvider implements CustomerActorProvider {
-    private final DatabaseTenant databaseTenant;
-
-    public JwtCustomerActorProvider(DatabaseTenant databaseTenant) {
-        this.databaseTenant = databaseTenant;
-    }
 
     public static final String MANAGE_PERMISSION = "pay:customer:manage";
 
@@ -50,7 +44,6 @@ public class JwtCustomerActorProvider implements CustomerActorProvider {
             throw denied();
         }
         try {
-            String tenant = databaseTenant.currentTenantId();
             String type = jwt.getClaimAsString("principal_type");
             String merchant = jwt.getClaimAsString("merchant_id");
             if (type == null || jwt.getSubject() == null) {
@@ -65,7 +58,7 @@ public class JwtCustomerActorProvider implements CustomerActorProvider {
             }
             boolean manage = authentication.getAuthorities().stream()
                     .anyMatch(authority -> MANAGE_PERMISSION.equals(authority.getAuthority()));
-            return new CustomerActor(tenant, principalType, jwt.getSubject(), merchant, manage);
+            return new CustomerActor(principalType, jwt.getSubject(), merchant, manage);
         } catch (IllegalArgumentException failure) {
             throw denied();
         }

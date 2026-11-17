@@ -62,8 +62,8 @@ class PaymentExecutionLocksTest {
 
     @Test
     void originalLockOrderReturnsAValidatedViewWithoutCreatingAnyExecutionRights() {
-        transactions.writeLocal("tenant", () -> {
-            var locked = locks.lock("tenant", "payment", "acquire");
+        transactions.writeLocal(() -> {
+            var locked = locks.lock("payment", "acquire");
             assertSame(accepted, locked.payment());
             assertSame(accepted, locked.binding().accepted());
             var context = PaymentExecutionBindings.submittableContext(locked, AttemptFixtures.prepared());
@@ -83,12 +83,12 @@ class PaymentExecutionLocksTest {
     void missingOrReadonlyTransactionIsRejectedBeforeAnyGatewayOrCodecAccess() {
         assertEquals(
                 INVALID_STATE,
-                assertThrows(CommonException.class, () -> locks.lock("tenant", "payment", "acquire"))
+                assertThrows(CommonException.class, () -> locks.lock("payment", "acquire"))
                         .getResultCode());
-        transactions.readSnapshot("tenant", () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> locks.lock("tenant", "payment", "acquire"))
+                    assertThrows(CommonException.class, () -> locks.lock("payment", "acquire"))
                             .getResultCode());
             return true;
         });
@@ -98,8 +98,7 @@ class PaymentExecutionLocksTest {
     @Test
     void unexpectedOriginalCallerCannotAcquireAnyFinancialLocks() {
         var rejected = assertThrows(
-                CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> locks.lock("tenant", "payment", "other-service")));
+                CommonException.class, () -> transactions.writeLocal(() -> locks.lock("payment", "other-service")));
         assertEquals(ACTION_FORBIDDEN, rejected.getResultCode());
         verify(gates, never()).lockParent(anyString());
         verify(gates, never()).lockPayment(anyString());
@@ -116,8 +115,7 @@ class PaymentExecutionLocksTest {
                 SNAPSHOT_INVALID,
                 assertThrows(
                                 CommonException.class,
-                                () -> transactions.writeLocal(
-                                        "tenant", () -> locks.lock("tenant", "payment", "acquire")))
+                                () -> transactions.writeLocal(() -> locks.lock("payment", "acquire")))
                         .getResultCode());
         var order = accepted.payment();
         var another = new PaymentOrder(
@@ -153,8 +151,7 @@ class PaymentExecutionLocksTest {
                 SNAPSHOT_INVALID,
                 assertThrows(
                                 CommonException.class,
-                                () -> transactions.writeLocal(
-                                        "tenant", () -> locks.lock("tenant", "payment", "acquire")))
+                                () -> transactions.writeLocal(() -> locks.lock("payment", "acquire")))
                         .getResultCode());
     }
 }

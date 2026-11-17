@@ -27,6 +27,8 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.AccessMode;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -80,7 +82,13 @@ public record PaymentSnapshotEventDTO(
 
     public void requireEnvelope(EventEnvelope<?> envelope) {
         require(equals(envelope.data()), CONFLICT);
-        envelope.requireSource("pay.payment.snapshot.realtime.v1", "payment", paymentId, sourceVersion);
+        FrozenEventTypes.requireSource(
+                envelope,
+                BusinessEventTypes.PAYMENT_SNAPSHOT,
+                "payment",
+                paymentId,
+                sourceVersion,
+                "pay.payment.snapshot.realtime.v1");
     }
 
     @Override

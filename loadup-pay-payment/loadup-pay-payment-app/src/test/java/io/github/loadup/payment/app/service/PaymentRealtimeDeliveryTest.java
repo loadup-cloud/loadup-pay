@@ -30,25 +30,25 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.contract.AccessMode;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentState;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.payment.app.port.PaymentSnapshotEnvelopeCodec;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class PaymentRealtimeDeliveryTest {
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final PaymentSnapshotEnvelopeCodec codec = mock(PaymentSnapshotEnvelopeCodec.class);
     final PaymentRealtimeClient client = mock(PaymentRealtimeClient.class);
     final PaymentRealtimeDelivery delivery = new PaymentRealtimeDelivery(outbox, codec, client);
@@ -56,7 +56,7 @@ class PaymentRealtimeDeliveryTest {
             "delivery",
             "proof",
             "payment",
-            PaymentEvents.REALTIME,
+            PaymentDeliveryRoutes.REALTIME,
             1,
             "payment",
             2,
@@ -73,9 +73,9 @@ class PaymentRealtimeDeliveryTest {
                     BusinessTime.external(AttemptFixtures.NOW),
                     BusinessTime.external(AttemptFixtures.NOW),
                     2));
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue",
-            new OutboxMessage(PaymentEvents.REALTIME, 1, "payment", "payload"),
+            new TaskSubmission(PaymentDeliveryRoutes.REALTIME, 1, "payment", "payload", LocalDateTime.now(), ""),
             snapshot.occurredAt().toInstant(),
             null);
 
@@ -83,7 +83,7 @@ class PaymentRealtimeDeliveryTest {
     void setup() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("queue", PaymentEvents.REALTIME, "payment", "PROCESSING", 1, null)));
+                        new TaskExecution("queue", PaymentDeliveryRoutes.REALTIME, "payment", "RUNNING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
         when(client.apply(snapshot)).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -92,7 +92,7 @@ class PaymentRealtimeDeliveryTest {
     }
 
     void send() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event));
+        delivery.deliver(event);
     }
 
     @Test

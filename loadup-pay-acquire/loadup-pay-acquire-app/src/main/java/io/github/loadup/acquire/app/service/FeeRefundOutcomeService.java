@@ -39,6 +39,8 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -51,7 +53,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
-    public static final String TYPE = "pay.payment.refund.fee.v1";
+    public static final String TYPE = BusinessEventTypes.ORDER_REFUND_SUMMARY;
     private final AcquireServiceActorProvider actors;
     private final PaymentOutcomeClient payment;
     private final OrderCreationGateway orders;
@@ -104,7 +106,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
         try {
             if (event == null
                     || event.data() == null
-                    || !TYPE.equals(event.eventType())
+                    || !FrozenEventTypes.accepts(TYPE, "pay.payment.refund.fee.v1", event.eventType())
                     || event.aggregateVersion() <= 0) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
@@ -112,7 +114,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             String digest = digest(actor, event);
             var known = receipts.find(event.deliveryId());
             if (known.isPresent()) {
@@ -139,7 +141,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
                             && !verified.equals(incoming)) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(event.deliveryId());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
@@ -185,7 +187,6 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
         var d = e.data();
         var framed = new StringBuilder("fee-refund-v1/");
         for (var value : List.of(
-                actor.tenantId(),
                 actor.serviceId(),
                 e.deliveryId(),
                 e.businessEventId(),

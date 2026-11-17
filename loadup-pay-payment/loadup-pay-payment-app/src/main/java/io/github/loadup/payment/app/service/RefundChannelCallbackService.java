@@ -78,7 +78,7 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
         try {
-            accepted = transactions.withTenantContext(endpoint.tenantId(), () -> {
+            accepted = transactions.guarded(() -> {
                 var hint = notifications.identifyRefund(endpoint.channel(), endpoint.bindingRevisionId(), input);
                 var target = targets.find(endpoint.bindingRevisionId(), hint.channelRequestNo(), hint.channelRefundNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -110,7 +110,7 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
                                 + notificationId + facts.factsDigest(query));
                 String source = DigestUtils.sha256(
                         "refund-notification-source:" + verified.sourceDigest() + ":" + query.sourceDigest());
-                return results.record(endpoint.tenantId(), converter.toObservation(query, key, source))
+                return results.record(converter.toObservation(query, key, source))
                                 .disposition()
                         != RefundReceiptDisposition.CONFLICT;
             });

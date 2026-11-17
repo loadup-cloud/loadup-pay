@@ -63,7 +63,7 @@ class MerchantTradeQueryServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final TradeQueryGateway queries = mock(TradeQueryGateway.class);
     final AtomicReference<RealtimeActor> actor =
-            new AtomicReference<>(new RealtimeActor("tenant", null, "merchant", Set.of("pay:realtime:trade:read")));
+            new AtomicReference<>(new RealtimeActor(null, "merchant", Set.of("pay:realtime:trade:read")));
     final MerchantTradeQueryService service = new MerchantTradeQueryService(
             actor::get,
             queries,
@@ -140,7 +140,7 @@ class MerchantTradeQueryServiceTest {
 
     @Test
     void serviceCredentialsCannotBeUsedForUnscopedMerchantQueries() {
-        actor.set(new RealtimeActor("tenant", "payment", null, Set.of("pay:realtime:trade:read")));
+        actor.set(new RealtimeActor("payment", null, Set.of("pay:realtime:trade:read")));
         assertThrows(CommonException.class, () -> service.detail(new TradeDetailQuery("merchant", "order")));
         verifyNoInteractions(queries);
     }

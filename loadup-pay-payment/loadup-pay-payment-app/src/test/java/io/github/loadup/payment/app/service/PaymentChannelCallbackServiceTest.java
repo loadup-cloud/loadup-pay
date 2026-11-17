@@ -33,7 +33,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
@@ -144,16 +143,12 @@ class PaymentChannelCallbackServiceTest {
                 .beginSubmission(1, "d".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW));
         accepted.set(AttemptFixtures.accepted(true));
         endpoint.set(new ChannelCallbackEndpoint(
-                TENANT,
                 stored.get().attempt().binding().channel(),
                 stored.get().attempt().binding().id()));
         when(endpoints.resolve(ENDPOINT_REF)).thenAnswer(call -> Optional.of(endpoint.get()));
         when(attempts.findChannelRequest(anyString(), anyString()))
                 .thenAnswer(call -> Optional.ofNullable(stored.get()));
         when(payments.find(anyString())).thenAnswer(call -> {
-            if (!TENANT.equals(TenantUtil.getTenantId())) {
-                return Optional.empty();
-            }
             return Optional.ofNullable(accepted.get());
         });
         when(commands.decode(any(StoredPaymentAcceptance.class))).thenReturn(AttemptFixtures.command());
@@ -170,7 +165,7 @@ class PaymentChannelCallbackServiceTest {
             return query();
         });
         when(observations.factsDigest(any())).thenReturn(FACTS_DIGEST);
-        when(results.record(anyString(), any())).thenAnswer(call -> {
+        when(results.record(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new PaymentResultApplication(APPLIED, "result-receipt", null);
         });
@@ -187,11 +182,11 @@ class PaymentChannelCallbackServiceTest {
 
     @Test
     void verifiesBeforeQueryAndRecordsQueryFactsBeforeReturningNativeProviderAck() {
-        var ack = TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input));
+        var ack = service.receive(ENDPOINT_REF, input);
 
         assertEquals(acknowledgement(true), ack);
         var captured = ArgumentCaptor.forClass(PaymentObservation.class);
-        verify(results).record(eq(TENANT), captured.capture());
+        verify(results).record(captured.capture());
         var callback = captured.getValue();
         assertEquals(ChannelPaymentOutcome.Kind.SUCCEEDED, callback.kind());
         assertEquals(PaymentObservation.Source.CALLBACK, callback.source());
@@ -215,7 +210,7 @@ class PaymentChannelCallbackServiceTest {
                 .identify(endpoint.get().channel(), endpoint.get().bindingRevisionId(), input);
         calls.verify(notifications).verify(target(), input);
         calls.verify(channels).query(target());
-        calls.verify(results).record(eq(TENANT), any(PaymentObservation.class));
+        calls.verify(results).record(any(PaymentObservation.class));
         calls.verify(notifications).acknowledgement(endpoint.get().channel(), true);
     }
 
@@ -223,18 +218,15 @@ class PaymentChannelCallbackServiceTest {
     void duplicateNotificationKeepsReceiptKeyForUnchangedFactsWhenRawDigestsChange() {
         var target = target();
         when(notifications.verify(target, input)).thenReturn(verified("b".repeat(64)), verified("e".repeat(64)));
-        when(results.record(eq(TENANT), any()))
+        when(results.record(any()))
                 .thenReturn(
                         new PaymentResultApplication(APPLIED, "first", null),
                         new PaymentResultApplication(APPLIED, "second", null));
 
-        TenantUtil.runWithTenant(TENANT, () -> {
-            service.receive(ENDPOINT_REF, input);
-            service.receive(ENDPOINT_REF, input);
-        });
-
+        service.receive(ENDPOINT_REF, input);
+        service.receive(ENDPOINT_REF, input);
         var captured = ArgumentCaptor.forClass(PaymentObservation.class);
-        verify(results, Mockito.times(2)).record(eq(TENANT), captured.capture());
+        verify(results, Mockito.times(2)).record(captured.capture());
         assertEquals(
                 captured.getAllValues().get(0).receiptKey(),
                 captured.getAllValues().get(1).receiptKey());
@@ -251,8 +243,7 @@ class PaymentChannelCallbackServiceTest {
                 .when(notifications)
                 .verify(any(), eq(input));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         assertNoFinancialQueryAndNegativeAck();
     }
 
@@ -274,29 +265,15 @@ class PaymentChannelCallbackServiceTest {
                         "PAID",
                         "b".repeat(64)));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        assertNoFinancialQueryAndNegativeAck();
-    }
-
-    @Test
-    void endpointTenantWithoutTheOriginalPaymentCannotQueryChannel() {
-        endpoint.set(new ChannelCallbackEndpoint(
-                "other-tenant", endpoint.get().channel(), endpoint.get().bindingRevisionId()));
-
-        assertEquals(
-                acknowledgement(false),
-                TenantUtil.callWithTenant("other-tenant", () -> service.receive(ENDPOINT_REF, input)));
-        verify(payments).find(stored.get().attempt().paymentId());
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         assertNoFinancialQueryAndNegativeAck();
     }
 
     @Test
     void endpointBindingMismatchReturnsNegativeAckBeforePaymentQuery() {
-        endpoint.set(new ChannelCallbackEndpoint(TENANT, endpoint.get().channel(), "different-revision"));
+        endpoint.set(new ChannelCallbackEndpoint(endpoint.get().channel(), "different-revision"));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         verify(payments, never()).find(anyString());
         assertNoFinancialQueryAndNegativeAck();
     }
@@ -312,8 +289,7 @@ class PaymentChannelCallbackServiceTest {
                         "PAID",
                         "b".repeat(64)));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         assertNoFinancialQueryAndNegativeAck();
     }
 
@@ -321,27 +297,24 @@ class PaymentChannelCallbackServiceTest {
     void zeroExecutionEpochCannotReachNotificationVerificationOrQuery() {
         stored.set(AttemptFixtures.prepared());
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         verify(notifications, never()).verify(any(), any());
         assertNoFinancialQueryAndNegativeAck();
     }
 
     @Test
     void resultConflictAndRuntimeFailureReturnNegativeProviderAcknowledgements() {
-        when(results.record(anyString(), any())).thenReturn(new PaymentResultApplication(CONFLICT, "conflict", null));
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        when(results.record(any())).thenReturn(new PaymentResultApplication(CONFLICT, "conflict", null));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
 
-        when(results.record(anyString(), any())).thenThrow(new IllegalStateException("unavailable"));
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        when(results.record(any())).thenThrow(new IllegalStateException("unavailable"));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         verify(notifications, Mockito.times(2)).acknowledgement(endpoint.get().channel(), false);
     }
 
     private void assertNoFinancialQueryAndNegativeAck() {
         verify(channels, never()).query(any());
-        verify(results, never()).record(anyString(), any());
+        verify(results, never()).record(any());
         verify(notifications).acknowledgement(endpoint.get().channel(), false);
     }
 }

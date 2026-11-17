@@ -22,9 +22,11 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.FrozenEventTypes;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
 import java.util.List;
@@ -37,45 +39,44 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 public class RefundMerchantDelivery {
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final RefundProjectionEnvelopeCodec codec;
     private final PaymentAcquireClient acquire;
 
     public RefundMerchantDelivery(
-            OutboxTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentAcquireClient acquire) {
+            TaskTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentAcquireClient acquire) {
         this.outbox = outbox;
         this.codec = codec;
         this.acquire = acquire;
     }
 
-    public void deliver(OutboxEvent event) {
+    public void deliver(TaskExecution event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (event == null
-                || event.message() == null
-                || event.message().version() != 1
-                || !RefundProjectionEvents.MERCHANT.equals(event.message().type())) {
+                || event.payloadVersion() != 1
+                || !PaymentDeliveryRoutes.REFUND_MERCHANT.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var message = event.message();
-        String tenant = TenantUtil.getTenantId();
+        var message = event;
         var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id())
-                || !message.type().equals(row.type())
-                || !message.businessId().equals(row.businessId())
-                || !"PROCESSING".equals(row.status())) {
+                || !message.taskType().equals(row.taskType())
+                || !message.bizId().equals(row.bizId())
+                || row.status() != TaskStatus.RUNNING) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.merchant(message.payload());
-        if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType())) {
+        if (!row.bizId().equals(envelope.aggregateId())
+                || !FrozenEventTypes.accepts(
+                        PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), envelope.eventType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var data = envelope.data();
         data.requireEnvelope(envelope);
         String expectedEventId = DigestUtils.sha256(JsonUtil.toJson(List.of(
                 "pay-merchant-event-v1",
-                tenant,
                 data.merchantEventType(),
                 envelope.aggregateId(),
                 envelope.aggregateVersion())));

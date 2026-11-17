@@ -42,11 +42,11 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationConverter;
 import io.github.loadup.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.reconciliation.app.port.ReconciliationDifferenceReader;
@@ -84,6 +84,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -102,7 +103,7 @@ class ReconciliationServiceTest {
     private final ReconciliationResultGateway results = mock(ReconciliationResultGateway.class);
     private final ReconciliationAccountDirectory accounts = mock(ReconciliationAccountDirectory.class);
     private final ReconciliationDifferenceReader differences = mock(ReconciliationDifferenceReader.class);
-    private final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    private final TaskTemplate tasks = mock(TaskTemplate.class);
     private final AtomicInteger ids = new AtomicInteger();
     private final AtomicReference<StoredReconciliationBatch> stored = new AtomicReference<>();
     private final Tx manager = new Tx();
@@ -110,7 +111,6 @@ class ReconciliationServiceTest {
     private final ReconciliationScope scope =
             new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "wechat-trade-v1");
     private final ReconciliationActor actor = new ReconciliationActor(
-            "tenant",
             "ops",
             Set.of(
                     "pay:reconciliation:batch:create",
@@ -191,19 +191,13 @@ class ReconciliationServiceTest {
                                         stored.get().batch().id())))
                         .getResultCode());
         ready();
-        doAnswer(call -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                    assertEquals(
-                            ReconciliationState.RUNNING, stored.get().batch().state());
-                    return null;
-                })
-                .when(tasks)
-                .register(eq(ReconciliationExecutionService.TYPE), anyString(), eq(AT));
+
         var running = service.start(
                 new ReconciliationBatchStartCommand(stored.get().batch().id()));
         assertEquals(running, service.start(new ReconciliationBatchStartCommand(running.batchId())));
-        verify(tasks, times(1)).register(eq(ReconciliationExecutionService.TYPE), eq(running.runId()), eq(AT));
+        verify(tasks, times(1))
+                .submit(ArgumentMatchers.eq(
+                        TaskSubmission.scheduled(ReconciliationExecutionService.TYPE, running.runId(), AT)));
     }
 
     @Test
@@ -212,13 +206,13 @@ class ReconciliationServiceTest {
         ready();
         var running = service.start(
                 new ReconciliationBatchStartCommand(stored.get().batch().id()));
-        var failed = new DelayedTask(
+        var failed = new TaskExecution(
                 "task",
                 ReconciliationExecutionService.TYPE,
                 running.runId(),
                 AT,
                 AT,
-                DelayedTaskStatus.FAILED,
+                TaskStatus.FAILED,
                 5,
                 5,
                 null,
@@ -243,7 +237,11 @@ class ReconciliationServiceTest {
                                         new ReconciliationBatchRetryCommand(running.batchId(), "stale", "task")))
                         .getResultCode());
         service.retry(new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), "task"));
-        verify(tasks).retryFailed(ReconciliationExecutionService.TYPE, running.runId());
+        verify(tasks)
+                .retryFailed(
+                        ArgumentMatchers.eq("task"),
+                        ArgumentMatchers.anyString(),
+                        ArgumentMatchers.eq("Explicit business retry"));
         assertEquals(running.runId(), stored.get().batch().runId());
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId()))
                 .thenReturn(Optional.of(task(running.runId(), 1)));
@@ -254,7 +252,7 @@ class ReconciliationServiceTest {
                                 () -> service.retry(new ReconciliationBatchRetryCommand(
                                         running.batchId(), running.runId(), "task")))
                         .getResultCode());
-        verify(tasks, times(1)).retryFailed(anyString(), anyString());
+        verify(tasks, times(1)).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -266,9 +264,9 @@ class ReconciliationServiceTest {
         var command = new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), "task");
         var retryPermission = Set.of("pay:reconciliation:batch:retry");
         for (var other : List.of(
-                new ReconciliationActor("other-tenant", "ops", retryPermission),
-                new ReconciliationActor("tenant", "other-caller", retryPermission),
-                new ReconciliationActor("tenant", "ops", Set.of()))) {
+                new ReconciliationActor("ops", retryPermission),
+                new ReconciliationActor("other-caller", retryPermission),
+                new ReconciliationActor("ops", Set.of()))) {
             var unauthorized = new ReconciliationService(
                     () -> other,
                     accounts,
@@ -283,7 +281,7 @@ class ReconciliationServiceTest {
                     clock);
             assertThrows(CommonException.class, () -> unauthorized.retry(command));
         }
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -311,7 +309,7 @@ class ReconciliationServiceTest {
                 })
                 .when(results)
                 .insert(eq(running.batchId()), eq(running.runId()), any());
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(task));
+        execution.handle(task);
         assertEquals(ReconciliationState.MATCHED, stored.get().batch().state());
         assertNotNull(stored.get().batch().result().resultHash());
         assertEquals(
@@ -321,8 +319,8 @@ class ReconciliationServiceTest {
                                 () -> service.retry(new ReconciliationBatchRetryCommand(
                                         running.batchId(), running.runId(), task.id())))
                         .getResultCode());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(task));
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
+        execution.handle(task);
         verify(results, times(1)).insert(eq(running.batchId()), eq(running.runId()), any());
         verify(matcher, times(1)).compare(any(), any());
     }
@@ -340,15 +338,13 @@ class ReconciliationServiceTest {
                 tasks, batches, inputs, results, transactions, converter, new ReconciliationMatcher(), clock);
         assertEquals(
                 INVALID_STATE,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(task)))
+                assertThrows(CommonException.class, () -> execution.handle(task))
                         .getResultCode());
         verifyNoInteractions(results);
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(task));
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(results).insert(anyString(), anyString(), any());
         int before = manager.rollbacks;
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(task)));
+        assertThrows(CommonException.class, () -> execution.handle(task));
         assertEquals(before + 1, manager.rollbacks);
         assertEquals(ReconciliationState.RUNNING, stored.get().batch().state());
         // These mocks prove ordering and transaction propagation, never real SQL rollback of inserted differences.
@@ -383,14 +379,14 @@ class ReconciliationServiceTest {
         }
     }
 
-    private DelayedTask task(String run, int attempt) {
-        return new DelayedTask(
+    private TaskExecution task(String run, int attempt) {
+        return new TaskExecution(
                 "task",
                 ReconciliationExecutionService.TYPE,
                 run,
                 AT,
                 AT,
-                DelayedTaskStatus.RUNNING,
+                TaskStatus.RUNNING,
                 attempt,
                 5,
                 AT.plusMinutes(1),

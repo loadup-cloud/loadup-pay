@@ -10,4 +10,4 @@ INIT 不伪造运行/结果，MATCHED 必须零差错。JSON 严格整数、枚�
 client 不再包含 proto、Wire mapper、生成任务或 Dubbo 装配。
 
 提供方完整 JWT 验证，身份来自签名 claims，普通 Header/账户自报 hash 不是授权依据。
-错误、发布与未执行验收见 [迁移清单](../../HTTP_MIGRATION.md)。
+错误、发布与未执行验收见 [总体架构](../../ARCHITECTURE.md)。

@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -34,7 +33,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationAcknowledgement;
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
@@ -122,7 +120,7 @@ class RefundChannelCallbackServiceTest {
 
     private void setup() {
         var endpoint = new ChannelCallbackEndpoint(
-                TENANT, target().original().channel(), target().original().bindingRevisionId());
+                target().original().channel(), target().original().bindingRevisionId());
         when(endpoints.resolve(ENDPOINT_REF)).thenReturn(Optional.of(endpoint));
         when(targets.find(
                         endpoint.bindingRevisionId(),
@@ -144,7 +142,7 @@ class RefundChannelCallbackServiceTest {
             return query();
         });
         when(facts.factsDigest(any())).thenReturn(FACTS_DIGEST);
-        when(results.record(eq(TENANT), any())).thenAnswer(call -> {
+        when(results.record(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new RefundResultApplication(RefundReceiptDisposition.APPLIED, "receipt", null);
         });
@@ -164,13 +162,13 @@ class RefundChannelCallbackServiceTest {
         setup();
         var prepared = target();
         var endpoint = new ChannelCallbackEndpoint(
-                TENANT, prepared.original().channel(), prepared.original().bindingRevisionId());
+                prepared.original().channel(), prepared.original().bindingRevisionId());
 
-        var ack = TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input));
+        var ack = service.receive(ENDPOINT_REF, input);
 
         assertEquals(acknowledgement(true), ack);
         var captured = ArgumentCaptor.forClass(RefundObservation.class);
-        verify(results).record(eq(TENANT), captured.capture());
+        verify(results).record(captured.capture());
         assertEquals(RefundObservation.Source.CALLBACK, captured.getValue().source());
         assertEquals(
                 "refund-notification:" + DigestUtils.sha256("14:notification-1" + FACTS_DIGEST),
@@ -182,7 +180,7 @@ class RefundChannelCallbackServiceTest {
         calls.verify(notifications).identifyRefund(endpoint.channel(), endpoint.bindingRevisionId(), input);
         calls.verify(notifications).verifyRefund(prepared, input);
         calls.verify(channels).queryRefund(prepared);
-        calls.verify(results).record(eq(TENANT), any(RefundObservation.class));
+        calls.verify(results).record(any(RefundObservation.class));
         calls.verify(notifications).acknowledgement(endpoint.channel(), true);
     }
 
@@ -193,11 +191,10 @@ class RefundChannelCallbackServiceTest {
                 .when(notifications)
                 .verifyRefund(target(), input);
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
 
         verify(channels, never()).queryRefund(any());
-        verify(results, never()).record(anyString(), any());
+        verify(results, never()).record(any());
         verify(notifications).acknowledgement(target().original().channel(), false);
     }
 
@@ -220,9 +217,8 @@ class RefundChannelCallbackServiceTest {
                         q.sourceDigest(),
                         null));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        verify(results, never()).record(anyString(), any());
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
+        verify(results, never()).record(any());
         verify(notifications).acknowledgement(target().original().channel(), false);
     }
 
@@ -259,12 +255,10 @@ class RefundChannelCallbackServiceTest {
                                 q.sourceDigest(),
                                 null));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
 
-        verify(results, never()).record(anyString(), any());
+        verify(results, never()).record(any());
         verify(notifications, times(2)).acknowledgement(target().original().channel(), false);
     }
 
@@ -288,11 +282,10 @@ class RefundChannelCallbackServiceTest {
                 target().originalChannelTransactionNo());
         when(targets.find(anyString(), anyString(), anyString())).thenReturn(Optional.of(wrongTarget));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         verify(notifications, never()).verifyRefund(any(), any());
         verify(channels, never()).queryRefund(any());
-        verify(results, never()).record(anyString(), any());
+        verify(results, never()).record(any());
     }
 
     @Test
@@ -317,10 +310,9 @@ class RefundChannelCallbackServiceTest {
                 .thenReturn(new VerifiedChannelRefundNotification(
                         wrongTarget, "notification-1", "vendor-refund-ref", "REFUND_SUCCESS", "b".repeat(64)));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         verify(channels, never()).queryRefund(any());
-        verify(results, never()).record(anyString(), any());
+        verify(results, never()).record(any());
     }
 
     @Test
@@ -329,24 +321,21 @@ class RefundChannelCallbackServiceTest {
         when(notifications.verifyRefund(target(), input))
                 .thenReturn(verified("notification-1", "b".repeat(64), "another-vendor-ref"));
 
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
 
         verify(channels).queryRefund(target());
-        verify(results, never()).record(anyString(), any());
+        verify(results, never()).record(any());
         verify(notifications).acknowledgement(target().original().channel(), false);
     }
 
     @Test
     void resultConflictOrFailureReturnsNegativeAck() {
         setup();
-        when(results.record(eq(TENANT), any()))
+        when(results.record(any()))
                 .thenReturn(new RefundResultApplication(RefundReceiptDisposition.CONFLICT, "conflict", null));
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        when(results.record(eq(TENANT), any())).thenThrow(new IllegalStateException("unavailable"));
-        assertEquals(
-                acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
+        when(results.record(any())).thenThrow(new IllegalStateException("unavailable"));
+        assertEquals(acknowledgement(false), service.receive(ENDPOINT_REF, input));
         verify(notifications, times(2)).acknowledgement(target().original().channel(), false);
     }
 
@@ -368,9 +357,8 @@ class RefundChannelCallbackServiceTest {
                 null);
         when(channels.queryRefund(target())).thenReturn(q);
 
-        assertEquals(
-                acknowledgement(true), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        verify(results).record(eq(TENANT), any(RefundObservation.class));
+        assertEquals(acknowledgement(true), service.receive(ENDPOINT_REF, input));
+        verify(results).record(any(RefundObservation.class));
         verify(notifications).acknowledgement(target().original().channel(), true);
     }
 
@@ -397,13 +385,10 @@ class RefundChannelCallbackServiceTest {
         when(channels.queryRefund(target())).thenReturn(unknown, query());
         when(facts.factsDigest(any())).thenReturn("c".repeat(64), "f".repeat(64));
 
-        TenantUtil.runWithTenant(TENANT, () -> {
-            service.receive(ENDPOINT_REF, input);
-            service.receive(ENDPOINT_REF, input);
-        });
-
+        service.receive(ENDPOINT_REF, input);
+        service.receive(ENDPOINT_REF, input);
         var captured = ArgumentCaptor.forClass(RefundObservation.class);
-        verify(results, times(2)).record(eq(TENANT), captured.capture());
+        verify(results, times(2)).record(captured.capture());
         assertNotEquals(
                 captured.getAllValues().get(0).receiptKey(),
                 captured.getAllValues().get(1).receiptKey());
@@ -414,9 +399,7 @@ class RefundChannelCallbackServiceTest {
     void unknownEndpointThrowsWithoutProducingAcknowledgement() {
         when(endpoints.resolve(ENDPOINT_REF)).thenReturn(Optional.empty());
 
-        assertThrows(
-                CommonException.class,
-                () -> TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
+        assertThrows(CommonException.class, () -> service.receive(ENDPOINT_REF, input));
         verify(notifications, never()).acknowledgement(any(), anyBoolean());
     }
 }

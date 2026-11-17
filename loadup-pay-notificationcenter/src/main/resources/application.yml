@@ -1,0 +1,62 @@
+spring:
+  threads:
+    virtual:
+      enabled: false
+  task:
+    execution:
+      propagate-context: true
+  lifecycle:
+    timeout-per-shutdown-phase: 75s
+  datasource:
+    url: ${NOTIFICATIONCENTER_JDBC_URL}
+    username: ${NOTIFICATIONCENTER_JDBC_USERNAME}
+    password: ${NOTIFICATIONCENTER_JDBC_PASSWORD}
+  application:
+    name: notificationcenter
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: [ readinessState, db ]
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  metrics:
+    enable:
+      all: ${METRICS_ENABLED:false}
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+loadup:
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
+  webmvc:
+    request-body:
+      path-prefix: /api/internal/
+      max-size: 32MB
+  database:
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration/pay/notificationcenter
+      - classpath:db/migration/framework/notification
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${JWT_ISSUER_URI:}
+      audience: ${spring.application.name}
+      jwk-set-uri: ${JWT_JWK_SET_URI:}

@@ -48,7 +48,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
@@ -117,7 +116,6 @@ class PaymentControlServiceTest {
     final AtomicReference<StoredPaymentAcceptance> payment = new AtomicReference<>();
     final Map<String, PaymentControlReceipt> receipts = new HashMap<>();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(new PaymentActor(
-            "tenant",
             "acquire",
             Set.of("pay:payment:close", "pay:payment:fence", "pay:payment:fence:read", "pay:payment:accept")));
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
@@ -331,7 +329,7 @@ class PaymentControlServiceTest {
 
     @Test
     void expiredNeverAcceptedInputProducesDurableProofWithoutFencingTheParent() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire", "pay:payment:accept")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:expire", "pay:payment:accept")));
         input.set(input(now));
         var result = service.expireInput(expiryCommand());
         assertEquals(PaymentInputExpiryDisposition.EXPIRED_CLOSED, result.disposition());
@@ -358,7 +356,7 @@ class PaymentControlServiceTest {
 
     @Test
     void activeUnacceptedInputDoesNotCreateAChildFenceOrCloseReceipt() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:expire")));
         input.set(input(now.plusMinutes(1)));
         var result = service.expireInput(expiryCommand());
         assertEquals(PaymentInputExpiryDisposition.INPUT_ACTIVE, result.disposition());
@@ -370,7 +368,7 @@ class PaymentControlServiceTest {
 
     @Test
     void expiryProofReplayCannotRecreateAMissingParentGate() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:expire")));
         input.set(input(now));
         service.expireInput(expiryCommand());
         parent.set(null);
@@ -384,7 +382,7 @@ class PaymentControlServiceTest {
 
     @Test
     void inputExpiryLeavesEveryAlreadyAcceptedPaymentUnchanged() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:expire")));
         var source = PaymentFixtures.command();
         var frozen = new PaymentExecuteCommand(
                 source.paymentId(),
@@ -424,7 +422,7 @@ class PaymentControlServiceTest {
                 assertThrows(CommonException.class, () -> service.expireInput(expiryCommand()))
                         .getResultCode());
         verifyNoInteractions(inputs);
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:input:expire")));
         input.set(input(now));
         var altered = new PaymentInputExpireCommand(
                 "input",
@@ -509,11 +507,9 @@ class PaymentControlServiceTest {
         assertEquals(
                 original.payment().limitOperationId(), payment.get().payment().limitOperationId());
         assertEquals(2, payment.get().payment().version());
-        assertEquals(
-                result.payment(),
-                TenantUtil.callWithTenant("tenant", () -> acceptance().accept(PaymentFixtures.command())));
+        assertEquals(result.payment(), acceptance().accept(PaymentFixtures.command()));
         service.close(close("close", 1));
-        verify(events, times(1)).publish(eq("tenant"), eq(payment.get()), eq(true), any());
+        verify(events, times(1)).publish(eq(payment.get()), eq(true), any());
     }
 
     @Test
@@ -529,7 +525,7 @@ class PaymentControlServiceTest {
                                 && value.attempt().executionEpoch() == 0
                                 && value.attempt().noCollectionEvidenceId() != null),
                         eq(0L));
-        verify(events).publish(eq("tenant"), eq(payment.get()), eq(true), any());
+        verify(events).publish(eq(payment.get()), eq(true), any());
     }
 
     @Test
@@ -542,8 +538,8 @@ class PaymentControlServiceTest {
         assertEquals("CLOSING", result.payment().state().name());
         assertNull(result.noCollectionEvidenceId());
         verify(attempts, never()).update(any(), anyLong());
-        verify(events).publishSnapshot(eq("tenant"), eq(payment.get()), any());
-        verify(events, never()).publish(anyString(), any(), anyBoolean(), any());
+        verify(events).publishSnapshot(eq(payment.get()), any());
+        verify(events, never()).publish(any(), anyBoolean(), any());
     }
 
     @Test
@@ -588,10 +584,7 @@ class PaymentControlServiceTest {
         service.close(close("close", 1));
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant(
-                                        "tenant", () -> acceptance().accept(PaymentFixtures.command())))
+                assertThrows(CommonException.class, () -> acceptance().accept(PaymentFixtures.command()))
                         .getResultCode());
         verify(gates, never()).insert(any());
     }
@@ -604,10 +597,7 @@ class PaymentControlServiceTest {
         assertEquals(3, result.closeEpoch());
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(
-                                CommonException.class,
-                                () -> TenantUtil.callWithTenant(
-                                        "tenant", () -> acceptance().accept(PaymentFixtures.command())))
+                assertThrows(CommonException.class, () -> acceptance().accept(PaymentFixtures.command()))
                         .getResultCode());
         verify(gates, never()).insertPaymentGate(any());
     }
@@ -706,12 +696,12 @@ class PaymentControlServiceTest {
 
     @Test
     void missingPermissionsAndOtherServicesAreRejectedBeforePersistence() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of()));
+        actor.set(new PaymentActor("acquire", Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.close(close("close", 1)))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "other", Set.of("pay:payment:fence")));
+        actor.set(new PaymentActor("other", Set.of("pay:payment:fence")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.fenceParent(fence("fence", 1)))

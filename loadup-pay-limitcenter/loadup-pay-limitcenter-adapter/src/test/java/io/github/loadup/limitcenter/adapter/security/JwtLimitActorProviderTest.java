@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.config.DatabaseProperties;
-import io.github.loadup.components.database.tenant.DatabaseTenant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +29,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 class JwtLimitActorProviderTest {
-    final JwtLimitActorProvider provider = new JwtLimitActorProvider(new DatabaseTenant(new DatabaseProperties()));
+    final JwtLimitActorProvider provider = new JwtLimitActorProvider();
 
     @AfterEach
     void clear() {
@@ -54,7 +52,6 @@ class JwtLimitActorProviderTest {
     void verifiedServiceClaimsProvideTheTenantAndExactPermissions() {
         authenticated("SERVICE", "payment");
         assertEquals("payment", provider.current().serviceId());
-        assertEquals("__default__", provider.current().tenantId());
         assertTrue(provider.current().permissions().contains("pay:limit:reserve"));
     }
 

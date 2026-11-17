@@ -36,8 +36,9 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.productcenter.app.converter.PolicyPublicationConverter;
 import io.github.loadup.productcenter.app.converter.PolicyPublicationConverterImpl;
 import io.github.loadup.productcenter.app.model.PolicyActivationDispatch;
@@ -58,6 +59,7 @@ import io.github.loadup.productcenter.domain.model.ContractStatus;
 import io.github.loadup.productcenter.domain.model.MerchantContractRevision;
 import io.github.loadup.productcenter.domain.model.PolicyPublication;
 import io.github.loadup.productcenter.domain.model.ResolvedContractItem;
+import io.github.loadup.productcenter.domain.model.TypedValue;
 import io.github.loadup.productcenter.domain.model.ValueOrigin;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -68,6 +70,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -82,13 +85,12 @@ class PolicyPublicationServiceTest {
     final PolicyPublicationGateway publications = mock(PolicyPublicationGateway.class);
     final PolicyPublicationCodec codec = mock(PolicyPublicationCodec.class);
     final PolicyActivationClient client = mock(PolicyActivationClient.class);
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final UnitTransactions manager = new UnitTransactions();
     final LocalDateTime now = LocalDateTime.of(2026, 10, 21, 10, 0);
     final Clock clock = Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
-    final LimitPolicyCompiler compiler = new LimitPolicyCompiler(new AcquiringTermsCompiler(validation.getValidator()));
+    final LimitPolicyCompiler compiler = new LimitPolicyCompiler();
     final PublicationActor actor = new PublicationActor(
-            "tenant",
             "operator",
             Set.of("pay:product:publish", "pay:product:publication:read", "pay:product:publication:replay"));
     final PolicyPublicationService service = new PolicyPublicationService(
@@ -126,10 +128,11 @@ class PolicyPublicationServiceTest {
                 clock.instant().minusSeconds(3600),
                 null,
                 Map.of("acquiring", item));
-        activation = compiler.compile("tenant", "merchant", item.configuration());
+        activation = compiler.compile(
+                "merchant", AcquiringFixtures.validated(item.configuration()).limits());
         when(codec.encode(any())).thenReturn("frozen-activation");
         when(codec.decode(any())).thenReturn(activation);
-        when(outbox.publish(any())).thenReturn("event");
+        when(outbox.submit(any())).thenReturn("event");
         queue("PENDING");
         when(contracts.lockByScope("merchant", "scope"))
                 .thenReturn(Optional.of(new ContractRecord(
@@ -181,7 +184,7 @@ class PolicyPublicationServiceTest {
     void queue(String status) {
         when(outbox.find("event"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("event", PolicyActivationDispatch.TYPE, "publication", status, 1, null)));
+                        new TaskExecution("event", PolicyActivationDispatch.TYPE, "publication", status, 1, null)));
     }
 
     LimitPolicyActivationDTO ack() {
@@ -200,7 +203,7 @@ class PolicyPublicationServiceTest {
                 })
                 .when(publications)
                 .insert(any());
-        when(outbox.publish(any())).thenAnswer(call -> {
+        when(outbox.submit(any())).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return "event";
         });
@@ -214,12 +217,12 @@ class PolicyPublicationServiceTest {
         when(publications.findByContract("contract", 1)).thenReturn(Optional.of(pending()));
         assertEquals("event", service.publish(command()).outboxEventId());
         verifyNoInteractions(contracts);
-        verify(outbox, never()).publish(any());
+        verify(outbox, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     @Test
     void queueInsertFailureRollsBackThePublicationIntent() {
-        when(outbox.publish(any())).thenThrow(new CommonException(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE));
+        when(outbox.submit(any())).thenThrow(new CommonException(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.publish(command()));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
@@ -233,7 +236,7 @@ class PolicyPublicationServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return ack();
         });
-        service.deliver("tenant", "event", "publication");
+        service.deliver("event", "publication");
         verify(publications)
                 .update(
                         argThat(value -> "ACTIVE".equals(value.state())
@@ -246,7 +249,7 @@ class PolicyPublicationServiceTest {
         when(publications.findById("publication")).thenReturn(Optional.of(pending()));
         when(client.activate(any()))
                 .thenReturn(new LimitPolicyActivationDTO("policy", 1, "f".repeat(64), ack().activatedAt()));
-        assertThrows(CommonException.class, () -> service.deliver("tenant", "event", "publication"));
+        assertThrows(CommonException.class, () -> service.deliver("event", "publication"));
         verify(publications, never()).lockById(anyString());
     }
 
@@ -259,8 +262,8 @@ class PolicyPublicationServiceTest {
                 .doNothing()
                 .when(publications)
                 .update(any(), eq(1L));
-        assertThrows(CommonException.class, () -> service.deliver("tenant", "event", "publication"));
-        service.deliver("tenant", "event", "publication");
+        assertThrows(CommonException.class, () -> service.deliver("event", "publication"));
+        service.deliver("event", "publication");
         verify(client, times(2)).activate(activation);
     }
 
@@ -268,14 +271,14 @@ class PolicyPublicationServiceTest {
     void anAlreadyActiveReceiptCompletesDuplicateDeliveryWithoutAnotherNetworkCall() {
         when(publications.findById("publication"))
                 .thenReturn(Optional.of(pending().acknowledge("event", now)));
-        service.deliver("tenant", "event", "publication");
+        service.deliver("event", "publication");
         verify(client, never()).activate(any());
     }
 
     @Test
-    void aCrossWiredOutboxEventCannotActivateThePublication() {
+    void aCrossWiredTaskExecutionCannotActivateThePublication() {
         when(publications.findById("publication")).thenReturn(Optional.of(pending()));
-        assertThrows(CommonException.class, () -> service.deliver("tenant", "other-event", "publication"));
+        assertThrows(CommonException.class, () -> service.deliver("other-event", "publication"));
         verify(client, never()).activate(any());
     }
 
@@ -291,10 +294,9 @@ class PolicyPublicationServiceTest {
     void failedDeliveryReplayUsesTheOriginalEventAndAuditsTheOperator() {
         when(publications.findById("publication")).thenReturn(Optional.of(pending()));
         queue("FAILED");
-        when(outbox.replay("event", "operator", "reviewed")).thenReturn(true);
         service.replay(new LimitPolicyReplayCommand("publication", "reviewed"));
-        verify(outbox).replay("event", "operator", "reviewed");
-        verify(outbox, never()).publish(any());
+        verify(outbox).retryFailed("event", "operator", "reviewed");
+        verify(outbox, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
     }
 
     static final class UnitTransactions extends AbstractPlatformTransactionManager {
@@ -318,5 +320,42 @@ class PolicyPublicationServiceTest {
         protected void doRollback(DefaultTransactionStatus status) {
             rollbacks++;
         }
+    }
+
+    @Test
+    void fullPublicationRejectsInvalidNonLimitPolicyBeforePersistingOrEnqueuing() {
+        for (boolean unknown : new boolean[] {false, true}) {
+            var values = AcquiringFixtures.values();
+            if (unknown) {
+                values.put("order.allowReopen", TypedValue.bool(true));
+            } else {
+                values.remove("notify.timeoutMillis");
+            }
+            var item = new ResolvedContractItem(
+                    "acquiring",
+                    1,
+                    "ACQUIRE",
+                    AcquiringFixtures.configuration(values),
+                    Condition.always(),
+                    new ValueOrigin(ConfigurationLayer.BUNDLE, "bundle", 1));
+            var invalid = new MerchantContractRevision(
+                    "merchant",
+                    "scope",
+                    "contract",
+                    1,
+                    "plan",
+                    1,
+                    snapshot.signedAt(),
+                    snapshot.effectiveFrom(),
+                    null,
+                    Map.of("acquiring", item));
+            when(contracts.snapshot(any())).thenReturn(invalid);
+            var command = new LimitPolicyPublishCommand("merchant", "scope", "contract", 1, invalid.snapshotHash());
+            var failure = assertThrows(CommonException.class, () -> service.publish(command));
+            assertEquals(ProductResultCodeEnum.UNSUPPORTED_POLICY, failure.getResultCode());
+        }
+        verify(publications, never()).insert(any());
+        verify(outbox, never()).submit(ArgumentMatchers.any(TaskSubmission.class));
+        verifyNoInteractions(client);
     }
 }

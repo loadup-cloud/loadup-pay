@@ -45,7 +45,6 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
@@ -90,8 +89,8 @@ class PaymentAcceptanceServiceTest {
     final PaymentAcceptanceGateway store = mock(PaymentAcceptanceGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final AtomicReference<StoredPaymentAcceptance> stored = new AtomicReference<>();
-    final AtomicReference<PaymentActor> actor = new AtomicReference<>(
-            new PaymentActor("tenant", "acquire", Set.of("pay:payment:accept", "pay:payment:read")));
+    final AtomicReference<PaymentActor> actor =
+            new AtomicReference<>(new PaymentActor("acquire", Set.of("pay:payment:accept", "pay:payment:read")));
     final UnitTransactions manager = new UnitTransactions();
     final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
     final PaymentActionService actions = mock(PaymentActionService.class);
@@ -131,11 +130,11 @@ class PaymentAcceptanceServiceTest {
                 .insert(any());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertSame(stored.get(), c.getArgument(1));
+                    assertSame(stored.get(), c.getArgument(0));
                     return null;
                 })
                 .when(recovery)
-                .register(eq("tenant"), any());
+                .register(any());
     }
 
     @AfterEach
@@ -145,7 +144,7 @@ class PaymentAcceptanceServiceTest {
     }
 
     PaymentExecutionDTO accept(PaymentExecuteCommand value) {
-        return TenantUtil.callWithTenant("tenant", () -> service.accept(value));
+        return service.accept(value);
     }
 
     @Test
@@ -158,8 +157,8 @@ class PaymentAcceptanceServiceTest {
                 LocalDateTime.of(2026, 10, 22, 12, 0, 0, 123456000),
                 stored.get().payment().initiatedAt());
         assertEquals(1, manager.commits);
-        verify(recovery, times(1)).register(eq("tenant"), eq(stored.get()));
-        verify(events).publishSnapshot(eq("tenant"), eq(stored.get()), any());
+        verify(recovery, times(1)).register(eq(stored.get()));
+        verify(events).publishSnapshot(eq(stored.get()), any());
         var calls = inOrder(store);
         calls.verify(store).lockParent("order");
         calls.verify(store).insertParent(argThat(g -> g.gate().state() == GateState.OPEN));
@@ -176,15 +175,15 @@ class PaymentAcceptanceServiceTest {
         clearInvocations(store, recovery, events);
         assertEquals(first, accept(command));
         var locked = PaymentExecutionBindings.locked(original, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
-        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
-        when(actions.present("tenant", locked)).thenReturn(first);
+        when(locks.lock("payment", "acquire")).thenReturn(locked);
+        when(actions.present(locked)).thenReturn(first);
         assertEquals(first, service.detail(new IdQuery("payment")));
-        verify(locks).lock("tenant", "payment", "acquire");
-        verify(actions).present("tenant", locked);
+        verify(locks).lock("payment", "acquire");
+        verify(actions).present(locked);
         assertSame(original, stored.get());
         verify(store, never()).lockParent(anyString());
         verify(store, never()).insert(any());
-        verify(recovery, never()).register(anyString(), any());
+        verify(recovery, never()).register(any());
         verifyNoInteractions(events);
     }
 
@@ -216,12 +215,12 @@ class PaymentAcceptanceServiceTest {
         stored.set(unknown);
         var locked = PaymentExecutionBindings.locked(unknown, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         var presented = context.getBean(PaymentAcceptanceConverter.class).toDTO(unknown);
-        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
-        when(actions.present("tenant", locked)).thenReturn(presented);
+        when(locks.lock("payment", "acquire")).thenReturn(locked);
+        when(actions.present(locked)).thenReturn(presented);
         clearInvocations(events, recovery);
 
         assertSame(presented, accept(command));
-        verify(actions).present("tenant", locked);
+        verify(actions).present(locked);
         verifyNoInteractions(events, recovery);
     }
 
@@ -229,7 +228,7 @@ class PaymentAcceptanceServiceTest {
     void initialSnapshotFailureRollsBackTheAcceptanceUnitInsteadOfReturningACommittedPayment() {
         Mockito.doThrow(new CommonException(PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE))
                 .when(events)
-                .publishSnapshot(eq("tenant"), any(), any());
+                .publishSnapshot(any(), any());
         assertThrows(CommonException.class, () -> accept(command));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -298,7 +297,7 @@ class PaymentAcceptanceServiceTest {
         when(store.lockParent("order"))
                 .thenReturn(Optional.of(new StoredPaymentGate(
                         "gate",
-                        "other",
+                        "other-merchant",
                         "acquire",
                         PaymentExecutionGate.init("order", null).open(),
                         0)));
@@ -334,7 +333,7 @@ class PaymentAcceptanceServiceTest {
 
     @Test
     void anUnrelatedServiceCannotAcceptOrReadEvenWithBothPermissions() {
-        actor.set(new PaymentActor("tenant", "other-service", Set.of("pay:payment:accept", "pay:payment:read")));
+        actor.set(new PaymentActor("other-service", Set.of("pay:payment:accept", "pay:payment:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
@@ -347,11 +346,11 @@ class PaymentAcceptanceServiceTest {
 
     @Test
     void missingPermissionAndOuterTransactionFailBeforeAnyWrite() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of()));
+        actor.set(new PaymentActor("acquire", Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:accept")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:accept")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
@@ -430,14 +429,14 @@ class PaymentAcceptanceServiceTest {
 
     @Test
     void recoveryRegistrationFailurePropagatesAndRollsBackTheAcceptanceTransaction() {
-        doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(eq("tenant"), any());
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(any());
         assertSame(
                 CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         verify(store).insert(any());
-        verify(recovery).register(eq("tenant"), any());
+        verify(recovery).register(any());
         // Mock ports prove the transaction boundary, not actual database row rollback.
     }
 

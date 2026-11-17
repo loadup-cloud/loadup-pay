@@ -20,7 +20,6 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.app.model.limitcenter.command.LimitPolicyActivateCommand;
 import io.github.loadup.productcenter.app.model.limitcenter.dto.LimitRuleDTO;
 import io.github.loadup.productcenter.app.model.limitcenter.enums.LimitMetric;
@@ -28,14 +27,10 @@ import io.github.loadup.productcenter.app.model.limitcenter.enums.LimitWindowTyp
 import io.github.loadup.productcenter.app.model.limitcenter.enums.RefundAmountRestorePolicy;
 import io.github.loadup.productcenter.app.model.limitcenter.enums.RefundCountRestorePolicy;
 import io.github.loadup.productcenter.app.model.limitcenter.support.LimitPolicyHash;
-import io.github.loadup.productcenter.domain.model.ResolvedConfiguration;
-import io.github.loadup.productcenter.domain.model.TypedValue;
-import io.github.loadup.productcenter.domain.model.ValueType;
-import java.math.BigInteger;
+import io.github.loadup.productcenter.domain.policy.LimitPolicy;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
@@ -43,95 +38,47 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class LimitPolicyCompiler {
-    private final AcquiringTermsCompiler terms;
-
-    public LimitPolicyCompiler(AcquiringTermsCompiler terms) {
-        this.terms = terms;
-    }
-
-    private static String text(Map<String, TypedValue> values, String key) {
-        var value = values.get(key);
-        if (value == null || value.type() != ValueType.STRING) {
-            throw new CommonException(UNSUPPORTED_POLICY);
-        }
-        return value.value();
-    }
-
-    private static boolean bool(Map<String, TypedValue> values, String key, boolean fallback) {
-        var value = values.get(key);
-        if (value == null) {
-            return fallback;
-        }
-        if (value.type() != ValueType.BOOLEAN) {
-            throw new CommonException(UNSUPPORTED_POLICY);
-        }
-        return Boolean.parseBoolean(value.value());
-    }
-
-    private static Long integer(Map<String, TypedValue> values, String key, Long fallback) {
-        var value = values.get(key);
-        if (value == null) {
-            if (fallback == null) {
-                throw new CommonException(UNSUPPORTED_POLICY);
-            }
-            return fallback;
-        }
-        if (value.type() != ValueType.INTEGER) {
-            throw new CommonException(UNSUPPORTED_POLICY);
-        }
-        return new BigInteger(value.value()).longValueExact();
-    }
-
-    public LimitPolicyActivateCommand compile(String tenant, String payee, ResolvedConfiguration configuration) {
+    public LimitPolicyActivateCommand compile(String payee, LimitPolicy policy) {
         try {
-            var values = configuration.values();
-            String policy = text(values, "limit.policyRef");
-            DomainChecks.id(policy);
-            if (!"CNY".equals(text(values, "trade.defaultCurrency"))
-                    || !"INITIATED_AT".equals(text(values, "limit.countingBasis"))
-                    || bool(values, "limit.parentAggregationEnabled", false)) {
+            DomainChecks.id(policy.policyId());
+            if (policy.parentAggregationEnabled()) {
                 throw new CommonException(UNSUPPORTED_POLICY);
             }
-            int weekStart = Math.toIntExact(integer(values, "limit.weekStart", null));
-            if (weekStart < 1 || weekStart > 7) {
-                throw new CommonException(UNSUPPORTED_POLICY);
-            }
-            DomainChecks.id(tenant);
             DomainChecks.id(payee);
-            String scope = DigestUtils.sha256("merchant-acquiring-quota-v1:"
-                    + tenant.getBytes(StandardCharsets.UTF_8).length + ":" + tenant
-                    + payee.getBytes(StandardCharsets.UTF_8).length + ":" + payee);
+            String scope = DigestUtils.sha256(
+                    "merchant-acquiring-quota-v1:" + payee.getBytes(StandardCharsets.UTF_8).length + ":" + payee);
             List<LimitRuleDTO> rules = new ArrayList<>();
-            for (var window : LimitWindowType.values()) {
-                for (var metric : LimitMetric.values()) {
-                    String prefix = "limit." + window.name() + "." + metric.name();
-                    boolean enabled = bool(values, prefix + ".enabled", false);
-                    Long threshold = integer(values, prefix + ".threshold", enabled ? null : 0L);
-                    if (threshold < 0) {
-                        throw new CommonException(UNSUPPORTED_POLICY);
-                    }
-                    rules.add(
-                            new LimitRuleDTO(scope, payee, metric, "CNY", window, weekStart, threshold, enabled, true));
+            for (var window : LimitPolicy.Window.values()) {
+                for (var metric : LimitPolicy.Metric.values()) {
+                    var rule = policy.rule(window, metric);
+                    rules.add(new LimitRuleDTO(
+                            scope,
+                            payee,
+                            LimitMetric.valueOf(metric.name()),
+                            policy.currency(),
+                            LimitWindowType.valueOf(window.name()),
+                            policy.weekStart(),
+                            rule.threshold() == null ? 0L : rule.threshold(),
+                            rule.enabled(),
+                            true));
                 }
             }
             var unsigned = new LimitPolicyActivateCommand(
-                    policy,
+                    policy.policyId(),
                     1,
                     "0".repeat(64),
                     payee,
-                    RefundAmountRestorePolicy.valueOf(text(values, "limit.refundAmountRestore")),
-                    RefundCountRestorePolicy.valueOf(text(values, "limit.refundCountRestore")),
+                    RefundAmountRestorePolicy.valueOf(policy.amountRestore().name()),
+                    RefundCountRestorePolicy.valueOf(policy.countRestore().name()),
                     rules);
             var command = new LimitPolicyActivateCommand(
-                    policy,
+                    policy.policyId(),
                     1,
-                    LimitPolicyHash.compute(tenant, unsigned),
+                    LimitPolicyHash.compute(unsigned),
                     payee,
                     unsigned.refundAmountRestore(),
                     unsigned.refundCountRestore(),
                     rules);
-            // This INIT binding validates the complete closed vocabulary; it is never treated as an activation ACK.
-            terms.compile(configuration, new ActivatedLimitPolicy(policy, 1, command.policyHash(), "INIT", null));
             return command;
         } catch (IllegalArgumentException | ArithmeticException invalid) {
             throw new CommonException(UNSUPPORTED_POLICY);

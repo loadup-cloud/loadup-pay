@@ -108,14 +108,14 @@ public class RefundNotificationService implements RefundNotificationFacade {
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
-            String digest = DigestUtils.sha256(JsonUtil.toJson(
-                    List.of("refund-notification-inbox-v1", actor.tenantId(), actor.serviceId(), event)));
+        return transactions.guarded(() -> {
+            String digest = DigestUtils.sha256(
+                    JsonUtil.toJson(List.of("refund-notification-inbox-v1", actor.serviceId(), event)));
             var known = receipts.find(event.deliveryId());
             if (known.isPresent()) {
                 return replay(actor, known.get(), digest);
             }
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(event.deliveryId());
                 if (existing.isPresent()) {
                     return replay(actor, existing.get(), digest);
@@ -146,7 +146,7 @@ public class RefundNotificationService implements RefundNotificationFacade {
                         throw new CommonException(DEPENDENCY_UNAVAILABLE);
                     }
                 }
-                var registration = notifications.refund(actor.tenantId(), event);
+                var registration = notifications.refund(event);
                 var receipt = converter.toReceipt(
                         ids.generate(),
                         event,

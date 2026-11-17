@@ -2,17 +2,14 @@ spring:
   main:
     web-application-type: none
 loadup:
+  task:
+    enabled: true
+    worker-enabled: false
   database:
-    multi-tenant:
-      enabled: true
-      required: true
+    schema: loadup_acquire
   flyway:
     enabled: true
     locations: classpath:db/migration/pay/acquire
-  delayedtask:
-    enabled: true
-  outbox:
-    worker-enabled: false
   security:
     resource-server:
       enabled: false

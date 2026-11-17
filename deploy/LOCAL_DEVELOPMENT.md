@@ -1,3 +1,7 @@
+# 历史本地运行记录
+
+本文保留 2026-11-03 的实际检查范围和限制，所述镜像、应用名与配置均为历史版本。当前源码已更名并合并管理应用，不能直接复用下列旧发布命令。当前配置见 [配置与发布](CONFIGURATION.md)，待办见 [路线图](../ROADMAP.md)。
+
 ## 2026-11-03 AuthServer 发布验证
 
 - 八个应用统一镜像标签 `auth-20261103-verified`，context `orbstack`、namespace `loadup-pay`，Deployment 与 Service EndpointSlice 均就绪。
@@ -9,7 +13,7 @@
 - 本地同时滚动曾触发 PostgreSQL 连接耗尽。dev 池上限 5、最小空闲 1；脚本改为 AuthServer 就绪后逐个更新消费者。最终观察每应用 2 个数据库连接，历史重启记录保留。
 - `https://pay.loadup.local/checkout` 通过当前自签名 CA 检查返回 HTTP 200。完整业务、长期续取、密钥轮换与动态租户 schema 路由仍待验收。
 
-> 下述为旧版本运行记录。本次源码已转向独立 AuthServer 自动取令牌，但尚未构建或部署；旧 JWT/Secret/JWKS 未自动退役。当前操作见 [AuthServer](../authserver/README.md)。
+> 下述 release-001 记录早于上方 AuthServer 发布记录，按日期和版本分别解读。当前授权应用见 [OAuth2 Server](../loadup-pay-oauth2-server/README.md)。
 
 # 本地开发环境
 

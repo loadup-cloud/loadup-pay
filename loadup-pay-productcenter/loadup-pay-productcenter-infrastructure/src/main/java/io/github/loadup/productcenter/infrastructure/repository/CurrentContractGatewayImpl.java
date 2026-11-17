@@ -20,7 +20,6 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.app.port.CurrentContractGateway;
 import io.github.loadup.productcenter.app.port.PolicyPublicationCodec;
@@ -108,7 +107,6 @@ public class CurrentContractGatewayImpl extends ServiceImpl<ContractLimitPublica
                 || !"ACTIVE".equals(row.getState())) {
             return Optional.empty();
         }
-        String tenant = TenantContext.tenantId();
         try {
             publicationCodec.decode(publicationStorage.toModel(row));
         } catch (RuntimeException invalid) {

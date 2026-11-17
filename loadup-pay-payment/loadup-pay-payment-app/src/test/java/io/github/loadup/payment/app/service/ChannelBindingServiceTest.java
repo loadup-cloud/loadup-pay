@@ -82,7 +82,6 @@ class ChannelBindingServiceTest {
     final Map<String, StoredChannelBindingRevision> revisions = new HashMap<>();
     final Map<String, ChannelBindingChangeReceipt> receipts = new HashMap<>();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(new PaymentActor(
-            "tenant",
             "pay-ops",
             Set.of(
                     "pay:payment:binding:publish",
@@ -307,12 +306,12 @@ class ChannelBindingServiceTest {
 
     @Test
     void serviceAndOuterTransactionAreRejectedBeforeBindingAccess() {
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:binding:publish")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:binding:publish")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.publish(publish("first", 0, "v1", 100)))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:binding:publish")));
+        actor.set(new PaymentActor("pay-ops", Set.of("pay:payment:binding:publish")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

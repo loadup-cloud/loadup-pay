@@ -34,7 +34,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentTarget;
@@ -75,8 +74,8 @@ class PaymentVerificationServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final PaymentVerificationTargetReader reader = mock(PaymentVerificationTargetReader.class);
     final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
-    final AtomicReference<PaymentActor> actor = new AtomicReference<>(
-            new PaymentActor("tenant", "reconciliation", Set.of("pay:payment:reconciliation:verify")));
+    final AtomicReference<PaymentActor> actor =
+            new AtomicReference<>(new PaymentActor("reconciliation", Set.of("pay:payment:reconciliation:verify")));
     final Clock clock = Clock.fixed(Instant.parse("2026-10-28T06:00:00.123456Z"), ZoneId.systemDefault());
     final PaymentVerificationService service = new PaymentVerificationService(
             actor::get,
@@ -105,13 +104,11 @@ class PaymentVerificationServiceTest {
         when(reader.read(query)).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return new PaymentVerificationTarget(
                     target, null, 7L, "SUCCEEDED", PaymentVerificationDisposition.OBSERVED);
         });
         when(channels.query(target)).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             return new PaymentObservation(
                     identity,
                     ChannelPaymentOutcome.Kind.SUCCEEDED,
@@ -187,12 +184,12 @@ class PaymentVerificationServiceTest {
 
     @Test
     void wrongSourceOrScopeCannotBecomeAnObservationAndAuthorizationPrecedesAnyRead() {
-        actor.set(new PaymentActor("tenant", "other", actor.get().permissions()));
+        actor.set(new PaymentActor("other", actor.get().permissions()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.verify(query)).getResultCode());
         verifyNoInteractions(reader, channels);
-        actor.set(new PaymentActor("tenant", "reconciliation", Set.of("pay:payment:reconciliation:verify")));
+        actor.set(new PaymentActor("reconciliation", Set.of("pay:payment:reconciliation:verify")));
         when(reader.read(query))
                 .thenReturn(new PaymentVerificationTarget(
                         target, null, 1L, "UNKNOWN", PaymentVerificationDisposition.OBSERVED));

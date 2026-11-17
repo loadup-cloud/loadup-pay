@@ -19,14 +19,12 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
 
 /**
  * Persisted owner binding used by result convergence; it confers no merchant API or creation privileges.
  */
-record OrderPaymentScope(String tenantId, String scopeHash) {
+record OrderPaymentScope(String scopeHash) {
     OrderPaymentScope {
-        DomainChecks.id(tenantId);
         require(scopeHash != null && scopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
 

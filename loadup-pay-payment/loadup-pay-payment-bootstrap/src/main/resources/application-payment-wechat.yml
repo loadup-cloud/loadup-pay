@@ -4,10 +4,10 @@ loadup:
     channel:
       wechat:
         enabled: true
-        # PAYMENT_CODE additionally requires a frozen apiV2Key and codepay.server-ips.<tenant>.<binding-revision>.
+        # PAYMENT_CODE additionally requires a frozen apiV2Key and codepay.server-ips.<binding-revision>.
         # credentials: reference -> version -> absolute descriptor Path
-        # notifications.notify-urls: tenant -> immutable binding revision -> payment HTTPS callback URI without query
-        # notifications.refund-notify-urls: tenant -> immutable binding revision -> /{endpointRef}/refund HTTPS callback URI
+        # notifications.notify-urls: immutable binding revision -> payment HTTPS callback URI without query
+        # notifications.refund-notify-urls: immutable binding revision -> /{endpointRef}/refund HTTPS callback URI
         # Configure the matching trusted loadup.modules.payment.channel-callback.endpoints entry separately.
   http:
     enabled: true

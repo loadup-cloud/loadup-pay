@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.realtime.domain.gateway.ProjectionWriteRaceException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -43,26 +42,21 @@ class RealtimeTransactionsTest {
 
     @Test
     void readSnapshotCreatesAReadonlyRepeatableReadViewAndRestoresTheTenant() {
-        TenantUtil.callWithTenant("outer", () -> {
-            assertEquals("snapshot", transactions.readSnapshot("inner", () -> {
-                assertEquals("inner", TenantUtil.getTenantId());
-                assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
-                assertEquals(
-                        INVALID_STATE,
-                        assertThrows(CommonException.class, () -> transactions.writeLocal("inner", () -> true))
-                                .getResultCode());
-                assertEquals(
-                        INVALID_STATE,
-                        assertThrows(CommonException.class, () -> transactions.readSnapshot("inner", () -> true))
-                                .getResultCode());
-                return "snapshot";
-            }));
-            assertEquals("outer", TenantUtil.getTenantId());
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return true;
-        });
+        assertEquals("snapshot", transactions.readSnapshot(() -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
+            assertEquals(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> transactions.writeLocal(() -> true))
+                            .getResultCode());
+            assertEquals(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> transactions.readSnapshot(() -> true))
+                            .getResultCode());
+            return "snapshot";
+        }));
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         assertEquals(1, manager.begins);
         assertEquals(1, manager.commits);
     }
@@ -74,21 +68,20 @@ class RealtimeTransactionsTest {
                 original,
                 assertThrows(
                         DuplicateKeyException.class,
-                        () -> transactions.readSnapshot("tenant", () -> {
+                        () -> transactions.readSnapshot(() -> {
                             throw original;
                         })));
         assertEquals(1, manager.begins);
         assertEquals(1, manager.rollbacks);
-        assertNull(transactions.readSnapshot("tenant", () -> null));
-        assertNull(transactions.writeLocal("tenant", () -> null));
+        assertNull(transactions.readSnapshot(() -> null));
+        assertNull(transactions.writeLocal(() -> null));
         assertEquals(2, manager.commits);
-        assertNull(TenantUtil.getTenantId());
     }
 
     @Test
     void localWritesRetryAfterRollbackButNeverRetryBusinessFailure() {
         var calls = new AtomicInteger();
-        assertEquals("committed", transactions.writeLocal("tenant", () -> {
+        assertEquals("committed", transactions.writeLocal(() -> {
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
@@ -107,7 +100,7 @@ class RealtimeTransactionsTest {
                 original,
                 assertThrows(
                         CommonException.class,
-                        () -> transactions.writeLocal("tenant", () -> {
+                        () -> transactions.writeLocal(() -> {
                             throw original;
                         })));
         assertEquals(4, manager.begins);
@@ -119,7 +112,7 @@ class RealtimeTransactionsTest {
     void exhaustedLocalContentionHasTheExistingRealtimeErrorCodeAndThreeAttempts() {
         var exhausted = assertThrows(
                 CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> {
+                () -> transactions.writeLocal(() -> {
                     throw new ProjectionWriteRaceException("Synthetic repeated local race");
                 }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
@@ -127,7 +120,6 @@ class RealtimeTransactionsTest {
         assertEquals(3, manager.rollbacks);
         assertEquals(0, manager.commits);
         assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-        assertNull(TenantUtil.getTenantId());
     }
 
     @Test
@@ -138,7 +130,7 @@ class RealtimeTransactionsTest {
                 original,
                 assertThrows(
                         DuplicateKeyException.class,
-                        () -> transactions.writeLocal("tenant", () -> {
+                        () -> transactions.writeLocal(() -> {
                             calls.incrementAndGet();
                             throw original;
                         })));

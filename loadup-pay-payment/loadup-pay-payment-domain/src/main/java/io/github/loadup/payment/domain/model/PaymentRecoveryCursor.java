@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Only business continuation identity; scheduling claims and leases belong to DelayedTask.
+ * Only business continuation identity; scheduling claims and leases belong to TaskExecution.
  */
 public record PaymentRecoveryCursor(String paymentId, long generation, LocalDateTime dueAt, boolean completed) {
     public PaymentRecoveryCursor {

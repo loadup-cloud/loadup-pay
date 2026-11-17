@@ -41,12 +41,10 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationVerificationConverter;
 import io.github.loadup.reconciliation.app.model.ApprovedReconciliationReview;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;
@@ -79,6 +77,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -93,7 +92,7 @@ class ReconciliationVerificationServiceTest {
     final ReconciliationReviewService reviews = mock(ReconciliationReviewService.class);
     final ReconciliationVerificationGateway requests = mock(ReconciliationVerificationGateway.class);
     final ReconciliationPaymentVerification payment = mock(ReconciliationPaymentVerification.class);
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final ReconciliationTransactions tx = new ReconciliationTransactions(new Tx());
     final Clock clock = Clock.fixed(Instant.parse("2026-10-28T06:00:00.123456Z"), ZoneId.systemDefault());
     final ReconciliationScope scope = new ReconciliationScope(
@@ -104,14 +103,13 @@ class ReconciliationVerificationServiceTest {
     final ApprovedReconciliationReview approved =
             new ApprovedReconciliationReview(reference, scope, key, "owner-request", "proposal", "approval", 2L);
     final AtomicReference<ReconciliationActor> actor = new AtomicReference<>(new ReconciliationActor(
-            "tenant",
             "ops",
             Set.of(
                     "pay:reconciliation:verification:submit",
                     "pay:reconciliation:verification:read",
                     "pay:reconciliation:verification:retry")));
     final AtomicReference<ReconciliationVerificationRequest> stored = new AtomicReference<>();
-    final AtomicReference<OutboxRecord> nativeRow = new AtomicReference<>();
+    final AtomicReference<TaskExecution> nativeRow = new AtomicReference<>();
     final ReconciliationVerificationService service = new ReconciliationVerificationService(
             actor::get, reviews, requests, tx, outbox, converter, () -> "request", validation.getValidator(), clock);
     final ReconciliationVerificationDelivery delivery =
@@ -152,20 +150,15 @@ class ReconciliationVerificationServiceTest {
                 })
                 .when(requests)
                 .update(any(), anyLong());
-        when(outbox.publish(any())).thenAnswer(call -> {
+        when(outbox.submit(any())).thenAnswer(call -> {
             write();
-            OutboxMessage message = call.getArgument(0);
+            TaskSubmission message = call.getArgument(0);
             assertEquals("request", ReconciliationVerificationMessages.decode(message.payload()));
             assertFalse(message.payload().contains("owner-request"));
             nativeRow.set(row("PENDING", 0));
             return "delivery";
         });
         when(outbox.find("delivery")).thenAnswer(call -> Optional.ofNullable(nativeRow.get()));
-        when(outbox.replay(anyString(), anyString(), anyString())).thenAnswer(call -> {
-            write();
-            nativeRow.set(row("PENDING", 0));
-            return true;
-        });
         when(payment.verify(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertNotNull(stored.get());
@@ -190,8 +183,8 @@ class ReconciliationVerificationServiceTest {
         assertNull(initial.receipt());
         verifyNoInteractions(payment);
         assertEquals(initial, service.submit(command));
-        verify(outbox, times(1)).publish(any());
-        nativeRow.set(row("PROCESSING", 1));
+        verify(outbox, times(1)).submit(ArgumentMatchers.any(TaskSubmission.class));
+        nativeRow.set(row("RUNNING", 1));
         deliver();
         var first = stored.get().receipt();
         assertEquals(ReconciliationVerificationDisposition.OBSERVED, first.disposition());
@@ -202,7 +195,8 @@ class ReconciliationVerificationServiceTest {
         verify(payment, times(1)).verify(any());
         nativeRow.set(row("FAILED", 1));
         service.retry(new ReconciliationVerificationRetryCommand("request", "delivery", "retry lost acknowledgement"));
-        nativeRow.set(row("PROCESSING", 1));
+        verify(outbox).retryFailed("delivery", "ops", "retry lost acknowledgement");
+        nativeRow.set(row("RUNNING", 1));
         deliver();
         assertEquals(first, stored.get().receipt());
         verify(payment, times(1)).verify(any());
@@ -211,7 +205,7 @@ class ReconciliationVerificationServiceTest {
     @Test
     void noLocalTargetIsRecordedAsCoverageGapWithoutInventedMoneyOrOutcome() {
         service.submit(command);
-        nativeRow.set(row("PROCESSING", 1));
+        nativeRow.set(row("RUNNING", 1));
         doAnswer(call -> result(call.getArgument(0), PaymentVerificationDisposition.NO_LOCAL_TARGET))
                 .when(payment)
                 .verify(any());
@@ -226,7 +220,7 @@ class ReconciliationVerificationServiceTest {
     @Test
     void changedReplyScopeOrReclaimedDeliveryDoesNotCompleteTheRequest() {
         service.submit(command);
-        nativeRow.set(row("PROCESSING", 1));
+        nativeRow.set(row("RUNNING", 1));
         doAnswer(call -> {
                     PaymentVerificationQuery q = call.getArgument(0);
                     return result(
@@ -247,7 +241,7 @@ class ReconciliationVerificationServiceTest {
                 assertThrows(CommonException.class, this::deliver).getResultCode());
         assertEquals(ReconciliationVerificationState.INIT, stored.get().state());
         doAnswer(call -> {
-                    nativeRow.set(row("PROCESSING", 2));
+                    nativeRow.set(row("RUNNING", 2));
                     return result(call.getArgument(0), PaymentVerificationDisposition.OBSERVED);
                 })
                 .when(payment)
@@ -260,16 +254,14 @@ class ReconciliationVerificationServiceTest {
 
     @Test
     void callerPermissionAndOriginalDeliveryIdentityAreRequired() {
-        actor.set(new ReconciliationActor("tenant", "ops", Set.of()));
+        actor.set(new ReconciliationActor("ops", Set.of()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.submit(command))
                         .getResultCode());
         verifyNoInteractions(reviews, requests, outbox, payment);
         actor.set(new ReconciliationActor(
-                "tenant",
-                "ops",
-                Set.of("pay:reconciliation:verification:submit", "pay:reconciliation:verification:retry")));
+                "ops", Set.of("pay:reconciliation:verification:submit", "pay:reconciliation:verification:retry")));
         service.submit(command);
         nativeRow.set(row("FAILED", 1));
         assertEquals(
@@ -279,25 +271,25 @@ class ReconciliationVerificationServiceTest {
                                 () -> service.retry(new ReconciliationVerificationRetryCommand(
                                         "request", "another-delivery", "reason")))
                         .getResultCode());
-        verify(outbox, never()).replay(anyString(), anyString(), anyString());
+        verify(outbox, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     void deliver() {
-        TenantUtil.runWithTenant(
-                "tenant",
-                () -> delivery.deliver(new OutboxEvent(
-                        "delivery",
-                        new OutboxMessage(
-                                ReconciliationVerificationMessages.TYPE,
-                                1,
-                                "request",
-                                ReconciliationVerificationMessages.encode("request")),
-                        clock.instant(),
-                        null)));
+        delivery.deliver(new TaskExecution(
+                "delivery",
+                new TaskSubmission(
+                        ReconciliationVerificationMessages.TYPE,
+                        1,
+                        "request",
+                        ReconciliationVerificationMessages.encode("request"),
+                        null,
+                        null),
+                clock.instant(),
+                null));
     }
 
-    OutboxRecord row(String state, int attempts) {
-        return new OutboxRecord("delivery", ReconciliationVerificationMessages.TYPE, "request", state, attempts, null);
+    TaskExecution row(String state, int attempts) {
+        return new TaskExecution("delivery", ReconciliationVerificationMessages.TYPE, "request", state, attempts, null);
     }
 
     PaymentVerificationDTO result(PaymentVerificationQuery query, PaymentVerificationDisposition disposition) {

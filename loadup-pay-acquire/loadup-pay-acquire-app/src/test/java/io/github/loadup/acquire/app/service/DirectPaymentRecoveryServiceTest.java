@@ -75,9 +75,7 @@ class DirectPaymentRecoveryServiceTest {
     final AcquireOrderCreationFacade orders = mock(AcquireOrderCreationFacade.class);
     final PaymentRecoveryFacade payments = mock(PaymentRecoveryFacade.class);
     final AtomicReference<AcquireActor> actor = new AtomicReference<>(new AcquireActor(
-            "tenant",
             OWNER,
-            null,
             Set.of(
                     "pay:acquire:direct-pay:recover",
                     "pay:acquire:create",
@@ -192,12 +190,12 @@ class DirectPaymentRecoveryServiceTest {
 
     @Test
     void ownerEntryAndChangedMetadataAreRejectedBeforeResuming() {
-        actor.set(new AcquireActor("tenant", "b".repeat(64), null, actor.get().permissions()));
+        actor.set(new AcquireActor("b".repeat(64), actor.get().permissions()));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.recover(command))
                         .getResultCode());
-        actor.set(new AcquireActor("tenant", OWNER, null, actor.get().permissions()));
+        actor.set(new AcquireActor(OWNER, actor.get().permissions()));
         intent.set(new OrderCreateIntent(
                 "intent",
                 "order",
@@ -241,18 +239,13 @@ class DirectPaymentRecoveryServiceTest {
     @Test
     void missingRecoveryPermissionAndUnknownFailureNeverFabricateSuccess() {
         actor.set(new AcquireActor(
-                "tenant",
-                OWNER,
-                null,
-                Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:recover")));
+                OWNER, Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:recover")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.recover(command))
                         .getResultCode());
         actor.set(new AcquireActor(
-                "tenant",
                 OWNER,
-                null,
                 Set.of(
                         "pay:acquire:direct-pay:recover",
                         "pay:acquire:create",

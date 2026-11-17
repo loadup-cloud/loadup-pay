@@ -139,7 +139,7 @@ class PaymentSubmissionPreparationTest {
         when(attempts.find("attempt")).thenAnswer(call -> Optional.of(stored.get()));
         when(attempts.lock("attempt")).thenAnswer(call -> Optional.of(stored.get()));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
-        when(inputs.openForPreparation(eq("tenant"), any(), eq("attempt"))).thenReturn(new NoInteractionDTO());
+        when(inputs.openForPreparation(any(), eq("attempt"))).thenReturn(new NoInteractionDTO());
         when(codec.checksum(anyString())).thenReturn("b".repeat(64));
         when(risk.consult(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -154,7 +154,7 @@ class PaymentSubmissionPreparationTest {
             return permit();
         });
         when(limits.verify(any())).thenReturn(new LimitExecutionVerificationDTO(true, "VALID"));
-        when(locks.lock("tenant", "payment", "acquire")).thenAnswer(call -> {
+        when(locks.lock("payment", "acquire")).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
@@ -186,7 +186,7 @@ class PaymentSubmissionPreparationTest {
 
     @Test
     void remoteRiskAndLimitPreparationPrecedeOneDurableY2Ticket() {
-        var result = service.prepare("tenant", "payment", "attempt").orElseThrow();
+        var result = service.prepare("payment", "attempt").orElseThrow();
         assertEquals("attempt", result.attemptId());
         assertEquals(1, result.payment().executionEpoch());
         assertEquals(PaymentAttemptState.SUBMITTING, stored.get().attempt().state());
@@ -194,7 +194,7 @@ class PaymentSubmissionPreparationTest {
         assertFalse(stored.get().toString().contains("e".repeat(64)));
         var calls = inOrder(risk, inputs, channels, limits, locks, attempts);
         calls.verify(risk).consult(any());
-        calls.verify(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        calls.verify(inputs).openForPreparation(any(), eq("attempt"));
         calls.verify(channels)
                 .validate(argThat(validation -> validation.input() instanceof NoChannelInput
                         && validation.method() == PaymentMethod.H5
@@ -203,16 +203,16 @@ class PaymentSubmissionPreparationTest {
         calls.verify(limits).reserve(any());
         calls.verify(limits).begin(argThat(value -> value.requestKey().equals("attempt/attempt")));
         calls.verify(limits).verify(any());
-        calls.verify(locks).lock("tenant", "payment", "acquire");
-        calls.verify(inputs).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
+        calls.verify(locks).lock("payment", "acquire");
+        calls.verify(inputs).bindToAttempt(any(), eq("attempt"), any());
         calls.verify(attempts).update(any(), eq(0L));
     }
 
     @Test
     void alreadySubmittingAttemptNeverReceivesAnotherTicketOrCallsRemoteDependencies() {
-        assertTrue(service.prepare("tenant", "payment", "attempt").isPresent());
+        assertTrue(service.prepare("payment", "attempt").isPresent());
         clearInvocations(risk, limits, inputs);
-        assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
+        assertTrue(service.prepare("payment", "attempt").isEmpty());
         verifyNoInteractions(risk, inputs);
         verify(limits, never()).reserve(any());
     }
@@ -224,9 +224,9 @@ class PaymentSubmissionPreparationTest {
                     stored.get().beginSubmission(1, "b".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW));
             return new LimitExecutionVerificationDTO(true, "VALID");
         });
-        assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
+        assertTrue(service.prepare("payment", "attempt").isEmpty());
         verify(attempts, never()).update(any(), anyLong());
-        verify(inputs, never()).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
+        verify(inputs, never()).bindToAttempt(any(), eq("attempt"), any());
     }
 
     @Test
@@ -238,13 +238,13 @@ class PaymentSubmissionPreparationTest {
                 previous.callerServiceId(),
                 previous.gate().fence(1L),
                 previous.rowVersion() + 1L));
-        var failure = assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"));
+        var failure = assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"));
         assertEquals(PaymentResultCodeEnum.EXECUTION_FENCED, failure.getResultCode());
         assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
         assertEquals(0L, stored.get().attempt().executionEpoch());
         assertEquals(PaymentState.PROCESSING, accepted.get().payment().state());
         assertNull(accepted.get().terminalEvidenceId());
-        verify(inputs, never()).bindToAttempt(anyString(), any(), anyString(), any());
+        verify(inputs, never()).bindToAttempt(any(), anyString(), any());
         verify(attempts, never()).update(any(), anyLong());
         verify(changes, never()).updatePayment(any(), anyLong());
         verifyNoInteractions(events);
@@ -253,14 +253,14 @@ class PaymentSubmissionPreparationTest {
     @Test
     void denyFencesAndFailsOnlyTheAttemptThatNeverCrossedY2() {
         when(risk.consult(any())).thenReturn(new RiskDecision(RiskDecisionType.DENY, "RULE_REJECTED", "consultation"));
-        assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
+        assertTrue(service.prepare("payment", "attempt").isEmpty());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
         assertEquals(PaymentAttemptState.CLOSED, stored.get().attempt().state());
         assertEquals(GateState.FENCED, gate.get().gate().state());
         assertNotNull(accepted.get().terminalEvidenceId());
         verify(limits, never()).reserve(any());
-        assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
-        verify(events, times(1)).publish(eq("tenant"), eq(accepted.get()), eq(true), any());
+        assertTrue(service.prepare("payment", "attempt").isEmpty());
+        verify(events, times(1)).publish(eq(accepted.get()), eq(true), any());
     }
 
     @Test
@@ -269,10 +269,10 @@ class PaymentSubmissionPreparationTest {
                 .thenReturn(new LimitExecutionPermitDTO("other-operation", "payment", "attempt", 1, "a".repeat(64)));
         assertSame(
                 EXECUTION_PERMIT_INVALID,
-                assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                         .getResultCode());
         assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
-        verify(inputs, never()).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
+        verify(inputs, never()).bindToAttempt(any(), eq("attempt"), any());
         verify(channels).validate(any());
         verify(channels, never()).submit(any());
     }
@@ -284,11 +284,11 @@ class PaymentSubmissionPreparationTest {
 
         assertSame(
                 unsupported.getResultCode(),
-                assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                         .getResultCode());
 
         assertEquals(0, stored.get().attempt().executionEpoch());
-        verify(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        verify(inputs).openForPreparation(any(), eq("attempt"));
         verify(limits, never()).reserve(any());
         verify(limits, never()).begin(any());
         verify(channels, never()).submit(any());
@@ -297,10 +297,10 @@ class PaymentSubmissionPreparationTest {
     @Test
     void invalidOrExpiredPreflightInputStopsBeforeChannelValidationAndY2() {
         var invalid = new CommonException(ChannelResultCodeEnum.INVALID_ARGUMENT);
-        doThrow(invalid).when(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        doThrow(invalid).when(inputs).openForPreparation(any(), eq("attempt"));
         assertSame(
                 invalid.getResultCode(),
-                assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                         .getResultCode());
         assertEquals(0, stored.get().attempt().executionEpoch());
         verify(channels, never()).validate(any());
@@ -311,11 +311,11 @@ class PaymentSubmissionPreparationTest {
 
     @Test
     void expiredBoundInputStopsBeforeReservationBeginAndY2() {
-        doThrow(new CommonException(INPUT_EXPIRED)).when(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        doThrow(new CommonException(INPUT_EXPIRED)).when(inputs).openForPreparation(any(), eq("attempt"));
 
         assertSame(
                 INPUT_EXPIRED,
-                assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                         .getResultCode());
 
         assertEquals(0, stored.get().attempt().executionEpoch());
@@ -330,7 +330,7 @@ class PaymentSubmissionPreparationTest {
         when(limits.reserve(any())).thenReturn(reservation(LimitReservationState.EXPIRED));
         assertSame(
                 LIMIT_RESERVATION_EXPIRED,
-                assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                         .getResultCode());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
         assertEquals(0, stored.get().attempt().executionEpoch());
@@ -339,12 +339,10 @@ class PaymentSubmissionPreparationTest {
 
     @Test
     void inputExpiryRollsBackY2BeforeLocalFailureIsCommittedSeparately() {
-        doThrow(new CommonException(INPUT_EXPIRED))
-                .when(inputs)
-                .bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
+        doThrow(new CommonException(INPUT_EXPIRED)).when(inputs).bindToAttempt(any(), eq("attempt"), any());
         assertSame(
                 INPUT_EXPIRED,
-                assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                         .getResultCode());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
         assertEquals(0, stored.get().attempt().executionEpoch());
@@ -358,7 +356,7 @@ class PaymentSubmissionPreparationTest {
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"))
+                    assertThrows(CommonException.class, () -> service.prepare("payment", "attempt"))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

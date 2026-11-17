@@ -33,9 +33,9 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.productcenter.app.converter.PolicyPublicationConverter;
 import io.github.loadup.productcenter.app.model.PolicyActivationDispatch;
 import io.github.loadup.productcenter.app.model.limitcenter.dto.LimitPolicyActivationDTO;
@@ -51,6 +51,7 @@ import io.github.loadup.productcenter.client.facade.LimitPolicyPublicationFacade
 import io.github.loadup.productcenter.domain.gateway.PolicyPublicationGateway;
 import io.github.loadup.productcenter.domain.model.ContractStatus;
 import io.github.loadup.productcenter.domain.model.PolicyPublication;
+import io.github.loadup.productcenter.domain.policy.CommercialPolicyParser;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -60,6 +61,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 public class PolicyPublicationService implements LimitPolicyPublicationFacade {
+    private final CommercialPolicyParser policies = new CommercialPolicyParser();
     private final PublicationActorProvider actors;
     private final Validator validator;
     private final PublicationTransactions transactions;
@@ -68,7 +70,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     private final LimitPolicyCompiler compiler;
     private final PolicyPublicationCodec codec;
     private final PolicyActivationClient client;
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final PolicyPublicationConverter converter;
     private final IdGenerator ids;
     private final Clock clock;
@@ -82,7 +84,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             LimitPolicyCompiler compiler,
             PolicyPublicationCodec codec,
             PolicyActivationClient client,
-            OutboxTemplate outbox,
+            TaskTemplate outbox,
             PolicyPublicationConverter converter,
             IdGenerator ids,
             Clock clock) {
@@ -103,14 +105,14 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     @Override
     public LimitPolicyPublicationDTO publish(LimitPolicyPublishCommand command) {
         var actor = authorize(command, "pay:product:publish");
-        var stored = transactions.writeLocal(actor.tenantId(), () -> {
+        var stored = transactions.writeLocal(() -> {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.text(command.productScopeKey(), 128);
             DomainChecks.id(command.expectedContractId());
             DomainChecks.text(command.expectedSnapshotHash(), 128);
             var prior = publications.findByContract(command.expectedContractId(), command.expectedRevision());
             if (prior.isPresent()) {
-                return replayOriginal(actor.tenantId(), prior.get(), command);
+                return replayOriginal(prior.get(), command);
             }
             var header = contracts
                     .lockByScope(command.payeeMerchantId(), command.productScopeKey())
@@ -123,7 +125,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             // A contender must see the winner after waiting on the shared signed-contract row.
             prior = publications.findByContract(header.id(), command.expectedRevision());
             if (prior.isPresent()) {
-                return replayOriginal(actor.tenantId(), prior.get(), command);
+                return replayOriginal(prior.get(), command);
             }
             if (header.status() != ContractStatus.NORMAL) {
                 throw new CommonException(CONTRACT_NOT_ADMITTING);
@@ -143,9 +145,8 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                 throw new CommonException(UNSUPPORTED_POLICY);
             }
             var activation = compiler.compile(
-                    actor.tenantId(),
                     command.payeeMerchantId(),
-                    selected.getFirst().configuration());
+                    policies.parse(selected.getFirst().configuration()).limits());
             if (publications.findByMerchant(command.payeeMerchantId()).isPresent()
                     || publications.findByPolicy(activation.policyId()).isPresent()) {
                 throw new CommonException(POLICY_PUBLICATION_CONFLICT);
@@ -169,7 +170,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                     1,
                     0);
             publications.insert(initial);
-            String event = outbox.publish(new OutboxMessage(
+            String event = outbox.submit(TaskSubmission.immediate(
                     PolicyActivationDispatch.TYPE,
                     1,
                     initial.id(),
@@ -178,11 +179,10 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             publications.update(publishing, initial.rowVersion());
             return publishing;
         });
-        return transactions.withTenantContext(actor.tenantId(), () -> present(actor.tenantId(), stored));
+        return transactions.guarded(() -> present(stored));
     }
 
-    private PolicyPublication replayOriginal(
-            String tenant, PolicyPublication stored, LimitPolicyPublishCommand command) {
+    private PolicyPublication replayOriginal(PolicyPublication stored, LimitPolicyPublishCommand command) {
         stored.requireSource(
                 command.expectedContractId(),
                 command.expectedRevision(),
@@ -196,11 +196,11 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     @Override
     public LimitPolicyPublicationDTO detail(IdQuery query) {
         var actor = authorize(query, "pay:product:publication:read");
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.id());
             var stored = publications.findById(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             codec.decode(stored);
-            return present(actor.tenantId(), stored);
+            return present(stored);
         });
     }
 
@@ -210,7 +210,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(command.publicationId());
             DomainChecks.text(command.reason(), 512);
             var stored =
@@ -218,25 +218,30 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             codec.decode(stored);
             var queue = queue(stored);
             // Framework replay uses its own audited transaction; never nest it inside a publication write transaction.
-            if (!"FAILED".equals(queue.status())
-                    || !outbox.replay(stored.outboxEventId(), actor.principalId(), command.reason())) {
+            if (queue.status() != io.github.loadup.components.task.TaskStatus.FAILED) {
                 throw new CommonException(REPLAY_NOT_ALLOWED);
             }
-            return present(
-                    actor.tenantId(),
-                    publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+            try {
+                outbox.retryFailed(stored.outboxEventId(), actor.principalId(), command.reason());
+            } catch (CommonException failure) {
+                if (failure.getResultCode() == io.github.loadup.components.task.TaskResultCodeEnum.INVALID_STATE) {
+                    throw new CommonException(REPLAY_NOT_ALLOWED);
+                }
+                throw failure;
+            }
+            return present(publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         });
     }
 
     /**
      * Trusted Outbox handler entry point; no user authentication is reconstructed from queued data.
      */
-    public void deliver(String tenant, String eventId, String publicationId) {
+    public void deliver(String eventId, String publicationId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        var stored = transactions.withTenantContext(
-                tenant, () -> publications.findById(publicationId).orElseThrow(() -> new CommonException(NOT_FOUND)));
+        var stored = transactions.guarded(
+                () -> publications.findById(publicationId).orElseThrow(() -> new CommonException(NOT_FOUND)));
         if (!publicationId.equals(stored.id()) || !eventId.equals(stored.outboxEventId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -247,7 +252,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         var ack = client.activate(command); // Network I/O is outside every local transaction.
         validateAck(stored, ack);
         LocalDateTime activatedAt = BusinessTime.local(ack.activatedAt());
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             var current = publications.lockById(publicationId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             current.requireSameIntent(stored);
             var active = current.acknowledge(eventId, activatedAt);
@@ -271,25 +276,26 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         }
     }
 
-    private LimitPolicyPublicationDTO present(String tenant, PolicyPublication stored) {
+    private LimitPolicyPublicationDTO present(PolicyPublication stored) {
         var queue = queue(stored);
-        if (!"ACTIVE".equals(stored.state()) && "SUCCEEDED".equals(queue.status())) {
+        if (!"ACTIVE".equals(stored.state())
+                && queue.status() == io.github.loadup.components.task.TaskStatus.SUCCEEDED) {
             // A worker may commit the ACK and complete delivery between the two independent reads.
             var latest = publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             latest.requireSameIntent(stored);
             if (!"ACTIVE".equals(latest.state())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            return converter.toDTO(latest, queue.status(), queue.attempts());
+            return converter.toDTO(latest, queue.status().name(), queue.attempts());
         }
-        return converter.toDTO(stored, queue.status(), queue.attempts());
+        return converter.toDTO(stored, queue.status().name(), queue.attempts());
     }
 
-    private OutboxRecord queue(PolicyPublication stored) {
+    private TaskExecution queue(PolicyPublication stored) {
         var queue = outbox.find(stored.outboxEventId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!stored.id().equals(queue.businessId())
+        if (!stored.id().equals(queue.bizId())
                 || !stored.outboxEventId().equals(queue.id())
-                || !PolicyActivationDispatch.TYPE.equals(queue.type())) {
+                || !PolicyActivationDispatch.TYPE.equals(queue.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return queue;

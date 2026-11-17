@@ -31,11 +31,10 @@ import java.util.Objects;
 public final class LimitPolicyHash {
     private LimitPolicyHash() {}
 
-    public static String compute(String tenant, LimitPolicyActivateCommand command) {
+    public static String compute(LimitPolicyActivateCommand command) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             add(digest, "loadup-pay-limit-policy-v1");
-            add(digest, tenant);
             add(digest, command.policyId());
             add(digest, command.policyVersion());
             add(digest, command.payeeMerchantId());

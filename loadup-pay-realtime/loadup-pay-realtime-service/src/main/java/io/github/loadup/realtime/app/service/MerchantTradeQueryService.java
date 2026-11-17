@@ -70,7 +70,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public TradeDetailDTO detail(TradeDetailQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var order = queries.findOrder(actor.merchantId(), query.orderId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             var summary = queries.findRefundSummary(actor.merchantId(), query.orderId())
@@ -86,7 +86,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public PageDTO<TradeOrderDTO> page(TradeOrderPageQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var page = queries.orders(new TradePageFilter(
                     actor.merchantId(),
                     null,
@@ -114,7 +114,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public PageDTO<TradePaymentDTO> payments(TradePaymentPageQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var page = queries.payments(new TradePageFilter(
                     actor.merchantId(),
                     query.orderId(),
@@ -134,7 +134,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public PageDTO<TradeRefundDTO> refunds(TradeRefundPageQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.readSnapshot(actor.tenantId(), () -> {
+        return transactions.readSnapshot(() -> {
             var page = queries.refunds(new TradePageFilter(
                     actor.merchantId(),
                     query.orderId(),

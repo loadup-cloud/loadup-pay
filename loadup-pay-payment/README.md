@@ -1,6 +1,6 @@
 # Payment 付款与退款执行
 
-payment 拥有独立付款、attempt、退款、渠道绑定与路由事实。订单应收和付款占用由 acquire 管理，商户额度由 limitcenter 管理。内部调用契约见 [client 架构](payment-client/ARCHITECTURE.md)，执行与恢复约束见 [ARCHITECTURE](ARCHITECTURE.md)。
+payment 拥有独立付款、attempt、退款、渠道绑定与路由事实。订单应收和付款占用由 acquire 管理，商户额度由 limitcenter 管理。内部调用契约见 [client 架构](loadup-pay-payment-client/ARCHITECTURE.md)，执行与恢复约束见 [ARCHITECTURE](ARCHITECTURE.md)。
 
 ## 能力与入口
 
@@ -17,12 +17,12 @@ payment 拥有独立付款、attempt、退款、渠道绑定与路由事实。�
 - HTTP 默认 8080；消费者普通读取 3 秒、零自动重试，账单下载单独配置较长超时。
 - 向 acquire、realtime、limitcenter 调用分别配置可信租户、服务身份、目标 audience，并通过共享 OAuth2 客户端获取服务令牌，详见 bootstrap 的 `application.yml`。
 - 安全输入依赖 KMS：`PAYMENT_KMS_ENDPOINT`、`PAYMENT_KMS_TOKEN`，以及输入加密键、指纹键和版本；凭证不写入日志或公开 DTO。
-- Local Scheduler 默认每 30 秒扫描，DelayedTask 默认批量 100、最大 5 次、租约 5 分钟、失败重试间隔 1 分钟。业务正常轮询与 native 失败重试有不同语义。
+- Local Scheduler 默认每 30 秒扫描，Task 默认批量 100、最大 5 次、租约 5 分钟、失败重试间隔 1 分钟。业务正常轮询与 native 失败重试有不同语义。
 - 恢复 Bulkhead 按进程/渠道共享，默认并发 16、等待 0；首提不纳入恢复预算。
 - UNKNOWN 库存采样默认关闭，通过 `PAYMENT_RECOVERY_INVENTORY_ENABLED` 和可信租户范围显式启用。
 - `METRICS_ENABLED` 默认 false；监控部署见 [deploy](../deploy/README.md)。
 
-完整参数及默认值以 [应用配置](payment-bootstrap/src/main/resources/application.yml) 为准。当前迁移位于 payment-infrastructure；共享组件迁移随实际依赖装配。
+完整参数及默认值以 [应用配置](loadup-pay-payment-bootstrap/src/main/resources/application.yml) 为准。当前迁移位于 payment-infrastructure；共享组件迁移随实际依赖装配。
 
 ## 验证边界
 
@@ -34,6 +34,8 @@ payment 全部 19 个提供操作与 acquire/realtime/limitcenter 出站调用�
 ACQUIRE、REALTIME、LIMITCENTER 目标按应用名默认 http://<app>:8080，本地 profile 使用 localhost 8082/8086/8084；仅特殊地址单独配置。
 原事务、幂等、未知结果恢复与错误白名单保留，逐次传递目标受众的服务凭证。
 capture 明细使用平面 PageResponse；statement 字节经 JSON Base64 传输，消费方保留独立 60s/32 MiB 有界组。
-原 Wire 检查已移至 DTO/协议无关 client.support，全部协议生成和 Dubbo/Nacos 装配已删除。源码与运行验收见 [迁移清单](../HTTP_MIGRATION.md)。
+原 Wire 检查已移至 DTO/协议无关 client.support，全部协议生成和 Dubbo/Nacos 装配已删除。源码与运行验收见 [总体架构](../ARCHITECTURE.md)。
 
 渠道回调 Controller 显式标注 ProtocolResponse，原生正文/内容类型/HTTP 状态不经过统一业务信封包装；仍由原渠道协议验签和提交后 ACK。回归源码已补，未运行。
+
+阶段 3 已同步目标无关事实头与目标级交付边界；旧已冻结载荷/回执保留原样读取，身份、权限、原绑定、幂等和可靠交付规则不变。完整付款证据路径已替代 acquire 落账和额度确认/释放的同步回查；旧冻结载荷保持原查证，退款恢复和费用退款保留最新累计读取。当前契约与待运行验收见[财务证据记录](../design/PHASE3_FINANCIAL_EVIDENCE.md)。源码及回归源码已调整，未构建或测试；详见[阶段 3 实施记录](../design/PHASE3_IMPLEMENTATION.md)。

@@ -13,6 +13,7 @@ spec:
         - type: RequestRedirect
           requestRedirect: { scheme: https, statusCode: 308 }
 {{- $routes := list
+    (dict "name" "oauth-management" "service" "admin" "paths" (list "/api/oauth/clients") "limit" "64Ki" "timeout" "15s")
     (dict "name" "merchantmng" "service" "merchantmng" "paths" (list "/api/merchantmng") "limit" "1Mi" "timeout" "15s")
     (dict "name" "productmng" "service" "productmng" "paths" (list "/api/productmng") "limit" "1Mi" "timeout" "15s")
     (dict "name" "acquire" "service" "acquire" "paths" (list "/api/acquire" "/api/cashier") "limit" "1Mi" "timeout" "15s")

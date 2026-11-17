@@ -15,13 +15,16 @@
  */
 package io.github.loadup.contracts.event.payment;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.Set;
+import java.util.Objects;
 
 public record PaymentOutcomeEventDTO(
         @Schema(description = "Payment id") String paymentId,
@@ -34,8 +37,24 @@ public record PaymentOutcomeEventDTO(
         @Schema(description = "State") PaymentState state,
         @Schema(description = "Payment version") long paymentVersion,
         @Schema(description = "Evidence id") String evidenceId,
-        @Schema(description = "Execution fenced") boolean executionFenced) {
+        @Schema(description = "Execution fenced") boolean executionFenced,
+        @JsonInclude(JsonInclude.Include.NON_NULL) PaymentFinancialEvidence financialEvidence) {
     public PaymentOutcomeEventDTO {
+        if (financialEvidence != null) {
+            DomainViolation.require(
+                    financialEvidence.paymentId().equals(paymentId)
+                            && financialEvidence.orderId().equals(orderId)
+                            && financialEvidence.allocationId().equals(allocationId)
+                            && financialEvidence.operationId().equals(operationId)
+                            && financialEvidence.payeeMerchantId().equals(payeeMerchantId)
+                            && financialEvidence.amountMinor() == amountMinor
+                            && financialEvidence.currency().equals(currency)
+                            && financialEvidence.state() == state
+                            && financialEvidence.paymentVersion() == paymentVersion
+                            && financialEvidence.terminalEvidenceId().equals(evidenceId)
+                            && financialEvidence.executionFenced() == executionFenced,
+                    DomainViolation.Reason.CONFLICT);
+        }
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(allocationId);
@@ -53,15 +72,52 @@ public record PaymentOutcomeEventDTO(
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {
-        DomainViolation.require(
-                equals(envelope.data())
-                        && Set.of(
-                                        "pay.payment.outcome.acquire.v1",
-                                        "pay.payment.outcome.limit.v1",
-                                        "pay.payment.outcome.risk.v1")
-                                .contains(envelope.eventType()),
-                DomainViolation.Reason.CONFLICT);
-        envelope.requireSource(envelope.eventType(), "payment", paymentId, paymentVersion);
+        DomainViolation.require(equals(envelope.data()), DomainViolation.Reason.CONFLICT);
+        if (financialEvidence != null) {
+            envelope.requireSource(BusinessEventTypes.PAYMENT_FINANCIAL, "payment", paymentId, paymentVersion);
+            return;
+        }
+        FrozenEventTypes.requireSource(
+                envelope,
+                BusinessEventTypes.PAYMENT_OUTCOME,
+                "payment",
+                paymentId,
+                paymentVersion,
+                "pay.payment.outcome.acquire.v1",
+                "pay.payment.outcome.limit.v1",
+                "pay.payment.outcome.risk.v1");
+    }
+
+    public PaymentOutcomeEventDTO withFinancialEvidence(PaymentFinancialEvidence evidence) {
+        return new PaymentOutcomeEventDTO(
+                paymentId,
+                orderId,
+                allocationId,
+                operationId,
+                payeeMerchantId,
+                amountMinor,
+                currency,
+                state,
+                paymentVersion,
+                evidenceId,
+                executionFenced,
+                Objects.requireNonNull(evidence));
+    }
+
+    public PaymentOutcomeEventDTO withoutFinancialEvidence() {
+        return new PaymentOutcomeEventDTO(
+                paymentId,
+                orderId,
+                allocationId,
+                operationId,
+                payeeMerchantId,
+                amountMinor,
+                currency,
+                state,
+                paymentVersion,
+                evidenceId,
+                executionFenced,
+                null);
     }
 
     @Override

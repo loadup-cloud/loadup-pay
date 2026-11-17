@@ -108,7 +108,7 @@ public class PaymentOutcomeOperations {
 
     PaymentProgressDTO refresh(OrderPaymentScope actor, PaymentProgressRefreshCommand query) {
         requireNoTransaction();
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.orderId());
             DomainChecks.id(query.paymentId());
             var order = orders.findOrder(query.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -138,7 +138,7 @@ public class PaymentOutcomeOperations {
     PaymentProgressDTO applyInputExpiry(
             OrderPaymentScope actor, String orderId, String paymentId, PaymentCloseDTO response) {
         requireNoTransaction();
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             var order = orders.findOrder(orderId).orElseThrow(() -> new CommonException(NOT_FOUND));
             owned(actor, order);
             var allocation =
@@ -154,7 +154,7 @@ public class PaymentOutcomeOperations {
 
     void applyClose(OrderPaymentScope actor, PaymentCloseCommand close, PaymentCloseDTO response) {
         requireNoTransaction();
-        transactions.withTenantContext(actor.tenantId(), () -> {
+        transactions.guarded(() -> {
             if (response == null
                     || !validator.validate(response).isEmpty()
                     || !response.paymentId().equals(close.paymentId())
@@ -209,7 +209,7 @@ public class PaymentOutcomeOperations {
 
     private StoredAcquireOrder converge(
             OrderPaymentScope actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
-        return transactions.writeLocal(actor.tenantId(), () -> convergeLocked(actor, command, outcome));
+        return transactions.writeLocal(() -> convergeLocked(actor, command, outcome));
     }
 
     StoredAcquireOrder convergeLocked(
@@ -260,8 +260,8 @@ public class PaymentOutcomeOperations {
             fees.confirmPaid(
                     change.order(), orderConverter.toFeePolicy(admission.terms().fee()), accepted.observedAt());
         }
-        snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
-        notifications.payment(actor.tenantId(), change.order().id(), outcome);
+        snapshots.publish(change.order().id(), change.order().version());
+        notifications.payment(change.order().id(), outcome);
         return converter.withOrder(currentOrder, change.order());
     }
 

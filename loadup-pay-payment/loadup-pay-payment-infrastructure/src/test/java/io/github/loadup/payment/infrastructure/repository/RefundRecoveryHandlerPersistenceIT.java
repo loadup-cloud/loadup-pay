@@ -21,7 +21,6 @@ import static io.github.loadup.payment.infrastructure.repository.FinancialPersis
 import static io.github.loadup.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,24 +37,24 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskConverter;
-import io.github.loadup.components.delayedtask.DelayedTaskProperties;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskStore;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.components.delayedtask.dataobject.DelayedTaskDO;
-import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.components.payment.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
+import io.github.loadup.components.task.JdbcTaskRepository;
+import io.github.loadup.components.task.TaskProperties;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.payment.app.converter.RefundSettlementConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
+import io.github.loadup.payment.app.dispatch.PaymentFactRoutes;
 import io.github.loadup.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.payment.app.model.UnknownRecoveryWindow;
 import io.github.loadup.payment.app.port.ChannelBindingCodec;
@@ -68,6 +67,7 @@ import io.github.loadup.payment.app.service.PaymentAcceptanceTransactions;
 import io.github.loadup.payment.app.service.PaymentResultService;
 import io.github.loadup.payment.app.service.RefundExecutionLocks;
 import io.github.loadup.payment.app.service.RefundExecutionService;
+import io.github.loadup.payment.app.service.RefundFinancialEvidenceVerifier;
 import io.github.loadup.payment.app.service.RefundProjectionEvents;
 import io.github.loadup.payment.app.service.RefundRecoveryService;
 import io.github.loadup.payment.app.service.RefundResultService;
@@ -143,9 +143,10 @@ import tools.jackson.databind.json.JsonMapper;
         },
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-            "loadup.delayedtask.max-attempts=3",
-            "loadup.delayedtask.lease=PT5S",
-            "loadup.delayedtask.batch-size=1",
+            "loadup.task.max-attempts=3",
+            "loadup.task.lease=PT5S",
+            "loadup.task.batch-size=1",
+            "loadup.task.task-type=pay.payment.refund.progress",
             "loadup.modules.payment.recovery-polling.jitter-percent=0"
         })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
@@ -169,10 +170,9 @@ class RefundRecoveryHandlerPersistenceIT {
     private final RefundRecoveryService recovery;
     private final RefundRecoveryGateway cursors;
     private final RefundRecoveryTaskHandler handler;
-    private final DelayedTaskTemplate tasks;
-    private final DelayedTaskStore taskStore;
-    private final DelayedTaskProperties taskProperties;
-    private final DelayedTaskConverter taskConverter;
+    private final TaskTemplate tasks;
+    private final JdbcTaskRepository taskStore;
+    private final TaskProperties taskProperties;
     private final PaymentResultPersistenceIT.ControlledClock clock;
     private final PaymentResultPersistenceIT.RemoteChannel remote;
     private final RefundChannelControl channel;
@@ -204,10 +204,9 @@ class RefundRecoveryHandlerPersistenceIT {
             RefundRecoveryService recovery,
             RefundRecoveryGateway cursors,
             RefundRecoveryTaskHandler handler,
-            DelayedTaskTemplate tasks,
-            DelayedTaskStore taskStore,
-            DelayedTaskProperties taskProperties,
-            DelayedTaskConverter taskConverter,
+            TaskTemplate tasks,
+            JdbcTaskRepository taskStore,
+            TaskProperties taskProperties,
             PaymentResultPersistenceIT.ControlledClock clock,
             PaymentResultPersistenceIT.RemoteChannel remote,
             RefundChannelControl channel,
@@ -239,7 +238,6 @@ class RefundRecoveryHandlerPersistenceIT {
         this.tasks = tasks;
         this.taskStore = taskStore;
         this.taskProperties = taskProperties;
-        this.taskConverter = taskConverter;
         this.clock = clock;
         this.remote = remote;
         this.channel = channel;
@@ -276,21 +274,21 @@ class RefundRecoveryHandlerPersistenceIT {
         var fixture = seedSubmittedRefund();
         try {
             faults.next.set(point);
-            assertThrows(IllegalStateException.class, () -> execution.progress(fixture.tenant(), fixture.requestId()));
+            assertThrows(IllegalStateException.class, () -> execution.progress(fixture.requestId()));
             assertNull(faults.next.get());
             assertSubmitted(fixture);
             assertRefundCounts(fixture, 0L, 0L, 8L);
 
             var claimed = claim(fixture, 0L);
             handle(fixture, claimed);
-            assertTrue(taskStore.finish(claimed, now(), true, taskProperties));
+            assertTrue(taskStore.complete(claimed));
             assertSucceeded(fixture, 2L, false, 1L);
             assertCursor(fixture, 0L, true);
             var original = channel.observations.get(fixture.refundId());
-            var receipt = resultService.record(fixture.tenant(), original);
+            var receipt = resultService.record(original);
             assertEquals(RefundReceiptDisposition.APPLIED, receipt.disposition());
-            assertEquals(receipt, resultService.record(fixture.tenant(), original));
-            execution.progress(fixture.tenant(), fixture.requestId());
+            assertEquals(receipt, resultService.record(original));
+            execution.progress(fixture.requestId());
             assertSucceeded(fixture, 2L, false, 1L);
             verify(remote.channels, times(2)).recoverRefund(eq(fixture.prepared()));
         } finally {
@@ -310,17 +308,14 @@ class RefundRecoveryHandlerPersistenceIT {
                             .getResultCode());
             verifyNoInteractions(remote.channels);
             var current = claim(fixture, 0L);
-            assertEquals(expired.getId(), current.getId());
-            assertEquals(2, current.getAttempts());
-            assertNotEquals(expired.getClaimToken(), current.getClaimToken());
             assertEquals(
                     INVALID_STATE,
                     assertThrows(CommonException.class, () -> handle(fixture, expired))
                             .getResultCode());
             verifyNoInteractions(remote.channels);
             handle(fixture, current);
-            assertTrue(taskStore.finish(current, now(), true, taskProperties));
-            assertFalse(taskStore.finish(expired, now(), true, taskProperties));
+            assertTrue(taskStore.complete(current));
+            assertFalse(taskStore.complete(expired));
             assertCursor(fixture, 0L, true);
             assertNativeCount(fixture, 1L);
             assertSucceeded(fixture, 2L, false, 1L);
@@ -357,10 +352,8 @@ class RefundRecoveryHandlerPersistenceIT {
                 assertTrue(pause.entered.await(10, TimeUnit.SECONDS));
                 clock.advance(Duration.ofSeconds(6));
                 var replacement = claim(fixture, 0L);
-                assertEquals(oldClaim.getId(), replacement.getId());
-                assertEquals(2, replacement.getAttempts());
                 handle(fixture, replacement);
-                assertTrue(taskStore.finish(replacement, now(), true, taskProperties));
+                assertTrue(taskStore.complete(replacement));
                 assertCursor(fixture, 1L, false);
                 assertNativeCount(fixture, 2L);
                 assertRefundCounts(fixture, 0L, 1L, 9L);
@@ -369,28 +362,27 @@ class RefundRecoveryHandlerPersistenceIT {
                 channel.observations.put(fixture.refundId(), original);
                 clock.advance(Duration.ofSeconds(30));
                 var current = claim(fixture, 1L);
-                assertNotEquals(oldClaim.getId(), current.getId());
                 handle(fixture, current);
-                assertTrue(taskStore.finish(current, now(), true, taskProperties));
+                assertTrue(taskStore.complete(current));
                 assertCursor(fixture, 1L, true);
             } finally {
                 pause.resume.countDown();
             }
             oldWorker.get(20, TimeUnit.SECONDS);
-            assertFalse(taskStore.finish(oldClaim, now(), true, taskProperties));
+            assertFalse(taskStore.complete(oldClaim));
             assertSucceeded(fixture, 3L, true, 2L);
             assertCursor(fixture, 1L, true);
             assertNativeCount(fixture, 2L);
-            transactions.readSnapshot(fixture.tenant(), () -> {
+            transactions.readSnapshot(() -> {
                 assertTrue(
                         tasks.find(RefundRecoveryService.TYPE, key(fixture, 2L)).isEmpty());
                 assertEquals(
-                        DelayedTaskStatus.SUCCEEDED,
+                        TaskStatus.SUCCEEDED,
                         tasks.find(RefundRecoveryService.TYPE, key(fixture, 0L))
                                 .orElseThrow()
                                 .status());
                 assertEquals(
-                        DelayedTaskStatus.SUCCEEDED,
+                        TaskStatus.SUCCEEDED,
                         tasks.find(RefundRecoveryService.TYPE, key(fixture, 1L))
                                 .orElseThrow()
                                 .status());
@@ -408,8 +400,9 @@ class RefundRecoveryHandlerPersistenceIT {
     void aFutureRefundGenerationCannotPreventTheOriginalCurrentTask() {
         var fixture = seedSubmittedRefund();
         try {
-            transactions.writeLocal(fixture.tenant(), () -> {
-                tasks.register(RefundRecoveryService.TYPE, key(fixture, 1L), AT.minusSeconds(1));
+            transactions.writeLocal(() -> {
+                tasks.submit(
+                        TaskSubmission.scheduled(RefundRecoveryService.TYPE, key(fixture, 1L), AT.minusSeconds(1)));
                 return true;
             });
             var future = claim(fixture, 1L);
@@ -417,13 +410,13 @@ class RefundRecoveryHandlerPersistenceIT {
                     SNAPSHOT_INVALID,
                     assertThrows(CommonException.class, () -> handle(fixture, future))
                             .getResultCode());
-            assertTrue(taskStore.finish(future, now(), false, taskProperties));
+            assertTrue(taskStore.fail(future, new IllegalStateException("Injected failure")));
             verifyNoInteractions(remote.channels);
             assertCursor(fixture, 0L, false);
             assertSubmitted(fixture);
             var current = claim(fixture, 0L);
             handle(fixture, current);
-            assertTrue(taskStore.finish(current, now(), true, taskProperties));
+            assertTrue(taskStore.complete(current));
             assertCursor(fixture, 0L, true);
             assertSucceeded(fixture, 2L, false, 1L);
         } finally {
@@ -437,7 +430,7 @@ class RefundRecoveryHandlerPersistenceIT {
         try {
             var current = claim(fixture, 0L);
             handle(fixture, current);
-            assertTrue(taskStore.finish(current, now(), true, taskProperties));
+            assertTrue(taskStore.complete(current));
             var fact = channel.observations.get(fixture.refundId());
             var later = new RefundObservation(
                     fact.refundId(),
@@ -452,9 +445,9 @@ class RefundRecoveryHandlerPersistenceIT {
                     "same-refund-callback",
                     "e".repeat(64),
                     null);
-            var ignored = resultService.record(fixture.tenant(), later);
+            var ignored = resultService.record(later);
             assertEquals(RefundReceiptDisposition.IGNORED, ignored.disposition());
-            assertEquals(ignored, resultService.record(fixture.tenant(), later));
+            assertEquals(ignored, resultService.record(later));
             assertSucceeded(fixture, 2L, false, 2L);
         } finally {
             cancelRemainingTasks(fixture);
@@ -480,30 +473,28 @@ class RefundRecoveryHandlerPersistenceIT {
                     "b".repeat(64),
                     null);
             faults.next.set(FailurePoint.AFTER_STATE);
-            assertThrows(IllegalStateException.class, () -> resultService.record(fixture.tenant(), unknown));
+            assertThrows(IllegalStateException.class, () -> resultService.record(unknown));
             assertSubmitted(fixture);
             assertNull(jdbc.queryForObject(
                     "SELECT first_unknown_at FROM refund_order WHERE id=?", LocalDateTime.class, fixture.refundId()));
             clock.advance(Duration.ofMinutes(2));
             var firstUnknownAt = now();
-            resultService.record(fixture.tenant(), unknown);
+            resultService.record(unknown);
             clock.advance(Duration.ofMinutes(1));
-            resultService.record(
-                    fixture.tenant(),
-                    new RefundObservation(
-                            unknown.refundId(),
-                            unknown.original(),
-                            unknown.channelRefundNo(),
-                            unknown.originalChannelTransactionNo(),
-                            unknown.kind(),
-                            unknown.amount(),
-                            null,
-                            null,
-                            unknown.source(),
-                            "inventory-unknown-again",
-                            "b".repeat(64),
-                            null));
-            transactions.readSnapshot(fixture.tenant(), () -> {
+            resultService.record(new RefundObservation(
+                    unknown.refundId(),
+                    unknown.original(),
+                    unknown.channelRefundNo(),
+                    unknown.originalChannelTransactionNo(),
+                    unknown.kind(),
+                    unknown.amount(),
+                    null,
+                    null,
+                    unknown.source(),
+                    "inventory-unknown-again",
+                    "b".repeat(64),
+                    null));
+            transactions.readSnapshot(() -> {
                 var cells = inventory.read();
                 var refund = cells.stream()
                         .filter(value -> value.kind() == RecoveryInventoryCell.Kind.REFUND)
@@ -535,14 +526,14 @@ class RefundRecoveryHandlerPersistenceIT {
                 return true;
             });
             assertReserved(fixture, RefundState.UNKNOWN, 2L);
-            resultService.record(fixture.tenant(), original);
+            resultService.record(original);
             assertEquals(
                     firstUnknownAt,
                     jdbc.queryForObject(
                             "SELECT first_unknown_at FROM refund_order WHERE id=?",
                             LocalDateTime.class,
                             fixture.refundId()));
-            transactions.readSnapshot(fixture.tenant(), () -> {
+            transactions.readSnapshot(() -> {
                 assertEquals(
                         RecoveryInventoryCell.empty(RecoveryInventoryCell.Kind.REFUND),
                         inventory.read().stream()
@@ -567,7 +558,7 @@ class RefundRecoveryHandlerPersistenceIT {
             var before = jdbc.queryForMap(
                     "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?", fixture.refundId());
             var first = acceptance(original, ChannelRefundOutcome.Kind.ACCEPTED, "accepted-original", AT);
-            var receipt = resultService.record(fixture.tenant(), first);
+            var receipt = resultService.record(first);
             assertReserved(fixture, RefundState.PROCESSING, 1L);
             assertEquals(
                     before,
@@ -580,7 +571,6 @@ class RefundRecoveryHandlerPersistenceIT {
                             String.class,
                             fixture.refundId()));
             resultService.record(
-                    fixture.tenant(),
                     acceptance(original, ChannelRefundOutcome.Kind.ACCEPTED, "accepted-conflict", AT.plusSeconds(1)));
             assertEquals(
                     AT,
@@ -612,21 +602,21 @@ class RefundRecoveryHandlerPersistenceIT {
     void failureAfterAcceptanceInsertRollsBackReceiptClaimStateCapacityAndOutboxTogether() {
         var fixture = seedSubmittedRefund();
         try {
-            long beforeOutbox = count("loadup_outbox_event", fixture.tenant());
+            long beforeOutbox = count("loadup_task", fixture.tenant());
             var observed = acceptance(
                     channel.observations.get(fixture.refundId()),
                     ChannelRefundOutcome.Kind.SUCCEEDED,
                     "accepted-success",
                     AT);
             acceptances.failAfterWrite.set(fixture.refundId());
-            assertThrows(IllegalStateException.class, () -> resultService.record(fixture.tenant(), observed));
+            assertThrows(IllegalStateException.class, () -> resultService.record(observed));
             assertReserved(fixture, RefundState.PROCESSING, 1L);
             assertRefundCounts(fixture, 0L, 0L, beforeOutbox);
             assertEquals(0L, count("refund_acceptance_evidence", fixture.tenant()));
-            resultService.record(fixture.tenant(), observed);
+            resultService.record(observed);
             assertEquals(1L, count("refund_acceptance_evidence", fixture.tenant()));
             assertEquals(1L, count("refund_transaction_claim", fixture.tenant()));
-            transactions.readSnapshot(fixture.tenant(), () -> {
+            transactions.readSnapshot(() -> {
                 assertEquals(
                         RefundState.SUCCEEDED,
                         refunds.load(fixture.requestId())
@@ -665,7 +655,6 @@ class RefundRecoveryHandlerPersistenceIT {
             var acceptedAt = AT.plusDays(1);
             var original = channel.observations.get(fixture.refundId());
             resultService.record(
-                    fixture.tenant(),
                     acceptance(original, ChannelRefundOutcome.Kind.ACCEPTED, "accepted-next-day", acceptedAt));
             var oldDay = sourceCapture(fixture, AT);
             var refundDay = sourceCapture(fixture, acceptedAt);
@@ -695,26 +684,24 @@ class RefundRecoveryHandlerPersistenceIT {
                     "refund-succeeded-next-day",
                     "c".repeat(64),
                     acceptedAt);
-            resultService.record(fixture.tenant(), success);
+            resultService.record(success);
             assertEquals(
                     PaymentLedgerStatus.SUCCEEDED,
                     sourceCapture(fixture, acceptedAt).lines().getFirst().status());
             assertEquals(PaymentLedgerStatus.PROCESSING, row.status());
-            resultService.record(
-                    fixture.tenant(),
-                    new RefundObservation(
-                            success.refundId(),
-                            success.original(),
-                            success.channelRefundNo(),
-                            success.originalChannelTransactionNo(),
-                            success.kind(),
-                            success.amount(),
-                            success.channelRefundTransactionNo(),
-                            success.succeededAt(),
-                            success.source(),
-                            "conflicting-acceptance-date",
-                            "d".repeat(64),
-                            acceptedAt.plusSeconds(1)));
+            resultService.record(new RefundObservation(
+                    success.refundId(),
+                    success.original(),
+                    success.channelRefundNo(),
+                    success.originalChannelTransactionNo(),
+                    success.kind(),
+                    success.amount(),
+                    success.channelRefundTransactionNo(),
+                    success.succeededAt(),
+                    success.source(),
+                    "conflicting-acceptance-date",
+                    "d".repeat(64),
+                    acceptedAt.plusSeconds(1)));
             var conflict = sourceCapture(fixture, acceptedAt);
             assertEquals(PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT, conflict.blocker());
             assertTrue(conflict.lines().isEmpty());
@@ -733,7 +720,7 @@ class RefundRecoveryHandlerPersistenceIT {
                 day,
                 PaymentCaptureScope.WECHAT_ALL,
                 clock.getZone().getId());
-        return transactions.readSnapshot(fixture.tenant(), 10, () -> captureReader.read(scope));
+        return transactions.readSnapshot(10, () -> captureReader.read(scope));
     }
 
     private RefundObservation acceptance(
@@ -755,7 +742,7 @@ class RefundRecoveryHandlerPersistenceIT {
 
     private RefundFixture seedSubmittedRefund() {
         var payment = FinancialPersistenceFixtures.prepared(codec, bindingCodec);
-        transactions.writeLocal(payment.tenant(), () -> {
+        transactions.writeLocal(() -> {
             bindings.insertHead(payment.head());
             bindings.insertRevision(payment.revision());
             payments.insertParent(new StoredPaymentGate(
@@ -788,8 +775,8 @@ class RefundRecoveryHandlerPersistenceIT {
                 PaymentObservation.Source.QUERY_RESPONSE,
                 "original-payment-success",
                 "c".repeat(64));
-        collectionResults.record(payment.tenant(), success);
-        var fixture = transactions.writeLocal(payment.tenant(), () -> {
+        collectionResults.record(success);
+        var fixture = transactions.writeLocal(() -> {
             payments.lockParent(payment.command().orderId()).orElseThrow();
             var capacity = refunds.lockCapacities(payment.command().orderId()).getFirst();
             var amount = Money.ofMinor(REFUND_MINOR, "CNY");
@@ -830,10 +817,9 @@ class RefundRecoveryHandlerPersistenceIT {
                     List.of(child));
             refunds.insertPlan(
                     stored, List.of(new RefundCapacityReservation(capacity, capacity.reserve(REFUND_MINOR))));
-            projections.planned(
-                    payment.tenant(), stored, payment.payment().payment().amount());
-            recovery.register(payment.tenant(), stored);
-            var locked = locks.lock(payment.tenant(), requestId, refund.id());
+            projections.planned(stored, payment.payment().payment().amount());
+            recovery.register(stored);
+            var locked = locks.lock(requestId, refund.id());
             var submitting = refund.beginSubmission();
             var change = new RefundProgressChange(
                     locked.child(),
@@ -846,7 +832,7 @@ class RefundRecoveryHandlerPersistenceIT {
                     null,
                     null);
             results.update(change);
-            projections.changed(payment.tenant(), change);
+            projections.changed(change);
             return new RefundFixture(
                     payment,
                     requestId,
@@ -884,7 +870,7 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private void assertReserved(RefundFixture fixture, RefundState state, long version) {
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var stored = refunds.load(fixture.requestId());
             assertEquals(RefundRequestState.PROCESSING, stored.request().state());
             assertEquals(version, stored.request().version());
@@ -911,7 +897,7 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private void assertSucceeded(RefundFixture fixture, long version, boolean hadUnknown, long receiptCount) {
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var stored = refunds.load(fixture.requestId());
             assertEquals(RefundRequestState.SUCCEEDED, stored.request().state());
             assertEquals(version, stored.request().version());
@@ -940,12 +926,12 @@ class RefundRecoveryHandlerPersistenceIT {
             return true;
         });
         assertRefundCounts(fixture, 1L, receiptCount, hadUnknown ? 15L : 14L);
-        transactions.readSnapshot(fixture.tenant(), () -> {
-            assertTarget(fixture, RefundProjectionEvents.CHILD, hadUnknown ? 4L : 3L);
-            assertTarget(fixture, RefundProjectionEvents.SUMMARY, 2L);
-            assertTarget(fixture, RefundProjectionEvents.FEE, 2L);
-            assertTarget(fixture, RefundProjectionEvents.MERCHANT, 2L);
-            assertTarget(fixture, RefundProjectionEvents.LIMIT, 1L);
+        transactions.readSnapshot(() -> {
+            assertTarget(fixture, PaymentDeliveryRoutes.REFUND_CHILD, hadUnknown ? 4L : 3L);
+            assertTarget(fixture, PaymentDeliveryRoutes.REFUND_SUMMARY, 2L);
+            assertTarget(fixture, PaymentDeliveryRoutes.REFUND_FEE, 2L);
+            assertTarget(fixture, PaymentDeliveryRoutes.REFUND_MERCHANT, 2L);
+            assertTarget(fixture, PaymentDeliveryRoutes.REFUND_LIMIT, 1L);
             return true;
         });
     }
@@ -960,11 +946,13 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private void assertRefundCounts(RefundFixture fixture, long claims, long receipts, long outbox) {
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(claims, count("refund_transaction_claim", fixture.tenant()));
             assertEquals(receipts, count("refund_channel_receipt", fixture.tenant()));
             assertEquals(0L, count("refund_result_anomaly", fixture.tenant()));
-            assertEquals(outbox, count("loadup_outbox_event", fixture.tenant()));
+            assertEquals(
+                    outbox,
+                    jdbc.queryForObject("SELECT COUNT(*) FROM loadup_task WHERE payload IS NOT NULL", Long.class));
             return true;
         });
     }
@@ -976,26 +964,26 @@ class RefundRecoveryHandlerPersistenceIT {
     private void assertTarget(RefundFixture fixture, String type, long expected) {
         assertEquals(
                 expected,
-                jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event WHERE event_type = ?", Long.class, type)
+                jdbc.queryForObject("SELECT COUNT(*) FROM loadup_task WHERE task_type = ?", Long.class, type)
                         .longValue());
     }
 
-    private DelayedTaskDO claim(RefundFixture fixture, long generation) {
-        var claimed = taskStore.claim(now(), taskProperties).orElseThrow();
-        assertEquals(RefundRecoveryService.TYPE, claimed.getTaskType());
-        assertEquals(key(fixture, generation), claimed.getBizId());
+    private JdbcTaskRepository.Claim claim(RefundFixture fixture, long generation) {
+        var claimed = taskStore.claim(RefundRecoveryService.TYPE).orElseThrow();
+        assertEquals(RefundRecoveryService.TYPE, claimed.event().taskType());
+        assertEquals(key(fixture, generation), claimed.event().bizId());
         return claimed;
     }
 
-    private void handle(RefundFixture fixture, DelayedTaskDO claimed) {
-        transactions.withTenantContext(fixture.tenant(), () -> {
-            handler.handle(taskConverter.toTask(claimed));
+    private void handle(RefundFixture fixture, JdbcTaskRepository.Claim claimed) {
+        transactions.guarded(() -> {
+            handler.handle(claimed.event());
             return true;
         });
     }
 
     private void assertCursor(RefundFixture fixture, long generation, boolean completed) {
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             var cursor = cursors.find(fixture.requestId()).orElseThrow();
             assertEquals(generation, cursor.generation());
             assertEquals(completed, cursor.completed());
@@ -1009,11 +997,11 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private void assertNativeCount(RefundFixture fixture, long expected) {
-        transactions.readSnapshot(fixture.tenant(), () -> {
+        transactions.readSnapshot(() -> {
             assertEquals(
                     expected,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM delayed_task WHERE task_type = ?",
+                                    "SELECT COUNT(*) FROM loadup_task WHERE task_type = ?",
                                     Long.class,
                                     RefundRecoveryService.TYPE)
                             .longValue());
@@ -1022,9 +1010,10 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private void cancelRemainingTasks(RefundFixture fixture) {
-        transactions.writeLocal(fixture.tenant(), () -> {
+        transactions.writeLocal(() -> {
             for (long generation = 0; generation <= 2; generation++) {
-                tasks.cancel(RefundRecoveryService.TYPE, key(fixture, generation));
+                tasks.find(RefundRecoveryService.TYPE, key(fixture, generation))
+                        .ifPresent(task -> tasks.cancel(task.id()));
             }
             return true;
         });
@@ -1111,18 +1100,27 @@ class RefundRecoveryHandlerPersistenceIT {
                 RefundSummaryGateway summaries,
                 RefundSnapshotReader reader,
                 RefundProjectionConverter converter,
-                OutboxTemplate outbox,
+                TaskTemplate outbox,
                 IdGenerator ids,
                 PaymentAcceptanceGateway payments,
                 RefundSettlementConverter financial,
+                RefundFinancialEvidenceVerifier evidence,
                 RefundFaults faults) {
-            super(summaries, reader, converter, outbox, ids, payments, financial);
+            super(
+                    summaries,
+                    reader,
+                    converter,
+                    outbox,
+                    ids,
+                    payments,
+                    financial,
+                    PaymentFactRoutes.defaults(),
+                    evidence);
             this.faults = faults;
         }
 
-        @Override
-        public void changed(String tenant, RefundProgressChange change) {
-            super.changed(tenant, change);
+        public void changed(RefundProgressChange change) {
+            super.changed(change);
             faults.after(FailurePoint.AFTER_OUTBOX);
         }
     }
@@ -1224,13 +1222,22 @@ class RefundRecoveryHandlerPersistenceIT {
                 RefundSummaryGateway summaries,
                 RefundSnapshotReader reader,
                 RefundProjectionConverter converter,
-                OutboxTemplate outbox,
+                TaskTemplate outbox,
                 IdGenerator ids,
                 PaymentAcceptanceGateway payments,
                 RefundSettlementConverter financial,
+                RefundResultGateway results,
                 RefundFaults faults) {
             return new FaultingRefundProjections(
-                    summaries, reader, converter, outbox, ids, payments, financial, faults);
+                    summaries,
+                    reader,
+                    converter,
+                    outbox,
+                    ids,
+                    payments,
+                    financial,
+                    new RefundFinancialEvidenceVerifier(results),
+                    faults);
         }
     }
 }

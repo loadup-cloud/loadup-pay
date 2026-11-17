@@ -36,20 +36,19 @@ import io.github.loadup.acquire.app.port.OrderSnapshotEnvelopeCodec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class OrderSnapshotDeliveryTest {
-    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final TaskTemplate outbox = mock(TaskTemplate.class);
     final OrderSnapshotEnvelopeCodec codec = mock(OrderSnapshotEnvelopeCodec.class);
     final AcquireRealtimeClient client = mock(AcquireRealtimeClient.class);
     final OrderSnapshotDelivery delivery = new OrderSnapshotDelivery(outbox, codec, client);
@@ -57,7 +56,7 @@ class OrderSnapshotDeliveryTest {
             "delivery",
             "change",
             "acquire",
-            OrderSnapshotEvents.TYPE,
+            OrderSnapshotEvents.DELIVERY_TYPE,
             1,
             "order",
             2,
@@ -74,9 +73,9 @@ class OrderSnapshotDeliveryTest {
                     BusinessTime.external(CheckoutFixtures.NOW.minusDays(1)),
                     BusinessTime.external(CheckoutFixtures.NOW),
                     2));
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue",
-            new OutboxMessage(OrderSnapshotEvents.TYPE, 1, "order", "payload"),
+            new TaskSubmission(OrderSnapshotEvents.DELIVERY_TYPE, 1, "order", "payload", LocalDateTime.now(), ""),
             snapshot.occurredAt().toInstant(),
             null);
 
@@ -84,7 +83,7 @@ class OrderSnapshotDeliveryTest {
     void setup() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("queue", OrderSnapshotEvents.TYPE, "order", "PROCESSING", 1, null)));
+                        new TaskExecution("queue", OrderSnapshotEvents.DELIVERY_TYPE, "order", "RUNNING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
         when(client.apply(snapshot)).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -93,7 +92,7 @@ class OrderSnapshotDeliveryTest {
     }
 
     void send() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event));
+        delivery.deliver(event);
     }
 
     @Test
@@ -126,7 +125,7 @@ class OrderSnapshotDeliveryTest {
     void unclaimedQueueCannotSend() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new OutboxRecord("queue", OrderSnapshotEvents.TYPE, "order", "SUCCEEDED", 1, null)));
+                        new TaskExecution("queue", OrderSnapshotEvents.DELIVERY_TYPE, "order", "SUCCEEDED", 1, null)));
         assertThrows(CommonException.class, this::send);
         verify(client, never()).apply(any());
     }

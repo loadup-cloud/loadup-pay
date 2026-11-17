@@ -22,7 +22,6 @@ import static io.github.loadup.reconciliation.client.error.ReconciliationResultC
 import static io.github.loadup.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.modules.transfer.client.dto.TransferTaskDTO;
 import io.github.loadup.modules.transfer.client.enums.TransferKind;
 import io.github.loadup.modules.transfer.client.enums.TransferStatus;
@@ -105,8 +104,7 @@ public class ReconciliationImportExecutionService {
                 || content == null) {
             throw new CommonException(INVALID_STATE);
         }
-        String tenant = TenantUtil.getTenantId();
-        var request = transactions.readSnapshot(tenant, () -> {
+        var request = transactions.readSnapshot(() -> {
             var value = imports.find(context.options().get("importId"))
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!context.taskId().equals(value.taskId()) || !context.ownerId().equals(value.callerServiceId())) {
@@ -116,7 +114,7 @@ public class ReconciliationImportExecutionService {
                     tasks.getObject().get(value.taskId(), value.callerServiceId(), false),
                     value,
                     TransferStatus.RUNNING);
-            var batch = authorized(tenant, value, false);
+            var batch = authorized(value, false);
             if (value.state() == ReconciliationImportState.SEALED) {
                 var manifest = inputs.sealedManifest(value.artifactId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -125,7 +123,7 @@ public class ReconciliationImportExecutionService {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
             }
-            official.verify(tenant, value);
+            official.verify(value);
             files.verify(value.callerServiceId(), value.file(), value.id());
             return value;
         });
@@ -141,8 +139,8 @@ public class ReconciliationImportExecutionService {
                 throw new CommonException(INPUT_INVALID);
             }
             // The content-addressed file, sealed rows, batch reference and logical outcome commit together.
-            transactions.writeLocal(tenant, () -> {
-                var batch = authorized(tenant, request, true);
+            transactions.writeLocal(() -> {
+                var batch = authorized(request, true);
                 var current = imports.lock(request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!request.equals(current) && current.state() != ReconciliationImportState.SEALED) {
                     throw new CommonException(SNAPSHOT_INVALID);
@@ -161,7 +159,7 @@ public class ReconciliationImportExecutionService {
                         && !data.manifest().equals(batch.batch().channel())) {
                     throw new CommonException(IMPORT_SUPERSEDED);
                 }
-                official.verify(tenant, current);
+                official.verify(current);
                 files.verify(current.callerServiceId(), current.file(), current.id());
                 inputs.insertSealed(current.file().fileId(), data);
                 var next = batch.batch().attach(data.manifest());
@@ -172,8 +170,8 @@ public class ReconciliationImportExecutionService {
             context.report(data.records().size(), data.records().size());
         } catch (CommonException failure) {
             if (failure.getResultCode() == INPUT_INVALID || failure.getResultCode() == IMPORT_SUPERSEDED) {
-                transactions.writeLocal(tenant, () -> {
-                    authorized(tenant, request, true);
+                transactions.writeLocal(() -> {
+                    authorized(request, true);
                     var current = imports.lock(request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (current.state() == ReconciliationImportState.INIT) {
                         imports.update(current.reject(failure.getResultCode().getCode()), current.version());
@@ -185,7 +183,7 @@ public class ReconciliationImportExecutionService {
         }
     }
 
-    private StoredReconciliationBatch authorized(String tenant, ReconciliationImportRequest request, boolean lock) {
+    private StoredReconciliationBatch authorized(ReconciliationImportRequest request, boolean lock) {
         var batch = (lock ? batches.lock(request.batchId()) : batches.find(request.batchId()))
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!request.callerServiceId().equals(batch.callerServiceId())

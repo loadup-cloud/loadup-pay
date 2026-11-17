@@ -18,7 +18,6 @@ package io.github.loadup.payment.infrastructure.codec;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.app.converter.ChannelBindingConverter;
@@ -96,8 +95,7 @@ public class ChannelBindingCodecImpl implements ChannelBindingCodec {
 
     @Override
     public String requestDigest(String service, String kind, Object command) {
-        String tenant = TenantUtil.getTenantId();
-        var fields = new ArrayList<String>(Arrays.asList("payment-binding-change-v1", tenant, service, kind));
+        var fields = new ArrayList<String>(Arrays.asList("payment-binding-change-v1", service, kind));
         switch (command) {
             case ChannelBindingPublishCommand publish -> {
                 fields.addAll(Arrays.asList(

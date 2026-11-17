@@ -72,12 +72,12 @@ class ReconciliationOfficialImportsTest {
         when(sources.find("source")).thenReturn(Optional.empty());
         assertEquals(
                 SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, () -> verifier.verify("tenant", imported))
+                assertThrows(CommonException.class, () -> verifier.verify(imported))
                         .getResultCode());
         when(sources.find("source")).thenReturn(Optional.of(initial));
         assertEquals(
                 SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, () -> verifier.verify("tenant", imported))
+                assertThrows(CommonException.class, () -> verifier.verify(imported))
                         .getResultCode());
         verifyNoInteractions(files);
         var ready = initial.ready(new ReconciliationOfficialReceipt(
@@ -91,17 +91,15 @@ class ReconciliationOfficialImportsTest {
                 file,
                 proof));
         when(sources.find("source")).thenReturn(Optional.of(ready));
-        verifier.verify("tenant", imported);
+        verifier.verify(imported);
         verify(files).verify("ops", file, "source");
         verify(files).verify("ops", proof, "source");
     }
 
     @Test
     void manualImportsRemainExplicitManualSourcesWithoutSyntheticEvidence() {
-        verifier.verify(
-                "tenant",
-                ReconciliationImportRequest.init(
-                        "manual", "batch", "ops", "request", "d".repeat(64), scope, account, file, "transfer-task"));
+        verifier.verify(ReconciliationImportRequest.init(
+                "manual", "batch", "ops", "request", "d".repeat(64), scope, account, file, "transfer-task"));
         verifyNoInteractions(sources, files);
     }
 }

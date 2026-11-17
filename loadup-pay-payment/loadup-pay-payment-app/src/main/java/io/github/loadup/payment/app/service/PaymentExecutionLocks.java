@@ -41,7 +41,7 @@ public class PaymentExecutionLocks {
         this.codec = codec;
     }
 
-    public LockedPayment lock(String tenant, String paymentId, String originalService) {
+    public LockedPayment lock(String paymentId, String originalService) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);

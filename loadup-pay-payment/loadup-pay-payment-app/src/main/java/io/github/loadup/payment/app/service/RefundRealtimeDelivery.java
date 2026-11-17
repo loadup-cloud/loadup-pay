@@ -21,9 +21,11 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSH
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxRecord;
-import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskTemplate;
+import io.github.loadup.contracts.event.FrozenEventTypes;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.realtime.dto.ProjectionAckDTO;
 import io.github.loadup.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
@@ -33,54 +35,53 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 public class RefundRealtimeDelivery {
-    private final OutboxTemplate outbox;
+    private final TaskTemplate outbox;
     private final RefundProjectionEnvelopeCodec codec;
     private final PaymentRealtimeClient client;
 
     public RefundRealtimeDelivery(
-            OutboxTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentRealtimeClient client) {
+            TaskTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentRealtimeClient client) {
         this.outbox = outbox;
         this.codec = codec;
         this.client = client;
     }
 
-    public void child(OutboxEvent event) {
-        var row = registered(event, RefundProjectionEvents.CHILD);
-        var envelope = codec.child(event.message().payload());
+    public void child(TaskExecution event) {
+        var row = registered(event, PaymentDeliveryRoutes.REFUND_CHILD);
+        var envelope = codec.child(event.payload());
         requireAggregate(row, envelope);
         ack(envelope, client.applyRefund(envelope));
     }
 
-    public void summary(OutboxEvent event) {
-        var row = registered(event, RefundProjectionEvents.SUMMARY);
-        var envelope = codec.summary(event.message().payload());
+    public void summary(TaskExecution event) {
+        var row = registered(event, PaymentDeliveryRoutes.REFUND_SUMMARY);
+        var envelope = codec.summary(event.payload());
         requireAggregate(row, envelope);
         ack(envelope, client.applyRefundSummary(envelope));
     }
 
-    private OutboxRecord registered(OutboxEvent event, String type) {
+    private TaskExecution registered(TaskExecution event, String type) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.message() == null
-                || event.message().version() != 1
-                || !type.equals(event.message().type())) {
+        if (event == null || event.payloadVersion() != 1 || !type.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var message = event.message();
+        var message = event;
         var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id())
-                || !row.type().equals(type)
-                || !row.businessId().equals(message.businessId())
-                || !"PROCESSING".equals(row.status())) {
+                || !row.taskType().equals(type)
+                || !row.bizId().equals(message.bizId())
+                || row.status() != TaskStatus.RUNNING) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return row;
     }
 
-    private void requireAggregate(OutboxRecord row, EventEnvelope<?> event) {
-        if (!row.businessId().equals(event.aggregateId()) || !row.type().equals(event.eventType())) {
+    private void requireAggregate(TaskExecution row, EventEnvelope<?> event) {
+        if (!row.bizId().equals(event.aggregateId())
+                || !FrozenEventTypes.accepts(
+                        PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), event.eventType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }

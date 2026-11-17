@@ -24,6 +24,8 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.contracts.event.BusinessEventTypes;
+import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.github.loadup.contracts.event.acquire.OrderSnapshotEventDTO;
 import io.github.loadup.contracts.event.payment.OrderRefundSummaryEventDTO;
 import io.github.loadup.contracts.event.payment.PaymentSnapshotEventDTO;
@@ -131,7 +133,10 @@ public class TradeProjectionService implements TradeProjectionFacade {
         var actor = actor(paymentService, "pay:realtime:projection:refund-summary");
         validate(() -> {
             event.data().requireEnvelope(event);
-            if (!"pay.payment.refund-summary.realtime.v1".equals(event.eventType())) {
+            if (!FrozenEventTypes.accepts(
+                    BusinessEventTypes.ORDER_REFUND_SUMMARY,
+                    "pay.payment.refund-summary.realtime.v1",
+                    event.eventType())) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             return true;
@@ -147,7 +152,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
     private ProjectionAckDTO consume(
             RealtimeActor actor, EventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
         String digest = codec.requestDigest(actor.serviceId(), event, hash);
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             var prior = receipts.find(event.producer(), event.deliveryId());
             if (prior.isPresent()) {
                 var receipt = prior.get();

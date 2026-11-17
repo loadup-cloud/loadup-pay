@@ -38,7 +38,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.components.payment.channel.api.facade.ChannelStatementFacade;
 import io.github.loadup.components.payment.channel.api.model.ChannelBindingRevision;
@@ -80,7 +79,7 @@ class PaymentStatementServiceTest {
     final ChannelBindingGateway bindings = mock(ChannelBindingGateway.class);
     final ChannelStatementFacade channels = mock(ChannelStatementFacade.class);
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(
-            new PaymentActor("tenant", "reconciliation", Set.of("pay:payment:reconciliation:statement:read")));
+            new PaymentActor("reconciliation", Set.of("pay:payment:reconciliation:statement:read")));
     final PaymentAcceptanceTransactions transactions = new PaymentAcceptanceTransactions(new Tx());
     final PaymentStatementService service = new PaymentStatementService(
             actor::get,
@@ -119,14 +118,12 @@ class PaymentStatementServiceTest {
     @Test
     void onlyImmutableBindingReadUsesATransactionAndOriginalTenantIsScopedForNetwork() throws Exception {
         when(bindings.findRevision("revision")).thenAnswer(call -> {
-            assertEquals("tenant", TenantUtil.getTenantId());
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             return Optional.of(binding);
         });
         when(channels.download(any(), any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals("tenant", TenantUtil.getTenantId());
             ChannelExecutionContext context = call.getArgument(0);
             assertSame(binding, context.binding());
             ChannelStatementRequest request = call.getArgument(1);
@@ -148,12 +145,12 @@ class PaymentStatementServiceTest {
 
     @Test
     void servicePermissionAndNoOuterTransactionAreMandatoryBeforeAnySourceAccess() {
-        actor.set(new PaymentActor("tenant", "other", actor.get().permissions()));
+        actor.set(new PaymentActor("other", actor.get().permissions()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.download(query))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "reconciliation", Set.of()));
+        actor.set(new PaymentActor("reconciliation", Set.of()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.download(query))

@@ -38,7 +38,6 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.payment.app.converter.PaymentControlConverter;
@@ -96,7 +95,7 @@ class PaymentAttemptServiceTest {
             clock,
             events);
     final PaymentAttemptService service = new PaymentAttemptService(
-            () -> new PaymentActor("tenant", "acquire", Set.of("pay:payment:attempt:start")),
+            () -> new PaymentActor("acquire", Set.of("pay:payment:attempt:start")),
             locks,
             attempts,
             codec,
@@ -114,12 +113,12 @@ class PaymentAttemptServiceTest {
     }
 
     PaymentExecutionDTO start(String key) {
-        return TenantUtil.callWithTenant("tenant", () -> service.startAttempt(command(key)));
+        return service.startAttempt(command(key));
     }
 
     @BeforeEach
     void setup() {
-        when(locks.lock(eq("tenant"), anyString(), eq("acquire"))).thenAnswer(call -> {
+        when(locks.lock(anyString(), eq("acquire"))).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(
                     accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
@@ -134,7 +133,7 @@ class PaymentAttemptServiceTest {
                         stored.get() != null && stored.get().requestKey().equals(call.getArgument(1))
                                 ? Optional.of(stored.get())
                                 : Optional.empty());
-        when(routes.select(eq("tenant"), any())).thenReturn(AttemptFixtures.binding());
+        when(routes.select(any())).thenReturn(AttemptFixtures.binding());
         doAnswer(call -> {
                     stored.set(call.getArgument(0));
                     return null;
@@ -165,7 +164,7 @@ class PaymentAttemptServiceTest {
         assertEquals("binding-revision", stored.get().attempt().binding().id());
         assertNull(stored.get().riskDecision());
         assertEquals(1, manager.commits);
-        verify(events).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
+        verify(events).publishSnapshot(eq(accepted.get()), any());
         verify(limits, never()).reserve(any());
         verify(limits, never()).begin(any());
     }

@@ -15,9 +15,10 @@
  */
 package io.github.loadup.payment.app.service;
 
-import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.task.TaskExecution;
 import io.github.loadup.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.payment.app.converter.PaymentSubmissionConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.domain.gateway.RiskOutcomeGateway;
 import org.springframework.stereotype.Component;
 
@@ -39,8 +40,8 @@ public class PaymentRiskOutcomeDelivery {
         this.risk = risk;
     }
 
-    public void deliver(OutboxEvent event) {
-        var snapshot = support.load(event, PaymentEvents.RISK);
+    public void deliver(TaskExecution event) {
+        var snapshot = support.load(event, PaymentDeliveryRoutes.RISK);
         // A local close may precede any consultation. Never invent DEFAULT_ALLOW/a consultation for that case.
         if (snapshot.attempt() == null || snapshot.attempt().riskDecision() == null) {
             return;

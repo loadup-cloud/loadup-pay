@@ -5,11 +5,6 @@ spring:
     url: ${AUTHSERVER_JDBC_URL}
     username: ${AUTHSERVER_JDBC_USERNAME}
     password: ${AUTHSERVER_JDBC_PASSWORD}
-  flyway:
-    enabled: true
-    locations:
-      - classpath:db/loadup-oauth
-      - classpath:db/migration/pay/oauth2-server
   lifecycle:
     timeout-per-shutdown-phase: 75s
   threads:
@@ -30,6 +25,16 @@ management:
         readiness:
           include: [readinessState, db]
 loadup:
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
+  database:
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/loadup-oauth
+      - classpath:db/migration/pay/oauth2-server
+      - classpath:db/migration/framework/audit
   kms:
     enabled: true
     binder: local
@@ -38,6 +43,11 @@ loadup:
       key-store-type: PKCS12
       key-store-password-env: KMS_KEYSTORE_PASSWORD
   security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${OAUTH_MANAGEMENT_ISSUER_URI:http://admin:8080}
+      audience: ${OAUTH_MANAGEMENT_AUDIENCE:admin}
+      jwk-set-uri: ${OAUTH_MANAGEMENT_JWK_SET_URI:http://admin:8080/oauth2/jwks}
     oauth:
       persistence:
         enabled: true
@@ -50,3 +60,7 @@ loadup:
         active-key:
           name: ${AUTHSERVER_SIGNING_KEY:auth-jwt}
           version: 1
+
+# Only management HTTP requests are auto-audited; protocol token requests never enter MVC audit.
+# Explicit OAUTH_CLIENT_* success records are committed with the corresponding database mutation.
+loadup.modules.audit.web.include-paths: /api/internal/v1/oauth/clients/**

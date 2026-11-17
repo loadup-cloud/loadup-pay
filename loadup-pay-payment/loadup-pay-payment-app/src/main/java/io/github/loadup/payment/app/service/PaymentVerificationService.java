@@ -92,8 +92,8 @@ public class PaymentVerificationService implements PaymentVerificationFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var started = now();
-        return transactions.withTenantContext(actor.tenantId(), () -> {
-            var target = transactions.readSnapshot(actor.tenantId(), 10, () -> reader.read(query));
+        return transactions.guarded(() -> {
+            var target = transactions.readSnapshot(10, () -> reader.read(query));
             if (target == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }

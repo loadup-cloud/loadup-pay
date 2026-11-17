@@ -16,8 +16,8 @@
 package io.github.loadup.reconciliation.app.converter;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.task.TaskExecution;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentStatementDTO;
 import io.github.loadup.reconciliation.app.model.payment.query.PaymentStatementQuery;
 import io.github.loadup.reconciliation.client.dto.ReconciliationStatementDTO;
@@ -100,5 +100,5 @@ public interface ReconciliationStatementConverter {
     @Mapping(target = "attempts", source = "task.attempts")
     @Mapping(target = "maxAttempts", source = "task.maxAttempts")
     @Mapping(target = "state", source = "value.state")
-    ReconciliationStatementDTO toDTO(ReconciliationStatementRequest value, DelayedTask task);
+    ReconciliationStatementDTO toDTO(ReconciliationStatementRequest value, TaskExecution task);
 }

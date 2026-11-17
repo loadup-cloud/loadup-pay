@@ -54,7 +54,7 @@ class RefundSummaryFactsServiceTest {
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
     final RefundSummaryGateway summaries = mock(RefundSummaryGateway.class);
     final AtomicReference<PaymentActor> actor =
-            new AtomicReference<>(new PaymentActor("tenant", "acquire", Set.of("pay:payment:refund-summary:read")));
+            new AtomicReference<>(new PaymentActor("acquire", Set.of("pay:payment:refund-summary:read")));
     final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(AttemptFixtures.gate(true));
     final OrderRefundSummary summary =
             new OrderRefundSummary("order", "merchant", ChannelAmounts.cnyAmount(10000, "CNY"), 1000, 500, 3);
@@ -116,12 +116,12 @@ class RefundSummaryFactsServiceTest {
 
     @Test
     void configuredAcquireAndDedicatedPermissionAreBothRequired() {
-        actor.set(new PaymentActor("tenant", "other", Set.of("pay:payment:refund-summary:read")));
+        actor.set(new PaymentActor("other", Set.of("pay:payment:refund-summary:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.refundSummary(new IdQuery("order")))
                         .getResultCode());
-        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:acquire-facts")));
+        actor.set(new PaymentActor("acquire", Set.of("pay:payment:acquire-facts")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.refundSummary(new IdQuery("order")))

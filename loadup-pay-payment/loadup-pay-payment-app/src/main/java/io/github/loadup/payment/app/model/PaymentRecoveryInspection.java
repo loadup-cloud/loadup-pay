@@ -17,7 +17,7 @@ package io.github.loadup.payment.app.model;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.task.TaskExecution;
 import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 
 /**
@@ -28,7 +28,7 @@ public record PaymentRecoveryInspection(
         String subjectId,
         long generation,
         String orderId,
-        @DiagnosticHidden DelayedTask task,
+        @DiagnosticHidden TaskExecution task,
         boolean businessCurrent,
         boolean retryable) {
     @Override

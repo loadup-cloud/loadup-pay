@@ -21,8 +21,7 @@ import io.github.loadup.components.payment.channel.api.model.PreparedChannelPaym
 /**
  * Returned only to the transaction winner; never reconstruct or expose this through an HTTP response.
  */
-public record PaymentSubmissionTicket(
-        String tenantId, String paymentId, String attemptId, PreparedChannelPayment payment) {
+public record PaymentSubmissionTicket(String paymentId, String attemptId, PreparedChannelPayment payment) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

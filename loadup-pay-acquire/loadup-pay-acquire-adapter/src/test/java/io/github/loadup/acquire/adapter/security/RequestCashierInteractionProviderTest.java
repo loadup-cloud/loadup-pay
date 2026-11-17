@@ -47,7 +47,7 @@ class RequestCashierInteractionProviderTest {
             return new H5SceneInteractionDTO(input.payerClientIp(), input.sceneType());
         });
         var provider = new RequestCashierInteractionProvider(request, converter);
-        var actor = new CashierActor("tenant", "session", "order", LocalDateTime.of(2026, 10, 25, 12, 0));
+        var actor = new CashierActor("session", "order", LocalDateTime.of(2026, 10, 25, 12, 0));
         var result =
                 (H5SceneInteractionDTO) provider.prepare(actor, new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         assertEquals("203.0.113.10", result.payerClientIp());

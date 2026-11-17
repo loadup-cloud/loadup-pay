@@ -15,10 +15,14 @@
  */
 package io.github.loadup.productcenter.app.service;
 
+import io.github.loadup.productcenter.app.converter.CommercialPolicyConverterImpl;
 import io.github.loadup.productcenter.domain.model.ConfigurationLayer;
 import io.github.loadup.productcenter.domain.model.ResolvedConfiguration;
 import io.github.loadup.productcenter.domain.model.TypedValue;
 import io.github.loadup.productcenter.domain.model.ValueOrigin;
+import io.github.loadup.productcenter.domain.policy.CommercialPolicyParser;
+import io.github.loadup.productcenter.domain.policy.ValidatedCommercialPolicy;
+import jakarta.validation.Validator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -90,5 +94,17 @@ final class AcquiringFixtures {
         Map<String, ValueOrigin> origins = new LinkedHashMap<>();
         values.keySet().forEach(key -> origins.put(key, new ValueOrigin(ConfigurationLayer.PRODUCT, "acquiring", 1)));
         return new ResolvedConfiguration(values, origins);
+    }
+
+    static ValidatedCommercialPolicy validated(ResolvedConfiguration configuration) {
+        return new CommercialPolicyParser().parse(configuration);
+    }
+
+    static ValidatedCommercialPolicy validated(Map<String, TypedValue> values) {
+        return validated(configuration(values));
+    }
+
+    static AcquiringTermsCompiler compiler(Validator validator) {
+        return new AcquiringTermsCompiler(validator, new CommercialPolicyConverterImpl());
     }
 }

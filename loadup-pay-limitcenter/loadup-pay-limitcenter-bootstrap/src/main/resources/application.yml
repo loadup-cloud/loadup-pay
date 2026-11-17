@@ -47,6 +47,8 @@ management:
         http.server.requests: true
 
 loadup:
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
   webmvc:
     request-body:
       path-prefix: /api/internal/
@@ -60,9 +62,7 @@ loadup:
         keys:
           v1: ${LIMITCENTER_PERMIT_SECRET}
   database:
-    multi-tenant:
-      enabled: false
-      required: false
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:
     enabled: true
     locations:

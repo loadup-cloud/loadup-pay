@@ -24,7 +24,7 @@ import {
 import {createBridgePayments} from "/checkout-bridge.mjs";
 
 const params = new URLSearchParams(location.hash.slice(1));
-const tenant = params.get("tenant"), orderId = params.get("order"), token = params.get("token");
+const deployment = params.get("deployment"), orderId = params.get("order"), token = params.get("token");
 const node = name => document.getElementById(name);
 const message = node("message"), panel = node("order"), refreshButton = node("refresh");
 const form = node("payment-form"), amountInput = node("payment-amount"), choiceInput = node("payment-choice"),
@@ -164,7 +164,7 @@ async function request(path, body) {
             method: "POST", cache: "no-store", credentials: "omit", redirect: "error", referrerPolicy: "no-referrer",
             signal: controller.signal, headers: {
                 "Content-Type": "application/json", "Authorization": `Bearer ${token}`,
-                "X-Checkout-Tenant": tenant
+                "X-Tenant-Code": deployment
             }, body
         });
         if (response.status === 401 || response.status === 403) throw new CheckoutError("AUTH_UNAVAILABLE");
@@ -341,11 +341,11 @@ window.addEventListener("pageshow", event => {
 try {
     // Strip both fragment and query before any authenticated request. Nothing persists the bearer capability.
     history.replaceState(null, "", location.pathname);
-    if (["tenant", "order", "token"].some(key => params.getAll(key).length !== 1) || !token
+    if (["deployment", "order", "token"].some(key => params.getAll(key).length !== 1) || !token
         || !/^[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9_-]{43}$/.test(token)) throw new CheckoutError("INVALID_LINK");
-    id(tenant);
+    if (!/^[a-z][a-z0-9-]{0,63}$/.test(deployment)) throw new CheckoutError("INVALID_LINK");
     id(orderId);
-    storageKey = "loadup.checkout.v1:" + JSON.stringify([tenant, orderId, token.split(".")[0]]);
+    storageKey = "loadup.checkout.v1:" + JSON.stringify([deployment, orderId, token.split(".")[0]]);
     try {
         storage = window.sessionStorage;
         const saved = storage.getItem(storageKey);

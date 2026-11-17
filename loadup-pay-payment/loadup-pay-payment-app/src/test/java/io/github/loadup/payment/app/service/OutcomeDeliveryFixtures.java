@@ -70,7 +70,8 @@ final class OutcomeDeliveryFixtures {
                 PaymentState.valueOf(payment.state().name()),
                 payment.version(),
                 "evidence",
-                !succeeded);
+                !succeeded,
+                null);
         var envelope = new EventEnvelope<>(
                 "delivery",
                 "evidence",

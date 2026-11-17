@@ -17,7 +17,6 @@ package io.github.loadup.acquire.infrastructure.codec;
 
 import io.github.loadup.acquire.app.port.PaymentEventCodec;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -30,12 +29,10 @@ import org.springframework.stereotype.Component;
 public class PaymentEventCodecImpl implements PaymentEventCodec {
     @Override
     public String digest(String service, EventEnvelope<PaymentOutcomeEventDTO> event) {
-        String tenant = TenantUtil.getTenantId();
         var value = event.data();
         var framed = new StringBuilder();
         for (String field : List.of(
                 "acquire-payment-event-v1",
-                tenant,
                 service,
                 event.deliveryId(),
                 event.businessEventId(),
@@ -59,6 +56,13 @@ public class PaymentEventCodecImpl implements PaymentEventCodec {
             framed.append(field.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(field);
+        }
+        if (value.financialEvidence() != null) {
+            for (String field : value.financialEvidence().canonicalFields()) {
+                framed.append(field.getBytes(StandardCharsets.UTF_8).length)
+                        .append(':')
+                        .append(field);
+            }
         }
         try {
             return HexFormat.of()

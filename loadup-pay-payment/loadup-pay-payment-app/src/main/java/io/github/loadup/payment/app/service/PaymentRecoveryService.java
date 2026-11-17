@@ -15,14 +15,13 @@
  */
 package io.github.loadup.payment.app.service;
 
-import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -44,7 +43,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class PaymentRecoveryService {
     public static final String TYPE = "pay.payment.collection.progress";
     private final PaymentRecoveryGateway cursors;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final PaymentExecutionLocks locks;
     private final PaymentAcceptanceGateway payments;
     private final PaymentExecutionService execution;
@@ -54,7 +53,7 @@ public class PaymentRecoveryService {
 
     public PaymentRecoveryService(
             PaymentRecoveryGateway cursors,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             PaymentExecutionLocks locks,
             PaymentExecutionService execution,
             PaymentAcceptanceGateway payments,
@@ -74,8 +73,8 @@ public class PaymentRecoveryService {
     /**
      * The original acceptance and its first wake-up commit atomically.
      */
-    public void register(String tenant, StoredPaymentAcceptance stored) {
-        writable(tenant);
+    public void register(StoredPaymentAcceptance stored) {
+        writable();
         if (stored.payment().state() != PaymentState.INIT
                 || stored.payment().version() != 0
                 || stored.payment().activeAttemptId() != null) {
@@ -84,21 +83,21 @@ public class PaymentRecoveryService {
         var cursor = PaymentRecoveryCursor.init(
                 stored.payment().id(), stored.payment().initiatedAt());
         cursors.insert(cursor);
-        tasks.register(TYPE, new PaymentRecoveryKey(cursor.paymentId(), cursor.generation()).bizId(), cursor.dueAt());
+        tasks.submit(TaskSubmission.scheduled(
+                TYPE, new PaymentRecoveryKey(cursor.paymentId(), cursor.generation()).bizId(), cursor.dueAt()));
     }
 
-    public RecoveryHandlingOutcome handle(DelayedTask task) {
+    public RecoveryHandlingOutcome handle(TaskExecution task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        var identity = RecoveryTaskProtocol.receive(TYPE, task, TenantUtil.getTenantId());
+        var identity = RecoveryTaskProtocol.receive(TYPE, task);
         var key = new PaymentRecoveryKey(identity.subjectId(), identity.generation());
         var registered = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         RecoveryTaskProtocol.requireClaim(TYPE, task, registered, LocalDateTime.now(clock));
-        String tenant = TenantUtil.getTenantId();
-        boolean active = transactions.writeLocal(tenant, () -> {
-            var request = lockPayment(tenant, key.paymentId());
-            var cursor = cursor(tenant, key);
+        boolean active = transactions.writeLocal(() -> {
+            var request = lockPayment(key.paymentId());
+            var cursor = cursor(key);
             if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.executeAt())) {
                 return false;
             }
@@ -113,10 +112,10 @@ public class PaymentRecoveryService {
         }
         // The durable Y2 winner owns first submit; recovery of a started attempt only queries or closes its original
         // request.
-        execution.progress(tenant, key.paymentId());
-        return transactions.writeLocal(tenant, () -> {
-            var request = lockPayment(tenant, key.paymentId());
-            var before = cursor(tenant, key);
+        execution.progress(key.paymentId());
+        return transactions.writeLocal(() -> {
+            var request = lockPayment(key.paymentId());
+            var before = cursor(key);
             if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) {
                 return RecoveryHandlingOutcome.SKIPPED;
             }
@@ -134,30 +133,28 @@ public class PaymentRecoveryService {
                 var next = before.schedule(nextAt, key.generation());
                 cursors.update(before, next);
                 // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
-                tasks.register(TYPE, new PaymentRecoveryKey(next.paymentId(), next.generation()).bizId(), next.dueAt());
+                tasks.submit(TaskSubmission.scheduled(
+                        TYPE, new PaymentRecoveryKey(next.paymentId(), next.generation()).bizId(), next.dueAt()));
                 return RecoveryHandlingOutcome.CONTINUED;
             }
         });
     }
 
-    private PaymentRecoveryCursor cursor(String tenant, PaymentRecoveryKey key) {
+    private PaymentRecoveryCursor cursor(PaymentRecoveryKey key) {
         var value = cursors.lock(key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         return value;
     }
 
-    private StoredPaymentAcceptance lockPayment(String tenant, String paymentId) {
+    private StoredPaymentAcceptance lockPayment(String paymentId) {
         var accepted = payments.find(paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        return locks.lock(tenant, paymentId, accepted.callerServiceId()).payment();
+        return locks.lock(paymentId, accepted.callerServiceId()).payment();
     }
 
     private boolean terminal(StoredPaymentAcceptance payment) {
         return PaymentExecutionService.terminal(payment.payment().state());
     }
 
-    private void writable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(ACTION_FORBIDDEN);
-        }
+    private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);

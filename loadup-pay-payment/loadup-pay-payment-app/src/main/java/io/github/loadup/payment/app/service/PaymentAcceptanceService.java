@@ -111,9 +111,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             validateBinding(command);
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var prior = store.find(command.paymentId());
                 if (prior.isPresent()) {
                     return replay(actor, command, prior.get());
@@ -153,7 +153,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                 if (!clock.instant().isBefore(command.payableUntil().toInstant())) {
                     throw new CommonException(PaymentResultCodeEnum.PAYMENT_EXPIRED);
                 }
-                inputs.requireNewAcceptance(actor.tenantId(), actor.serviceId(), command, now());
+                inputs.requireNewAcceptance(actor.serviceId(), command, now());
                 var payment = PaymentOrder.init(
                         command.paymentId(),
                         command.orderId(),
@@ -171,8 +171,8 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                         payload,
                         codec.checksum(payload));
                 store.insert(stored);
-                recovery.register(actor.tenantId(), stored);
-                events.publishSnapshot(actor.tenantId(), stored, now());
+                recovery.register(stored);
+                events.publishSnapshot(stored, now());
                 return converter.toDTO(stored);
             });
         });
@@ -182,9 +182,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     public PaymentExecutionDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:payment:read");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(query.id());
-            return actions.present(actor.tenantId(), locks.lock(actor.tenantId(), query.id(), actor.serviceId()));
+            return actions.present(locks.lock(query.id(), actor.serviceId()));
         });
     }
 
@@ -192,7 +192,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     public PaymentOutcomeDTO outcome(IdQuery query) {
         validate(query);
         var actor = actor("pay:payment:read");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(query.id());
             var initial = store.find(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.serviceId().equals(initial.callerServiceId())) {
@@ -212,7 +212,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                 throw new CommonException(ACTION_FORBIDDEN);
             }
             return converter.toOutcome(
-                    actions.present(actor.tenantId(), PaymentExecutionBindings.locked(current, parent, gate)),
+                    actions.present(PaymentExecutionBindings.locked(current, parent, gate)),
                     gate.gate().state() == GateState.FENCED);
         });
     }
@@ -231,8 +231,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                 || prior.payment().activeAttemptId() == null) {
             return converter.toDTO(prior);
         }
-        return actions.present(
-                actor.tenantId(), locks.lock(actor.tenantId(), prior.payment().id(), actor.serviceId()));
+        return actions.present(locks.lock(prior.payment().id(), actor.serviceId()));
     }
 
     private void checkGate(

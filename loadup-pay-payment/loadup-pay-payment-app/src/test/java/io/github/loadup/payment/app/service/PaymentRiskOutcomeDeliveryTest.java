@@ -31,15 +31,17 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.components.outbox.OutboxEvent;
-import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskSubmission;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.payment.app.converter.PaymentSubmissionConverter;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.payment.domain.gateway.RiskOutcomeGateway;
 import io.github.loadup.payment.domain.model.RiskDecisionType;
 import io.github.loadup.payment.domain.model.RiskOutcome;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -56,9 +58,9 @@ class PaymentRiskOutcomeDeliveryTest {
             context.getBean(PaymentOutcomeDeliveryConverter.class),
             context.getBean(PaymentSubmissionConverter.class),
             risk);
-    final OutboxEvent event = new OutboxEvent(
+    final TaskExecution event = new TaskExecution(
             "queue-event",
-            new OutboxMessage(PaymentEvents.RISK, 1, "payment", "{}"),
+            new TaskSubmission(PaymentDeliveryRoutes.RISK, 1, "payment", "{}", LocalDateTime.now(), ""),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
@@ -68,8 +70,8 @@ class PaymentRiskOutcomeDeliveryTest {
     }
 
     void source(boolean succeeded, boolean consulted) {
-        when(support.load(event, PaymentEvents.RISK))
-                .thenReturn(OutcomeDeliveryFixtures.snapshot(succeeded, consulted, PaymentEvents.RISK));
+        when(support.load(event, PaymentDeliveryRoutes.RISK))
+                .thenReturn(OutcomeDeliveryFixtures.snapshot(succeeded, consulted, PaymentDeliveryRoutes.RISK));
     }
 
     @Test
@@ -111,8 +113,8 @@ class PaymentRiskOutcomeDeliveryTest {
 
     @Test
     void localCloseWithoutAnAttemptHasNoConsultationToConfirm() {
-        var original = OutcomeDeliveryFixtures.snapshot(false, false, PaymentEvents.RISK);
-        when(support.load(event, PaymentEvents.RISK))
+        var original = OutcomeDeliveryFixtures.snapshot(false, false, PaymentDeliveryRoutes.RISK);
+        when(support.load(event, PaymentDeliveryRoutes.RISK))
                 .thenReturn(new PaymentDeliverySnapshot(original.envelope(), original.payment(), null, null));
         delivery.deliver(event);
         verifyNoInteractions(risk);

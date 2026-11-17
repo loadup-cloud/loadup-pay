@@ -127,11 +127,8 @@ class OrderCreationServiceTest {
     final AtomicReference<StoredCheckoutSession> session = new AtomicReference<>();
     final AtomicReference<OrderCreateIntent> intent = new AtomicReference<>();
     final AtomicReference<StoredAcquireOrder> order = new AtomicReference<>();
-    final AtomicReference<AcquireActor> actor = new AtomicReference<>(new AcquireActor(
-            "tenant",
-            "b".repeat(64),
-            "synthetic",
-            Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:checkout")));
+    final AtomicReference<AcquireActor> actor = new AtomicReference<>(
+            new AcquireActor("b".repeat(64), Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:checkout")));
     final LocalDateTime now = LocalDateTime.of(2026, 10, 21, 12, 0);
     final UnitTransactions manager = new UnitTransactions();
     final OrderDeadlineTasks deadlineTasks = mock(OrderDeadlineTasks.class);
@@ -181,7 +178,7 @@ class OrderCreationServiceTest {
     @Test
     void deadlineTaskFailureRollsBackMaterializationWithoutPublishingTheOrder() {
         var failure = new CommonException(AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE);
-        Mockito.doThrow(failure).when(deadlineTasks).register(eq("tenant"), any(), anyLong());
+        Mockito.doThrow(failure).when(deadlineTasks).register(any(), anyLong());
         assertSame(failure, assertThrows(CommonException.class, () -> service.create(command)));
         assertTrue(manager.rollbacks > 0);
         verifyNoInteractions(snapshots);
@@ -191,24 +188,24 @@ class OrderCreationServiceTest {
     void setup() {
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals(order.get().order(), c.getArgument(1));
-                    assertEquals(1L, (long) c.getArgument(2));
+                    assertEquals(order.get().order(), c.getArgument(0));
+                    assertEquals(1L, (long) c.getArgument(1));
                     return null;
                 })
                 .when(deadlineTasks)
-                .register(eq("tenant"), any(), anyLong());
+                .register(any(), anyLong());
         when(codec.directPayDigest(anyString(), any())).thenReturn("d".repeat(64));
         when(codec.encodeDirectPay(any())).thenReturn("direct-metadata");
         when(codec.decodeDirectPay(any())).thenReturn(direct());
         doAnswer(c -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-                    assertEquals(order.get().order().id(), c.getArgument(1));
-                    assertEquals(order.get().order().version(), (long) c.getArgument(2));
+                    assertEquals(order.get().order().id(), c.getArgument(0));
+                    assertEquals(order.get().order().version(), (long) c.getArgument(1));
                     return null;
                 })
                 .when(snapshots)
-                .publish(eq("tenant"), anyString(), anyLong());
+                .publish(anyString(), anyLong());
         when(codec.checkoutDigest(anyString(), any())).thenReturn("a".repeat(64));
         when(codec.encodeCheckout(any())).thenReturn("checkout-json");
         when(codec.decodeCheckout(any())).thenReturn(checkout);
@@ -392,7 +389,7 @@ class OrderCreationServiceTest {
                                 && fee.feeAmount().getCent() == 30
                                 && fee.state() == FeeState.INIT),
                         eq("fee-json"));
-        verify(snapshots).publish("tenant", dto.orderId(), order.get().order().version());
+        verify(snapshots).publish(dto.orderId(), order.get().order().version());
     }
 
     @Test
@@ -405,14 +402,12 @@ class OrderCreationServiceTest {
         assertEquals(first, read);
         verifyNoInteractions(product);
         verify(store, never()).insertOrder(any(), any(), anyString());
-        verify(snapshots, times(1)).publish(eq("tenant"), eq(first.orderId()), anyLong());
+        verify(snapshots, times(1)).publish(eq(first.orderId()), anyLong());
     }
 
     @Test
     void snapshotFailureRollsBackMaterializationWhileKeepingTheCommittedOriginalIntent() {
-        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE))
-                .when(snapshots)
-                .publish(anyString(), anyString(), anyLong());
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(snapshots).publish(anyString(), anyLong());
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service.create(command))
@@ -516,8 +511,7 @@ class OrderCreationServiceTest {
     void anotherSignedPrincipalCannotReuseTheIntentOrReadItsOrder() {
         var dto = service.create(command);
         clearInvocations(product);
-        actor.set(
-                new AcquireActor("tenant", "c".repeat(64), "other", Set.of("pay:acquire:create", "pay:acquire:read")));
+        actor.set(new AcquireActor("c".repeat(64), Set.of("pay:acquire:create", "pay:acquire:read")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.create(command))
@@ -766,12 +760,12 @@ class OrderCreationServiceTest {
 
     @Test
     void checkoutRequiresItsOwnPermissionAndRejectsAnOuterTransactionBeforeA0() {
-        actor.set(new AcquireActor("tenant", "b".repeat(64), "synthetic", Set.of("pay:acquire:create")));
+        actor.set(new AcquireActor("b".repeat(64), Set.of("pay:acquire:create")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.checkout(checkout))
                         .getResultCode());
-        actor.set(new AcquireActor("tenant", "b".repeat(64), "synthetic", Set.of("pay:acquire:checkout")));
+        actor.set(new AcquireActor("b".repeat(64), Set.of("pay:acquire:checkout")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

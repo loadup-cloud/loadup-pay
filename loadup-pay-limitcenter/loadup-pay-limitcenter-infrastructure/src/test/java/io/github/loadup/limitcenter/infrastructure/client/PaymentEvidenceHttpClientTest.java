@@ -72,7 +72,8 @@ class PaymentEvidenceHttpClientTest {
                     RefundState.SUCCEEDED,
                     3,
                     1000,
-                    "refund-evidence"),
+                    "refund-evidence",
+                    null),
             2000,
             4,
             "payment-evidence",
@@ -90,8 +91,6 @@ class PaymentEvidenceHttpClientTest {
         var encoder = Base64.getUrlEncoder().withoutPadding();
         var header = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256")));
         var claims = encoder.encodeToString(mapper.writeValueAsBytes(Map.of(
-                "tenant_id",
-                "tenant",
                 "principal_type",
                 "SERVICE",
                 "sub",

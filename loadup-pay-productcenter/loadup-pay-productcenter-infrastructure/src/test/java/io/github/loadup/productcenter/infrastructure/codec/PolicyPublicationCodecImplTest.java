@@ -19,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.productcenter.app.model.limitcenter.command.LimitPolicyActivateCommand;
 import io.github.loadup.productcenter.app.model.limitcenter.dto.LimitRuleDTO;
 import io.github.loadup.productcenter.app.model.limitcenter.enums.LimitMetric;
@@ -65,7 +64,7 @@ class PolicyPublicationCodecImplTest {
         return new LimitPolicyActivateCommand(
                 "policy",
                 1,
-                LimitPolicyHash.compute("tenant", unsigned),
+                LimitPolicyHash.compute(unsigned),
                 "merchant",
                 unsigned.refundAmountRestore(),
                 unsigned.refundCountRestore(),
@@ -94,18 +93,16 @@ class PolicyPublicationCodecImplTest {
 
     @Test
     void theFrozenCommandRetainsIntegersAboveDoublePrecision() {
-        var value = decode("tenant", stored(encode("tenant", command())));
+        var value = decode(stored(encode(command())));
         assertEquals(9007199254740993L, value.rules().getFirst().threshold());
         assertEquals(command().policyHash(), value.policyHash());
     }
 
     @Test
-    void mutatedPayloadOrTenantCannotBeUsedAsTheFrozenActivationIntent() {
-        var payload = encode("tenant", command());
-        assertThrows(CommonException.class, () -> decode("other", stored(payload)));
+    void mutatedPayloadCannotBeUsedAsTheFrozenActivationIntent() {
+        var payload = encode(command());
         assertThrows(
-                CommonException.class,
-                () -> decode("tenant", stored(payload.replace("9007199254740993", "9007199254740992"))));
+                CommonException.class, () -> decode(stored(payload.replace("9007199254740993", "9007199254740992"))));
     }
 
     @Test
@@ -120,14 +117,14 @@ class PolicyPublicationCodecImplTest {
                 original.refundAmountRestore(),
                 original.refundCountRestore(),
                 rules);
-        assertThrows(CommonException.class, () -> encode("tenant", incomplete));
+        assertThrows(CommonException.class, () -> encode(incomplete));
     }
 
-    private String encode(String tenant, LimitPolicyActivateCommand command) {
-        return TenantUtil.callWithTenant(tenant, () -> codec.encode(command));
+    private String encode(LimitPolicyActivateCommand command) {
+        return codec.encode(command);
     }
 
-    private LimitPolicyActivateCommand decode(String tenant, PolicyPublication value) {
-        return TenantUtil.callWithTenant(tenant, () -> codec.decode(value));
+    private LimitPolicyActivateCommand decode(PolicyPublication value) {
+        return codec.decode(value);
     }
 }

@@ -25,23 +25,13 @@ import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccou
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("loadup.modules.reconciliation.accounts")
-public record ReconciliationAccountsProperties(Map<String, Map<String, Account>> tenants) {
+public record ReconciliationAccountsProperties(Map<String, Account> accounts) {
     public ReconciliationAccountsProperties {
-        tenants = tenants == null
-                ? Map.of()
-                : tenants.entrySet().stream()
-                        .collect(
-                                Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
-        for (var tenant : tenants.entrySet()) {
-            DomainChecks.id(tenant.getKey());
-            for (var account : tenant.getValue().entrySet()) {
-                DomainChecks.id(account.getKey());
-            }
-        }
+        accounts = accounts == null ? Map.of() : Map.copyOf(accounts);
+        accounts.keySet().forEach(DomainChecks::id);
     }
 
     @Override

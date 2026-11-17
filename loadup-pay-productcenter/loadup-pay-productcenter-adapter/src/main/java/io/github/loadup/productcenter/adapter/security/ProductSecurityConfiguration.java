@@ -32,7 +32,7 @@ public class ProductSecurityConfiguration implements InitializingBean {
         if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Product business HTTP requires the verified JWT resource server");
         }
-        if (!environment.getProperty("loadup.outbox.enabled", Boolean.class, false)) {
+        if (!environment.getProperty("loadup.task.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Product publication requires the framework transactional Outbox");
         }
     }

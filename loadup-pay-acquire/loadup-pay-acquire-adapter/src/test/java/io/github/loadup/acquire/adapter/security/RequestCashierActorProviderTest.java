@@ -46,28 +46,25 @@ class RequestCashierActorProviderTest {
     @BeforeEach
     void setup() {
         header("Authorization");
-        header("X-Checkout-Tenant");
         header("Origin");
     }
 
     @Test
     void passesOnlyExplicitCapabilityHeadersIntoAuthenticationAndIgnoresRequestParameters() {
         header("Authorization", "Bearer opaque-capability");
-        header("X-Checkout-Tenant", "tenant");
-        var actor = new CashierActor("tenant", "session", "order", LocalDateTime.of(2026, 10, 21, 12, 5));
-        when(authentication.authenticate("tenant", "opaque-capability", null)).thenReturn(actor);
+        var actor = new CashierActor("session", "order", LocalDateTime.of(2026, 10, 21, 12, 5));
+        when(authentication.authenticate("opaque-capability", null)).thenReturn(actor);
         assertSame(actor, provider.current());
         verify(request, never()).getParameter(anyString());
     }
 
     @Test
-    void duplicateAuthorizationOrTenantHeadersCannotSelectAnotherIdentity() {
+    void duplicateAuthorizationOrOriginHeadersCannotSelectAnotherIdentity() {
         header("Authorization", "Bearer one", "Bearer two");
-        header("X-Checkout-Tenant", "tenant");
         assertThrows(CommonException.class, provider::current);
         verifyNoInteractions(authentication);
         header("Authorization", "Bearer one");
-        header("X-Checkout-Tenant", "one", "two");
+        header("Origin", "https://a.example", "https://b.example");
         assertThrows(CommonException.class, provider::current);
         verifyNoInteractions(authentication);
     }

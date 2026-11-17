@@ -15,14 +15,14 @@
  */
 package io.github.loadup.payment.infrastructure.task;
 
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskHandler;
 import io.github.loadup.payment.app.service.PaymentRecoveryService;
 import io.github.loadup.payment.app.service.RecoveryExecutionMetrics;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PaymentRecoveryTaskHandler implements DelayedTaskHandler {
+public class PaymentRecoveryTaskHandler implements TaskHandler {
     private final PaymentRecoveryService recovery;
     private final RecoveryExecutionMetrics metrics;
 
@@ -37,7 +37,7 @@ public class PaymentRecoveryTaskHandler implements DelayedTaskHandler {
     }
 
     @Override
-    public void handle(DelayedTask task) {
+    public void handle(TaskExecution task) {
         metrics.observe(RecoveryExecutionMetrics.Kind.PAYMENT, () -> recovery.handle(task));
     }
 }

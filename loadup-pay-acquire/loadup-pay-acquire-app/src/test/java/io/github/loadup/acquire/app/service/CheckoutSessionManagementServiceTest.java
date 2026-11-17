@@ -60,7 +60,6 @@ import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -85,7 +84,7 @@ class CheckoutSessionManagementServiceTest {
             new AtomicReference<>(session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5)));
     final AtomicReference<CheckoutSessionRevocationReceipt> recorded = new AtomicReference<>();
     final AtomicReference<AcquireActor> actor = new AtomicReference<>(
-            new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:session:read", "pay:acquire:session:revoke")));
+            new AcquireActor(OWNER, Set.of("pay:acquire:session:read", "pay:acquire:session:revoke")));
     final CheckoutSessionManagementService service = new CheckoutSessionManagementService(
             actor::get,
             orders,
@@ -116,7 +115,6 @@ class CheckoutSessionManagementServiceTest {
         });
         doAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertEquals("tenant", TenantUtil.getTenantId());
                     assertSame(current.get(), call.getArgument(0));
                     current.set(call.getArgument(1));
                     return null;
@@ -220,8 +218,7 @@ class CheckoutSessionManagementServiceTest {
         when(receipts.page("session", 1, 20)).thenReturn(PageResult.of(List.of(recorded.get()), 1L, 1, 20));
         var query = new CheckoutSessionRevocationPageQuery("session", null, null);
         assertNotNull(service.revocations(query));
-        actor.set(new AcquireActor(
-                "tenant", "b".repeat(64), null, Set.of("pay:acquire:session:read", "pay:acquire:session:revoke")));
+        actor.set(new AcquireActor("b".repeat(64), Set.of("pay:acquire:session:read", "pay:acquire:session:revoke")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.detail(new IdQuery("session")))
@@ -264,7 +261,7 @@ class CheckoutSessionManagementServiceTest {
 
     @Test
     void issuancePermissionDoesNotGrantManagementAccessAndOuterTransactionsAreRejected() {
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:session")));
+        actor.set(new AcquireActor(OWNER, Set.of("pay:acquire:session")));
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.detail(new IdQuery("session")))
@@ -274,7 +271,7 @@ class CheckoutSessionManagementServiceTest {
                 assertThrows(CommonException.class, () -> service.revoke(command("revoke", 0L, "reason")))
                         .getResultCode());
         verifyNoInteractions(orders, sessions, receipts);
-        actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:session:revoke")));
+        actor.set(new AcquireActor(OWNER, Set.of("pay:acquire:session:revoke")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(

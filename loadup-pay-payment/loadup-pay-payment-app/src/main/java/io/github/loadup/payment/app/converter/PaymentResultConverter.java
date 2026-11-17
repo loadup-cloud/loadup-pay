@@ -15,8 +15,10 @@
  */
 package io.github.loadup.payment.app.converter;
 
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.model.PaymentObservation;
 import io.github.loadup.components.runtime.mapping.LoadUpMapStructConfig;
+import io.github.loadup.contracts.event.payment.PaymentFinancialEvidence;
 import io.github.loadup.contracts.event.payment.PaymentOutcomeEventDTO;
 import io.github.loadup.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.payment.domain.model.PaymentChannelReceipt;
@@ -24,6 +26,7 @@ import io.github.loadup.payment.domain.model.PaymentReceiptDisposition;
 import io.github.loadup.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -69,5 +72,27 @@ public interface PaymentResultConverter {
     @Mapping(target = "state", source = "value.payment.state")
     @Mapping(target = "paymentVersion", source = "value.payment.version")
     @Mapping(target = "evidenceId", source = "value.terminalEvidenceId")
+    @Mapping(target = "financialEvidence", ignore = true)
+    @Mapping(target = "withFinancialEvidence", ignore = true)
     PaymentOutcomeEventDTO toEvent(StoredPaymentAcceptance value, boolean executionFenced);
+
+    @Mapping(target = "schemaVersion", constant = "1")
+    @Mapping(target = "paymentId", source = "value.payment.id")
+    @Mapping(target = "orderId", source = "value.payment.orderId")
+    @Mapping(target = "allocationId", source = "value.payment.allocationId")
+    @Mapping(target = "operationId", source = "value.payment.limitOperationId")
+    @Mapping(target = "payeeMerchantId", source = "value.payment.payeeMerchantId")
+    @Mapping(target = "amountMinor", source = "value.payment.amount.cent")
+    @Mapping(target = "currency", source = "value.payment.amount.currencyValue")
+    @Mapping(target = "state", source = "value.payment.state")
+    @Mapping(target = "paymentVersion", source = "value.payment.version")
+    @Mapping(target = "terminalEvidenceId", source = "value.terminalEvidenceId")
+    @Mapping(target = "activeAttemptId", source = "value.payment.activeAttemptId")
+    @Mapping(target = "initiatedAt", source = "value.payment.initiatedAt")
+    PaymentFinancialEvidence toFinancialEvidence(
+            StoredPaymentAcceptance value, OffsetDateTime succeededAt, boolean executionFenced);
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

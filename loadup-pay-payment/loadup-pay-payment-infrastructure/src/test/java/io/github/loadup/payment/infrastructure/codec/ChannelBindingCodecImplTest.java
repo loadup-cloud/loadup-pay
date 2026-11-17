@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.payment.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.components.payment.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.components.payment.channel.contract.AccessMode;
@@ -123,6 +122,6 @@ class ChannelBindingCodecImplTest {
     }
 
     private String requestDigest(String tenant, String service, String kind, Object command) {
-        return TenantUtil.callWithTenant(tenant, () -> codec.requestDigest(service, kind, command));
+        return codec.requestDigest(service, kind, command);
     }
 }

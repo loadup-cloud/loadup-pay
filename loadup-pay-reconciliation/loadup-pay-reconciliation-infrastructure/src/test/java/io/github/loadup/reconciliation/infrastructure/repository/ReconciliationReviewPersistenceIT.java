@@ -132,9 +132,8 @@ class ReconciliationReviewPersistenceIT {
     @Test
     void proposalFailureRollsBackHeadProposalReceiptAndPermanentEvidenceReference() {
         var fixture = fixture();
-        long references = count("file_resource_reference", fixture.tenant());
+        long references = count("file_resource_reference");
         var uploaded = actors.call(
-                fixture.tenant(),
                 "maker",
                 () -> service.uploadEvidence(
                         "evidence.txt",
@@ -143,26 +142,23 @@ class ReconciliationReviewPersistenceIT {
                         new ByteArrayInputStream("evidence".getBytes(StandardCharsets.UTF_8))));
         var command = propose(fixture, "proposal", uploaded.fileId());
         persistence.failRequest.set("proposal");
-        assertThrows(
-                IllegalStateException.class,
-                () -> actors.call(fixture.tenant(), "maker", () -> service.propose(command)));
-        assertEquals(0L, count("reconciliation_review", fixture.tenant()));
-        assertEquals(0L, count("reconciliation_review_proposal", fixture.tenant()));
-        assertEquals(0L, count("reconciliation_review_event", fixture.tenant()));
-        assertEquals(references, count("file_resource_reference", fixture.tenant()));
-        var first = actors.call(fixture.tenant(), "maker", () -> service.propose(command));
-        var replay = actors.call(fixture.tenant(), "maker", () -> service.propose(command));
+        assertThrows(IllegalStateException.class, () -> actors.call("maker", () -> service.propose(command)));
+        assertEquals(0L, count("reconciliation_review"));
+        assertEquals(0L, count("reconciliation_review_proposal"));
+        assertEquals(0L, count("reconciliation_review_event"));
+        assertEquals(references, count("file_resource_reference"));
+        var first = actors.call("maker", () -> service.propose(command));
+        var replay = actors.call("maker", () -> service.propose(command));
         assertEquals(first, replay);
-        assertEquals(1L, count("reconciliation_review", fixture.tenant()));
-        assertEquals(1L, count("reconciliation_review_event", fixture.tenant()));
-        assertEquals(references + 1, count("file_resource_reference", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_review"));
+        assertEquals(1L, count("reconciliation_review_event"));
+        assertEquals(references + 1, count("file_resource_reference"));
     }
 
     @Test
     void checkerFailureRollsBackDecisionAndApprovalDoesNotChangeBatchDifferenceOrOriginalResult() {
         var fixture = fixture();
-        var proposed =
-                actors.call(fixture.tenant(), "maker", () -> service.propose(propose(fixture, "proposal", null)));
+        var proposed = actors.call("maker", () -> service.propose(propose(fixture, "proposal", null)));
         var command = new ReconciliationReviewDecideCommand(
                 fixture.batchId(),
                 fixture.differenceId(),
@@ -171,36 +167,29 @@ class ReconciliationReviewPersistenceIT {
                 1L,
                 true,
                 "verified independent conclusion");
-        assertThrows(
-                CommonException.class, () -> actors.call(fixture.tenant(), "maker", () -> service.decide(command)));
+        assertThrows(CommonException.class, () -> actors.call("maker", () -> service.decide(command)));
         persistence.failRequest.set("decision");
-        assertThrows(
-                IllegalStateException.class,
-                () -> actors.call(fixture.tenant(), "checker", () -> service.decide(command)));
+        assertThrows(IllegalStateException.class, () -> actors.call("checker", () -> service.decide(command)));
         assertEquals(
                 "PROPOSED",
                 actors.call(
-                                fixture.tenant(),
                                 "checker",
                                 () -> service.detail(
                                         new ReconciliationReviewQuery(fixture.batchId(), fixture.differenceId())))
                         .state()
                         .name());
-        assertEquals(1L, count("reconciliation_review_event", fixture.tenant()));
-        var approved = actors.call(fixture.tenant(), "checker", () -> service.decide(command));
+        assertEquals(1L, count("reconciliation_review_event"));
+        var approved = actors.call("checker", () -> service.decide(command));
         assertEquals("APPROVED", approved.state().name());
         assertEquals(2L, approved.version());
-        assertEquals(
-                proposed,
-                actors.call(fixture.tenant(), "maker", () -> service.propose(propose(fixture, "proposal", null))));
+        assertEquals(proposed, actors.call("maker", () -> service.propose(propose(fixture, "proposal", null))));
         var original = transactions.readSnapshot(
-                fixture.tenant(),
                 () -> batches.find(fixture.batchId()).orElseThrow().batch());
         assertEquals("DIFFERENCES", original.state().name());
         assertEquals(fixture.resultHash(), original.result().resultHash());
         assertEquals(1L, original.result().differenceCount());
-        assertEquals(1L, count("reconciliation_difference", fixture.tenant()));
-        assertEquals(2L, count("reconciliation_review_event", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_difference"));
+        assertEquals(2L, count("reconciliation_review_event"));
     }
 
     @Test
@@ -211,15 +200,15 @@ class ReconciliationReviewPersistenceIT {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Callable<ReconciliationReviewEventDTO> action = () -> {
                 ready.await(10, TimeUnit.SECONDS);
-                return actors.call(fixture.tenant(), "maker", () -> service.propose(command));
+                return actors.call("maker", () -> service.propose(command));
             };
             var a = executor.submit(action);
             var b = executor.submit(action);
             assertEquals(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS));
         }
-        assertEquals(1L, count("reconciliation_review", fixture.tenant()));
-        assertEquals(1L, count("reconciliation_review_proposal", fixture.tenant()));
-        assertEquals(1L, count("reconciliation_review_event", fixture.tenant()));
+        assertEquals(1L, count("reconciliation_review"));
+        assertEquals(1L, count("reconciliation_review_proposal"));
+        assertEquals(1L, count("reconciliation_review_event"));
     }
 
     Fixture fixture() {
@@ -238,7 +227,7 @@ class ReconciliationReviewPersistenceIT {
         var channel = dataset(scope, cFile, channelLine, ReconciliationSide.CHANNEL);
         var ledger = dataset(scope, lFile, ledgerLine, ReconciliationSide.LEDGER);
         var result = new ReconciliationMatcher().compare(channel, ledger);
-        transactions.writeLocal(tenant, () -> {
+        transactions.writeLocal(() -> {
             var initial = ReconciliationBatch.init(batchId, scope);
             batches.insert(stored(initial));
             batches.lock(batchId).orElseThrow();
@@ -258,7 +247,7 @@ class ReconciliationReviewPersistenceIT {
         });
         var differenceId = jdbc.queryForObject(
                 "SELECT id FROM reconciliation_difference WHERE batch_id = ?", String.class, batchId);
-        return new Fixture(tenant, batchId, differenceId, result.summary().resultHash());
+        return new Fixture(batchId, differenceId, result.summary().resultHash());
     }
 
     ReconciliationFileSnapshot upload(String value) {
@@ -304,7 +293,7 @@ class ReconciliationReviewPersistenceIT {
                 file);
     }
 
-    long count(String table, String tenant) {
+    long count(String table) {
         if (!Set.of(
                         "reconciliation_review",
                         "reconciliation_review_proposal",
@@ -317,7 +306,7 @@ class ReconciliationReviewPersistenceIT {
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
     }
 
-    record Fixture(String tenant, String batchId, String differenceId, String resultHash) {}
+    record Fixture(String batchId, String differenceId, String resultHash) {}
 
     static class Actors implements ReconciliationActorProvider {
         final ThreadLocal<ReconciliationActor> actor = new ThreadLocal<>();
@@ -327,9 +316,8 @@ class ReconciliationReviewPersistenceIT {
             return actor.get();
         }
 
-        <T> T call(String tenant, String service, Supplier<T> action) {
+        <T> T call(String service, Supplier<T> action) {
             actor.set(new ReconciliationActor(
-                    tenant,
                     service,
                     Set.of(
                             "pay:reconciliation:review:upload",

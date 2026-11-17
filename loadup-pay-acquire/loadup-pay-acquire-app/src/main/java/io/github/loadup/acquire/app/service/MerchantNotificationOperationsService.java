@@ -44,8 +44,9 @@ import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskResultCodeEnum;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -62,7 +63,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     private final MerchantNotificationAccess access;
     private final MerchantNotificationGateway deliveries;
     private final MerchantNotificationWakeGateway receipts;
-    private final DelayedTaskTemplate tasks;
+    private final TaskTemplate tasks;
     private final MerchantNotificationQueryConverter converter;
     private final OrderCreationTransactions transactions;
     private final IdGenerator ids;
@@ -73,7 +74,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             MerchantNotificationAccess access,
             MerchantNotificationGateway deliveries,
             MerchantNotificationWakeGateway receipts,
-            DelayedTaskTemplate tasks,
+            TaskTemplate tasks,
             MerchantNotificationQueryConverter converter,
             OrderCreationTransactions transactions,
             IdGenerator ids,
@@ -97,17 +98,16 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        String scope = DigestUtils.sha256(JsonUtil.toJson(
-                List.of("notification-operator-v1", actor.tenantId(), actor.principalType(), actor.principalId())));
+        String scope = DigestUtils.sha256(
+                JsonUtil.toJson(List.of("notification-operator-v1", actor.principalType(), actor.principalId())));
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of(
                 "notification-wake-v1",
-                actor.tenantId(),
                 scope,
                 command.id(),
                 command.requestKey(),
                 command.expectedVersion(),
                 command.reason())));
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
             DomainChecks.text(command.reason(), 500);
@@ -115,7 +115,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             if (known.isPresent()) {
                 return replay(known.get(), actor, scope, digest);
             }
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
                     return replay(existing.get(), actor, scope, digest);
@@ -125,7 +125,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
                     throw new CommonException(VERSION_CONFLICT);
                 }
                 var at = now();
-                var decision = resume(actor.tenantId(), delivery, at);
+                var decision = resume(delivery, at, actor.principalId(), command.reason());
                 var receipt =
                         converter.toReceipt(ids.generate(), command, delivery, actor, decision, scope, digest, at);
                 receipts.insert(receipt);
@@ -138,7 +138,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     public PageDTO<MerchantNotificationWakeDTO> wakes(MerchantNotificationWakePageQuery query) {
         var actor = access.operator();
         validate(query);
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.deliveryId());
             deliveries.find(query.deliveryId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return PageDTO.of(receipts.page(query.deliveryId(), query.page(), query.size())
@@ -147,14 +147,14 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     }
 
     private MerchantNotificationWakeDecision resume(
-            String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
+            MerchantNotificationDelivery delivery, LocalDateTime at, String operator, String reason) {
         try {
-            return schedule(tenant, delivery, at);
+            return schedule(delivery, at, operator, reason);
         } catch (CommonException failure) {
-            if (failure.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE) {
+            if (failure.getResultCode() == TaskResultCodeEnum.INVALID_STATE) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
-            if (failure.getResultCode() == DelayedTaskResultCodeEnum.CONFLICT) {
+            if (failure.getResultCode() == TaskResultCodeEnum.CONFLICT) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             throw failure;
@@ -162,7 +162,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     }
 
     private MerchantNotificationWakeDecision schedule(
-            String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
+            MerchantNotificationDelivery delivery, LocalDateTime at, String operator, String reason) {
         if (delivery.state() == MerchantNotificationState.ACKED) {
             return new MerchantNotificationWakeDecision("ACKED", null);
         }
@@ -179,7 +179,9 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         var task = tasks.find(MerchantNotificationService.TYPE, key).orElse(null);
         boolean missing = task == null;
         if (missing) {
-            task = tasks.register(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt());
+            String taskId = tasks.submit(
+                    TaskSubmission.scheduled(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt()));
+            task = tasks.find(taskId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         }
         if (task == null
                 || task.status() == null
@@ -193,11 +195,11 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             case PENDING -> result = missing ? "REGISTERED" : "PENDING";
             case RUNNING -> result = "RUNNING";
             case FAILED -> {
-                tasks.retryFailed(MerchantNotificationService.TYPE, key);
+                tasks.retryFailed(task.id(), operator, reason);
                 result = "RETRIED";
             }
             case CANCELLED -> {
-                tasks.reschedule(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt());
+                tasks.reschedule(task.id(), delivery.nextAttemptAt());
                 result = "RESCHEDULED";
             }
             case SUCCEEDED -> throw new CommonException(SNAPSHOT_INVALID);

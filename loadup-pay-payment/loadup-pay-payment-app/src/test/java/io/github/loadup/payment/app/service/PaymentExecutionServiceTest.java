@@ -119,7 +119,7 @@ class PaymentExecutionServiceTest {
     @BeforeEach
     void setup() {
         when(payments.find("payment")).thenAnswer(c -> Optional.of(accepted.get()));
-        when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
+        when(locks.lock("payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return PaymentExecutionBindings.locked(
                     accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
@@ -136,8 +136,8 @@ class PaymentExecutionServiceTest {
 
     @Test
     void initWinnerSubmitsOnlyReturnedTicketAndRecordsOutsideLocalTransaction() {
-        var ticket = new PaymentSubmissionTicket("tenant", "payment", "attempt", prepared);
-        when(submission.prepare("tenant", "payment", "attempt")).thenAnswer(c -> {
+        var ticket = new PaymentSubmissionTicket("payment", "attempt", prepared);
+        when(submission.prepare("payment", "attempt")).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(ticket);
         });
@@ -145,17 +145,17 @@ class PaymentExecutionServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return submitted();
         });
-        when(results.recordSubmission(eq("tenant"), eq(prepared), any())).thenAnswer(c -> {
+        when(results.recordSubmission(eq(prepared), any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return result();
         });
 
-        service.progress("tenant", "payment");
+        service.progress("payment");
 
         var calls = inOrder(submission, channels, results);
-        calls.verify(submission).prepare("tenant", "payment", "attempt");
+        calls.verify(submission).prepare("payment", "attempt");
         calls.verify(channels).submit(prepared);
-        calls.verify(results).recordSubmission(eq("tenant"), eq(prepared), any());
+        calls.verify(results).recordSubmission(eq(prepared), any());
         verifyNoInteractions(initial);
     }
 
@@ -163,29 +163,29 @@ class PaymentExecutionServiceTest {
     void acceptedPaymentWithoutAttemptCreatesInitialAttemptUnderLockBeforeTakingTicket() {
         var before = AttemptFixtures.accepted(false);
         accepted.set(before);
-        when(initial.create(eq("tenant"), eq(before), anyString(), anyString())).thenAnswer(c -> {
+        when(initial.create(eq(before), anyString(), anyString())).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             var created = AttemptFixtures.accepted(true);
             accepted.set(created);
             stored.set(AttemptFixtures.prepared());
             return created;
         });
-        when(submission.prepare("tenant", "payment", "attempt")).thenAnswer(c -> {
+        when(submission.prepare("payment", "attempt")).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return Optional.of(new PaymentSubmissionTicket("tenant", "payment", "attempt", prepared));
+            return Optional.of(new PaymentSubmissionTicket("payment", "attempt", prepared));
         });
         when(channels.submit(prepared)).thenReturn(submitted());
-        when(results.recordSubmission(eq("tenant"), eq(prepared), any())).thenReturn(result());
+        when(results.recordSubmission(eq(prepared), any())).thenReturn(result());
 
-        service.progress("tenant", "payment");
+        service.progress("payment");
 
         assertEquals("attempt", accepted.get().payment().activeAttemptId());
         assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
         var calls = inOrder(initial, submission, channels, results);
-        calls.verify(initial).create(eq("tenant"), eq(before), anyString(), anyString());
-        calls.verify(submission).prepare("tenant", "payment", "attempt");
+        calls.verify(initial).create(eq(before), anyString(), anyString());
+        calls.verify(submission).prepare("payment", "attempt");
         calls.verify(channels).submit(prepared);
-        calls.verify(results).recordSubmission(eq("tenant"), eq(prepared), any());
+        calls.verify(results).recordSubmission(eq(prepared), any());
     }
 
     @Test
@@ -205,12 +205,12 @@ class PaymentExecutionServiceTest {
             when(attempts.lock("attempt")).thenReturn(Optional.of(stored.get()));
             var recovered = recovered(recovery);
             when(channels.recover(recovery)).thenReturn(recovered);
-            when(results.recordRecovery("tenant", recovery, recovered)).thenReturn(result());
-            service.progress("tenant", "payment");
+            when(results.recordRecovery(recovery, recovered)).thenReturn(result());
+            service.progress("payment");
             verify(channels).recover(recovery);
-            verify(results).recordRecovery("tenant", recovery, recovered);
+            verify(results).recordRecovery(recovery, recovered);
             verify(channels, never()).query(any());
-            verify(submission, never()).prepare(anyString(), anyString(), anyString());
+            verify(submission, never()).prepare(anyString(), anyString());
             verify(channels, never()).submit(any());
         }
     }
@@ -228,14 +228,14 @@ class PaymentExecutionServiceTest {
                 null);
         accepted.set(value);
         stored.set(started(PaymentAttemptState.UNKNOWN));
-        when(closing.close("tenant", stored.get())).thenAnswer(call -> {
+        when(closing.close(stored.get())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return result();
         });
 
-        service.progress("tenant", "payment");
+        service.progress("payment");
 
-        verify(closing).close("tenant", stored.get());
+        verify(closing).close(stored.get());
         verifyNoInteractions(channels, results, submission);
     }
 
@@ -252,7 +252,7 @@ class PaymentExecutionServiceTest {
                 original.payloadHash(),
                 "evidence"));
 
-        service.progress("tenant", "payment");
+        service.progress("payment");
 
         verifyNoInteractions(channels, submission, results, closing);
         verify(attempts, never()).lock(anyString());
@@ -279,38 +279,38 @@ class PaymentExecutionServiceTest {
                 .when(changes)
                 .updatePayment(any(), anyLong());
 
-        service.progress("tenant", "payment");
+        service.progress("payment");
 
         verify(changes).updateGate(fencedGate, currentGate.rowVersion());
         verify(attempts).update(argThat(value -> value.attempt().state() == PaymentAttemptState.CLOSED), anyLong());
-        verify(events).publish(eq("tenant"), any(), eq(true), any());
+        verify(events).publish(any(), eq(true), any());
         verifyNoInteractions(channels);
     }
 
     @Test
     void submissionFailureCannotTurnTheAlreadyStartedAttemptIntoAnotherTicket() {
-        when(submission.prepare("tenant", "payment", "attempt")).thenAnswer(c -> {
+        when(submission.prepare("payment", "attempt")).thenAnswer(c -> {
             stored.set(started(PaymentAttemptState.SUBMITTING));
-            return Optional.of(new PaymentSubmissionTicket("tenant", "payment", "attempt", prepared));
+            return Optional.of(new PaymentSubmissionTicket("payment", "attempt", prepared));
         });
         when(channels.submit(prepared)).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
 
         assertSame(
                 DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> service.progress("tenant", "payment"))
+                assertThrows(CommonException.class, () -> service.progress("payment"))
                         .getResultCode());
 
         var recovery =
                 conversions.toRecovery(stored.get(), AttemptFixtures.command().payableUntil());
         var recovered = recovered(recovery);
         when(channels.recover(recovery)).thenReturn(recovered);
-        when(results.recordRecovery("tenant", recovery, recovered)).thenReturn(result());
-        service.progress("tenant", "payment");
+        when(results.recordRecovery(recovery, recovered)).thenReturn(result());
+        service.progress("payment");
 
-        verify(submission, times(1)).prepare("tenant", "payment", "attempt");
+        verify(submission, times(1)).prepare("payment", "attempt");
         verify(channels, times(1)).submit(prepared);
         verify(channels).recover(recovery);
-        verify(results).recordRecovery("tenant", recovery, recovered);
+        verify(results).recordRecovery(recovery, recovered);
     }
 
     private StoredPaymentAttempt started(PaymentAttemptState target) {

@@ -109,8 +109,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(
-                actor.tenantId(),
+        return transactions.guarded(
                 () -> converter.toDTO(result(actor, createIntent(actor, command, null, null, true)), now()));
     }
 
@@ -121,7 +120,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             if (command.returnTargetCode() != null) {
                 DomainChecks.text(command.returnTargetCode(), 128);
             }
@@ -150,13 +149,9 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.withTenantContext(
-                actor.tenantId(),
-                () -> converter.toDTO(
-                        result(
-                                actor,
-                                createIntent(actor, converter.toOrderCreate(command), null, command, allowCreate)),
-                        now()));
+        return transactions.guarded(() -> converter.toDTO(
+                result(actor, createIntent(actor, converter.toOrderCreate(command), null, command, allowCreate)),
+                now()));
     }
 
     private OrderCreateIntent createIntent(
@@ -180,7 +175,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
                         ? codec.requestDigest(actor.scopeHash(), command)
                         : codec.checkoutDigest(actor.scopeHash(), checkout);
         // A0 commits before any network call. A losing unique insert rolls back before retry/read.
-        var intent = transactions.writeLocal(actor.tenantId(), () -> {
+        var intent = transactions.writeLocal(() -> {
             var previous = store.findIntent(command.payeeMerchantId(), command.merchantOrderNo());
             if (previous.isPresent()) {
                 return checked(previous.get(), actor, command, checkout, directPay, digest);
@@ -216,7 +211,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         validateAdmission(intent, admission);
         String payload = admission.decision() == AdmissionDecision.ADMITTED ? codec.encodeAdmission(admission) : null;
         String checksum = payload == null ? null : codec.checksum(payload);
-        var complete = transactions.writeLocal(actor.tenantId(), () -> {
+        var complete = transactions.writeLocal(() -> {
             var locked = checked(store.lockIntent(intent.id()), actor, command, checkout, directPay, digest);
             if (!"INIT".equals(locked.state())) {
                 return locked;
@@ -277,13 +272,13 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
                 }
             }
             store.insertOrder(stored, fee, codec.encodeFee(fee.policy()));
-            deadlineTasks.register(actor.tenantId(), order, 1L);
+            deadlineTasks.register(order, 1L);
             if (initial != null) {
-                sessions.insertInitial(actor.tenantId(), initial);
+                sessions.insertInitial(initial);
             }
             var finished = locked.finish("COMPLETED", admission.admissionId(), before, "SUCCESS");
             store.updateIntent(finished, locked.rowVersion());
-            snapshots.publish(actor.tenantId(), order.id(), order.version());
+            snapshots.publish(order.id(), order.version());
             return finished;
         });
         // Throw only after committing a stable rejection/expiry; do not roll its evidence back.
@@ -346,7 +341,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
     public AcquireOrderDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:acquire:read");
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.id());
             var order = store.findOrder(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             owned(actor, order);

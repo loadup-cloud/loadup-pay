@@ -47,6 +47,16 @@ management:
         http.server.requests: true
 
 loadup:
+  task:
+    enabled: true
+    worker-enabled: true
+    poll-interval: 1s
+    lease: 2m
+    retry-delay: 5s
+    max-attempts: 8
+    batch-size: 20
+  deployment:
+    code: ${DEPLOYMENT_CODE:}
   webmvc:
     request-body:
       path-prefix: /api/internal/
@@ -56,17 +66,7 @@ loadup:
       materialize-seconds: ${PRODUCTCENTER_MATERIALIZE_SECONDS:300}
       merchantcenter-audience: ${MERCHANTCENTER_JWT_AUDIENCE:merchantcenter}
   database:
-    multi-tenant:
-      enabled: false
-      required: false
-  outbox:
-    enabled: true
-    worker-enabled: true
-    poll-interval: 1s
-    lease: 2m
-    retry-delay: 5s
-    max-attempts: 8
-    batch-size: 20
+    schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:
     enabled: true
     locations:

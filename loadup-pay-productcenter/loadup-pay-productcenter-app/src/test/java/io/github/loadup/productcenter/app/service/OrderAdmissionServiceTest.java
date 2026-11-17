@@ -87,10 +87,10 @@ class OrderAdmissionServiceTest {
     private final CustomerEligibilityLookup customer = mock(CustomerEligibilityLookup.class);
     private final CompiledTermsCodec codec = mock(CompiledTermsCodec.class);
     private final ProductActor actor = new ProductActor(
-            "tenant", "MERCHANT_APP", "app", "merchant", "synthetic", Set.of("pay:product:admit", "pay:product:read"));
+            "MERCHANT_APP", "app", "merchant", "synthetic", Set.of("pay:product:admit", "pay:product:read"));
     private final LocalDateTime now = LocalDateTime.of(2026, 10, 21, 10, 0);
     private final UnitTransactions transactions = new UnitTransactions();
-    private final AcquiringTermsCompiler compiler = new AcquiringTermsCompiler(validation.getValidator());
+    private final AcquiringTermsCompiler compiler = AcquiringFixtures.compiler(validation.getValidator());
     private final OrderAdmissionService service = new OrderAdmissionService(
             () -> actor,
             admissions,
@@ -205,7 +205,7 @@ class OrderAdmissionServiceTest {
     void admittedReplayDoesNotRecheckCurrentStatusOrRefreshTheRecoveryDeadline() {
         var policy = new ActivatedLimitPolicy("policy", 1, "b".repeat(64), "ACTIVE", now.minusDays(1));
         var configuration = AcquiringFixtures.configuration(AcquiringFixtures.values());
-        var terms = compiler.compile(configuration, policy);
+        var terms = compiler.compile(AcquiringFixtures.validated(configuration), policy);
         var original = new OrderAdmission(
                 "admission",
                 "order",
@@ -279,7 +279,8 @@ class OrderAdmissionServiceTest {
                 "admin",
                 now,
                 now));
-        var terms = compiler.compile(snapshot.items().get("acquiring").configuration(), policy);
+        var terms = compiler.compile(
+                AcquiringFixtures.validated(snapshot.items().get("acquiring").configuration()), policy);
         when(codec.encode(any())).thenReturn(new EncodedAcquiringTerms("c".repeat(64), "compiled-json"));
         when(codec.decode(any()))
                 .thenReturn(new CompiledAcquiringTerms(

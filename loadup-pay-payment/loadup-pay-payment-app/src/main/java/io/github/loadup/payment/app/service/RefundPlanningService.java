@@ -126,7 +126,7 @@ public class RefundPlanningService implements RefundFacade {
         if (!command.explicitAllocations().isEmpty()) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(command.orderId());
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.text(command.merchantRefundNo(), 64);
@@ -222,8 +222,7 @@ public class RefundPlanningService implements RefundFacade {
             for (var item : plan) {
                 String refundId = ids.generate();
                 // Stable channel request numbers are independent of UUID formatting and always fit provider limits.
-                String channelNo = codec.checksum("refund/" + actor.tenantId() + "/" + refundId)
-                        .substring(0, 32);
+                String channelNo = codec.checksum("refund/" + refundId).substring(0, 32);
                 var child = RefundOrder.init(refundId, requestId, item.paymentId(), item.amount(), channelNo);
                 children.add(converter.toChild(child, item.sequenceNo(), claims.get(item.paymentId())));
                 var previous = byPayment.get(item.paymentId());
@@ -249,11 +248,8 @@ public class RefundPlanningService implements RefundFacade {
                     now,
                     children);
             refunds.insertPlan(stored, reservations);
-            projections.planned(
-                    actor.tenantId(),
-                    stored,
-                    ChannelAmounts.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
-            recovery.register(actor.tenantId(), stored);
+            projections.planned(stored, ChannelAmounts.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
+            recovery.register(stored);
             return dto(stored);
         });
     }
@@ -264,7 +260,7 @@ public class RefundPlanningService implements RefundFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var actor = actor("pay:payment:refund:read");
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(query.id());
             var reference = refunds.reference(query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.merchantId().equals(reference.payeeMerchantId())) {
@@ -327,7 +323,6 @@ public class RefundPlanningService implements RefundFacade {
     private String digest(RefundActor actor, RefundCreateCommand c) {
         var framed = new StringBuilder("refund-v1/");
         for (var value : List.of(
-                actor.tenantId(),
                 actor.merchantId(),
                 c.orderId(),
                 c.merchantRefundNo(),

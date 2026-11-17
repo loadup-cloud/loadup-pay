@@ -55,7 +55,6 @@ class LimitServiceFixture implements AutoCloseable {
     final LimitPolicyGateway policies = mock(LimitPolicyGateway.class);
     final MerchantLimitGateway reservations = mock(MerchantLimitGateway.class);
     final LimitActor actor = new LimitActor(
-            "tenant",
             "payment",
             Set.of(
                     "pay:limit:activate",
@@ -88,7 +87,7 @@ class LimitServiceFixture implements AutoCloseable {
         return new LimitPolicyActivateCommand(
                 unsigned.policyId(),
                 version,
-                LimitPolicyHash.compute("tenant", unsigned),
+                LimitPolicyHash.compute(unsigned),
                 unsigned.payeeMerchantId(),
                 unsigned.refundAmountRestore(),
                 unsigned.refundCountRestore(),

@@ -4,9 +4,9 @@
 
 目录发布、签约和合约状态变更在本地执行。暂停合约与新单准入继续使用同一数据库和合约锁。签约前通过独立服务凭证查询 merchantcenter 安全商户资料；不连接商户数据库。
 
-交易查询与业务命令仅通过 `/api/internal/v1/` 提供。管理应用转发已验证的原操作者 JWT；中心再次校验权限，并在进入数据库事务前绑定签名中的 tenant_id。不信任请求体中的操作者身份或租户 header。
+交易查询与业务命令仅通过 `/api/internal/v1/` 提供。管理应用转发已验证的原操作者 JWT；中心再次校验权限，并在进入数据库事务前使用本地固定部署配置确定部署标识与 schema。不信任请求体中的操作者身份或租户 header。
 
-当前管理入口要求 OPERATOR 身份。令牌须同时包含当前后管及目标 center 的 audience；跨商户签约查询两域时应包含 merchantmng、productcenter、merchantcenter 所需受众。现有 AuthServer 仍仅提供 SERVICE 的 client_credentials；本次拆分没有新增操作员登录或商户 JWT 签发。
+当前管理入口要求 OPERATOR 身份，由 admin BFF 原样转发操作员 JWT；目标 center 独立校验 issuer、audience 和权限。admin/UPMS 登录与机器令牌签发由不同应用负责。当前两个 center 对 Admin issuer/audience 的信任配置仍需联调验证，不能以 BFF Controller 存在认定管理链路可用。
 
 ## 入口
 
@@ -18,4 +18,8 @@
 
 由开发者执行 `python3 scripts/build.py productcenter`；完成配置后使用 `python3 scripts/up.py productcenter`。配置目录为 `deploy/config/<env>/productcenter`，既有物理数据库名称与迁移版本保持不变。
 
-本次仅修改源码、装配和部署清单；未运行 Maven 构建、测试或集群发布。
+待验收：当前版本的数据库迁移、管理链路、服务鉴权与真实业务调用。
+
+## 策略编译边界
+
+阶段 2 已分离 domain CommercialPolicyParser、类型化策略片段、应用条款投影和额度命令编译。发布/准入总入口仍校验完整配置，额度片段不依赖完整收单编译器。公开 DTO、来源、快照与哈希协议保持原结构，未新增配置覆盖或通知执行策略。源码及回归源码已同步，未构建或测试；文件和验收清单见[阶段 2 记录](../design/PHASE2_IMPLEMENTATION.md)。

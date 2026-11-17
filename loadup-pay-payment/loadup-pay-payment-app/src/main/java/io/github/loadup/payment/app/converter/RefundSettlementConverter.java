@@ -42,6 +42,7 @@ public interface RefundSettlementConverter {
     @Mapping(target = "cumulativePaymentRefundedMinor", source = "data.cumulativePaymentRefundedMinor")
     @Mapping(target = "currency", source = "data.currency")
     @Mapping(target = "refundEvidenceId", source = "data.evidenceId")
+    @Mapping(target = "financialEvidence", source = "data.financialEvidence")
     LimitRefundRestoreCommand toRestore(EventEnvelope<RefundOutcomeEventDTO> event);
 
     @Mapping(target = "refundId", source = "refund.id")
@@ -56,6 +57,8 @@ public interface RefundSettlementConverter {
     @Mapping(target = "refundVersion", source = "refund.version")
     @Mapping(target = "cumulativePaymentRefundedMinor", source = "capacity.refundedMinor")
     @Mapping(target = "evidenceId", source = "refund.terminalEvidenceId")
+    @Mapping(target = "financialEvidence", ignore = true)
+    @Mapping(target = "withFinancialEvidence", ignore = true)
     RefundOutcomeEventDTO toOutcome(
             RefundOrder refund, RefundRequest request, PaymentOrder payment, PaymentRefundCapacity capacity);
 

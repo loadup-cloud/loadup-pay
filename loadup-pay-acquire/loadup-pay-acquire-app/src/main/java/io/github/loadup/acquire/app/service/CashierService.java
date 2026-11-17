@@ -99,23 +99,21 @@ public class CashierService implements CashierFacade {
         if (!actor.orderId().equals(command.orderId())) {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
-        String owner = transactions.withTenantContext(actor.tenantId(), () -> {
+        String owner = transactions.guarded(() -> {
             var order = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_START");
             return order.callerScopeHash();
         });
         var interaction = inputs.prepare(actor, command.choice());
         var result = initiation.start(
-                new PaymentInitiationPrincipal(
-                        actor.tenantId(), owner, "checkout/" + actor.sessionId(), (order, creating) -> {
-                            access.authorize(actor, owner, order, creating);
-                            if (creating
-                                    && !choices.choices(
-                                                    order, LocalDateTime.ofInstant(clock.instant(), clock.getZone()))
-                                            .contains(command.choice())) {
-                                throw new CommonException(UNSUPPORTED_CAPABILITY);
-                            }
-                        }),
+                new PaymentInitiationPrincipal(owner, "checkout/" + actor.sessionId(), (order, creating) -> {
+                    access.authorize(actor, owner, order, creating);
+                    if (creating
+                            && !choices.choices(order, LocalDateTime.ofInstant(clock.instant(), clock.getZone()))
+                                    .contains(command.choice())) {
+                        throw new CommonException(UNSUPPORTED_CAPABILITY);
+                    }
+                }),
                 converter.toStart(command, interaction));
         return converter.toCashier(result, summary(new IdQuery(actor.orderId())));
     }
@@ -125,7 +123,7 @@ public class CashierService implements CashierFacade {
         validate(query);
         noTransaction();
         var actor = actors.current();
-        String owner = transactions.withTenantContext(actor.tenantId(), () -> {
+        String owner = transactions.guarded(() -> {
             DomainChecks.id(query.id());
             var order = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
@@ -139,8 +137,7 @@ public class CashierService implements CashierFacade {
             return order.callerScopeHash();
         });
         var progress = outcomes.refresh(
-                new OrderPaymentScope(actor.tenantId(), owner),
-                new PaymentProgressRefreshCommand(actor.orderId(), query.id()));
+                new OrderPaymentScope(owner), new PaymentProgressRefreshCommand(actor.orderId(), query.id()));
         return converter.toCashier(progress, query.id(), summary(new IdQuery(actor.orderId())));
     }
 
@@ -152,14 +149,13 @@ public class CashierService implements CashierFacade {
         if (!actor.orderId().equals(command.orderId())) {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
-        var owner = transactions.withTenantContext(actor.tenantId(), () -> {
+        var owner = transactions.guarded(() -> {
             var order = orders.findOrder(actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
             return order.callerScopeHash();
         });
         var original = initiation.recover(
                 new PaymentInitiationPrincipal(
-                        actor.tenantId(),
                         owner,
                         "checkout/" + actor.sessionId(),
                         (order, creating) -> access.authorize(actor, owner, order, false)),
@@ -169,7 +165,7 @@ public class CashierService implements CashierFacade {
                 command.choice());
         CashierPaymentDTO result = null;
         if (original.state() == PaymentIntentRecovery.State.RESOLVED) {
-            var scope = new OrderPaymentScope(actor.tenantId(), owner);
+            var scope = new OrderPaymentScope(owner);
             var progress = original.closed() == null
                     ? outcomes.refresh(scope, new PaymentProgressRefreshCommand(actor.orderId(), original.paymentId()))
                     : outcomes.applyInputExpiry(scope, actor.orderId(), original.paymentId(), original.closed());

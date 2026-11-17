@@ -22,7 +22,6 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.util.TenantUtil;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.LockSupport;
@@ -47,11 +46,11 @@ public class PublicationTransactions {
     /**
      * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
      */
-    public <T> T writeLocal(String tenant, Supplier<T> work) {
+    public <T> T writeLocal(Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return withTenantContext(tenant, () -> {
+        return guarded(() -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
@@ -70,11 +69,11 @@ public class PublicationTransactions {
     }
 
     /**
-     * Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active.
+     * Error translation only. Creates no transaction; any existing caller transaction remains active.
      */
-    public <T> T withTenantContext(String tenant, Supplier<T> work) {
+    public <T> T guarded(Supplier<T> work) {
         try {
-            return TenantUtil.callWithTenant(tenant, work::get);
+            return work.get();
         } catch (DomainViolation invalid) {
             throw new CommonException(
                     invalid.reason() == DomainViolation.Reason.CONFLICT ? IDEMPOTENCY_CONFLICT : INVALID_ARGUMENT);

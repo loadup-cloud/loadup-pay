@@ -44,11 +44,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.modules.transfer.client.dto.TransferTaskDTO;
 import io.github.loadup.modules.transfer.client.enums.TransferKind;
 import io.github.loadup.modules.transfer.client.enums.TransferStatus;
@@ -94,6 +94,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -115,7 +116,7 @@ class ReconciliationStatementServiceTest {
     final ReconciliationStatementParser parser = mock(ReconciliationStatementParser.class);
     final ReconciliationSourceFiles files = mock(ReconciliationSourceFiles.class);
     final ReconciliationPaymentStatements payment = mock(ReconciliationPaymentStatements.class);
-    final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate tasks = mock(TaskTemplate.class);
     final TransferTaskFacade transfers = mock(TransferTaskFacade.class);
     final ReconciliationTransactions tx = new ReconciliationTransactions(new Tx());
     final ReconciliationOfficialImports official = new ReconciliationOfficialImports(sources, files);
@@ -128,9 +129,8 @@ class ReconciliationStatementServiceTest {
             ReconciliationBatch.init("batch", scope), "ops", "batch-request", "b".repeat(64), "account"));
     final AtomicReference<ReconciliationStatementRequest> stored = new AtomicReference<>();
     final AtomicReference<ReconciliationImportRequest> imported = new AtomicReference<>();
-    final AtomicReference<DelayedTask> nativeTask = new AtomicReference<>();
+    final AtomicReference<TaskExecution> nativeTask = new AtomicReference<>();
     final AtomicReference<ReconciliationActor> actor = new AtomicReference<>(new ReconciliationActor(
-            "tenant",
             "ops",
             Set.of(
                     "pay:reconciliation:statement:submit",
@@ -215,11 +215,15 @@ class ReconciliationStatementServiceTest {
                 .insert(any());
         doAnswer(call -> {
                     assertWrite();
-                    nativeTask.set(task(DelayedTaskStatus.PENDING));
-                    return null;
+                    TaskSubmission submission = call.getArgument(0);
+                    assertEquals(ReconciliationStatementExecutionService.TYPE, submission.taskType());
+                    assertEquals("source", submission.bizId());
+                    assertEquals(now, submission.executeAt());
+                    nativeTask.set(task(TaskStatus.PENDING));
+                    return nativeTask.get().id();
                 })
                 .when(tasks)
-                .register(ReconciliationStatementExecutionService.TYPE, "source", now);
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         when(tasks.find(ReconciliationStatementExecutionService.TYPE, "source"))
                 .thenAnswer(call -> Optional.ofNullable(nativeTask.get()));
         when(payment.download(any())).thenAnswer(call -> {
@@ -260,7 +264,7 @@ class ReconciliationStatementServiceTest {
         assertNull(accepted.importId());
         verifyNoInteractions(payment, files, transfers);
         assertEquals(accepted, service.submit(new ReconciliationStatementSubmitCommand("batch", "request")));
-        nativeTask.set(task(DelayedTaskStatus.RUNNING));
+        nativeTask.set(task(TaskStatus.RUNNING));
         handle();
         assertEquals(ReconciliationStatementState.READY, stored.get().state());
         assertEquals("revision", stored.get().bindingRevisionId());
@@ -273,13 +277,16 @@ class ReconciliationStatementServiceTest {
         handle();
         verify(payment, times(1)).download(any());
         verify(transfers, times(1)).submit(anyString(), any(), anyString(), anyString(), anyMap());
-        nativeTask.set(task(DelayedTaskStatus.FAILED));
+        nativeTask.set(task(TaskStatus.FAILED));
         doAnswer(call -> {
-                    nativeTask.set(task(DelayedTaskStatus.PENDING));
+                    nativeTask.set(task(TaskStatus.PENDING));
                     return null;
                 })
                 .when(tasks)
-                .retryFailed(ReconciliationStatementExecutionService.TYPE, "source");
+                .retryFailed(
+                        ArgumentMatchers.eq("download-task"),
+                        ArgumentMatchers.anyString(),
+                        ArgumentMatchers.eq("Explicit business retry"));
         service.retry(new ReconciliationStatementRetryCommand("source", "download-task"));
         assertEquals(ReconciliationStatementState.READY, stored.get().state());
         verify(payment, times(1)).download(any());
@@ -288,7 +295,7 @@ class ReconciliationStatementServiceTest {
     @Test
     void unavailableSourceAndWrongBindingNeverRegisterFilesOrTransfer() {
         service.submit(new ReconciliationStatementSubmitCommand("batch", "request"));
-        nativeTask.set(task(DelayedTaskStatus.RUNNING));
+        nativeTask.set(task(TaskStatus.RUNNING));
         doThrow(new CommonException(STATEMENT_NOT_FOUND)).when(payment).download(any());
         assertEquals(
                 STATEMENT_NOT_FOUND,
@@ -306,7 +313,7 @@ class ReconciliationStatementServiceTest {
     @Test
     void anActiveManualImportStopsDownloadAndAnExpiredLeaseCannotCommit() {
         service.submit(new ReconciliationStatementSubmitCommand("batch", "request"));
-        nativeTask.set(task(DelayedTaskStatus.RUNNING));
+        nativeTask.set(task(TaskStatus.RUNNING));
         when(imports.activeForBatch("batch"))
                 .thenReturn(Optional.of(ReconciliationImportRequest.init(
                         "manual", "batch", "ops", "manual", "b".repeat(64), scope, account, file, "manual-task")));
@@ -317,13 +324,13 @@ class ReconciliationStatementServiceTest {
         when(imports.activeForBatch("batch")).thenReturn(Optional.empty());
         var running = nativeTask.get();
         doAnswer(call -> {
-                    nativeTask.set(new DelayedTask(
+                    nativeTask.set(new TaskExecution(
                             running.id(),
                             running.taskType(),
                             running.bizId(),
                             running.executeAt(),
                             running.nextExecuteAt(),
-                            DelayedTaskStatus.RUNNING,
+                            TaskStatus.RUNNING,
                             2,
                             5,
                             now.plusMinutes(2),
@@ -341,7 +348,7 @@ class ReconciliationStatementServiceTest {
 
     @Test
     void retryRejectsOtherTaskIdentityAndPermissionIsRequiredBeforeStorage() {
-        actor.set(new ReconciliationActor("tenant", "ops", Set.of()));
+        actor.set(new ReconciliationActor("ops", Set.of()));
         assertEquals(
                 ACTION_FORBIDDEN,
                 assertThrows(
@@ -350,20 +357,20 @@ class ReconciliationStatementServiceTest {
                         .getResultCode());
         verifyNoInteractions(batches, sources, tasks);
         actor.set(new ReconciliationActor(
-                "tenant", "ops", Set.of("pay:reconciliation:statement:submit", "pay:reconciliation:statement:retry")));
+                "ops", Set.of("pay:reconciliation:statement:submit", "pay:reconciliation:statement:retry")));
         service.submit(new ReconciliationStatementSubmitCommand("batch", "request"));
-        nativeTask.set(task(DelayedTaskStatus.FAILED));
+        nativeTask.set(task(TaskStatus.FAILED));
         assertEquals(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(
                                 CommonException.class,
                                 () -> service.retry(new ReconciliationStatementRetryCommand("source", "other-task")))
                         .getResultCode());
-        verify(tasks, never()).retryFailed(anyString(), anyString());
+        verify(tasks, never()).retryFailed(anyString(), anyString(), anyString());
     }
 
     void handle() {
-        TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeTask.get()));
+        execution.handle(nativeTask.get());
     }
 
     PaymentStatementDTO downloaded(String revision) {
@@ -386,17 +393,17 @@ class ReconciliationStatementServiceTest {
                 bytes);
     }
 
-    DelayedTask task(DelayedTaskStatus status) {
-        return new DelayedTask(
+    TaskExecution task(TaskStatus status) {
+        return new TaskExecution(
                 "download-task",
                 ReconciliationStatementExecutionService.TYPE,
                 "source",
                 now,
                 now,
                 status,
-                status == DelayedTaskStatus.RUNNING || status == DelayedTaskStatus.FAILED ? 1 : 0,
+                status == TaskStatus.RUNNING || status == TaskStatus.FAILED ? 1 : 0,
                 5,
-                status == DelayedTaskStatus.RUNNING ? now.plusMinutes(1) : null,
+                status == TaskStatus.RUNNING ? now.plusMinutes(1) : null,
                 null);
     }
 

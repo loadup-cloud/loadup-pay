@@ -1,6 +1,6 @@
 # Standalone Prometheus rules. Not a Kubernetes manifest or Helm values file.
 # Load explicitly through rule_files; do not apply with kubectl.
-# No financial identities or tenant ids in alert labels/annotations.
+# No financial identities or deployment identifiers in alert labels/annotations.
 groups:
   - name: loadup-payment-recovery
     interval: 30s
@@ -31,7 +31,7 @@ groups:
           severity: warning
         annotations:
           summary: "Payment UNKNOWN inventory needs investigation ({{ $labels.kind }})"
-          description: "Use the authenticated UNKNOWN list for the configured tenant scope. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
+          description: "Use the authenticated UNKNOWN list for this deployment. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
 
       - alert: LoadUpPaymentUnknownUrgent
         expr: |
@@ -61,4 +61,4 @@ groups:
           severity: warning
         annotations:
           summary: "Payment recovery inventory has no fresh complete sample"
-          description: "Check configured tenant scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
+          description: "Check the fixed deployment scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."

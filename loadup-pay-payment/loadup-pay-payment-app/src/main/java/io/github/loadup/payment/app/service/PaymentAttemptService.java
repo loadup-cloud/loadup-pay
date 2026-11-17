@@ -89,10 +89,10 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        return transactions.writeLocal(actor.tenantId(), () -> {
+        return transactions.writeLocal(() -> {
             DomainChecks.id(command.paymentId());
             DomainChecks.text(command.requestKey(), 128);
-            var locked = locks.lock(actor.tenantId(), command.paymentId(), actor.serviceId());
+            var locked = locks.lock(command.paymentId(), actor.serviceId());
             var accepted = locked.payment();
             var original = codec.decode(accepted);
             String digest = digest(actor, command, accepted.requestDigest());
@@ -122,7 +122,7 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
             if (command.previousAttemptEvidenceId() != null) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
-            var updated = initial.create(actor.tenantId(), accepted, command.requestKey(), digest);
+            var updated = initial.create(accepted, command.requestKey(), digest);
             return views.toDTO(updated);
         });
     }
@@ -131,7 +131,6 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
         var framed = new StringBuilder();
         for (String field : Arrays.asList(
                 "payment-attempt-start-v1",
-                actor.tenantId(),
                 actor.serviceId(),
                 command.paymentId(),
                 command.requestKey(),

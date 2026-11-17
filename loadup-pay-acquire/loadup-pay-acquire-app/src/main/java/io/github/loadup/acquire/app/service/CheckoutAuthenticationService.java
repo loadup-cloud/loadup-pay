@@ -44,20 +44,13 @@ public class CheckoutAuthenticationService {
         this.clock = clock;
     }
 
-    public CashierActor authenticate(String tenantLocator, String token, String origin) {
-        // A tenant locator is only a bounded lookup hint. It grants no authority without this capability check.
-        if (tenantLocator == null
-                || !tenantLocator.equals(tenantLocator.trim())
-                || tenantLocator.isBlank()
-                || tenantLocator.length() > 64
-                || tenantLocator.chars().anyMatch(Character::isISOControl)
-                || token == null
-                || token.length() > 108
-                || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}")) {
+    public CashierActor authenticate(String token, String origin) {
+        // The deployment code header is validated at the entry point; this capability check grants the session.
+        if (token == null || token.length() > 108 || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}")) {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
         String sessionId = token.substring(0, token.indexOf('.'));
-        return transactions.withTenantContext(tenantLocator, () -> {
+        return transactions.guarded(() -> {
             var stored = sessions.find(sessionId).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
             var state = stored.session().state();
@@ -70,10 +63,7 @@ public class CheckoutAuthenticationService {
                 throw new CommonException(SESSION_UNAUTHORIZED);
             }
             return new CashierActor(
-                    tenantLocator,
-                    sessionId,
-                    stored.session().orderId(),
-                    stored.session().expiresAt());
+                    sessionId, stored.session().orderId(), stored.session().expiresAt());
         });
     }
 }

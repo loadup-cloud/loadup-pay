@@ -22,9 +22,8 @@ import java.util.Set;
 /**
  * Created only from a verified service credential by the transport adapter.
  */
-public record LimitActor(String tenantId, String serviceId, Set<String> permissions) {
+public record LimitActor(String serviceId, Set<String> permissions) {
     public LimitActor {
-        DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         permissions = Set.copyOf(permissions);
     }

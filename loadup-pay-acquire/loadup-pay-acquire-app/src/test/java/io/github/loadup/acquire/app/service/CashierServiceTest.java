@@ -83,7 +83,7 @@ class CashierServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(CashierPaymentConverter.class.getPackageName());
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
-    final CashierActor actor = new CashierActor("tenant", "session", "order", NOW.plusMinutes(5));
+    final CashierActor actor = new CashierActor("session", "order", NOW.plusMinutes(5));
     final CashierAccess access = mock(CashierAccess.class);
     final CashierChoices choices = mock(CashierChoices.class);
     final CashierInteractionProvider inputs = mock(CashierInteractionProvider.class);
@@ -235,7 +235,7 @@ class CashierServiceTest {
                 .thenReturn(new PaymentProgressDTO(null, null));
         var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));
         assertFalse(result.payment().accepted());
-        verify(outcomes).applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof);
+        verify(outcomes).applyInputExpiry(new OrderPaymentScope(OWNER), "order", "payment", proof);
         verify(outcomes, never()).refresh(any(), any());
         verifyNoInteractions(inputs);
     }

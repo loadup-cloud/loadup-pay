@@ -67,7 +67,7 @@ public class PaymentRecoveryService implements PaymentRecoveryFacade {
         }
         var original = initiation.recover(
                 new PaymentInitiationPrincipal(
-                        actor.tenantId(), actor.scopeHash(), "merchant/" + actor.scopeHash(), (order, creating) -> {
+                        actor.scopeHash(), "merchant/" + actor.scopeHash(), (order, creating) -> {
                             if (!order.callerScopeHash().equals(actor.scopeHash())) {
                                 throw new CommonException(ACTION_FORBIDDEN);
                             }
@@ -81,7 +81,7 @@ public class PaymentRecoveryService implements PaymentRecoveryFacade {
                 command.choice());
         PaymentProgressDTO progress = null;
         if (original.state() == PaymentIntentRecovery.State.RESOLVED) {
-            var scope = new OrderPaymentScope(actor.tenantId(), actor.scopeHash());
+            var scope = new OrderPaymentScope(actor.scopeHash());
             progress = original.closed() == null
                     ? outcomes.refresh(
                             scope, new PaymentProgressRefreshCommand(command.orderId(), original.paymentId()))

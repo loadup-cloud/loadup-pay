@@ -57,8 +57,8 @@ import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.components.task.TaskSubmission;
+import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -69,6 +69,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -82,7 +83,7 @@ class OrderClosureOperationsTest {
     final PaymentOutcomeOperations outcomes = mock(PaymentOutcomeOperations.class);
     final OrderCreationCodec codec = mock(OrderCreationCodec.class);
     final OrderSnapshotEvents snapshots = mock(OrderSnapshotEvents.class);
-    final DelayedTaskTemplate nativeTasks = mock(DelayedTaskTemplate.class);
+    final TaskTemplate nativeTasks = mock(TaskTemplate.class);
     final OrderClosureTasks tasks = new OrderClosureTasks(nativeTasks, 30);
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
@@ -104,7 +105,7 @@ class OrderClosureOperationsTest {
             clock(NOW),
             snapshots,
             tasks);
-    final OrderPaymentScope scope = new OrderPaymentScope("tenant", OWNER);
+    final OrderPaymentScope scope = new OrderPaymentScope(OWNER);
     final AcquireOrderCloseCommand command = new AcquireOrderCloseCommand("order", "original-key", "MERCHANT_CLOSED");
 
     static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
@@ -159,7 +160,7 @@ class OrderClosureOperationsTest {
                     return null;
                 })
                 .when(nativeTasks)
-                .register(anyString(), anyString(), any());
+                .submit(ArgumentMatchers.any(TaskSubmission.class));
         when(payment.fenceParent(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(manager.commits > 0);
@@ -186,9 +187,11 @@ class OrderClosureOperationsTest {
         assertEquals(1, ids.get());
         assertEquals(2L, intent.get().rowVersion());
         verify(store, times(1)).start(any(), any(), anyLong());
-        verify(nativeTasks).register(OrderClosureTasks.TYPE, "order.0", NOW);
-        verify(nativeTasks).register(OrderClosureTasks.TYPE, "order.1", NOW.plusSeconds(30));
-        verify(nativeTasks).register(OrderClosureTasks.TYPE, "order.2", NOW.plusSeconds(30));
+        verify(nativeTasks).submit(eq(TaskSubmission.scheduled(OrderClosureTasks.TYPE, "order.0", NOW)));
+        verify(nativeTasks)
+                .submit(eq(TaskSubmission.scheduled(OrderClosureTasks.TYPE, "order.1", NOW.plusSeconds(30))));
+        verify(nativeTasks)
+                .submit(eq(TaskSubmission.scheduled(OrderClosureTasks.TYPE, "order.2", NOW.plusSeconds(30))));
         assertEquals(command.requestKey(), intent.get().requestKey());
         assertEquals(command.reasonCode(), intent.get().reasonCode());
     }
@@ -196,7 +199,7 @@ class OrderClosureOperationsTest {
     @Test
     void failureToEnqueueC0RollsBackBeforeAnyFinancialRpc() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        doThrow(failure).when(nativeTasks).register(eq(OrderClosureTasks.TYPE), eq("order.0"), any());
+        doThrow(failure).when(nativeTasks).submit(ArgumentMatchers.any(TaskSubmission.class));
         assertSame(failure, assertThrows(CommonException.class, () -> operations.close(scope, command)));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
@@ -218,19 +221,17 @@ class OrderClosureOperationsTest {
         var result = operations.close(scope, command);
         assertEquals(AcquireOrderState.CLOSED, result.state());
         assertEquals(AcquireOrderState.CLOSED, order.get().order().state());
-        TenantUtil.runWithTenant(
-                "tenant",
-                () -> transactions.writeLocal("tenant", () -> {
-                    assertFalse(operations.isCurrent(
-                            scope, order.get(), intent.get(), intent.get().rowVersion()));
-                    return true;
-                }));
+        transactions.writeLocal(() -> {
+            assertFalse(operations.isCurrent(
+                    scope, order.get(), intent.get(), intent.get().rowVersion()));
+            return true;
+        });
     }
 
     @Test
     void generationAndOwnershipAreCheckedWithoutIssuingAnotherCloseIntent() {
         operations.close(scope, command);
-        transactions.writeLocal("tenant", () -> {
+        transactions.writeLocal(() -> {
             assertFalse(operations.isCurrent(scope, order.get(), intent.get(), 0L));
             assertTrue(operations.isCurrent(scope, order.get(), intent.get(), 1L));
             assertSame(
@@ -244,10 +245,7 @@ class OrderClosureOperationsTest {
                     assertThrows(
                                     CommonException.class,
                                     () -> operations.isCurrent(
-                                            new OrderPaymentScope("tenant", "b".repeat(64)),
-                                            order.get(),
-                                            intent.get(),
-                                            1L))
+                                            new OrderPaymentScope("b".repeat(64)), order.get(), intent.get(), 1L))
                             .getResultCode());
             return true;
         });

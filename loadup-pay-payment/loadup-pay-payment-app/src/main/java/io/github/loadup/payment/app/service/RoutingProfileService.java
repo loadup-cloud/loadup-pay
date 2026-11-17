@@ -92,12 +92,12 @@ public class RoutingProfileService implements RoutingProfileFacade {
     public RoutingProfileDTO publish(RoutingProfilePublishCommand command) {
         validate(command);
         var actor = actor("pay:payment:routing:publish");
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.text(command.requestKey(), 128);
             var spec = converter.toSpec(command.spec());
             String hash = codec.checksum(codec.encode(spec));
             String digest = codec.requestDigest(actor.serviceId(), command.requestKey(), hash);
-            return transactions.writeLocal(actor.tenantId(), () -> {
+            return transactions.writeLocal(() -> {
                 var prior = profiles.findRequest(actor.serviceId(), command.requestKey());
                 if (prior.isPresent()) {
                     var original = prior.get();
@@ -112,7 +112,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
                 if (profiles.find(spec.profileRef()).isPresent()) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
-                requireBindings(actor.tenantId(), spec);
+                requireBindings(spec);
                 var profile = converter.toStored(
                         ids.generate(),
                         spec,
@@ -127,7 +127,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
         });
     }
 
-    private void requireBindings(String tenant, RoutingProfileSpec spec) {
+    private void requireBindings(RoutingProfileSpec spec) {
         // Resolve immutable head ids first, then use the same id lock order as attempt selection.
         var resolved = new TreeMap<String, ChannelMerchantBinding>();
         for (var code :
@@ -175,7 +175,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
     public RoutingProfileDTO detail(RoutingProfileDetailQuery query) {
         validate(query);
         var actor = actor("pay:payment:routing:read");
-        return transactions.withTenantContext(actor.tenantId(), () -> {
+        return transactions.guarded(() -> {
             DomainChecks.id(query.payeeMerchantId());
             DomainChecks.text(query.profileRef(), 128);
             var profile = profiles.find(query.profileRef())

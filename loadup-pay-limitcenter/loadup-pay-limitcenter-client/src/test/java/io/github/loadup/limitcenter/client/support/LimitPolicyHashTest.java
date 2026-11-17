@@ -49,23 +49,20 @@ class LimitPolicyHashTest {
         var first = rule("first", 100);
         var second = rule("second", 200);
         assertEquals(
-                LimitPolicyHash.compute("tenant", command(1, List.of(first, second))),
-                LimitPolicyHash.compute("tenant", command(1, List.of(second, first))));
+                LimitPolicyHash.compute(command(1, List.of(first, second))),
+                LimitPolicyHash.compute(command(1, List.of(second, first))));
     }
 
     @Test
-    void tenantAndRevisionAreBoundToThePayload() {
+    void revisionAndPayloadAreBoundToTheHash() {
         var command = command(1, List.of(rule("scope", 100)));
-        assertNotEquals(LimitPolicyHash.compute("tenant", command), LimitPolicyHash.compute("other", command));
-        assertNotEquals(
-                LimitPolicyHash.compute("tenant", command),
-                LimitPolicyHash.compute("tenant", command(2, command.rules())));
+        assertNotEquals(LimitPolicyHash.compute(command), LimitPolicyHash.compute(command(2, command.rules())));
     }
 
     @Test
     void integerValuesAboveDoublePrecisionRemainDistinct() {
         assertNotEquals(
-                LimitPolicyHash.compute("tenant", command(1, List.of(rule("scope", 9007199254740992L)))),
-                LimitPolicyHash.compute("tenant", command(1, List.of(rule("scope", 9007199254740993L)))));
+                LimitPolicyHash.compute(command(1, List.of(rule("scope", 9007199254740992L)))),
+                LimitPolicyHash.compute(command(1, List.of(rule("scope", 9007199254740993L)))));
     }
 }

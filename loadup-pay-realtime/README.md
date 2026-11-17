@@ -1,52 +1,27 @@
-# Realtime 独立交易投影
+# Realtime 交易投影
 
-> 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
+消费 acquire/payment 的订单、付款、退款和退款金额汇总快照，提供商户读模型。使用独立 PostgreSQL，不参与付款提交、额度或资金裁定，不同步回查交易源。版本与事务规则见 [ARCHITECTURE](ARCHITECTURE.md)。
 
-应用间传输使用标准 HTTP，默认 8080。四个内部入口位于 /api/internal/v1/realtime/projections/；见[HTTP 契约](realtime-client/ARCHITECTURE.md)。
+## 接入
 
-本服务拥有独立数据库和版本化读模型，消费受信 acquire/payment 的完整快照，不查询交易源、不参与付款提交、订单占用或额度决策。
-订单、付款、退款及退款汇总生产端均已有源码；payment 新补 INIT 0、PROCESSING、UNKNOWN、CLOSING 的已提交版本快照，终态保持原独立投递。
-当前源码与验证缺口见 [付款生命周期快照](../ARCHITECTURE.md) 和根能力矩阵；历史验证记录不覆盖后续修改。
+启动模块为 `loadup-pay-realtime-bootstrap`；HTTP 默认 8080，local profile 为 8086。配置见 [application.yml](loadup-pay-realtime-bootstrap/src/main/resources/application.yml)。
 
-| 能力         | 当前源码                                                                                                               |
-|--------------|------------------------------------------------------------------------------------------------------------------------|
-| 四类完整快照 | /api/internal/v1/realtime/projections/order、payment、refund、refund-summary，分别用独立 producer/aggregate/sourceVersion          |
-| 版本处理     | 高版本 CAS；相同版本/内容幂等；低版本 STALE ACK；同版本不同内容或身份/终态回退拒绝覆盖                                 |
-| 可靠回执     | 快照变更与 trade_projection_receipt 同事务，重放原 delivery 返回首次 ACK；不依赖来源在线                               |
-| 商户查询     | /api/realtime/trades/detail、orders、payments、refunds，只接受可信 JWT 中的实际 merchant_id 和 pay:realtime:trade:read |
-| 存储         | 四类投影及语义回执五表，完整强类型源 JSON + 查询索引列 + 校验哈希，BaseDO/MapStruct/生成 Mapper                        |
-| 运行         | 默认业务装配，独立 PostgreSQL、JWT issuer/audience/JWK 配置                   |
-| 待完成       | 重建/流检查点、查询新鲜度、多商户操作员授权及真实集成验收                                                              |
+- 设置 `REALTIME_JDBC_URL/USERNAME/PASSWORD`、`JWT_ISSUER_URI` 和 JWKS/公钥，入站 audience 为 realtime。
+- `REALTIME_ACQUIRE_SERVICE_ID` 默认 acquire，`REALTIME_PAYMENT_SERVICE_ID` 默认 payment；生产方通过 OAuth2 SERVICE 凭证调用，不转发商户令牌。
+- 默认 schema 与业务本地时间遵循 [总体架构](../ARCHITECTURE.md)，不启用动态多租户路由。
 
-投影入口只允许 REALTIME_ACQUIRE_SERVICE_ID（默认 acquire）发布订单，REALTIME_PAYMENT_SERVICE_ID（默认 payment）发布付款/退款；各自权限为
-pay:realtime:projection:order|payment|refund|refund-summary。producer 标签不是身份，服务 subject/service_id 必须来自已验证
-SERVICE JWT。商户不能写投影，SERVICE 也不自动获得商户读取权限；当前未给无商户范围的 OPERATOR 或任意请求商户列表开放查询。
+| POST 路径 | 身份与权限 |
+|---|---|
+| `/api/internal/v1/realtime/projections/order` | acquire；`pay:realtime:projection:order` |
+| `/api/internal/v1/realtime/projections/{payment,refund,refund-summary}` | payment；对应 `pay:realtime:projection:*` |
+| `/api/realtime/trades/{detail,orders,payments,refunds}` | 有实际 merchant_id 的 JWT；`pay:realtime:trade:read` |
 
-付款/退款可先于订单快照独立存储和分页，父行不存在不会阻塞接收。detail 没有订单时返回 NOT_FOUND，不从付款拼造订单总额。detail
-仅返回订单头和独立退款汇总，子付款/退款使用各自分页接口，避免无上限列表或静默截断。分页默认1/20、显式非法值拒绝、上限100；时间范围左闭右开，按业务创建时间/稳定原ID倒序；所有
-SQL 首先带 tenant/已验证 merchant 条件，使用生成 QueryWrapper 列。
+投影生产方必须匹配 SERVICE 的 sub/service_id；producer 标签不是身份。SERVICE 不自动获得商户查询权，无商户范围的 OPERATOR 或任意请求商户列表不获授权。完整类型见 [HTTP 契约](loadup-pay-realtime-client/ARCHITECTURE.md)。
 
-订单 gross paid 不由最后一笔付款或退款重算。退款汇总没到时 refunded/net/refundSourceVersion 为 null，不能装作0。来源暂不同步、退款额领先订单
-paid 时保留两个原来源版本和观测净额（可能为负），amountsConsistent=false，不裁零、不改原支付金额、不生成
-availableToPay。单笔支付能力仍应查询 acquire/payment 的权威接口。
+## 查询限制与待验收
 
-payload 保留完整强类型来源快照，索引列保留实际 merchant/order/refundRequest、状态、业务时间及
-sourceVersion；读取重算规范哈希并核对索引与负载，拒绝未知字段/篡改。消费者本地 snapshotAt
-不进入源内容哈希，合法重复不伪装为新的源事实。不同聚合、producer
-和退款汇总版本不能互相比较。订单/付款/退款身份、原金额/创建时间不可变；高版本不能重开终态，退款累计不能减少或丢失已知请求。负载上限复用1MiB完整消息约束。
+detail 只返回订单头和独立退款汇总，子付款/退款分页获取。缺订单返回 NOT_FOUND，缺退款汇总返回 null；读模型不提供可付余额。查询新鲜度、流重建/checkpoint、多商户操作员授权未实现。
 
-V20261023020000__trade_projections.sql 新增
-trade_order_projection、trade_payment_projection、trade_refund_projection、trade_refund_summary、trade_projection_receipt。应用保存本地
-DATETIME (6) 微秒，JVM/Clock/会话时区 系统默认时区，无 UTC 数据库列。读接口使用独立只读一致事务；投影写入和回执用本地事务/唯一键/源版本
-CAS，不锁主交易库。无序 HTTP 完整快照以每行 sourceVersion 为推进依据，流级重建/checkpoint 尚未实现，不冒充全局就绪状态。
+待验收：乱序/重复/冲突、旧版本拒绝重开终态、投影与 receipt 原子回滚、真实身份/来源隔离，以及四类来源的端到端投递。测试入口见 [ProjectionPersistenceIT 说明](loadup-pay-realtime-service/src/test/README.md)。
 
-业务运行需 REALTIME_JDBC_URL/USERNAME/PASSWORD、共用 JWT_ISSUER_URI/JWT_JWK_SET_URI；入站 audience 取本应用名。payment/acquire 出站目标按应用名约定，服务令牌由 AuthServer 按目标 audience 签发，
-需 pay:realtime:projection:* 权限。复用 HttpTemplate，不转发商户令牌。
-
-新增领域/接收/查询/规范编码/服务身份/发送与生产测试源码，未运行 IDEA、构建、测试、DDL、镜像或部署。当前部署清单与旧运行记录不证明本批业务
-profile 已装配或联通。
-
-
-实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
-
-内部调用已删除 proto/Wire/Dubbo 生成与 Nacos profile。消费方目标按应用名约定 http://realtime:8080；源身份与 ACK 语义不变，运行验收见 [迁移清单](../HTTP_MIGRATION.md)。
+阶段 3 已同步目标无关事实头与目标级交付边界；旧已冻结载荷/回执保留原样读取，身份、权限、原绑定、幂等和可靠交付规则不变。同步查证未因类型迁移而删除，完整证据与替代门禁仍开放。源码及回归源码已调整，未构建或测试；详见[阶段 3 实施记录](../design/PHASE3_IMPLEMENTATION.md)。

@@ -18,7 +18,8 @@ package io.github.loadup.payment.app.service;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.payment.app.dispatch.PaymentDeliveryRoutes;
 import io.github.loadup.payment.app.port.PaymentAcquireClient;
 import org.springframework.stereotype.Component;
 
@@ -32,8 +33,8 @@ public class PaymentAcquireOutcomeDelivery {
         this.acquire = acquire;
     }
 
-    public void deliver(OutboxEvent event) {
-        var snapshot = support.load(event, PaymentEvents.ACQUIRE);
+    public void deliver(TaskExecution event) {
+        var snapshot = support.load(event, PaymentDeliveryRoutes.ACQUIRE);
         var envelope = snapshot.envelope();
         var ack = acquire.accept(envelope);
         if (ack == null

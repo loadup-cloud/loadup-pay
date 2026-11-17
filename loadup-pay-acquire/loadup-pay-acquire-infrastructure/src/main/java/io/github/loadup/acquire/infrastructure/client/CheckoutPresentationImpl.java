@@ -17,7 +17,7 @@ package io.github.loadup.acquire.infrastructure.client;
 
 import io.github.loadup.acquire.app.port.CheckoutPresentation;
 import io.github.loadup.acquire.infrastructure.config.CheckoutProperties;
-import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.runtime.deployment.DeploymentIdentity;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -26,9 +26,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class CheckoutPresentationImpl implements CheckoutPresentation {
     private final CheckoutProperties properties;
+    private final DeploymentIdentity deployment;
 
-    public CheckoutPresentationImpl(CheckoutProperties properties) {
+    public CheckoutPresentationImpl(CheckoutProperties properties, DeploymentIdentity deployment) {
         this.properties = properties;
+        this.deployment = deployment;
     }
 
     @Override
@@ -43,7 +45,8 @@ public class CheckoutPresentationImpl implements CheckoutPresentation {
 
     @Override
     public String url(String order, String token) {
-        return properties.pageUrl().toASCIIString() + "#tenant=" + encode(TenantUtil.getTenantId()) + "&order="
+        // The fragment carries the non-sensitive deployment code used by the cashier page for its fetch header.
+        return properties.pageUrl().toASCIIString() + "#deployment=" + encode(deployment.code()) + "&order="
                 + encode(order) + "&token=" + encode(token);
     }
 

@@ -64,8 +64,8 @@ class TradeProjectionServiceTest {
     final TradeProjectionGateway projections = mock(TradeProjectionGateway.class);
     final ProjectionReceiptGateway receipts = mock(ProjectionReceiptGateway.class);
     final TradeProjectionCodec codec = mock(TradeProjectionCodec.class);
-    final AtomicReference<RealtimeActor> actor = new AtomicReference<>(
-            new RealtimeActor("tenant", "payment", null, Set.of("pay:realtime:projection:payment")));
+    final AtomicReference<RealtimeActor> actor =
+            new AtomicReference<>(new RealtimeActor("payment", null, Set.of("pay:realtime:projection:payment")));
     final Map<String, ProjectionReceipt> accepted = new HashMap<>();
     final RealtimeFixtures.Transactions manager = new RealtimeFixtures.Transactions();
     final TradeProjectionService service = new TradeProjectionService(
@@ -171,7 +171,7 @@ class TradeProjectionServiceTest {
 
     @Test
     void merchantAndWrongServiceCannotPublishFinancialReadModels() {
-        actor.set(new RealtimeActor("tenant", null, "merchant", Set.of("pay:realtime:projection:payment")));
+        actor.set(new RealtimeActor(null, "merchant", Set.of("pay:realtime:projection:payment")));
         assertSame(
                 QUERY_FORBIDDEN,
                 assertThrows(
@@ -179,7 +179,7 @@ class TradeProjectionServiceTest {
                                 () -> service.applyPayment(
                                         RealtimeFixtures.payment("delivery", 2, PaymentState.SUCCEEDED)))
                         .getResultCode());
-        actor.set(new RealtimeActor("tenant", "acquire", null, Set.of("pay:realtime:projection:payment")));
+        actor.set(new RealtimeActor("acquire", null, Set.of("pay:realtime:projection:payment")));
         assertThrows(
                 CommonException.class,
                 () -> service.applyPayment(RealtimeFixtures.payment("delivery", 2, PaymentState.SUCCEEDED)));

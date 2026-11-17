@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.merchantcenter.client.enums.MerchantAction;
 import io.github.loadup.merchantcenter.client.enums.PrincipalType;
 import io.github.loadup.merchantcenter.domain.model.MerchantActionGrant;
@@ -78,33 +77,30 @@ class MerchantAuthorizationGatewayImplTest {
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);
         when(relationships.selectOneById("relationship")).thenReturn(relationship(from));
         when(grants.selectOneByQuery(any(QueryWrapper.class))).thenReturn(grant(from));
-        TenantUtil.runWithTenant("tenant-a", () -> {
-            assertEquals(
-                    MerchantRelationship.init("relationship", "parent", "child", from, null)
-                            .activate(),
-                    gateway.findRelationship("relationship").orElseThrow());
-            assertEquals(
-                    MerchantActionGrant.init(
-                                    "grant",
-                                    PrincipalType.MERCHANT,
-                                    "parent",
-                                    "child",
-                                    "relationship",
-                                    MerchantAction.CREATE_ORDER,
-                                    from,
-                                    null)
-                            .activate(),
-                    gateway.findGrant(PrincipalType.MERCHANT, "parent", "child", MerchantAction.CREATE_ORDER)
-                            .orElseThrow());
-        });
+        assertEquals(
+                MerchantRelationship.init("relationship", "parent", "child", from, null)
+                        .activate(),
+                gateway.findRelationship("relationship").orElseThrow());
+        assertEquals(
+                MerchantActionGrant.init(
+                                "grant",
+                                PrincipalType.MERCHANT,
+                                "parent",
+                                "child",
+                                "relationship",
+                                MerchantAction.CREATE_ORDER,
+                                from,
+                                null)
+                        .activate(),
+                gateway.findGrant(PrincipalType.MERCHANT, "parent", "child", MerchantAction.CREATE_ORDER)
+                        .orElseThrow());
     }
 
     @Test
     void rejectsLockWithoutTransactionBeforeExecutingSql() {
         var jdbc = mock(JdbcTemplate.class);
         var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
-        TenantUtil.runWithTenant(
-                "tenant-a", () -> assertThrows(CommonException.class, () -> gateway.lockRelationship("relationship")));
+        assertThrows(CommonException.class, () -> gateway.lockRelationship("relationship"));
         verifyNoInteractions(jdbc);
     }
 
@@ -134,13 +130,11 @@ class MerchantAuthorizationGatewayImplTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TransactionSynchronizationManager.bindResource(source, new Object());
         try {
-            TenantUtil.runWithTenant("tenant-a", () -> {
-                gateway.saveRelationship(relationship, -1);
-                gateway.saveGrant(grant, -1);
-                gateway.saveRelationship(relationship.revoke(), relationship.version());
-                gateway.saveGrant(grant.revoke(), grant.version());
-                assertThrows(CommonException.class, () -> gateway.saveGrant(grant.revoke(), 0));
-            });
+            gateway.saveRelationship(relationship, -1);
+            gateway.saveGrant(grant, -1);
+            gateway.saveRelationship(relationship.revoke(), relationship.version());
+            gateway.saveGrant(grant.revoke(), grant.version());
+            assertThrows(CommonException.class, () -> gateway.saveGrant(grant.revoke(), 0));
         } finally {
             TransactionSynchronizationManager.unbindResource(source);
             TransactionSynchronizationManager.setActualTransactionActive(false);

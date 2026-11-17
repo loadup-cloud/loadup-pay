@@ -1,37 +1,34 @@
-> 2026-11-04 应用拆分：customer → merchantcenter，product → productcenter；新增 merchantmng/productmng。以 [总体架构](../ARCHITECTURE.md) 的四应用边界为准。两个后管无数据库，center 仅内部访问。
-
 # HTTP 入站网络策略
 
 各 `<app>-http-ingress` NetworkPolicy 随应用清单渲染，限定目标 Pod 的 TCP 8080；不配置 Egress，保留 DNS、数据库、KMS、渠道及通知等出站路径。
-策略按现有调用关系允许入站，不给业务服务增加发现 RBAC：
+下表按当前管理应用合并后的调用关系整理。`render_deploy.py` 与 `deploy/pay.yml` 的旧应用/peer 配置仍需同步并验收，不能将表格当作已发布规则：
 
 | 提供方 | 允许的 loadup-pay 调用方 |
 | --- | --- |
-| authserver | merchantcenter、productcenter、limitcenter、payment、acquire、realtime、reconciliation、merchantmng、productmng、notificationcenter |
-| merchantcenter | authserver、productcenter、merchantmng |
-| productcenter | acquire、merchantmng、productmng |
+| oauth2-server | merchantcenter、productcenter、limitcenter、payment、acquire、realtime、reconciliation、notificationcenter、admin |
+| admin | oauth2-server（验证管理 JWT 时读取 Admin 公钥 JWKS）；另允许归属 loadup-pay Gateway 的 Envoy 代理 |
+| merchantcenter | oauth2-server、productcenter、admin |
+| productcenter | acquire、admin |
 | limitcenter | productcenter、payment |
 | payment | acquire、limitcenter、reconciliation |
 | acquire | payment |
 | realtime | acquire、payment |
 | reconciliation | 无直接内部调用方；受控外部集成经过网关 |
-| merchantmng / productmng | 无直接内部调用方；仅网关 |
 | notificationcenter | loadup-pay 命名空间内 Pod；无网关路由 |
 
 每个 peer 的 namespaceSelector 与 podSelector 放在同一项，二者同时满足；没有 `{}` 全放行项。
-除 limitcenter、authserver 外，另允许 envoy-gateway-system 中 app.kubernetes.io/name=envoy 且归属 loadup-pay/loadup-pay Gateway 的代理 Pod。
+除 limitcenter、oauth2-server 外，另允许 envoy-gateway-system 中 app.kubernetes.io/name=envoy 且归属 loadup-pay/loadup-pay Gateway 的代理 Pod。oauth2-server 仅接受声明的内部调用方；Admin 经自己的管理 BFF 调用它，OAuth 服务本身不经 Gateway 暴露。
 网关控制器本身和其他 Gateway 的代理不在该选择器中。使用 Gateway Namespace Mode 或 mergeGateways 时，必须先调整并验证选择器。
 
 监控允许 observability 中带 loadup.io/metrics-scraper=true 的 Pod。prometheus-values.yaml 已为 server 配置此 Pod label；已有监控实例需要同步更新。
 8080 同时承载指标和业务入口，L3/L4 策略不能按 URL 分离，监控标签也不授予业务 JWT 权限。应用继续验证可信身份和租户。
 
 策略与清单可审查，但只有支持并执行 NetworkPolicy 的网络实现才会生效。仅创建对象或看到 Pod ready 不能证明隔离。
-当前只读发现 kube-system 没有返回 DaemonSet，不能据此推断 OrbStack 的执行能力；CNI 和允许/拒绝流量仍待实际验收。
-2026-11-03 只读复核时 loadup-pay 的 NetworkPolicy 列表仍为空，当前运行环境尚不能证明本清单的入站规则已部署；见 [环境快照](ACCEPTANCE.md#当前环境只读快照)。
+历史检查见 [运行记录](LOCAL_DEVELOPMENT.md)；本文未重新查询集群，当前策略是否已部署及生效须按目标版本核验。
 规则是叠加的，其他已有 allow-all 策略可能扩大允许范围；旧集群策略不会被 apply 自动删除。
 见 [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
 
-全量发布包含 Namespace、十一组 NetworkPolicy/Deployment/Service，共 34 资源，单应用为 4 资源。
+按当前十应用集合，目标全量清单应包含 Namespace、十组 NetworkPolicy/Deployment/Service，共 31 资源，单应用为 4 资源；现有清单须先完成同步。
 渲染器在输出前检查选定应用的完整策略，将策略排序在 Deployment 前，拒绝缺失、重复或扩大 peer 的配置。
 不存在对 Kubernetes 全部资源的事务性 apply；任一发布失败都需检查实际已应用对象，再使用匹配的归档清单恢复。
 
