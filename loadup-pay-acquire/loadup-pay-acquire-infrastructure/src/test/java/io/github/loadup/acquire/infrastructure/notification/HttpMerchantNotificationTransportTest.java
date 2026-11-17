@@ -240,6 +240,7 @@ class HttpMerchantNotificationTransportTest {
         Duration ordinary = Duration.ofMillis(timeoutTooLarge ? 4000 : 100);
         var client = new HttpProperties.Client(
                 URI.create("https://hooks.example.test"),
+                false,
                 ordinary,
                 ordinary,
                 ordinary,

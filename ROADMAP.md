@@ -5,7 +5,7 @@
 - [x] 阶段 0：完成当前工作区的[所有权及例外核对](design/PHASE0_BASELINE.md)、[五条流程时序](design/PHASE0_FLOWS.md)、[174 个 POM 声明清单](design/PHASE0_DEPENDENCIES.md)与范围内架构文档同步；仅静态验收。
 - [ ] 阶段 1：按[实施方案](design/ARCHITECTURE_EVOLUTION.md)隔离 Actor/凭证、固定部署/数据源与 UPMS 装配。
 - [x] 阶段 1A 源码与调用方/回归源码同步：[AcquireActor 与委托凭证分离](design/PHASE1A_IMPLEMENTATION.md)；构建、测试、装配与运行验证尚未执行，旧 1B 与 1C 已有源码调整，不能视为运行验收。
-- [ ] 阶段 1B 重设计：[固定部署与数据源隔离](design/PHASE1B_IMPLEMENTATION.md)及[逐文件清单](design/PHASE1B_CHANGE_INVENTORY.md)已完成设计整理；新 R1～R6 未实施，不保留旧租户兼容模型。
+- [ ] 阶段 1B 重设计：[固定部署与数据源隔离](design/PHASE1B_IMPLEMENTATION.md)及[逐文件清单](design/PHASE1B_CHANGE_INVENTORY.md)已有源码调整；2026-11-17 修复 HTTP/schema 审查缺口、补双 schema/角色测试并同步文档，R6 运行验收未完成；不保留旧租户兼容模型。
 - [ ] 阶段 2：分离完整商业配置解析、类型化策略和条款/额度编译；保持现有快照与哈希语义。
 - [ ] 阶段 3～5：阶段 3 事实/投递边界及[财务证据、付款回查替代](design/PHASE3_FINANCIAL_EVIDENCE.md)源码已调整，退款最新累计读取保留；运行验收未执行，阶段 4～5 未开始。按独立验收推进。
 

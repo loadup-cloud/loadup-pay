@@ -68,6 +68,7 @@ loadup:
       # Named after the client role, so the payment target needs an explicit origin.
       payment-statements:
         base-url: ${PAYMENT_BASE_URL:http://payment:8080}
+        internal-service: true
         allow-private-addresses: true
         read-timeout: 60s
         max-connections: 8

@@ -12,7 +12,9 @@ loadup:
     clients:
       merchantcenter:
         base-url: ${MERCHANTCENTER_BASE_URL:http://localhost:8083}
+        internal-service: true
         allow-private-addresses: true
       limitcenter:
         base-url: ${LIMITCENTER_BASE_URL:http://localhost:8084}
+        internal-service: true
         allow-private-addresses: true

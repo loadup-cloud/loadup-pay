@@ -83,6 +83,7 @@ loadup:
 # Control-plane calls use the current operator token, no machine credential substitution or retries.
 loadup.http.clients.oauth-management:
   base-url: ${OAUTH_MANAGEMENT_BASE_URL:http://oauth2-server:8080}
+  internal-service: true
   allow-private-addresses: true
   max-request-bytes: 65536
   max-response-bytes: 65536

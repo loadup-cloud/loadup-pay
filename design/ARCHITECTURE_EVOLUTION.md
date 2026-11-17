@@ -1,6 +1,6 @@
 # LoadUp 架构规范化设计与阶段实施方案
 
-日期：2026-11-16 更新。状态：阶段 0 静态基线已完成；1A、1C、阶段 2 及旧 1B 的源码已调整但未构建/测试；1B 已重订为固定部署与数据源隔离设计，尚未按新方案修改代码；阶段 3 已实施事实/投递边界及自包含财务证据源码，符合条件的付款查询已替代，运行验收仍开放；阶段 4～5 尚未实施。范围：Framework、Modules、Pay，重点细化阶段 0～2。
+日期：2026-11-17 更新。状态：阶段 0 静态基线已完成；1A、1C、阶段 2 及旧 1B 的源码已调整但未构建/测试；1B 固定部署与数据源隔离已有源码实现，本轮修复 HTTP/schema 审查缺口并补隔离测试，运行验收未完成；阶段 3 已实施事实/投递边界及自包含财务证据源码，符合条件的付款查询已替代，运行验收仍开放；阶段 4～5 尚未实施。范围：Framework、Modules、Pay，重点细化阶段 0～2。
 
 目标是让业务规则、权威事实、协作协议和代码依赖有清晰且一致的归属。保留当前主要领域划分，先规范内部结构和协作，再按运行需求决定部署结构。应用数、JAR 数和代码行数不作为优化目标。
 
@@ -36,7 +36,7 @@
 | A4 | 阶段 0 的 [LimitPolicyCompiler](../loadup-pay-productcenter/loadup-pay-productcenter-app/src/main/java/io/github/loadup/productcenter/app/service/LimitPolicyCompiler.java) 调用完整编译器并构造 INIT 引用；阶段 2 已改为消费额度片段 | 完整总入口校验已与额度片段编译分离，运行证明待补 | 2 源码完成，未运行验证 |
 | A5 | 阶段 0 的 [AcquiringTermsCompiler](../loadup-pay-productcenter/loadup-pay-productcenter-app/src/main/java/io/github/loadup/productcenter/app/service/AcquiringTermsCompiler.java) 同时解析多组词汇；阶段 2 已将完整闭集解析移至 domain CommercialPolicyParser，编译器仅投影条款 | 领域解析、片段约束和 DTO 投影已在源码中分开，运行证明待补 | 2 源码完成，未运行验证 |
 | A6 | [RemoteContractConverter](../loadup-pay-acquire/loadup-pay-acquire-infrastructure/src/main/java/io/github/loadup/acquire/infrastructure/converter/RemoteContractConverter.java) 第 26 行起双向映射多组同名远端与本地 Command | 部分隔离主要体现为类型复制；需要按消费方业务能力评估，不能一概删除本地模型 | 0 登记，4 调整 |
-| A7 | 阶段 0 的 MultiTenantAutoConfiguration 在数据库模块注册 Servlet TenantFilter（旧 1B 已移至 WebMVC；新 1B 将删除 tenant 绑定，改为部署 Header 校验） | 数据库解析承担 Web 请求上下文生命周期，非 Web 入口另走一套绑定路径 | 1 |
+| A7 | 阶段 0 的 MultiTenantAutoConfiguration 在数据库模块注册 Servlet TenantFilter（旧 1B 已移至 WebMVC；新 1B 已删除核心 tenant 绑定，改为部署 Header 校验） | 数据库解析承担 Web 请求上下文生命周期，非 Web 入口另走一套绑定路径 | 1 |
 | A8 | 阶段 0 的 [UPMS app POM](../../loadup-modules/loadup-modules-upms/loadup-modules-upms-app/pom.xml) 依赖 infrastructure 并扫描其包；1C 已移除该依赖与扫描，由 infrastructure 独立装配默认 Gateway | UPMS 用例与默认实现的归属已在源码中分开；其他 core 例外保留，运行证明待补 | 1C 源码完成，未运行验证 |
 | A9 | [GitHubOAuthProvider](../../loadup-modules/loadup-modules-upms/loadup-modules-upms-app/src/main/java/io/github/loadup/modules/upms/app/strategy/oauth/GitHubOAuthProvider.java) 在 app 自行创建 RestTemplate 并解析第三方响应 | OAuth 传输适配与应用策略混合；阶段 0 新登记 E15，不能宣称 app 均无 HTTP 实现 | 独立适配切片，1C 不顺带调整 |
 
@@ -190,9 +190,9 @@ bootstrap / 自动装配 → 入口适配 + app + infrastructure
 
 调整顺序：先确认当前 SecurityContext 中 JWT 的存活方式和下游受众校验；再集中迁移 Actor、提供者、出站适配器及调用方；最后检查错误与日志语义。未建立委托凭证时拒绝，不自动换身份。后台恢复继续使用其既有、显式授权的 SERVICE 流程，不复用请求令牌，也不由本工作包重新设计。
 
-### 5.2 工作包 1B 固定部署与数据源隔离（重新设计，待实施）
+### 5.2 工作包 1B 固定部署与数据源隔离（源码已调整，待运行验收）
 
-2026-11-16 按单租户部署约束替换原“统一 tenant 上下文”目标。当前代码仍有旧 DeploymentDataScope、DatabaseTenant 及入口/后台绑定；本次只改文档。权威设计见[1B 重设计](PHASE1B_IMPLEMENTATION.md)，明确现有路径与动作见[逐文件影响清单](PHASE1B_CHANGE_INVENTORY.md)。不考虑旧 API/配置兼容或历史数据。
+2026-11-16 按单租户部署约束替换原“统一 tenant 上下文”目标。旧 DeploymentDataScope、DatabaseTenant 等已删除，当前采用固定部署与数据源；2026-11-17 修复显式内部 HTTP 头、schema 搜索路径校验并补双 schema/角色测试。权威设计见[1B 重设计](PHASE1B_IMPLEMENTATION.md)，明确现有路径与动作见[逐文件影响清单](PHASE1B_CHANGE_INVENTORY.md)。不考虑旧 API/配置兼容或历史数据。
 
 目标不变量：一个应用一个固定业务 DataSource、账号和 schema；Task、消费回执与需要原子登记的任务同库同事务；X-Tenant-Code 仅匹配部署 code，不能驱动数据库切换；业务 Actor/用例没有当前租户；认证、商户归属、金融证据、原子应用与幂等机制保持。
 
@@ -202,11 +202,11 @@ bootstrap / 自动装配 → 入口适配 + app + infrastructure
 | 1B-R1 | 固定 DataSource/schema、迁移目标与不可变部署标识 | 无动态选择或 public fallback，错配不就绪 |
 | 1B-R2 | Header 校验、内部出站、客户端、协议例外与凭证边界 | 错 code 拒绝，第三方无泛化头注入，跨部署 token 拒绝 |
 | 1B-R3 | Actor/事务/业务参数链与渠道/签名/摘要/文件用途 | 去掉当前 tenant，原业务归属和安全用途完整 |
-| 1B-R4 | Task/Scheduler/Task/恢复扫描 | 无上下文运行，业务与可靠性数据同源原子提交 |
+| 1B-R4 | Task/Scheduler/恢复扫描 | 无上下文运行，业务与可靠性数据同源原子提交 |
 | 1B-R5 | 删除旧类/配置/imports、收敛 POM/SQL/调用方 | 生产无旧租户残留或兼容重载；依赖显式且无环 |
 | 1B-R6 | 集中源码/装配及授权后的定向运行验收 | 1B 主文 G1B-01～16 均有证据；未运行不得标完成 |
 
-不删除整个 Maven 模块，不新建 TenantProvider/路由 DataSource/重试引擎。DeploymentIdentity 归 runtime，数据库仅消费固定 schema 配置；Web/HTTP 依赖部署标识，业务 app/domain 不因该常量新增 runtime 依赖。具体配置、路径、依赖删除条件、例外和验收标准以 1B 主文为准。
+当前原 Outbox/DelayedTask 已整合为 Task；1B 不新建 TenantProvider、路由 DataSource 或另一套重试引擎。DeploymentIdentity 归 runtime，数据库仅消费固定 schema 配置；Web/HTTP 依赖部署标识，业务 app/domain 不因该常量新增 runtime 依赖。具体配置、路径、依赖删除条件、例外和验收标准以 1B 主文为准。
 
 ### 5.3 工作包 1C 明确 UPMS 的装配归属
 
@@ -375,8 +375,8 @@ ValidatedCommercialPolicy（内部不可变类型，已新增）
 
 - 已完成：目标职责及阶段 1～2 的实施设计；阶段 0 的五条现状时序、核心契约、174 个 POM 声明、实际例外和范围内文档一致性收口。
 - 阶段 0 验收：G0-1～G0-5 静态核对结果见 PHASE0_BASELINE.md；已登记自动续办、同步回查等缺口，没有以改代码的方式消除它们。
-- 已调整源码：阶段 1A 的 Actor/凭证分离及 旧 1B 的 Web/数据库入口分离、统一部署范围（已被新目标替代，旧代码待删除）及 1C 的 UPMS 装配归属，以及阶段 2 的商业策略解析/片段编译、调用方与测试源码；静态审阅完成，构建和测试未运行，不能视作 G1/G2 运行验收通过。
+- 已调整源码：阶段 1A 的 Actor/凭证分离及 旧 1B 的 Web/数据库入口分离、统一部署范围（已被固定部署/数据源模型替代，旧核心类已删除）及 1C 的 UPMS 装配归属，以及阶段 2 的商业策略解析/片段编译、调用方与测试源码；静态审阅完成，构建和测试未运行，不能视作 G1/G2 运行验收通过。
 - 阶段 3 已调整源码：目标无关事实、目标级交付、冻结读取及调用方/回归源码，详见 PHASE3_IMPLEMENTATION.md；自包含付款/退款证据及消费验证已补齐，付款完整证据路径已替代查询；退款最新累计查询保留，运行验收尚未完成。
-- 1B 新目标：固定部署与数据源隔离设计及文件/依赖/阶段/验收清单已重订；旧 1B 代码仍存在，新方案尚未实施。
-- 尚未实施：新 1B 的 R1～R6 和阶段 4～5 的迁移。
+- 1B 新目标：固定部署与数据源隔离已有源码调整；HTTP/schema 审查问题已修复、隔离测试已补源码、清单已同步，运行验收仍开放。
+- 尚待完成：新 1B 的 R6 运行验收及其余部署证明；阶段 4～5 的迁移状态另行核对。
 - 尚未运行：编译、单测、集成测试、数据库迁移、部署与真实金融链路验收。

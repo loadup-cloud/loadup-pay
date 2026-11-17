@@ -1,8 +1,8 @@
 # 阶段 1B 重设计：固定部署与数据源隔离
 
-日期：2026-11-16。状态：**设计已重订，尚未按本方案修改代码、POM、配置、SQL 或测试；未运行构建、测试、迁移或部署。**
+日期：2026-11-17。状态：**固定部署与数据源隔离已有源码实现，本轮修复审查发现的 HTTP 与 schema 校验缺口，补齐隔离测试源码并同步文档；未运行构建、测试、迁移或部署，1B 运行验收仍未完成。**
 
-本文替代原 1B“统一部署 tenant 上下文”的目标方案。原 1B 的 DeploymentDataScope、DatabaseTenant、Web/后台绑定代码目前仍存在，不因文档更新而视为已删除。阶段 1A、1C、2、3 的业务边界与证据校验继续作为实现约束；阶段 4 的实施应先服从本次重新确定的隔离边界。
+本文替代原 1B“统一部署 tenant 上下文”的目标方案。旧 DeploymentDataScope、DatabaseTenant、TenantContext、TenantUtil 已从当前生产源码删除，Web 入口改用 DeploymentCodeFilter，后台使用固定数据源。阶段 1A、1C、2、3 的业务边界与证据校验继续作为实现约束；阶段 4 的实施应先服从本次重新确定的隔离边界。
 
 本设计不要求兼容旧 API、配置、构造器、摘要格式或历史数据；不设计双模式、兼容重载、旧配置别名、历史数据回填或新旧版本混合运行。实施阶段是开发顺序，不是逐阶段线上部署方案。
 
@@ -29,22 +29,19 @@
 
 可以共用 PostgreSQL 实例，也可以配置独立数据库；应用模型不因此改变。无数据库职责的应用只使用部署标识，不因本设计强制引入 JDBC。
 
-## 2 当前代码事实与需要纠正的职责
+## 2 当前实现与旧职责去向
 
-| 当前文件/模块 | 当前行为 | 目标 |
+| 模块/旧职责 | 当前源码状态 | 尚需证明 |
 |---|---|---|
-| database/tenant/DatabaseTenant.java | 根据开关解析部署或上下文 tenant，启用时将 tenant 字符串视为 schema；并不创建路由连接 | 删除，固定 schema 由数据库配置直接决定 |
-| database/tenant/TenantContext.java | 静态保存 resolver，缺 resolver 时回退上下文或默认 schema | 删除静态全局解析器及 fallback |
-| commons-context/DeploymentDataScope.java；runtime/context/DeploymentScope*.java | 以 database.multi-tenant.default-tenant-id 装配固定范围 | 替换为 runtime 所有的 DeploymentIdentity 与独立部署配置 |
-| webmvc/DeploymentScopeFilter.java | 每次请求及 redispatch 绑定相同 tenant | 替换为 Header 匹配校验，不建立 tenant 上下文 |
-| TaskWorker、TaskAutoConfiguration | 选择 worker tenant，逐批绑定上下文 | worker 直接调用本数据源 dispatcher；删除 tenant 覆盖配置 |
-| SchedulerTemplate、SchedulerAutoConfiguration | 在执行扫描任务前补部署 tenant | 删除此包装；保留任务注册、重叠保护、生命周期与其他元数据 |
-| Pay 的 Jwt*ActorProvider | 部分入口从 DatabaseTenant 读取 actor.tenantId | 删除 database 身份依赖；身份只由认证凭证和本地业务授权产生 |
-| JdbcTaskRepository | 注入 DataSource，校验 JDBC 事务管理器和连接参与原事务 | 保留并作为同库原子性约束，不引入租户路由 |
-| TaskAutoConfiguration / Store / Template | 依赖注入的 JDBC/DataSource；业务恢复使用它登记任务 | 固定绑定到应用数据源，无逐租户 worker |
-| LoadUpFlywayAutoConfiguration | 读取 default-schema 设置迁移目标 | 改为与连接池同源的唯一 schema 配置，禁止迁移目标与运行目标漂移 |
+| DatabaseTenant、TenantContext、TenantUtil、DeploymentDataScope | 已删除；固定部署身份与固定 schema 分开配置 | 各消费者完整装配及 G1B-15/16 验收 |
+| runtime / webmvc | DeploymentIdentity、DeploymentCodeFilter 已存在，不绑定请求 tenant | 真实安全链、协议例外与跨部署 token 验收 |
+| database | EnvironmentPostProcessor 给连接池设置唯一 schema，Verifier 检查 current_schema 与完整 search_path；自动配置在 DataSource 之后注册，校验 Bean 声明数据库初始化依赖 | 真实启动与迁移时序、受限账号权限及连接池隔离测试运行 |
+| HTTP / Pay 客户端配置 | 显式内部 URL 使用 internal-service；约定服务名属于内部客户端；最终写入固定部署头，外部请求移除该头 | 配置绑定与真实 HTTP 回归运行 |
+| Pay Actor / 后台入口 | 旧核心 tenant 工具及数据库身份解析符号已移除 | 商户、服务、委托、摘要及金融语义回归 |
+| Task | 当前可靠性实现为 JdbcTaskRepository、TaskDispatcher、TaskWorker 与 IdempotentEventConsumer；同源事务门禁保留，不绑定 tenant | 双 schema worker、事务回滚、租约和幂等回归运行 |
+| Flyway | 目标 defaultSchema/schemas 均读取 DatabaseProperties.schema | 受控迁移账号/外部迁移与应用运行账号的部署验收 |
 
-本次仓库核对未发现独立名为 RetryTask 的运行模块；本设计中的“重试任务”覆盖现有 Task、付款/退款/订单恢复队列，以及 Task 自身的重试。不得为满足术语另造一套 RetryTask 引擎。
+当前仓库已将原 Outbox/DelayedTask 能力整合至 Task，本文件按实际名称记录。1B 的约束仍是事务内登记、固定数据源、独立业务事实与可靠交付；组件整合不等同于这些语义已通过验证，也不新增 RetryTask 引擎。
 
 ## 3 目标装配、配置与数据库隔离
 
@@ -57,15 +54,15 @@ flowchart TD
     DBConfig --> DS[单一应用 DataSource]
     DS --> TX[JDBC 本地事务]
     TX --> Business[本应用业务表]
-    TX --> Task[Task 与消费回执]
-    TX --> Task[延迟与重试任务]
+    TX --> Tasks[Task 事件投递与延迟重试]
+    TX --> Inbox[消费回执]
     Scheduler[Scheduler/Worker] --> DS
     DBConfig --> Flyway[同目标 schema 的迁移]
 ```
 
 ### 3.1 唯一配置来源
 
-目标配置名如下；目前尚未实现：
+当前配置来源如下，部署应提供实际值：
 
 ```yaml
 loadup:
@@ -84,7 +81,7 @@ spring:
 - 平台可维护多租户部署清单，但只向应用下发本部署的配置和凭证，不向一个进程下发全部租户连接信息。
 - code 使用明确的有界规范格式，建议 `[a-z][a-z0-9-]{0,63}`；请求必须精确匹配配置值，不 trim 后容忍错误输入，也不忽略大小写。
 - schema 使用数据库标识符白名单，例如 `[a-z_][a-z0-9_]{0,62}`，拒绝保留的 `pg_` 前缀和默认 `public` 作为业务落点；不从 code 推导、不做动态 SQL 字符串拼接。
-- `loadup.database.schema` 是 schema 的唯一应用配置源。连接池、Flyway 不得各维护一个独立可覆盖的 schema 值；JDBC URL 的 currentSchema/options 或池配置出现冲突时启动失败。
+- `loadup.database.schema` 是 schema 的唯一应用配置源。连接池、Flyway 不得各维护一个独立可覆盖的 schema 值；池 schema 与 JDBC currentSchema 只允许等于该值；URL（含 Hikari jdbc-url）及 Hikari driver properties 的非空 options、任何非空 connection-init-sql 均拒绝，不尝试用字符串包含或任意 SQL 解析证明隔离。
 - 固定 schema 在物理连接创建时应用，通过现有连接池/JDBC 标准能力实现。禁止每次请求 `SET search_path`，禁止按 Actor/任务参数切换连接，禁止新建 AbstractRoutingDataSource。
 - 只保留目标业务 schema 为应用搜索路径，不包含 public 或其他租户 schema 的业务回退；系统 catalog 按 PostgreSQL 原生规则处理。
 
@@ -128,8 +125,8 @@ spring:
 
 ### 4.3 出站与跨部署凭证
 
-- 内部命名 HTTP 客户端统一写入本部署 code，不从用户请求复制，也不允许单次调用覆盖为另一 code。
-- 仅标记为内部业务服务的客户端启用此行为；支付渠道、商户回调、对象存储、KMS、第三方 OAuth 等外部请求不得无差别注入 Header。不能在全局 RestClient 上添加传播拦截器。
+- 无 base-url 的约定服务名客户端属于内部服务；显式 URL 的内部客户端必须配置 `loadup.http.clients.<name>.internal-service: true`，显式 URL 默认是外部客户端。内部客户端统一写入本部署 code，不从用户请求复制。
+- 命名 operation 与声明式 Service Client 均在调用头、credential 和 signer 处理之后设置部署头；外部客户端移除该保留头。仅标记为内部业务服务的客户端启用此行为；支付渠道、商户回调、对象存储、KMS、第三方 OAuth 等外部请求不得无差别注入 Header。不能在全局 RestClient 上添加传播拦截器。
 - 网关可提前拒绝不匹配，但不得覆盖错误 code；应用入口仍独立校验。若存在跨部署入口路由，其路由配置归平台，不进入应用 DataSource 选择逻辑。
 - 默认每套部署使用自己的认证 issuer 与客户端凭证；若共享身份发行平台，必须使接收方校验部署专属 audience/客户端授权边界。相同 `service_id=payment` 和 Header 不足以隔离两个部署。
 - 原用户/服务身份、商户归属、scope、委托凭证和审批权限保持原责任层；不向 Actor 注入 DeploymentIdentity 来替代已删除的 tenant 字段。
@@ -162,27 +159,26 @@ spring:
 
 Task、消费回执和需要事务登记的任务使用相同 DataSource Bean 与事务管理器。业务提交失败时，不得出现可领取事件/任务；登记失败时原业务事务回滚。worker 无 Header、无 tenant 上下文直接工作。多副本仍按原领取、lease/claim token、重试、幂等和状态机执行。
 
-删除的仅是数据范围选择机制，不合并事件类型、目标路由、任务引擎或交易状态。阶段 3 的完整财务证据、原绑定、ACK 和累计金额校验继续保留。支付任务超时或失败仍不构成不收款证明。
+删除的仅是数据范围选择机制，不改变事件类型、目标路由或交易状态；当前 Task 整合后的事务、租约和幂等仍按原业务要求验收。阶段 3 的完整财务证据、原绑定、ACK 和累计金额校验继续保留。支付任务超时或失败仍不构成不收款证明。
 
 ## 6 文件与模块调整清单
 
-下面路径均为现有文件或明确标注的拟新增文件。完整现有文件链接及测试联动见 [逐文件清单](PHASE1B_CHANGE_INVENTORY.md)。不删除任何整个 Maven 模块。
+下表保留实施范围及职责要求；已删除的旧文件以历史名称标识，当前状态见第 2、10 节。有效路径、删除记录与测试联动见 [逐文件清单](PHASE1B_CHANGE_INVENTORY.md)。当前 Task 模块承接原可靠性组件，不再将旧 Outbox/DelayedTask 模块列为待改入口。
 
 | 模块 | 删除或替换 | 调整/新增 |
 |---|---|---|
 | commons-context / commons-util / commons-dto | 删除 DeploymentDataScope.java、TenantUtil.java；移除 ContextKeys.TENANT_ID、CommonConstants 中仅租户使用的默认值 | 保留 ExecutionContext、ContextHolder 与 trace/其他元数据；默认 schema 常量引用归并后删除不再需要的默认值 |
-| runtime | 替换 context/DeploymentScopeProperties.java、DeploymentScopeAutoConfiguration.java | 拟新增 deployment/DeploymentIdentity.java、DeploymentProperties.java、DeploymentAutoConfiguration.java；只表达 code，不知道 schema/JDBC |
-| database | 删除 tenant/DatabaseTenant.java、TenantContext.java、DatabaseTenantResultCodeEnum.java 及对应旧测试 | 修改 DatabaseProperties、DatabaseCoreAutoConfiguration、LoadUpFlywayAutoConfiguration；由现有自动配置完成固定连接池装配，拟新增 schema/FixedSchemaVerifier.java 验证启动目标；核对 JdbcTransactionAutoConfiguration、MyBatisFlexAutoConfiguration、SequenceAutoConfiguration |
-| webmvc | 替换 DeploymentScopeFilter.java、DeploymentScopeWebAutoConfiguration.java | 拟新增 DeploymentCodeFilter、DeploymentCodeWebAutoConfiguration 及错误定义/显式路径策略；保留 ExecutionContextFilter |
+| runtime | 替换 context/DeploymentScopeProperties.java、DeploymentScopeAutoConfiguration.java | 已存在 deployment/DeploymentIdentity.java、DeploymentProperties.java、DeploymentAutoConfiguration.java；只表达 code，不知道 schema/JDBC |
+| database | 删除 tenant/DatabaseTenant.java、TenantContext.java、DatabaseTenantResultCodeEnum.java 及对应旧测试 | 修改 DatabaseProperties、DatabaseCoreAutoConfiguration、LoadUpFlywayAutoConfiguration；由现有自动配置完成固定连接池装配，已存在 schema/FixedSchemaVerifier.java 验证启动目标；核对 JdbcTransactionAutoConfiguration、MyBatisFlexAutoConfiguration、SequenceAutoConfiguration |
+| webmvc | 替换 DeploymentScopeFilter.java、DeploymentScopeWebAutoConfiguration.java | 已存在 DeploymentCodeFilter、DeploymentCodeWebAutoConfiguration 及错误定义/显式路径策略；保留 ExecutionContextFilter |
 | http | 无需新增租户 HTTP 模块 | HttpProperties、HttpServiceClients、HttpTemplate、HttpAutoConfiguration/HttpClientDefaults 中明确内部客户端标记和固定 Header 注入；按实际入口只修改必要文件 |
 | scheduler-api / binders | 删除 SchedulerTemplate 的部署范围参数与 tenant 包裹 | 同步 SchedulerAutoConfiguration、Local/PowerJob 测试；保留调度元数据和重叠抑制 |
-| outbox | 删除 TaskProperties.tenantId、TaskWorker tenant 参数/分支与自动配置兜底 | 保留 JdbcTaskRepository、IdempotentEventConsumer 的同库事务门禁；新增无上下文执行和双 schema 隔离回归 |
-| delayedtask | 不删除 Store/Dispatcher/Template | 核对 TaskAutoConfiguration 的 JdbcTemplate/DataSource 同源；为登记事务、后台扫描、租约补隔离回归 |
+| task（原 Outbox/DelayedTask） | 旧逐租户 worker 与配置已删除；当前无 tenant 参数 | 保留 JdbcTaskRepository、IdempotentEventConsumer 同源事务门禁；TaskSchemaIsolationIT 补双 schema 后台与回滚验证，尚未运行 |
 | payment-channel | 清除当前 tenant 检查及输入里的动态 tenant | API/core/binders 联动；账户、渠道、凭证来源和 security namespace 同步调整 |
 | Modules file / transfer / notification / UPMS | 删除 FileResourceService 的 storageTenant 与上下文包装 | 核对持久化装配只使用宿主 DataSource；UPMS 用户/角色/权限逻辑保留，更新 SchemaIsolationIT 等宿主 schema 验收 |
 | Pay 各服务 | 删除 Actor 中隔离用 tenant、Jwt Provider 的 DatabaseTenant 注入、事务/服务/任务的 tenant 参数链 | 调用方、转换器、摘要/签名、恢复任务、权限和错误分类逐条同步；Payment RecoveryInventoryCollector 移除 tenant-ids 遍历 |
 | notificationcenter | 删除 NotificationCenterTenantFilter 的部署 tenant 前提与命名 | 原 JWT 守卫迁入安全链或明确重命名；同步构造器和测试 |
-| Pay 配置与部署 | 删除 multi-tenant、default-tenant-id、task (固定 schema)、恢复 tenant-ids 及 tenant 外层映射 | 各 application.yml、deploy/config/{dev,test,prod}、scripts/render_deploy.py、configmap.py、common.py、网关/NetworkPolicy 与配套测试声明 deployment code/schema/账号/issuer；检查固定 namespace 假设 |
+| Pay 配置与部署 | 删除 multi-tenant、default-tenant-id、旧 outbox.tenant-id、恢复 tenant-ids 及 tenant 外层映射 | 各 application.yml、deploy/config/{dev,test,prod}、scripts/render_deploy.py、configmap.py、common.py、网关/NetworkPolicy 与配套测试声明 deployment code/schema/账号/issuer；检查固定 namespace 假设 |
 | Admin / 收银台客户端 | 不增加租户切换 UI | admin/src/request/index.ts、src/config/app.ts、收银台 checkout.js/core/bridge 在业务 fetch 写固定 code；登录/协议/静态入口按第 4 节处理 |
 | 资源与说明 | 删除旧自动配置 imports 条目 | runtime/database/webmvc 的 AutoConfiguration.imports、各 README/ARCHITECTURE、部署说明、测试入口、配置样例同步 |
 
@@ -197,7 +193,7 @@ Task、消费回执和需要事务登记的任务使用相同 DataSource Bean �
 | WebMVC → runtime | 保留，用于不可变 DeploymentIdentity | 无 database/JDBC 依赖 |
 | HTTP → runtime | 直接使用 DeploymentIdentity 时显式声明；已有声明则复用 | 仅内部客户端启用部署头，不影响第三方客户端 |
 | scheduler-api → runtime/context | 移除仅部署 tenant 造成的依赖 | binder 独立的 trace/任务传播依赖按其自身使用保留 |
-| outbox → runtime/context | 移除 tenant worker 造成的依赖 | JDBC、事务、观察能力及真实其他用途保留 |
+| task → runtime/context | 移除 tenant worker 造成的依赖 | JDBC、事务、观察能力及真实其他用途保留 |
 | Pay adapter → database | 仅因 Jwt ActorProvider 解析 tenant 引入的边删除 | adapter 内如有其他实际数据库使用，应单列理由，不能谎报全部去除 |
 | Pay app/domain/client → runtime/database | 不因替代 tenant 新增 | 部署常量不得下沉成业务身份/领域依赖 |
 | channel/签名/文件基础设施 → 部署配置 | 必要处显式注入静态配置 | 能用本组件已有 namespace 配置时复用；不添加泛化“TenantProvider” SPI |
@@ -207,7 +203,7 @@ POM 删除条件是“本模块源码、自动配置资源和测试 scope 已没
 
 ## 8 分阶段实施顺序
 
-阶段编号为本次重设计的 1B-R0～R6，区别于总体阶段 0～5。所有阶段当前均未开始代码实施；R0 本轮仅完成文档清单，不声称执行验收。
+阶段编号为本次重设计的 1B-R0～R6，区别于总体阶段 0～5。以下是实施顺序和退出标准；R1～R5 已有源码改动，不能继续标为“未实施”，也不能据此视为全部通过。当前核对结果见第 10 节；R6 运行验收仍开放。
 
 | 阶段 | 实施顺序与涉及文件 | 完成条件 |
 |---|---|---|
@@ -215,39 +211,54 @@ POM 删除条件是“本模块源码、自动配置资源和测试 scope 已没
 | R1 固定数据库与部署值 | runtime 新部署值 → database 固定 schema/池/事务/迁移 → 当前应用新建 schema 配置模板 | G1B-01～04 的测试源码齐全；相同 schema 来源、错误配置不就绪、无 Web 依赖 |
 | R2 请求入口与客户端 | 新 Header Filter/错误策略 → 内部 HTTP 客户端 → Admin/收银台 → 网关与协议豁免 → issuer/audience 核对 | G1B-05～08；错头无业务访问、协议可用、第三方请求不泄漏部署头、跨部署凭证拒绝 |
 | R3 业务身份与安全用途 | 各 Jwt Provider/Actor → 事务包装 → 业务服务/映射/端口 → 摘要/许可/密文/通知/渠道/文件与账户目录；调用方同批更新 | G1B-09～11；merchant/service/权限及幂等冲突完整，跨部署密钥/凭证隔离，业务无当前 tenant |
-| R4 后台与可靠性交付 | Task worker/配置 → Scheduler → Task/业务恢复 → RecoveryInventory；更新直接调用/持久化 IT 装配 | G1B-12～14；无上下文可运行，同 DataSource 原子登记，多副本租约/重放语义保持 |
+| R4 后台与可靠性交付 | Task worker/配置 → Scheduler → 业务恢复 → RecoveryInventory；更新直接调用/持久化 IT 装配 | G1B-12～14；无上下文可运行，同 DataSource 原子登记，多副本租约/重放语义保持 |
 | R5 删除旧实现与依赖 | 删除 resolver/context/util/旧配置及测试；清 imports/POM；同步 SQL 新库定义、部署脚本、依赖说明与所有调用方 | G1B-15～16；旧生产符号/配置无引用，禁止兼容重载/dual mode；依赖无环、无隐式数据库身份读取 |
 | R6 集中验证与文档归档 | 按验收矩阵做源码/IDE检查；得到用户运行授权后分模块 clean 构建、测试、双部署数据库与 HTTP 验收 | G1B-01～16 全部有证据后才可标记实施/运行验收完成；未运行项保持待验收 |
 
-R1～R4 的开发过程中可暂时同时存在待删除源文件，但不能把中间状态作为支持两套模型的发布版本。R5 删除收口后才准备完整发布候选。不执行旧库迁移或历史兼容；新库结构可按最终模型直接整理，但本轮只列设计，不实际修改 SQL 或数据库。
+R1～R4 的开发过程中可暂时同时存在待删除源文件，但不能把中间状态作为支持两套模型的发布版本。R5 删除收口后才准备完整发布候选。不执行旧库迁移或历史兼容；新库结构可按最终模型直接整理，本轮只增加测试用 SQL 夹具，不执行数据库操作或业务数据迁移。
 
 ## 9 验收标准与测试入口
 
-以下全部是未来验收要求，**没有在本轮执行**。路径详见逐文件清单；“拟新增”表示尚不存在。
+以下为持续有效的验收要求，**本轮未运行构建或测试**。测试源码存在与运行通过分开记录；本次新增的真实数据库测试仍待用户执行。
 
 | 编号 | 可观察验收结果 | 对应验证入口 |
 |---|---|---|
-| G1B-01 | 缺 code/schema、非法 schema、冲突 currentSchema/池配置均启动失败；不能回退 public | 拟新增 DeploymentAutoConfigurationTest、FixedSchemaConfigurationTest |
-| G1B-02 | 新连接、重建连接及池复用始终访问同一个 schema；修改请求/执行上下文无影响 | 拟新增 FixedDataSourceIsolationIT，两 schema 同名表写入并核对 |
-| G1B-03 | 账号 A 对 B 的表读取/写入/显式 schema 限定 SQL 都被数据库拒绝，反向亦同；不只测应用过滤 | 拟新增 DatabasePrivilegeIsolationIT，实际最小权限角色 |
+| G1B-01 | 缺 code/schema、非法 schema、冲突 currentSchema/池配置均启动失败；不能回退 public | DeploymentAutoConfigurationTest、FixedSchemaConfigurationTest |
+| G1B-02 | 新连接、重建连接及池复用始终访问同一个 schema；修改请求/执行上下文无影响 | FixedDataSourceIsolationIT：双 schema 同名表、连接复用与物理连接替换；待运行 |
+| G1B-03 | 账号 A 对 B 的表读取/写入/显式 schema 限定 SQL 都被数据库拒绝，反向亦同；不只测应用过滤 | FixedDataSourceIsolationIT.databaseRejectsCrossSchemaReadsWritesAndRuntimeDdlInBothDirections：双受限角色与 SQLSTATE 42501；待运行 |
 | G1B-04 | 业务、Task、任务表和 Flyway 历史均落入配置 schema；目标数据库/schema 缺失不启动 worker | FlywayAutoConfigurationTest、JdbcTransactionAutoConfigurationTest、组件持久化 IT |
 | G1B-05 | 正确头通过；缺失/空白/重复/多值/非法为 400；不匹配为 403；拒绝前无业务库访问 | 替换 DeploymentScopeFilterTest 为 DeploymentCodeFilterTest，真实安全链回归 |
 | G1B-06 | CORS、静态/协议/渠道回调按准确路径处理；ASYNC/ERROR 不重复写错误响应；trace/异常传播保持 | WebMVC 过滤器测试、MvcThreadModelTest、NotificationCenter 安全测试、渠道回调测试 |
-| G1B-07 | 内部出站使用本部署常量且不可被用户头覆盖；第三方请求不带部署头；无请求上下文也能调用内部服务 | HttpServiceClientsTest、HttpAutoConfigurationTest、各 Pay HTTP 客户端、Admin/收银台请求测试 |
+| G1B-07 | 内部出站使用本部署常量且不可被用户头覆盖；第三方请求不带部署头；无请求上下文也能调用内部服务 | HttpTemplateTest（operation/Service Client、显式 URL、credential/signer 覆盖及外部剥离）、HttpConfigurationContractTest、各 Pay HTTP 客户端与前端回归 |
 | G1B-08 | A 部署的合法 token 在 B 部署被拒绝，即使提供 B 的 Header；有效本地身份按原权限工作 | 各 Jwt*ActorProviderTest、实际 issuer/audience/客户端授权链验证 |
 | G1B-09 | 业务 Actor/事务/领域模型无隔离 tenant 参数；同部署内不同商户/服务不得越权 | 各 ActorProvider/服务输入/归属/委托凭证回归 |
 | G1B-10 | 同键同参重放原结果，同键改参/证据变更冲突；新哈希生产与校验双方一致 | Acquire/Limit/Payment/Realtime/ProductCenter codec、receipt、策略哈希回归 |
 | G1B-11 | 跨部署许可/密文/渠道凭证不可互用；文件和缓存不冲突；渠道账户、商户、目标签名绑定有效 | HmacExecutionPermitIssuer、KmsPaymentInputCipher、Channel BindingGuard/凭证测试、FileResourceServiceTest、通知传输测试 |
-| G1B-12 | 无任何 tenant 上下文时 Task、Task、Scheduler、RecoveryInventory 正常扫描；A worker 无法领取 B 数据 | TaskWorkerTest、TaskIT、Task IT、SchedulerTemplateTest、Local/PowerJob 测试及双 schema worker IT |
-| G1B-13 | 业务 rollback 无事件/任务；入队失败业务 rollback；receipt 与资金/额度变更同事务；错误 DataSource/manager 组合拒绝 | PaymentResultPersistenceIT、RefundRecoveryHandlerPersistenceIT、AcquiringFinancialPersistenceIT、额度/Task/Task 真实数据库回归 |
+| G1B-12 | 无任何 tenant 上下文时 Task、Scheduler、RecoveryInventory 正常扫描；A worker 无法领取 B 数据 | TaskSchemaIsolationIT、TaskWorkerTest、TaskIT、SchedulerTemplateTest、Local/PowerJob 测试 |
+| G1B-13 | 业务 rollback 无事件/任务；入队失败业务 rollback；receipt 与资金/额度变更同事务；错误 DataSource/manager 组合拒绝 | PaymentResultPersistenceIT、RefundRecoveryHandlerPersistenceIT、AcquiringFinancialPersistenceIT、额度/Task 真实数据库回归及 TaskSchemaIsolationIT |
 | G1B-14 | 多副本领取、租约过期、旧 claim ACK、重复投递和 FAILED/replay 不重复资金效果；未知结果不变成功 | 原恢复/交付持久化 IT 与并发场景，不用 mock 事务次数代替证据 |
 | G1B-15 | 生产源码和生效配置不再引用 TenantUtil/TenantContext/DatabaseTenant/DeploymentDataScope/TENANT_ID/旧租户配置；无旧构造重载或动态切换 | 精确符号及配置静态检索；历史说明文本不属于生产残留 |
 | G1B-16 | database 无 Servlet；ActorProvider 无数据库身份解析；业务不因部署常量新增 runtime 依赖；所有 imports/POM/配置与默认装配一致 | IDEA 检查与依赖/自动配置审查，授权后的定向 clean 构建与装配测试 |
 
 构建和测试默认由用户本地执行。只有明确授权后才安排窄范围 `mvnd clean` 和针对性测试，不自行运行全 reactor。静态检查、编译、单测、真实 PostgreSQL、真实 HTTP 和部署验证分别记录结果；不能用其中一项替代另一项。
 
-## 10 当前交付与后续文档同步
+## 10 当前交付与验收状态（2026-11-17）
 
-本轮只重订设计、生成影响清单并同步总体入口。代码仍是旧 1B 实现，阶段 3 的证据实现也仍含 tenant 相关调用；本设计列出了下一轮应调整的范围，不表示已移除。
+| 阶段 | 当前实现证据 | 未关闭事项 |
+|---|---|---|
+| R0 | 原设计清单已按现有文件更新，旧路径登记删除去向 | 实际部署的 code/schema/账号/issuer 清单及例外仍需部署验收 |
+| R1 | 固定 schema 配置与部署值已存在；本轮堵住 init SQL/options 绕过，校验完整搜索路径，明确 DataSource/初始化顺序 | 启动、迁移、最小权限与新 IT 未运行 |
+| R2 | Header Filter、浏览器入口已有实现；本轮显式内部 URL 标记、两种 HTTP 调用最终写头及外部剥离已同步配置/测试 | 安全链、协议、跨部署 token 及端到端 HTTP 未运行 |
+| R3 | 旧核心租户符号已删除，Actor/调用方已有调整 | 本轮不重新宣称所有业务、摘要、密钥与权限语义已验收 |
+| R4 | Task 同数据源事务门禁、无 tenant worker 已存在；新增双 schema worker、错误账号访问与业务/任务/回执回滚测试 | 租约、多副本及全部金融持久化回归未运行 |
+| R5 | 旧类删除记录、有效链接和相关数据库/HTTP 文档已更新 | 跨仓依赖与装配仍需定向构建证明，文件清单不作为逐项通过证明 |
+| R6 | 本轮仅源码审查、IDE 检查及 diff/链接静态检查 | 构建、单测、真实 PostgreSQL、HTTP、部署和金融链路验收均未执行 |
 
-后续实施同时更新 Framework runtime/database/webmvc/http/scheduler/task/channel 的 README/ARCHITECTURE，Modules file/transfer/UPMS 文档，以及 Pay 各服务、契约、部署配置/网关/验收、阶段 0 差异说明和阶段 3 摘要/身份说明。历史阶段记录保留“当时状态”的事实定位，当前决策以本文件为准；不再把旧 1B 的兼容行为作为本设计验收标准。
+本轮新增或扩充的主要回归入口：
+
+- [HttpTemplateTest](../../loadup-framework/loadup-components/integration/loadup-components-http/src/test/java/io/github/loadup/components/http/HttpTemplateTest.java)：显式内部地址、默认约定地址、外部请求、调用头/credential/signer 覆盖。
+- [FixedSchemaConfigurationTest](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/schema/FixedSchemaConfigurationTest.java)：附加 schema、近似名称、注释/拼接 SQL、重复/编码参数与 driver properties。
+- [FixedDataSourceIsolationIT](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/schema/FixedDataSourceIsolationIT.java)：真实双 schema/双受限账号、同业务键隔离、连接复用/替换、启动验证与跨 schema SQL 拒绝。
+- [TaskSchemaIsolationIT](../../loadup-framework/loadup-components/reliability/loadup-components-task/src/test/java/io/github/loadup/components/task/TaskSchemaIsolationIT.java)：真实双 schema 后台领取、跨数据源 ACK 拒绝、双向 SQL 权限拒绝与业务/任务/回执原子回滚。
+
+这些测试使用独立测试 schema/角色及测试夹具，不运行生产迁移。测试源码已补齐本次审查指出的覆盖缺口，但不代表 G1B-01～16 已全部通过。历史阶段文档仍是当时事实，当前隔离模型以本文件为准。

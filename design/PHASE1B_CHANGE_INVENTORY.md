@@ -1,23 +1,23 @@
 # 阶段 1B 重设计逐文件影响清单
 
-日期：2026-11-16。配套主文：[固定部署与数据源隔离设计](PHASE1B_IMPLEMENTATION.md)。**清单是下一轮实施输入，所有文件动作尚未执行；本轮不改代码、配置、POM、SQL 或测试。**
+日期：2026-11-17。配套主文：[固定部署与数据源隔离设计](PHASE1B_IMPLEMENTATION.md)。**本清单用于核对已发生的源码改动；逐项运行验收尚未执行。本清单不构成完整通过证明。**
 
 本表来自当前源码中的 tenant/context/schema 配置引用，加上显式登记的 HTTP、客户端和后台装配入口。匹配列表用于防遗漏，不等于每个文件都必须修改；KMS 原生 namespace、测试常量和无租户能力的组件应按用途审查。每项最终必须记录“已调整/删除/替换”或“保留及理由”，不能凭名称批量删除。
 
 本清单不枚举没有直接租户引用的全部传递调用者。修改接口后，必须按符号引用同步构造器、MapStruct、手动 Bean 装配、HTTP DTO、测试夹具和依赖；主文 R3/R5 的验收以无生产残留及调用方完整为准。
 
-## 1 拟新增文件（尚不存在，不作为现有链接）
+## 1 已有实现与待运行验收项
 
-| 所属模块 | 拟新增文件/职责 |
+| 所属模块 | 当前文件/职责 |
 |---|---|
-| runtime | `src/main/java/io/github/loadup/components/runtime/deployment/DeploymentIdentity.java`、`DeploymentProperties.java`、`DeploymentAutoConfiguration.java` |
-| webmvc | `src/main/java/io/github/loadup/components/webmvc/DeploymentCodeFilter.java`、`DeploymentCodeWebAutoConfiguration.java`；部署错误与明确路径策略按现有 Web 错误机制放置 |
-| database | `src/main/java/io/github/loadup/components/database/schema/FixedSchemaVerifier.java` 负责启动目标验证；固定连接配置扩展现有 DatabaseCoreAutoConfiguration，不新增路由 DataSource 或单独 Maven 模块 |
-| 相关测试模块 | `DeploymentCodeFilterTest`、`FixedSchemaConfigurationTest`、`FixedDataSourceIsolationIT`、`DatabasePrivilegeIsolationIT` 等主文 G1B 验收入口 |
+| runtime（已存在） | [DeploymentIdentity.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/deployment/DeploymentIdentity.java)、[DeploymentProperties.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/deployment/DeploymentProperties.java)、[DeploymentAutoConfiguration.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/deployment/DeploymentAutoConfiguration.java)；逐项运行验收未执行 |
+| webmvc（已存在） | [DeploymentCodeFilter.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/java/io/github/loadup/components/webmvc/DeploymentCodeFilter.java)、[DeploymentCodeWebAutoConfiguration.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/java/io/github/loadup/components/webmvc/DeploymentCodeWebAutoConfiguration.java)；逐项运行验收未执行 |
+| database（已存在） | [FixedSchemaVerifier.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/schema/FixedSchemaVerifier.java) 负责启动目标验证；固定连接配置扩展现有 DatabaseCoreAutoConfiguration；逐项运行验收未执行 |
+| 相关测试模块 | `DeploymentCodeFilterTest`、`FixedSchemaConfigurationTest`、[FixedDataSourceIsolationIT](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/schema/FixedDataSourceIsolationIT.java)、[TaskSchemaIsolationIT](../../loadup-framework/loadup-components/reliability/loadup-components-task/src/test/java/io/github/loadup/components/task/TaskSchemaIsolationIT.java) 等验收入口；源码已存在，运行验收未执行 |
 
 ## 2 现有文件及动作
 
-本次登记 395 个现有源码/配置/测试文件，按所属模块分组。模块标题中的 POM 也是依赖审查入口；不因命中 tenant 就删除模块。
+本次登记源码、配置与测试影响项，按所属模块分组；条目数不代表验收通过。模块标题中的 POM 也是依赖审查入口；不因命中 tenant 就删除模块。
 
 ### loadup-admin/apps/admin
 
@@ -32,8 +32,8 @@
 
 | 现有文件（相对模块） | 后续动作 |
 |---|---|
-| [src/main/java/io/github/loadup/commons/context/ContextKeys.java](../../loadup-framework/loadup-commons/loadup-commons-context/src/main/java/io/github/loadup/commons/context/ContextKeys.java) | 删除 TENANT_ID；保留 trace、请求及其他上下文键 |
-| [src/main/java/io/github/loadup/commons/context/DeploymentDataScope.java](../../loadup-framework/loadup-commons/loadup-commons-context/src/main/java/io/github/loadup/commons/context/DeploymentDataScope.java) | 删除；调用方全部收口后执行 |
+| src/main/java/io/github/loadup/commons/context/ContextKeys.java（已删除；运行验收未执行） | 删除 TENANT_ID；保留 trace、请求及其他上下文键 |
+| src/main/java/io/github/loadup/commons/context/DeploymentDataScope.java（已删除；运行验收未执行） | 已删除；调用方装配仍待验证 |
 | [src/test/java/io/github/loadup/commons/context/ServiceTemplateTest.java](../../loadup-framework/loadup-commons/loadup-commons-context/src/test/java/io/github/loadup/commons/context/ServiceTemplateTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 
 ### loadup-framework/loadup-commons/loadup-commons-dto
@@ -59,8 +59,8 @@
 | 现有文件（相对模块） | 后续动作 |
 |---|---|
 | [src/main/java/io/github/loadup/commons/util/MDCUtils.java](../../loadup-framework/loadup-commons/loadup-commons-util/src/main/java/io/github/loadup/commons/util/MDCUtils.java) | 调整租户读取/参数/配置调用；非租户业务职责保留 |
-| [src/main/java/io/github/loadup/commons/util/TenantUtil.java](../../loadup-framework/loadup-commons/loadup-commons-util/src/main/java/io/github/loadup/commons/util/TenantUtil.java) | 删除；调用方全部收口后执行 |
-| [src/test/java/io/github/loadup/commons/util/TenantUtilTest.java](../../loadup-framework/loadup-commons/loadup-commons-util/src/test/java/io/github/loadup/commons/util/TenantUtilTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
+| src/main/java/io/github/loadup/commons/util/TenantUtil.java（已删除；运行验收未执行） | 已删除；调用方装配仍待验证 |
+| src/test/java/io/github/loadup/commons/util/TenantUtilTest.java（已删除；运行验收未执行） | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 
 ### loadup-framework/loadup-components/data/loadup-components-database
 
@@ -76,14 +76,14 @@
 | [src/main/java/io/github/loadup/components/database/flyway/LoadUpFlywayAutoConfiguration.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/flyway/LoadUpFlywayAutoConfiguration.java) | 调整租户读取/参数/配置调用；非租户业务职责保留 |
 | [src/main/java/io/github/loadup/components/database/sequence/SegmentSequence.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/sequence/SegmentSequence.java) | 调整租户读取/参数/配置调用；非租户业务职责保留 |
 | [src/main/java/io/github/loadup/components/database/sequence/SequenceScope.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/sequence/SequenceScope.java) | 去除数据库租户维度；保留商户/服务/会话/业务范围 |
-| [src/main/java/io/github/loadup/components/database/tenant/DatabaseTenant.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/tenant/DatabaseTenant.java) | 删除；调用方全部收口后执行 |
-| [src/main/java/io/github/loadup/components/database/tenant/DatabaseTenantResultCodeEnum.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/tenant/DatabaseTenantResultCodeEnum.java) | 删除；调用方全部收口后执行 |
-| [src/main/java/io/github/loadup/components/database/tenant/TenantContext.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/tenant/TenantContext.java) | 删除；调用方全部收口后执行 |
+| src/main/java/io/github/loadup/components/database/tenant/DatabaseTenant.java（已删除；运行验收未执行） | 已删除；调用方装配仍待验证 |
+| src/main/java/io/github/loadup/components/database/tenant/DatabaseTenantResultCodeEnum.java（已删除；运行验收未执行） | 已删除；调用方装配仍待验证 |
+| src/main/java/io/github/loadup/components/database/tenant/TenantContext.java（已删除；运行验收未执行） | 已删除；调用方装配仍待验证 |
 | [src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports) | 删除旧部署范围/租户自动配置登记，登记新部署或固定 schema 装配；核对条件和顺序 |
 | [src/test/java/io/github/loadup/components/database/autoconfigure/DatabaseCoreAutoConfigurationTest.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/autoconfigure/DatabaseCoreAutoConfigurationTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 | [src/test/java/io/github/loadup/components/database/flyway/FlywayAutoConfigurationTest.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/flyway/FlywayAutoConfigurationTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 | [src/test/java/io/github/loadup/components/database/sequence/DatabaseSequenceIT.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/sequence/DatabaseSequenceIT.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
-| [src/test/java/io/github/loadup/components/database/tenant/DatabaseTenantTest.java](../../loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/tenant/DatabaseTenantTest.java) | 删除旧职责；测试改为固定 schema/配置验收 |
+| src/test/java/io/github/loadup/components/database/tenant/DatabaseTenantTest.java（已删除；运行验收未执行） | 删除旧职责；测试改为固定 schema/配置验收 |
 
 ### loadup-framework/loadup-components/execution/loadup-components-scheduler/loadup-components-scheduler-api
 
@@ -232,10 +232,10 @@
 
 | 现有文件（相对模块） | 后续动作 |
 |---|---|
-| [src/main/java/io/github/loadup/components/runtime/context/DeploymentScopeAutoConfiguration.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/context/DeploymentScopeAutoConfiguration.java) | 替换为固定部署标识/请求校验及相应测试 |
-| [src/main/java/io/github/loadup/components/runtime/context/DeploymentScopeProperties.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/context/DeploymentScopeProperties.java) | 替换为固定部署标识/请求校验及相应测试 |
+| [旧名 DeploymentScopeAutoConfiguration.java → 当前 DeploymentAutoConfiguration.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/deployment/DeploymentAutoConfiguration.java) | 替换为固定部署标识/请求校验及相应测试 |
+| [旧名 DeploymentScopeProperties.java → 当前 DeploymentProperties.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/java/io/github/loadup/components/runtime/deployment/DeploymentProperties.java) | 替换为固定部署标识/请求校验及相应测试 |
 | [src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports) | 删除旧部署范围/租户自动配置登记，登记新部署或固定 schema 装配；核对条件和顺序 |
-| [src/test/java/io/github/loadup/components/runtime/context/DeploymentScopeAutoConfigurationTest.java](../../loadup-framework/loadup-components/platform/loadup-components-runtime/src/test/java/io/github/loadup/components/runtime/context/DeploymentScopeAutoConfigurationTest.java) | 替换为固定部署标识/请求校验及相应测试 |
+| DeploymentScopeAutoConfigurationTest（已删除；运行验收未执行） | 替换为固定部署标识/请求校验及相应测试 |
 
 ### loadup-framework/loadup-components/reliability/loadup-components-async-result/loadup-components-async-result-api
 
@@ -313,11 +313,11 @@
 
 | 现有文件（相对模块） | 后续动作 |
 |---|---|
-| [src/main/java/io/github/loadup/components/webmvc/DeploymentScopeFilter.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/java/io/github/loadup/components/webmvc/DeploymentScopeFilter.java) | 替换为固定部署标识/请求校验及相应测试 |
-| [src/main/java/io/github/loadup/components/webmvc/DeploymentScopeWebAutoConfiguration.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/java/io/github/loadup/components/webmvc/DeploymentScopeWebAutoConfiguration.java) | 替换为固定部署标识/请求校验及相应测试 |
+| [旧名 DeploymentScopeFilter.java → 当前 DeploymentCodeFilter.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/java/io/github/loadup/components/webmvc/DeploymentCodeFilter.java) | 替换为固定部署标识/请求校验及相应测试 |
+| [旧名 DeploymentScopeWebAutoConfiguration.java → 当前 DeploymentCodeWebAutoConfiguration.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/java/io/github/loadup/components/webmvc/DeploymentCodeWebAutoConfiguration.java) | 替换为固定部署标识/请求校验及相应测试 |
 | [src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports) | 删除旧部署范围/租户自动配置登记，登记新部署或固定 schema 装配；核对条件和顺序 |
-| [src/test/java/io/github/loadup/components/webmvc/DeploymentScopeFilterTest.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/test/java/io/github/loadup/components/webmvc/DeploymentScopeFilterTest.java) | 替换为固定部署标识/请求校验及相应测试 |
-| [src/test/java/io/github/loadup/components/webmvc/DeploymentScopeWebAutoConfigurationTest.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/test/java/io/github/loadup/components/webmvc/DeploymentScopeWebAutoConfigurationTest.java) | 替换为固定部署标识/请求校验及相应测试 |
+| DeploymentScopeFilterTest（已删除；运行验收未执行） | 替换为固定部署标识/请求校验及相应测试 |
+| DeploymentScopeWebAutoConfigurationTest（已删除；运行验收未执行） | 替换为固定部署标识/请求校验及相应测试 |
 | [src/test/java/io/github/loadup/components/webmvc/ExecutionContextFilterTest.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/test/java/io/github/loadup/components/webmvc/ExecutionContextFilterTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 | [src/test/java/io/github/loadup/components/webmvc/MvcThreadModelTest.java](../../loadup-framework/loadup-components/web/loadup-components-webmvc/src/test/java/io/github/loadup/components/webmvc/MvcThreadModelTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 
@@ -542,10 +542,10 @@
 | 现有文件（相对模块） | 后续动作 |
 |---|---|
 | [src/main/java/io/github/loadup/notificationcenter/NotificationCenterSecurityConfiguration.java](../loadup-pay-notificationcenter/src/main/java/io/github/loadup/notificationcenter/NotificationCenterSecurityConfiguration.java) | 调整租户读取/参数/配置调用；非租户业务职责保留 |
-| [src/main/java/io/github/loadup/notificationcenter/NotificationCenterTenantFilter.java](../loadup-pay-notificationcenter/src/main/java/io/github/loadup/notificationcenter/NotificationCenterTenantFilter.java) | 重命名/迁入安全链；保留 JWT 守卫，删除 tenant 前提 |
+| src/main/java/io/github/loadup/notificationcenter/NotificationCenterTenantFilter.java（已删除；运行验收未执行） | 重命名/迁入安全链；保留 JWT 守卫，删除 tenant 前提 |
 | [src/main/resources/application.yml](../loadup-pay-notificationcenter/src/main/resources/application.yml) | 调整单值部署/schema/凭证及内部客户端配置 |
 | [src/test/java/io/github/loadup/notificationcenter/NotificationCenterSecurityConfigurationTest.java](../loadup-pay-notificationcenter/src/test/java/io/github/loadup/notificationcenter/NotificationCenterSecurityConfigurationTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
-| [src/test/java/io/github/loadup/notificationcenter/NotificationCenterTenantFilterTest.java](../loadup-pay-notificationcenter/src/test/java/io/github/loadup/notificationcenter/NotificationCenterTenantFilterTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
+| src/test/java/io/github/loadup/notificationcenter/NotificationCenterTenantFilterTest.java（已删除；运行验收未执行） | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 
 ### loadup-pay/loadup-pay-oauth2-server
 
@@ -723,7 +723,7 @@
 | [src/main/java/io/github/loadup/productcenter/infrastructure/repository/CurrentContractGatewayImpl.java](../loadup-pay-productcenter/loadup-pay-productcenter-infrastructure/src/main/java/io/github/loadup/productcenter/infrastructure/repository/CurrentContractGatewayImpl.java) | 调整租户读取/参数/配置调用；非租户业务职责保留 |
 | [src/test/java/io/github/loadup/productcenter/infrastructure/client/LimitPolicyActivationHttpClientTest.java](../loadup-pay-productcenter/loadup-pay-productcenter-infrastructure/src/test/java/io/github/loadup/productcenter/infrastructure/client/LimitPolicyActivationHttpClientTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 | [src/test/java/io/github/loadup/productcenter/infrastructure/codec/PolicyPublicationCodecImplTest.java](../loadup-pay-productcenter/loadup-pay-productcenter-infrastructure/src/test/java/io/github/loadup/productcenter/infrastructure/codec/PolicyPublicationCodecImplTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
-| [src/test/java/io/github/loadup/productcenter/infrastructure/outbox/PolicyActivationTaskHandlerTest.java](../loadup-pay-productcenter/loadup-pay-productcenter-infrastructure/src/test/java/io/github/loadup/productcenter/infrastructure/outbox/PolicyActivationTaskHandlerTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
+| [旧名 PolicyActivationTaskHandlerTest.java → 当前 PolicyActivationOutboxHandlerTest.java](../loadup-pay-productcenter/loadup-pay-productcenter-infrastructure/src/test/java/io/github/loadup/productcenter/infrastructure/outbox/PolicyActivationOutboxHandlerTest.java) | 调整夹具/断言并保留原业务反例；补固定隔离用例 |
 
 ### loadup-pay/loadup-pay-realtime/loadup-pay-realtime-bootstrap
 
@@ -817,7 +817,7 @@
 
 ## 4 文档及阶段状态收口
 
-- Framework 与 Modules 各受影响模块 README/ARCHITECTURE 在实施后更新真实能力；本次只重订设计，不提前声称固定隔离已实现。
-- Pay 总体架构、演进设计、ROADMAP 链接本方案并区分“旧 1B 已有源码”与“新 1B 尚未实施”。
+- Framework 与 Modules 各受影响模块 README/ARCHITECTURE 在实施后更新真实能力；本次已同步 database/HTTP 当前实现与新增测试，不把静态检查当作运行验收。
+- Pay 总体架构、演进设计、ROADMAP 链接本方案并区分“新 1B 已有源码调整”与“运行验收未完成”。
 - 阶段 0 文件是历史采样，保留事实定位；阶段 3 中关于 tenant 摘要、身份及回执的描述，在 R3 实施后同步新输入和验证双方，不增加旧摘要兼容读取。
 - 本表的路径存在性与文档链接可以静态验证；不等同于实现、编译、测试、权限或金融事务验收。
