@@ -1032,7 +1032,7 @@ class PaymentResultPersistenceIT {
     }
 
     private JdbcTaskRepository.Claim claim(Fixture fixture, long generation) {
-        var claimed = taskStore.claim(PaymentRecoveryService.TYPE).orElseThrow();
+        var claimed = taskStore.claim(List.of(PaymentRecoveryService.TYPE)).orElseThrow();
         assertEquals(PaymentRecoveryService.TYPE, claimed.event().taskType());
         assertEquals(recoveryKey(fixture, generation), claimed.event().bizId());
         return claimed;

@@ -962,7 +962,7 @@ class RefundRecoveryHandlerPersistenceIT {
     }
 
     private JdbcTaskRepository.Claim claim(RefundFixture fixture, long generation) {
-        var claimed = taskStore.claim(RefundRecoveryService.TYPE).orElseThrow();
+        var claimed = taskStore.claim(List.of(RefundRecoveryService.TYPE)).orElseThrow();
         assertEquals(RefundRecoveryService.TYPE, claimed.event().taskType());
         assertEquals(key(fixture, generation), claimed.event().bizId());
         return claimed;
