@@ -54,9 +54,7 @@ public class RefundMerchantDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.payloadVersion() != 1
-                || !PaymentDeliveryRoutes.REFUND_MERCHANT.equals(event.taskType())) {
+        if (event == null || !PaymentDeliveryRoutes.REFUND_MERCHANT.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var message = event;
@@ -68,7 +66,7 @@ public class RefundMerchantDelivery {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.merchant(message.payload());
-        if (!row.bizId().equals(envelope.aggregateId())
+        if (!row.bizId().equals(envelope.deliveryId())
                 || !FrozenEventTypes.accepts(
                         PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), envelope.eventType())) {
             throw new CommonException(SNAPSHOT_INVALID);

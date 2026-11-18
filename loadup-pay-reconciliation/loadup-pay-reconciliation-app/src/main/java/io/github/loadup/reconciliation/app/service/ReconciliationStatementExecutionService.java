@@ -260,8 +260,6 @@ public class ReconciliationStatementExecutionService {
                 || actual.attempts() != task.attempts()
                 || actual.maxAttempts() != task.maxAttempts()
                 || actual.maxAttempts() < actual.attempts()
-                || actual.executeAt() == null
-                || !Objects.equals(actual.executeAt(), task.executeAt())
                 || actual.nextExecuteAt() == null
                 || !Objects.equals(actual.nextExecuteAt(), task.nextExecuteAt())
                 || actual.nextExecuteAt().isAfter(now)

@@ -48,9 +48,7 @@ public class OrderSnapshotDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.payloadVersion() != 1
-                || !OrderSnapshotEvents.DELIVERY_TYPE.equals(event.taskType())) {
+        if (event == null || !OrderSnapshotEvents.DELIVERY_TYPE.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -61,7 +59,7 @@ public class OrderSnapshotDelivery {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.decode(event.payload());
-        if (!envelope.aggregateId().equals(row.bizId())) {
+        if (!envelope.deliveryId().equals(row.bizId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var ack = client.apply(envelope);

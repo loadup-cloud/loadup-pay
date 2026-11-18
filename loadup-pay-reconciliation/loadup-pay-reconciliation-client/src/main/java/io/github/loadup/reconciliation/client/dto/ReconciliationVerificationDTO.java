@@ -30,7 +30,7 @@ public record ReconciliationVerificationDTO(
         long version,
         String deliveryId,
         String deliveryStatus,
-        int attempts) {
+        Integer attempts) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

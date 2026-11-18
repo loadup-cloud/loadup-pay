@@ -277,13 +277,10 @@ class ReconciliationVerificationServiceTest {
     void deliver() {
         delivery.deliver(new TaskExecution(
                 "delivery",
-                new TaskSubmission(
+                TaskSubmission.immediate(
                         ReconciliationVerificationMessages.TYPE,
-                        1,
                         "request",
-                        ReconciliationVerificationMessages.encode("request"),
-                        null,
-                        null),
+                        ReconciliationVerificationMessages.encode("request")),
                 clock.instant(),
                 null));
     }

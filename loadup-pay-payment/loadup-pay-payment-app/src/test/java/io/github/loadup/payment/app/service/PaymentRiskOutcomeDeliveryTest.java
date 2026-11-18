@@ -60,7 +60,7 @@ class PaymentRiskOutcomeDeliveryTest {
             risk);
     final TaskExecution event = new TaskExecution(
             "queue-event",
-            new TaskSubmission(PaymentDeliveryRoutes.RISK, 1, "payment", "{}", LocalDateTime.now(), ""),
+            new TaskSubmission(PaymentDeliveryRoutes.RISK, "payment", "{}", LocalDateTime.now()),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 

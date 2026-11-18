@@ -185,9 +185,10 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         }
         if (task == null
                 || task.status() == null
+                || task.nextExecuteAt() == null
                 || !MerchantNotificationService.TYPE.equals(task.taskType())
                 || !key.equals(task.bizId())
-                || !delivery.nextAttemptAt().equals(task.executeAt())) {
+                || task.nextExecuteAt().isBefore(delivery.nextAttemptAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         String result;

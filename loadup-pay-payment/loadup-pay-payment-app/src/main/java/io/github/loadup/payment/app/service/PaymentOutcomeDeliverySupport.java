@@ -84,7 +84,7 @@ public class PaymentOutcomeDeliverySupport {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null || event.payloadVersion() != 1 || !expectedType.equals(event.taskType())) {
+        if (event == null || !expectedType.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         DomainChecks.id(event.id());
@@ -106,7 +106,7 @@ public class PaymentOutcomeDeliverySupport {
                 || !"payment".equals(envelope.producer())
                 || !(FrozenEventTypes.accepts(BusinessEventTypes.PAYMENT_FINANCIAL, expectedType, envelope.eventType())
                         || BusinessEventTypes.PAYMENT_OUTCOME.equals(envelope.eventType()))
-                || !queue.bizId().equals(envelope.aggregateId())
+                || !queue.bizId().equals(envelope.deliveryId())
                 || !envelope.aggregateId().equals(envelope.data().paymentId())
                 || envelope.aggregateVersion() != envelope.data().paymentVersion()
                 || !envelope.businessEventId().equals(envelope.data().evidenceId())) {

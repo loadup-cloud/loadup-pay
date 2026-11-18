@@ -337,7 +337,7 @@ class ReconciliationVerificationPersistenceIT {
                 var winner = detail(fixture, initial.requestId());
                 assertEquals("d".repeat(64), winner.receipt().sourceDigest());
                 assertEquals("SUCCEEDED", winner.deliveryStatus());
-                assertEquals(2, winner.attempts());
+                assertNull(winner.attempts());
             } finally {
                 release.countDown();
             }

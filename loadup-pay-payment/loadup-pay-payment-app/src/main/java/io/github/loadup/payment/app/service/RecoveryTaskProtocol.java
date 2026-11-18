@@ -52,7 +52,6 @@ public final class RecoveryTaskProtocol {
                 || expectedType == null
                 || task.id() == null
                 || task.bizId() == null
-                || task.executeAt() == null
                 || task.status() != TaskStatus.RUNNING
                 || task.attempts() < 1
                 || task.maxAttempts() < 1
@@ -60,21 +59,21 @@ public final class RecoveryTaskProtocol {
                 || !expectedType.equals(registered.taskType())
                 || !expectedType.equals(task.taskType())
                 || !Objects.equals(task.bizId(), registered.bizId())
-                || !task.executeAt().equals(registered.executeAt())
+                || task.nextExecuteAt() == null
+                || !task.nextExecuteAt().equals(registered.nextExecuteAt())
                 || registered.status() != TaskStatus.RUNNING
                 || registered.attempts() != task.attempts()
                 || registered.maxAttempts() != task.maxAttempts()
                 || registered.leaseUntil() == null
-                || registered.nextExecuteAt() == null
                 || !now.isBefore(registered.leaseUntil())
                 || now.isBefore(registered.nextExecuteAt())) {
             throw new CommonException(INVALID_STATE);
         }
     }
 
-    public static boolean current(RecoveryTaskKey key, RecoveryPosition position, LocalDateTime originalExecuteAt) {
+    public static boolean current(RecoveryTaskKey key, RecoveryPosition position, LocalDateTime nextExecuteAt) {
         try {
-            return Objects.requireNonNull(position).current(key, originalExecuteAt);
+            return Objects.requireNonNull(position).current(key, nextExecuteAt);
         } catch (DomainViolation | NullPointerException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

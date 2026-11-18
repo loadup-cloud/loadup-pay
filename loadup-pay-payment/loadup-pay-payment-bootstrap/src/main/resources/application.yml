@@ -94,8 +94,9 @@ loadup:
     binder: local
   scheduler:
     binder-type: local
-    local:
-      interval: ${PAYMENT_SCAN_INTERVAL:PT30S}
+    tasks:
+      - name: pay.payment.recovery.inventory
+        cron: "${PAYMENT_SCAN_CRON:0/30 * * * * *}"
   database:
     schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:

@@ -207,16 +207,7 @@ class ReconciliationServiceTest {
         var running = service.start(
                 new ReconciliationBatchStartCommand(stored.get().batch().id()));
         var failed = new TaskExecution(
-                "task",
-                ReconciliationExecutionService.TYPE,
-                running.runId(),
-                AT,
-                AT,
-                TaskStatus.FAILED,
-                5,
-                5,
-                null,
-                null);
+                "task", ReconciliationExecutionService.TYPE, running.runId(), AT, TaskStatus.FAILED, 5, 5, null, null);
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(failed));
         var detail = service.task(new IdQuery(running.batchId()));
         assertEquals("FAILED", detail.nativeStatus());
@@ -384,7 +375,6 @@ class ReconciliationServiceTest {
                 "task",
                 ReconciliationExecutionService.TYPE,
                 run,
-                AT,
                 AT,
                 TaskStatus.RUNNING,
                 attempt,

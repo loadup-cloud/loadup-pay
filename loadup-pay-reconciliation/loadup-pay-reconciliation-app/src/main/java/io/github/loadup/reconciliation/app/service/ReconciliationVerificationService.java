@@ -27,6 +27,7 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
 import io.github.loadup.components.task.TaskSubmission;
 import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.reconciliation.app.converter.ReconciliationVerificationConverter;
@@ -43,7 +44,6 @@ import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -85,22 +85,20 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
 
     static TaskExecution delivery(TaskTemplate outbox, ReconciliationVerificationRequest value) {
         var row = outbox.find(value.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        verifyDelivery(row, value);
+        return row;
+    }
+
+    private static void verifyDelivery(TaskExecution row, ReconciliationVerificationRequest value) {
         if (!value.deliveryId().equals(row.id())
                 || !value.id().equals(row.bizId())
                 || !ReconciliationVerificationMessages.TYPE.equals(row.taskType())
                 || row.status() == null
-                || !Set.of(
-                                io.github.loadup.components.task.TaskStatus.PENDING,
-                                io.github.loadup.components.task.TaskStatus.RUNNING,
-                                io.github.loadup.components.task.TaskStatus.SUCCEEDED,
-                                io.github.loadup.components.task.TaskStatus.FAILED)
-                        .contains(row.status())
-                || row.attempts() < 0
-                || row.status() == io.github.loadup.components.task.TaskStatus.SUCCEEDED
-                        && value.state() == ReconciliationVerificationState.INIT) {
+                || row.status() == TaskStatus.CANCELLED
+                || row.status() == TaskStatus.SUCCEEDED
+                || row.attempts() < 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return row;
     }
 
     @Override
@@ -127,7 +125,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
             }
             var id = ids.generate();
             var deliveryId = outbox.submit(TaskSubmission.immediate(
-                    ReconciliationVerificationMessages.TYPE, 1, id, ReconciliationVerificationMessages.encode(id)));
+                    ReconciliationVerificationMessages.TYPE, id, ReconciliationVerificationMessages.encode(id)));
             var request =
                     converter.toRequest(approved, id, actor.serviceId(), command.requestKey(), digest, deliveryId);
             requests.insert(request);
@@ -164,9 +162,13 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
             if (!value.deliveryId().equals(command.expectedDeliveryId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
-            var delivery = delivery(outbox, value);
-            if (delivery.status() == io.github.loadup.components.task.TaskStatus.FAILED) {
-                outbox.retryFailed(delivery.id(), actor.serviceId(), command.reason());
+            var queued = outbox.find(value.deliveryId());
+            if (queued.isPresent()) {
+                var task = queued.get();
+                verifyDelivery(task, value);
+                if (task.status() == TaskStatus.FAILED) {
+                    outbox.retryFailed(task.id(), actor.serviceId(), command.reason());
+                }
             }
             return present(value);
         });
@@ -195,7 +197,16 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
     }
 
     private ReconciliationVerificationDTO present(ReconciliationVerificationRequest value) {
-        return converter.toDTO(value, delivery(outbox, value), clock);
+        var queued = outbox.find(value.deliveryId());
+        if (queued.isPresent()) {
+            var task = queued.get();
+            verifyDelivery(task, value);
+            return converter.toDTO(value, task.status().name(), task.attempts(), clock);
+        }
+        if (value.state() != ReconciliationVerificationState.RECORDED) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        return converter.toDTO(value, TaskStatus.SUCCEEDED.name(), null, clock);
     }
 
     private ReconciliationActor actor(String operation) {

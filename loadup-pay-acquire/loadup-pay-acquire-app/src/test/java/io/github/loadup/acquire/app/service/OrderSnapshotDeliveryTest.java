@@ -75,7 +75,7 @@ class OrderSnapshotDeliveryTest {
                     2));
     final TaskExecution event = new TaskExecution(
             "queue",
-            new TaskSubmission(OrderSnapshotEvents.DELIVERY_TYPE, 1, "order", "payload", LocalDateTime.now(), ""),
+            new TaskSubmission(OrderSnapshotEvents.DELIVERY_TYPE, "delivery", "payload", LocalDateTime.now()),
             snapshot.occurredAt().toInstant(),
             null);
 
@@ -83,7 +83,7 @@ class OrderSnapshotDeliveryTest {
     void setup() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new TaskExecution("queue", OrderSnapshotEvents.DELIVERY_TYPE, "order", "RUNNING", 1, null)));
+                        new TaskExecution("queue", OrderSnapshotEvents.DELIVERY_TYPE, "delivery", "RUNNING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
         when(client.apply(snapshot)).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -124,8 +124,8 @@ class OrderSnapshotDeliveryTest {
     @Test
     void unclaimedQueueCannotSend() {
         when(outbox.find("queue"))
-                .thenReturn(Optional.of(
-                        new TaskExecution("queue", OrderSnapshotEvents.DELIVERY_TYPE, "order", "SUCCEEDED", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue", OrderSnapshotEvents.DELIVERY_TYPE, "delivery", "SUCCEEDED", 1, null)));
         assertThrows(CommonException.class, this::send);
         verify(client, never()).apply(any());
     }

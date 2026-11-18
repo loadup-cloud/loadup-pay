@@ -101,8 +101,9 @@ loadup:
       accounts: { }
   scheduler:
     binder-type: local
-    local:
-      interval: ${RECONCILIATION_SCAN_INTERVAL:PT30S}
+    tasks:
+      - name: transfer.scan
+        cron: "${RECONCILIATION_SCAN_CRON:0/30 * * * * *}"
   database:
     schema: ${DEPLOYMENT_DATABASE_SCHEMA:}
   flyway:

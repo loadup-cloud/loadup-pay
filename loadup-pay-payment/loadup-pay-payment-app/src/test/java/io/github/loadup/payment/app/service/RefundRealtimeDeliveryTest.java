@@ -81,13 +81,13 @@ class RefundRealtimeDeliveryTest {
             3,
             BusinessTime.external(RefundResultFixtures.NOW),
             new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3));
-    final TaskExecution childEvent = event("child", PaymentDeliveryRoutes.REFUND_CHILD, "refund");
-    final TaskExecution summaryEvent = event("summary", PaymentDeliveryRoutes.REFUND_SUMMARY, "order");
+    final TaskExecution childEvent = event("child", PaymentDeliveryRoutes.REFUND_CHILD, "delivery-child");
+    final TaskExecution summaryEvent = event("summary", PaymentDeliveryRoutes.REFUND_SUMMARY, "delivery-summary");
 
-    TaskExecution event(String queue, String type, String aggregate) {
+    TaskExecution event(String queue, String type, String deliveryId) {
         return new TaskExecution(
                 queue,
-                new TaskSubmission(type, 1, aggregate, queue + "-payload", LocalDateTime.now(), ""),
+                new TaskSubmission(type, deliveryId, queue + "-payload", LocalDateTime.now()),
                 RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
                 null);
     }
@@ -95,11 +95,11 @@ class RefundRealtimeDeliveryTest {
     @BeforeEach
     void setup() {
         when(outbox.find("child"))
-                .thenReturn(Optional.of(
-                        new TaskExecution("child", PaymentDeliveryRoutes.REFUND_CHILD, "refund", "RUNNING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "child", PaymentDeliveryRoutes.REFUND_CHILD, "delivery-child", "RUNNING", 1, null)));
         when(outbox.find("summary"))
                 .thenReturn(Optional.of(new TaskExecution(
-                        "summary", PaymentDeliveryRoutes.REFUND_SUMMARY, "order", "RUNNING", 1, null)));
+                        "summary", PaymentDeliveryRoutes.REFUND_SUMMARY, "delivery-summary", "RUNNING", 1, null)));
         when(codec.child("child-payload")).thenReturn(child);
         when(codec.summary("summary-payload")).thenReturn(summary);
         when(client.applyRefund(child))

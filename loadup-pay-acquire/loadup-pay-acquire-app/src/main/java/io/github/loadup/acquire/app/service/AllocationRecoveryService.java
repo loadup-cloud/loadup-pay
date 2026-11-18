@@ -168,7 +168,8 @@ public class AllocationRecoveryService implements TaskHandler {
         if (!task.id().equals(registered.id())
                 || !taskType().equals(registered.taskType())
                 || !task.bizId().equals(registered.bizId())
-                || !task.executeAt().equals(registered.executeAt())
+                || task.nextExecuteAt() == null
+                || !task.nextExecuteAt().equals(registered.nextExecuteAt())
                 || registered.status() != TaskStatus.RUNNING
                 || registered.attempts() != task.attempts()
                 || registered.leaseUntil() == null
@@ -201,7 +202,7 @@ public class AllocationRecoveryService implements TaskHandler {
         if (cursor.completed() || key.generation() < cursor.generation()) {
             return false;
         }
-        if (!cursor.dueAt().equals(task.executeAt())) {
+        if (task.nextExecuteAt().isBefore(cursor.dueAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return true;

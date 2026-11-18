@@ -35,12 +35,11 @@ class PolicyActivationTaskHandlerTest {
     final PolicyActivationTaskHandler handler =
             new PolicyActivationTaskHandler(service, JsonMapper.builder().build());
 
-    TaskExecution event(String businessId, int version) {
+    TaskExecution event(String businessId) {
         return new TaskExecution(
                 "event",
                 TaskSubmission.immediate(
                         PolicyActivationDispatch.TYPE,
-                        version,
                         businessId,
                         JsonUtil.toJson(new PolicyActivationDispatch("publication"))),
                 Instant.parse("2026-10-21T02:00:00Z"),
@@ -49,19 +48,13 @@ class PolicyActivationTaskHandlerTest {
 
     @Test
     void aMatchingFrameworkTenantAndEnvelopeDispatchTheStoredIntent() {
-        handler.handle(event("publication", 1));
+        handler.handle(event("publication"));
         verify(service).deliver("event", "publication");
     }
 
     @Test
     void businessBindingMismatchNeverInvokesTheDeliveryService() {
-        assertThrows(CommonException.class, () -> handler.handle(event("different", 1)));
-        verifyNoInteractions(service);
-    }
-
-    @Test
-    void anUnknownPayloadVersionIsNotSilentlyAcknowledged() {
-        assertThrows(CommonException.class, () -> handler.handle(event("publication", 2)));
+        assertThrows(CommonException.class, () -> handler.handle(event("different")));
         verifyNoInteractions(service);
     }
 }

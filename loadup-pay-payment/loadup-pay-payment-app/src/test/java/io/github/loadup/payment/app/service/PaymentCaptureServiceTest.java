@@ -304,7 +304,6 @@ class PaymentCaptureServiceTest {
                 PaymentCaptureExecutionService.TYPE,
                 "capture",
                 at,
-                at,
                 status,
                 attempts,
                 8,

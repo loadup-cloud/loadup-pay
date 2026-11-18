@@ -81,7 +81,7 @@ public class OrderSnapshotEvents {
                 expectedVersion,
                 BusinessTime.external(header.sourceUpdatedAt()),
                 data);
-        outbox.submit(TaskSubmission.immediate(DELIVERY_TYPE, 1, orderId, JsonUtil.toJson(event)));
+        outbox.submit(TaskSubmission.immediate(DELIVERY_TYPE, event.deliveryId(), JsonUtil.toJson(event)));
         notifications.order(header);
     }
 }

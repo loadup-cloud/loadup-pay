@@ -286,7 +286,7 @@ class PolicyPublicationServiceTest {
     void completionBetweenDetailReadsReloadsTheAckInsteadOfReportingCorruption() {
         when(publications.findById("publication"))
                 .thenReturn(Optional.of(pending()), Optional.of(pending().acknowledge("event", now)));
-        queue("SUCCEEDED");
+        when(outbox.find("event")).thenReturn(Optional.empty());
         assertEquals("ACTIVE", service.detail(new IdQuery("publication")).state());
     }
 

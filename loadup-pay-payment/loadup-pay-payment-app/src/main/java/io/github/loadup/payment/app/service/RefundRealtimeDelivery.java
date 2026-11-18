@@ -64,7 +64,7 @@ public class RefundRealtimeDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null || event.payloadVersion() != 1 || !type.equals(event.taskType())) {
+        if (event == null || !type.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var message = event;
@@ -79,7 +79,7 @@ public class RefundRealtimeDelivery {
     }
 
     private void requireAggregate(TaskExecution row, EventEnvelope<?> event) {
-        if (!row.bizId().equals(event.aggregateId())
+        if (!row.bizId().equals(event.deliveryId())
                 || !FrozenEventTypes.accepts(
                         PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), event.eventType())) {
             throw new CommonException(SNAPSHOT_INVALID);

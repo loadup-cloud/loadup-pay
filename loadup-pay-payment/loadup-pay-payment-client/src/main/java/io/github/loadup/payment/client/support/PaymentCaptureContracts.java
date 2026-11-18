@@ -36,7 +36,6 @@ public final class PaymentCaptureContracts {
     public static PaymentCaptureDTO capture(PaymentCaptureDTO value) {
         require(value != null);
         text(value.captureId(), 64);
-        text(value.nativeTaskId(), 64);
         require(value.channel() == Channel.WECHAT
                 && value.billDate() != null
                 && value.billDate().getYear() >= 1970
@@ -52,12 +51,20 @@ public final class PaymentCaptureContracts {
         require(value.state() != null
                 && value.nativeStatus() != null
                 && Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED")
-                        .contains(value.nativeStatus())
-                && value.attempts() != null
-                && value.maxAttempts() != null
-                && value.attempts() >= 0
-                && value.maxAttempts() >= 1
-                && value.attempts() <= value.maxAttempts());
+                        .contains(value.nativeStatus()));
+        boolean removed = value.state() != PaymentCaptureState.INIT
+                && "SUCCEEDED".equals(value.nativeStatus())
+                && value.nativeTaskId() == null
+                && value.attempts() == null
+                && value.maxAttempts() == null;
+        if (!removed) {
+            text(value.nativeTaskId(), 64);
+            require(value.attempts() != null
+                    && value.maxAttempts() != null
+                    && value.attempts() >= 0
+                    && value.maxAttempts() >= 1
+                    && value.attempts() <= value.maxAttempts());
+        }
         boolean initial = value.state() == PaymentCaptureState.INIT;
         boolean sealed = value.state() == PaymentCaptureState.SEALED;
         boolean blocked = value.state() == PaymentCaptureState.BLOCKED;

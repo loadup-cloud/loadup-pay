@@ -83,16 +83,7 @@ class OrderClosureRecoveryServiceTest {
             "original-payment-cursor",
             3L);
     final TaskExecution task = new TaskExecution(
-            "close-task",
-            OrderClosureTasks.TYPE,
-            "order.3",
-            NOW,
-            NOW,
-            TaskStatus.RUNNING,
-            1,
-            5,
-            NOW.plusMinutes(5),
-            null);
+            "close-task", OrderClosureTasks.TYPE, "order.3", NOW, TaskStatus.RUNNING, 1, 5, NOW.plusMinutes(5), null);
     final OrderPaymentScope scope = new OrderPaymentScope(OWNER);
 
     @BeforeEach

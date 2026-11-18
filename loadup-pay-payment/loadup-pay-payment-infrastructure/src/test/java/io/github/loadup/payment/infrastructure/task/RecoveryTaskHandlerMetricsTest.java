@@ -46,7 +46,7 @@ class RecoveryTaskHandlerMetricsTest {
 
     private static TaskExecution task(String type) {
         var at = LocalDateTime.of(2026, 10, 27, 12, 0);
-        return new TaskExecution("task", type, "original.0", at, at, TaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
+        return new TaskExecution("task", type, "original.0", at, TaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
     }
 
     @Test

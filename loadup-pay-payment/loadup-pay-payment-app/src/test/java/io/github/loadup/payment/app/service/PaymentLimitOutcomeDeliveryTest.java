@@ -61,7 +61,7 @@ class PaymentLimitOutcomeDeliveryTest {
             support, limits, intents, context.getBean(PaymentOutcomeDeliveryConverter.class));
     final TaskExecution event = new TaskExecution(
             "queue-event",
-            new TaskSubmission(PaymentDeliveryRoutes.LIMIT, 1, "payment", "{}", LocalDateTime.now(), ""),
+            new TaskSubmission(PaymentDeliveryRoutes.LIMIT, "payment", "{}", LocalDateTime.now()),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
     PaymentDeliverySnapshot snapshot;

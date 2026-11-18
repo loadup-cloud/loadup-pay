@@ -34,6 +34,7 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.task.TaskExecution;
+import io.github.loadup.components.task.TaskStatus;
 import io.github.loadup.components.task.TaskSubmission;
 import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.productcenter.app.converter.PolicyPublicationConverter;
@@ -56,6 +57,7 @@ import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -172,7 +174,6 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             publications.insert(initial);
             String event = outbox.submit(TaskSubmission.immediate(
                     PolicyActivationDispatch.TYPE,
-                    1,
                     initial.id(),
                     JsonUtil.toJson(new PolicyActivationDispatch(initial.id()))));
             var publishing = initial.publishing(event);
@@ -216,9 +217,8 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             var stored =
                     publications.findById(command.publicationId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             codec.decode(stored);
-            var queue = queue(stored);
-            // Framework replay uses its own audited transaction; never nest it inside a publication write transaction.
-            if (queue.status() != io.github.loadup.components.task.TaskStatus.FAILED) {
+            var queue = queue(stored).orElseThrow(() -> new CommonException(REPLAY_NOT_ALLOWED));
+            if (queue.status() != TaskStatus.FAILED) {
                 throw new CommonException(REPLAY_NOT_ALLOWED);
             }
             try {
@@ -278,27 +278,28 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
 
     private LimitPolicyPublicationDTO present(PolicyPublication stored) {
         var queue = queue(stored);
-        if (!"ACTIVE".equals(stored.state())
-                && queue.status() == io.github.loadup.components.task.TaskStatus.SUCCEEDED) {
-            // A worker may commit the ACK and complete delivery between the two independent reads.
-            var latest = publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            latest.requireSameIntent(stored);
-            if (!"ACTIVE".equals(latest.state())) {
-                throw new CommonException(SNAPSHOT_INVALID);
-            }
-            return converter.toDTO(latest, queue.status().name(), queue.attempts());
+        if (queue.isPresent()) {
+            var task = queue.get();
+            return converter.toDTO(stored, task.status().name(), task.attempts());
         }
-        return converter.toDTO(stored, queue.status().name(), queue.attempts());
-    }
-
-    private TaskExecution queue(PolicyPublication stored) {
-        var queue = outbox.find(stored.outboxEventId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!stored.id().equals(queue.bizId())
-                || !stored.outboxEventId().equals(queue.id())
-                || !PolicyActivationDispatch.TYPE.equals(queue.taskType())) {
+        // The worker commits the business ACK before deleting the task. Refresh a possibly older business read.
+        var latest = publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        latest.requireSameIntent(stored);
+        if (!"ACTIVE".equals(latest.state())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return queue;
+        return converter.toDTO(latest, TaskStatus.SUCCEEDED.name(), null);
+    }
+
+    private Optional<TaskExecution> queue(PolicyPublication stored) {
+        return outbox.find(stored.outboxEventId()).map(task -> {
+            if (!stored.id().equals(task.bizId())
+                    || !stored.outboxEventId().equals(task.id())
+                    || !PolicyActivationDispatch.TYPE.equals(task.taskType())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            return task;
+        });
     }
 
     private PublicationActor authorize(Object command, String permission) {

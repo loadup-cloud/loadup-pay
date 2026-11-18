@@ -64,10 +64,8 @@ public class ReconciliationVerificationDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.id() == null
-                || event.payloadVersion() != 1
-                || !ReconciliationVerificationMessages.TYPE.equals(event.taskType())) {
+        if (event == null || event.id() == null || !ReconciliationVerificationMessages.TYPE.equals(event.taskType())) {
+
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var message = event;

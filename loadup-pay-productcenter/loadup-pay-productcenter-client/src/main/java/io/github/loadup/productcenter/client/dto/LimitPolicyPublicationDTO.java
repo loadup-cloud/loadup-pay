@@ -45,11 +45,11 @@ public record LimitPolicyPublicationDTO(
         @Schema(description = "Stable framework Outbox identifier")
         String outboxEventId,
 
-        @Schema(description = "Outbox PENDING, PROCESSING, SUCCEEDED or FAILED status")
+        @Schema(description = "Outbox PENDING, RUNNING, SUCCEEDED or FAILED status")
         String deliveryStatus,
 
-        @Schema(description = "Delivery attempts in the current retry cycle")
-        int attempts) {
+        @Schema(description = "Delivery attempts while the task is retained")
+        Integer attempts) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

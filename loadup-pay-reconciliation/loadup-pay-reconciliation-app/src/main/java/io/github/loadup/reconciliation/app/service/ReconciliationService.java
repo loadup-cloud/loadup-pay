@@ -283,8 +283,12 @@ public class ReconciliationService implements ReconciliationFacade {
     }
 
     private ReconciliationBatchTaskDTO nativeTask(ReconciliationBatch batch) {
-        var task = tasks.find(ReconciliationExecutionService.TYPE, batch.runId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var queued = tasks.find(ReconciliationExecutionService.TYPE, batch.runId());
+        if (queued.isEmpty()
+                && (batch.state() == ReconciliationState.MATCHED || batch.state() == ReconciliationState.DIFFERENCES)) {
+            return new ReconciliationBatchTaskDTO(batch.runId(), null, TaskStatus.SUCCEEDED.name());
+        }
+        var task = queued.orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!batch.runId().equals(task.bizId())
                 || !ReconciliationExecutionService.TYPE.equals(task.taskType())
                 || task.id() == null

@@ -63,16 +63,7 @@ class OrderDeadlineServiceTest {
     final AtomicReference<StoredAcquireOrder> order =
             new AtomicReference<>(CheckoutFixtures.order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW));
     final TaskExecution task = new TaskExecution(
-            "due-task",
-            OrderDeadlineTasks.TYPE,
-            "order.1",
-            NOW,
-            NOW,
-            TaskStatus.RUNNING,
-            1,
-            5,
-            NOW.plusMinutes(5),
-            null);
+            "due-task", OrderDeadlineTasks.TYPE, "order.1", NOW, TaskStatus.RUNNING, 1, 5, NOW.plusMinutes(5), null);
 
     @BeforeEach
     void setup() {

@@ -57,6 +57,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -186,7 +187,7 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             sources.insert(request);
-            return converter.toDTO(request, task);
+            return converter.toDTO(request, task.status().name(), task.attempts(), task.maxAttempts());
         });
     }
 
@@ -207,10 +208,14 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
         return transactions.writeLocal(() -> {
             batch(actor, original.batchId(), true);
             var value = checked(actor, sources.lock(original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
-            var task = task(value);
-            if (!command.expectedTaskId().equals(task.id())) {
+            if (!command.expectedTaskId().equals(value.taskId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
+            var queued = task(value);
+            if (queued.isEmpty() && value.state() != ReconciliationStatementState.INIT) {
+                return present(value);
+            }
+            var task = queued.orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (task.status() == TaskStatus.CANCELLED) {
                 throw new CommonException(INVALID_STATE);
             }
@@ -251,14 +256,23 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
             value.verifyImport(imported);
             official.verify(imported);
         }
-        return converter.toDTO(value, task(value));
+        var queued = task(value);
+        if (queued.isPresent()) {
+            var task = queued.get();
+            return converter.toDTO(value, task.status().name(), task.attempts(), task.maxAttempts());
+        }
+        if (value.state() == ReconciliationStatementState.INIT) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        return converter.toDTO(value, TaskStatus.SUCCEEDED.name(), null, null);
     }
 
-    private TaskExecution task(ReconciliationStatementRequest value) {
-        var task = tasks.find(ReconciliationStatementExecutionService.TYPE, value.id())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        task(task, value);
-        return task;
+    private Optional<TaskExecution> task(ReconciliationStatementRequest value) {
+        return tasks.find(ReconciliationStatementExecutionService.TYPE, value.id())
+                .map(task -> {
+                    task(task, value);
+                    return task;
+                });
     }
 
     private ReconciliationActor actor(String operation) {

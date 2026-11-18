@@ -118,7 +118,7 @@ class PaymentEventsTest {
         for (var message : messages.getAllValues()) {
             Map<?, ?> envelope = mapper.readValue(message.payload(), Map.class);
             var data = (Map<?, ?>) envelope.get("data");
-            assertEquals("payment", message.bizId());
+            assertEquals(envelope.get("deliveryId"), message.bizId());
             assertEquals("evidence", envelope.get("businessEventId"));
             assertEquals(
                     message.taskType().equals(PaymentDeliveryRoutes.REALTIME)

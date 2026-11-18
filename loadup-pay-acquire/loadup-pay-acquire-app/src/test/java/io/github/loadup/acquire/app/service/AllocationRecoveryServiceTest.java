@@ -137,16 +137,7 @@ class AllocationRecoveryServiceTest {
 
     TaskExecution nativeTask(LocalDateTime leaseUntil) {
         return new TaskExecution(
-                "task",
-                AllocationRecoveryQueue.TYPE,
-                "payment.0",
-                NOW,
-                NOW,
-                TaskStatus.RUNNING,
-                1,
-                5,
-                leaseUntil,
-                null);
+                "task", AllocationRecoveryQueue.TYPE, "payment.0", NOW, TaskStatus.RUNNING, 1, 5, leaseUntil, null);
     }
 
     @BeforeEach

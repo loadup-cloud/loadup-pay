@@ -97,8 +97,6 @@ public class ReconciliationExecutionService {
         if (!Objects.equals(task.id(), registered.id())
                 || !TYPE.equals(registered.taskType())
                 || !Objects.equals(task.bizId(), registered.bizId())
-                || !Objects.equals(task.executeAt(), registered.executeAt())
-                || task.executeAt() == null
                 || !Objects.equals(task.nextExecuteAt(), registered.nextExecuteAt())
                 || task.attempts() != registered.attempts()
                 || task.maxAttempts() != registered.maxAttempts()

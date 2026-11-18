@@ -308,7 +308,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         if (!type.equals(task.taskType())
                 || !bizId.equals(task.bizId())
                 || task.status() == null
-                || generation == view.generation() && !view.dueAt().equals(task.executeAt())) {
+                || task.nextExecuteAt() == null
+                || generation == view.generation() && task.nextExecuteAt().isBefore(view.dueAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         boolean current = generation == view.generation() && !view.completed() && !view.terminal();
@@ -321,7 +322,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 current,
                 current
                         && task.status() == TaskStatus.FAILED
-                        && !LocalDateTime.now(clock).isBefore(task.executeAt()));
+                        && !LocalDateTime.now(clock).isBefore(task.nextExecuteAt()));
     }
 
     private PaymentRecoveryRetryDTO replay(

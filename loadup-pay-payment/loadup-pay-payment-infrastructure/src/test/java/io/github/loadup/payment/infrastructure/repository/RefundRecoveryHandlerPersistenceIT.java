@@ -44,7 +44,6 @@ import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefu
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.components.task.JdbcTaskRepository;
 import io.github.loadup.components.task.TaskProperties;
-import io.github.loadup.components.task.TaskStatus;
 import io.github.loadup.components.task.TaskSubmission;
 import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
@@ -317,7 +316,7 @@ class RefundRecoveryHandlerPersistenceIT {
             assertTrue(taskStore.complete(current));
             assertFalse(taskStore.complete(expired));
             assertCursor(fixture, 0L, true);
-            assertNativeCount(fixture, 1L);
+            assertNativeCount(fixture, 0L);
             assertSucceeded(fixture, 2L, false, 1L);
             verify(remote.channels, times(1)).recoverRefund(eq(fixture.prepared()));
         } finally {
@@ -355,7 +354,7 @@ class RefundRecoveryHandlerPersistenceIT {
                 handle(fixture, replacement);
                 assertTrue(taskStore.complete(replacement));
                 assertCursor(fixture, 1L, false);
-                assertNativeCount(fixture, 2L);
+                assertNativeCount(fixture, 1L);
                 assertRefundCounts(fixture, 0L, 1L, 9L);
                 assertReserved(fixture, RefundState.UNKNOWN, 2L);
 
@@ -372,20 +371,14 @@ class RefundRecoveryHandlerPersistenceIT {
             assertFalse(taskStore.complete(oldClaim));
             assertSucceeded(fixture, 3L, true, 2L);
             assertCursor(fixture, 1L, true);
-            assertNativeCount(fixture, 2L);
+            assertNativeCount(fixture, 0L);
             transactions.readSnapshot(() -> {
                 assertTrue(
                         tasks.find(RefundRecoveryService.TYPE, key(fixture, 2L)).isEmpty());
-                assertEquals(
-                        TaskStatus.SUCCEEDED,
-                        tasks.find(RefundRecoveryService.TYPE, key(fixture, 0L))
-                                .orElseThrow()
-                                .status());
-                assertEquals(
-                        TaskStatus.SUCCEEDED,
-                        tasks.find(RefundRecoveryService.TYPE, key(fixture, 1L))
-                                .orElseThrow()
-                                .status());
+                assertTrue(
+                        tasks.find(RefundRecoveryService.TYPE, key(fixture, 0L)).isEmpty());
+                assertTrue(
+                        tasks.find(RefundRecoveryService.TYPE, key(fixture, 1L)).isEmpty());
                 return true;
             });
             verify(remote.channels, times(3)).recoverRefund(eq(fixture.prepared()));
@@ -991,7 +984,7 @@ class RefundRecoveryHandlerPersistenceIT {
                     cursor.dueAt(),
                     tasks.find(RefundRecoveryService.TYPE, key(fixture, generation))
                             .orElseThrow()
-                            .executeAt());
+                            .nextExecuteAt());
             return true;
         });
     }

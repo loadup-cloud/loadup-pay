@@ -93,7 +93,7 @@ public class RefundRecoveryService {
         boolean active = transactions.writeLocal(() -> {
             var request = locks.request(key.requestId());
             var cursor = cursor(key);
-            if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.executeAt())) {
+            if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.nextExecuteAt())) {
                 return false;
             }
             if (terminal(request)) {
@@ -110,7 +110,7 @@ public class RefundRecoveryService {
         return transactions.writeLocal(() -> {
             var request = locks.request(key.requestId());
             var before = cursor(key);
-            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) {
+            if (!RecoveryTaskProtocol.current(identity, before.position(), task.nextExecuteAt())) {
                 return RecoveryHandlingOutcome.SKIPPED;
             }
             if (terminal(request)) {

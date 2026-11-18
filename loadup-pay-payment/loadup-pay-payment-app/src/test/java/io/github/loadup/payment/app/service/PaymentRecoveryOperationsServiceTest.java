@@ -163,7 +163,6 @@ class PaymentRecoveryOperationsServiceTest {
                                     before.id(),
                                     before.taskType(),
                                     before.bizId(),
-                                    before.executeAt(),
                                     NOW,
                                     TaskStatus.PENDING,
                                     0,
@@ -184,7 +183,7 @@ class PaymentRecoveryOperationsServiceTest {
                 })
                 .when(receipts)
                 .insert(any());
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, TaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW, TaskStatus.FAILED);
     }
 
     @AfterEach
@@ -193,14 +192,13 @@ class PaymentRecoveryOperationsServiceTest {
         validation.close();
     }
 
-    void put(String type, String biz, LocalDateTime due, LocalDateTime next, TaskStatus status) {
+    void put(String type, String biz, LocalDateTime next, TaskStatus status) {
         nativeTasks.put(
                 type + "/" + biz,
                 new TaskExecution(
                         type.equals(RefundRecoveryService.TYPE) ? "native-refund-task" : "native-task",
                         type,
                         biz,
-                        due,
                         next,
                         status,
                         5,
@@ -246,7 +244,7 @@ class PaymentRecoveryOperationsServiceTest {
         verify(paymentLocks, never()).lock(anyString(), eq("pay-ops"));
         assertEquals("order", ledger.values().iterator().next().orderId());
         assertEquals(1, manager.commits);
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW.plusSeconds(1), TaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         clearInvocations(payments, paymentLocks, paymentCursors, tasks);
         assertEquals(first, service.retry(command()));
         verifyNoInteractions(payments, paymentLocks, paymentCursors, tasks);
@@ -255,7 +253,7 @@ class PaymentRecoveryOperationsServiceTest {
 
     @Test
     void refundInspectionNeverAcquiresParentRequestOrCursorWriteLocks() {
-        put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, TaskStatus.FAILED);
+        put(RefundRecoveryService.TYPE, "request.0", NOW, TaskStatus.FAILED);
         assertTrue(service.detail(new PaymentRecoveryTaskQuery(PaymentRecoveryKind.REFUND_REQUEST, "request", 0L))
                 .retryable());
         verify(refunds).load("request");
@@ -268,7 +266,7 @@ class PaymentRecoveryOperationsServiceTest {
     void staleInspectionStillNeedsTheLockedOriginalRetryPreconditions() {
         assertTrue(service.detail(new PaymentRecoveryTaskQuery(PaymentRecoveryKind.COLLECTION, "payment", 0L))
                 .retryable());
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW.plusSeconds(1), TaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         assertSame(
                 VERSION_CONFLICT,
                 assertThrows(CommonException.class, () -> service.retry(command()))
@@ -295,7 +293,7 @@ class PaymentRecoveryOperationsServiceTest {
 
     @Test
     void refundRetryOnlyWakesItsOriginalFixedRequestAndDoesNotEnterCollectionLocks() {
-        put(RefundRecoveryService.TYPE, "request.0", refund.get().plannedAt(), NOW, TaskStatus.FAILED);
+        put(RefundRecoveryService.TYPE, "request.0", NOW, TaskStatus.FAILED);
         var result = service.retry(command(PaymentRecoveryKind.REFUND_REQUEST, "request", "refund-operation", NOW));
         assertEquals("RETRIED", result.result());
         assertEquals("request", result.subjectId());
@@ -346,7 +344,7 @@ class PaymentRecoveryOperationsServiceTest {
     @Test
     void missingTasksAndNonFailedStatesCannotBeCreatedOrRescheduledThroughOperations() {
         for (var status : List.of(TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCEEDED, TaskStatus.CANCELLED)) {
-            put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, status);
+            put(PaymentRecoveryService.TYPE, "payment.0", NOW, status);
             assertSame(
                     INVALID_STATE,
                     assertThrows(CommonException.class, () -> service.retry(command()))
@@ -397,7 +395,7 @@ class PaymentRecoveryOperationsServiceTest {
     @Test
     void futureWakeupAndSubMicrosecondExpectationsAreRejected() {
         cursor.set(PaymentRecoveryCursor.init("payment", NOW.plusSeconds(1)));
-        put(PaymentRecoveryService.TYPE, "payment.0", NOW.plusSeconds(1), NOW.plusSeconds(1), TaskStatus.FAILED);
+        put(PaymentRecoveryService.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         assertSame(
                 INVALID_STATE,
                 assertThrows(

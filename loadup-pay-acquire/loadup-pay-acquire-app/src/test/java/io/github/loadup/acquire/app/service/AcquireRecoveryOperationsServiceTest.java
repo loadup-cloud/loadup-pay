@@ -211,7 +211,6 @@ class AcquireRecoveryOperationsServiceTest {
                                     before.id(),
                                     before.taskType(),
                                     before.bizId(),
-                                    before.executeAt(),
                                     NOW,
                                     TaskStatus.PENDING,
                                     0,
@@ -232,7 +231,7 @@ class AcquireRecoveryOperationsServiceTest {
                 })
                 .when(receipts)
                 .insert(any());
-        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW, TaskStatus.FAILED);
+        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, TaskStatus.FAILED);
     }
 
     @AfterEach
@@ -266,10 +265,10 @@ class AcquireRecoveryOperationsServiceTest {
                 "Dependency restored");
     }
 
-    void put(String type, String biz, LocalDateTime due, LocalDateTime next, TaskStatus status) {
+    void put(String type, String biz, LocalDateTime next, TaskStatus status) {
         nativeTasks.put(
                 type + "/" + biz,
-                new TaskExecution("native-task", type, biz, due, next, status, 5, 5, null, "secret-channel-error"));
+                new TaskExecution("native-task", type, biz, next, status, 5, 5, null, "secret-channel-error"));
     }
 
     @Test
@@ -303,7 +302,7 @@ class AcquireRecoveryOperationsServiceTest {
         assertFalse(command().toString().contains(command().reason()));
         // A later cycle can fail with the same attempts count; the original request key still replays its first
         // decision.
-        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW.plusSeconds(1), TaskStatus.FAILED);
+        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         clearInvocations(orders, allocations, cursors, paymentRecovery, tasks);
         var replay = service.retry(command());
         assertEquals(first, replay);
@@ -315,7 +314,7 @@ class AcquireRecoveryOperationsServiceTest {
     void staleReadInspectionCannotAuthorizeAChangedNativeTask() {
         var view = service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L));
         assertTrue(view.retryable());
-        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW.plusSeconds(1), TaskStatus.FAILED);
+        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         assertSame(
                 VERSION_CONFLICT,
                 assertThrows(CommonException.class, () -> service.retry(command()))
@@ -387,7 +386,7 @@ class AcquireRecoveryOperationsServiceTest {
     @Test
     void onlyFailedTasksCanBeRetriedAndNativeRegistrationIsNeverInvented() {
         for (var status : List.of(TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCEEDED, TaskStatus.CANCELLED)) {
-            put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW, status);
+            put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, status);
             assertSame(
                     INVALID_STATE,
                     assertThrows(CommonException.class, () -> service.retry(command()))
@@ -439,7 +438,7 @@ class AcquireRecoveryOperationsServiceTest {
 
     @Test
     void deadlineVersionAndOriginalClosingGenerationUseTheirOwnNativeNamespaces() {
-        put(OrderDeadlineTasks.TYPE, "order.1", NOW, NOW, TaskStatus.FAILED);
+        put(OrderDeadlineTasks.TYPE, "order.1", NOW, TaskStatus.FAILED);
         var deadline = service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.ORDER_DEADLINE, "order", 1L));
         assertTrue(deadline.retryable());
         when(extensions.deadlineVersion(any())).thenReturn(2L);
@@ -461,7 +460,7 @@ class AcquireRecoveryOperationsServiceTest {
         when(closes.findIntent("order")).thenReturn(Optional.of(intent));
         when(closure.isCurrent(new OrderPaymentScope(OWNER), order.get(), intent, 0L))
                 .thenReturn(true);
-        put(OrderClosureTasks.TYPE, "order.0", NOW, NOW, TaskStatus.FAILED);
+        put(OrderClosureTasks.TYPE, "order.0", NOW, TaskStatus.FAILED);
         var result = service.retry(command(
                 AcquireRecoveryKind.ORDER_CLOSURE, "order", 0L, "native-task", 5, NOW, "close-retry", "Resume close"));
         assertEquals("RETRIED", result.result());
@@ -472,7 +471,7 @@ class AcquireRecoveryOperationsServiceTest {
     @Test
     void aFutureOriginalWakeupCannotBeAcceleratedByManualFailedRetry() {
         cursor.set(AllocationRecoveryCursor.init("payment", "order", NOW.plusSeconds(1)));
-        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW.plusSeconds(1), NOW.plusSeconds(1), TaskStatus.FAILED);
+        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         assertFalse(service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L))
                 .retryable());
         assertSame(

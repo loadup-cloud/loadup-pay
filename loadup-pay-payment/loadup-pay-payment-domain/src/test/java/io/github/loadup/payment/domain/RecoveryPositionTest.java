@@ -72,7 +72,8 @@ class RecoveryPositionTest {
                 DomainViolation.class,
                 () -> new RecoveryPosition("subject", 0L, at, true).current(new RecoveryTaskKey("subject", 1L), at));
         assertThrows(DomainViolation.class, () -> position.current(new RecoveryTaskKey("other-subject", 0L), at));
-        assertThrows(DomainViolation.class, () -> position.current(key, at.plusSeconds(1)));
+        assertTrue(position.current(key, at.plusSeconds(1)));
+        assertThrows(DomainViolation.class, () -> position.current(key, at.minusSeconds(1)));
     }
 
     @Test

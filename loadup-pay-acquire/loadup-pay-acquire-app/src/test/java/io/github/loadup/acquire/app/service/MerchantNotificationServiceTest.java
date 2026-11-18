@@ -73,17 +73,11 @@ class MerchantNotificationServiceTest {
     private final ArrayList<String> operations = new ArrayList<>();
 
     private static TaskExecution runningTask(
-            String bizId,
-            LocalDateTime executeAt,
-            LocalDateTime nextExecuteAt,
-            String id,
-            int attempts,
-            LocalDateTime leaseUntil) {
+            String bizId, LocalDateTime nextExecuteAt, String id, int attempts, LocalDateTime leaseUntil) {
         return new TaskExecution(
                 id,
                 MerchantNotificationService.TYPE,
                 bizId,
-                executeAt,
                 nextExecuteAt,
                 TaskStatus.RUNNING,
                 attempts,
@@ -137,7 +131,7 @@ class MerchantNotificationServiceTest {
 
     @Test
     void registersSuccessorBeforeSendingAndFalseAcknowledgementLeavesDeliveryPending() {
-        var task = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
+        var task = runningTask("delivery:0", NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(task.bizId(), task);
         when(transport.send(ArgumentMatchers.any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -163,7 +157,7 @@ class MerchantNotificationServiceTest {
 
     @Test
     void acknowledgesOnlyAfterTheTransportReturnsOutsideTheTransaction() {
-        var task = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
+        var task = runningTask("delivery:0", NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(task.bizId(), task);
         when(transport.send(ArgumentMatchers.any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -182,10 +176,10 @@ class MerchantNotificationServiceTest {
 
     @Test
     void duplicateNativeGenerationCannotSendAfterItsCursorWasAdvanced() {
-        var first = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
+        var first = runningTask("delivery:0", NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(first.bizId(), first);
         invoke(first, service(NOW));
-        var duplicate = runningTask("delivery:0", NOW, NOW, "native-0-reclaimed", 2, NOW.plusMinutes(1));
+        var duplicate = runningTask("delivery:0", NOW, "native-0-reclaimed", 2, NOW.plusMinutes(1));
         nativeTasks.put(duplicate.bizId(), duplicate);
 
         invoke(duplicate, service(NOW.plusSeconds(1)));
@@ -196,15 +190,15 @@ class MerchantNotificationServiceTest {
 
     @Test
     void mismatchedRegisteredTaskAndExpiredLeaseAreRejectedBeforeDeliveryReads() {
-        var presented = runningTask("delivery:0", NOW, NOW, "presented", 1, NOW.plusMinutes(1));
-        nativeTasks.put(presented.bizId(), runningTask("delivery:0", NOW, NOW, "registered", 1, NOW.plusMinutes(1)));
+        var presented = runningTask("delivery:0", NOW, "presented", 1, NOW.plusMinutes(1));
+        nativeTasks.put(presented.bizId(), runningTask("delivery:0", NOW, "registered", 1, NOW.plusMinutes(1)));
 
         assertSame(
                 INVALID_STATE,
                 assertThrows(CommonException.class, () -> invoke(presented, service(NOW)))
                         .getResultCode());
 
-        var expired = runningTask("delivery:0", NOW, NOW, "expired", 1, NOW);
+        var expired = runningTask("delivery:0", NOW, "expired", 1, NOW);
         nativeTasks.put(expired.bizId(), expired);
         assertSame(
                 INVALID_STATE,
@@ -218,21 +212,15 @@ class MerchantNotificationServiceTest {
     void exhaustedAttemptLimitAndExpiredWindowDoNotSend() {
         var oneAttempt = policy(5, 1, 3600);
         current.set(delivery(oneAttempt).begin(NOW, ROUTE));
-        var atLimit = runningTask(
-                "delivery:1",
-                current.get().nextAttemptAt(),
-                current.get().nextAttemptAt(),
-                "native-limit",
-                1,
-                NOW.plusMinutes(1));
+        var atLimit = runningTask("delivery:1", current.get().nextAttemptAt(), "native-limit", 1, NOW.plusMinutes(1));
         nativeTasks.put(atLimit.bizId(), atLimit);
 
-        invoke(atLimit, service(atLimit.executeAt()));
+        invoke(atLimit, service(atLimit.nextExecuteAt()));
         assertEquals(MerchantNotificationState.EXHAUSTED, current.get().state());
         verify(transport, never()).send(ArgumentMatchers.any());
 
         current.set(delivery(policy(5, 5, 1)));
-        var expired = runningTask("delivery:0", NOW, NOW, "native-expired-window", 1, NOW.plusMinutes(1));
+        var expired = runningTask("delivery:0", NOW, "native-expired-window", 1, NOW.plusMinutes(1));
         nativeTasks.put(expired.bizId(), expired);
         invoke(expired, service(NOW.plusSeconds(1)));
         assertEquals(MerchantNotificationState.EXHAUSTED, current.get().state());
@@ -241,12 +229,12 @@ class MerchantNotificationServiceTest {
 
     @Test
     void routeFingerprintStaysFrozenAcrossLaterConfigurationChanges() {
-        var first = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
+        var first = runningTask("delivery:0", NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(first.bizId(), first);
         invoke(first, service(NOW));
         when(transport.fingerprint(ArgumentMatchers.any())).thenReturn(CHANGED_ROUTE);
         var due = current.get().nextAttemptAt();
-        var second = runningTask("delivery:1", due, due, "native-1", 1, NOW.plusMinutes(1));
+        var second = runningTask("delivery:1", due, "native-1", 1, NOW.plusMinutes(1));
         nativeTasks.put(second.bizId(), second);
 
         invoke(second, service(due.plusSeconds(1)));

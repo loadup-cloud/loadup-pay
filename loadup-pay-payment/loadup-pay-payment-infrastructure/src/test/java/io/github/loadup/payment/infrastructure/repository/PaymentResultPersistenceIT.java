@@ -517,8 +517,9 @@ class PaymentResultPersistenceIT {
             assertFalse(taskStore.complete(expired));
             assertSettledOnce(fixture);
             assertCursor(fixture, 0L, true);
-            assertNativeCount(fixture, 1L);
-            assertEquals(TaskStatus.SUCCEEDED, nativeTask(fixture, 0L).status());
+            assertNativeCount(fixture, 0L);
+            assertTrue(transactions.readSnapshot(() -> tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, 0L))
+                    .isEmpty()));
             verify(remote.channels, times(1)).recover(any());
         } finally {
             cancelRemainingTasks(fixture);
@@ -551,7 +552,7 @@ class PaymentResultPersistenceIT {
                 handle(fixture, replacement);
                 assertTrue(taskStore.complete(replacement));
                 assertCursor(fixture, 1L, false);
-                assertNativeCount(fixture, 2L);
+                assertNativeCount(fixture, 1L);
                 assertCounts(fixture, 0L, 0L, 1L, 0L, 1L);
                 assertEquals(TaskStatus.PENDING, nativeTask(fixture, 1L).status());
 
@@ -571,9 +572,11 @@ class PaymentResultPersistenceIT {
             assertCounts(fixture, 1L, 1L, 2L, 0L, 5L);
             assertTargetCounts(fixture, 2L);
             assertCursor(fixture, 1L, true);
-            assertNativeCount(fixture, 2L);
-            assertEquals(TaskStatus.SUCCEEDED, nativeTask(fixture, 0L).status());
-            assertEquals(TaskStatus.SUCCEEDED, nativeTask(fixture, 1L).status());
+            assertNativeCount(fixture, 0L);
+            assertTrue(transactions.readSnapshot(() -> tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, 0L))
+                    .isEmpty()));
+            assertTrue(transactions.readSnapshot(() -> tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, 1L))
+                    .isEmpty()));
             transactions.readSnapshot(() -> {
                 assertTrue(tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, 2L))
                         .isEmpty());
@@ -988,7 +991,7 @@ class PaymentResultPersistenceIT {
             assertEquals(
                     outbox,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM loadup_task WHERE payload IS NOT NULL AND biz_id = ?",
+                                    "SELECT COUNT(*) FROM loadup_task WHERE payload IS NOT NULL AND payload::jsonb ->> 'aggregateId' = ?",
                                     Long.class,
                                     fixture.command().paymentId())
                             .longValue());
@@ -1018,7 +1021,7 @@ class PaymentResultPersistenceIT {
                         type.equals(PaymentDeliveryRoutes.REALTIME) ? realtimeSnapshots : 1L,
                         jdbc.queryForObject(
                                         "SELECT COUNT(*) FROM loadup_task"
-                                                + " WHERE payload IS NOT NULL AND biz_id = ? AND task_type = ?",
+                                                + " WHERE payload IS NOT NULL AND payload::jsonb ->> 'aggregateId' = ? AND task_type = ?",
                                         Long.class,
                                         fixture.command().paymentId(),
                                         type)
@@ -1056,7 +1059,7 @@ class PaymentResultPersistenceIT {
                     cursor.dueAt(),
                     tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, generation))
                             .orElseThrow()
-                            .executeAt());
+                            .nextExecuteAt());
             return true;
         });
     }

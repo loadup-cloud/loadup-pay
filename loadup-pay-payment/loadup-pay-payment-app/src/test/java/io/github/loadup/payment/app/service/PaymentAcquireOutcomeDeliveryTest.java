@@ -43,7 +43,7 @@ class PaymentAcquireOutcomeDeliveryTest {
     final PaymentAcquireOutcomeDelivery delivery = new PaymentAcquireOutcomeDelivery(support, acquire);
     final TaskExecution event = new TaskExecution(
             "queue-event",
-            new TaskSubmission(PaymentDeliveryRoutes.ACQUIRE, 1, "payment", "{}", LocalDateTime.now(), ""),
+            new TaskSubmission(PaymentDeliveryRoutes.ACQUIRE, "payment", "{}", LocalDateTime.now()),
             OutcomeDeliveryFixtures.snapshot(true, true, PaymentDeliveryRoutes.ACQUIRE)
                     .envelope()
                     .occurredAt()

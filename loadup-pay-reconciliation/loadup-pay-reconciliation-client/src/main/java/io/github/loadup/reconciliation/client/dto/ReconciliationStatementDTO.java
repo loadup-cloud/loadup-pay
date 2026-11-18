@@ -36,8 +36,8 @@ public record ReconciliationStatementDTO(
         long version,
         String taskId,
         String taskStatus,
-        int attempts,
-        int maxAttempts) {
+        Integer attempts,
+        Integer maxAttempts) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

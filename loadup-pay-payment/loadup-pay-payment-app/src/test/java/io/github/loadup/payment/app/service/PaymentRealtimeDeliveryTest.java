@@ -75,7 +75,7 @@ class PaymentRealtimeDeliveryTest {
                     2));
     final TaskExecution event = new TaskExecution(
             "queue",
-            new TaskSubmission(PaymentDeliveryRoutes.REALTIME, 1, "payment", "payload", LocalDateTime.now(), ""),
+            new TaskSubmission(PaymentDeliveryRoutes.REALTIME, "delivery", "payload", LocalDateTime.now()),
             snapshot.occurredAt().toInstant(),
             null);
 
@@ -83,7 +83,7 @@ class PaymentRealtimeDeliveryTest {
     void setup() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new TaskExecution("queue", PaymentDeliveryRoutes.REALTIME, "payment", "RUNNING", 1, null)));
+                        new TaskExecution("queue", PaymentDeliveryRoutes.REALTIME, "delivery", "RUNNING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
         when(client.apply(snapshot)).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());

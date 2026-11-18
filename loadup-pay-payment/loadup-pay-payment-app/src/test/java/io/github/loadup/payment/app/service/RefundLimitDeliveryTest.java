@@ -88,7 +88,7 @@ class RefundLimitDeliveryTest {
     final TaskExecution event = new TaskExecution(
             "queue-limit",
             new TaskSubmission(
-                    PaymentDeliveryRoutes.REFUND_LIMIT, 1, "refund", "limit-payload", LocalDateTime.now(), ""),
+                    PaymentDeliveryRoutes.REFUND_LIMIT, "delivery-limit", "limit-payload", LocalDateTime.now()),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
@@ -96,7 +96,7 @@ class RefundLimitDeliveryTest {
     void setup() {
         when(outbox.find("queue-limit"))
                 .thenReturn(Optional.of(new TaskExecution(
-                        "queue-limit", PaymentDeliveryRoutes.REFUND_LIMIT, "refund", "RUNNING", 1, null)));
+                        "queue-limit", PaymentDeliveryRoutes.REFUND_LIMIT, "delivery-limit", "RUNNING", 1, null)));
         when(codec.limit("limit-payload")).thenReturn(envelope);
         when(client.restoreRefund(any())).thenReturn(validAck());
     }
@@ -330,7 +330,7 @@ class RefundLimitDeliveryTest {
                 assertThrows(CommonException.class, this::deliver).getResultCode());
         when(outbox.find("queue-limit"))
                 .thenReturn(Optional.of(new TaskExecution(
-                        "queue-limit", PaymentDeliveryRoutes.REFUND_LIMIT, "refund", "PENDING", 1, null)));
+                        "queue-limit", PaymentDeliveryRoutes.REFUND_LIMIT, "delivery-limit", "PENDING", 1, null)));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());

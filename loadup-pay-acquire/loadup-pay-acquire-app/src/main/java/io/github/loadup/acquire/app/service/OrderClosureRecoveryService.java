@@ -74,7 +74,7 @@ public class OrderClosureRecoveryService implements TaskHandler {
             var intent = closes.findIntent(key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!order.order().id().equals(key.orderId())
                     || !intent.orderId().equals(key.orderId())
-                    || task.executeAt().isBefore(intent.requestedAt())) {
+                    || task.nextExecuteAt().isBefore(intent.requestedAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var scope = new OrderPaymentScope(order.callerScopeHash());
@@ -106,7 +106,8 @@ public class OrderClosureRecoveryService implements TaskHandler {
         if (!task.id().equals(nativeTask.id())
                 || !taskType().equals(nativeTask.taskType())
                 || !task.bizId().equals(nativeTask.bizId())
-                || !task.executeAt().equals(nativeTask.executeAt())
+                || task.nextExecuteAt() == null
+                || !task.nextExecuteAt().equals(nativeTask.nextExecuteAt())
                 || nativeTask.status() != TaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts()
                 || nativeTask.leaseUntil() == null

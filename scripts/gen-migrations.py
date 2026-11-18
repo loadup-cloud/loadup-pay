@@ -40,7 +40,7 @@ APP_DIRS = {
 SCHEMAS = {
     "task": (
         "20260101000001",
-        "loadup-components/reliability/loadup-components-task/src/main/resources/db/schema/task.sql",
+        "loadup-components/reliability/loadup-components-task/src/main/resources/db/task/pg/schema.sql",
     ),
     "global_unique": (
         "20260101000003",

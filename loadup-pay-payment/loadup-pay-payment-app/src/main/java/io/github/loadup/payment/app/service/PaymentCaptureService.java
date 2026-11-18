@@ -28,6 +28,7 @@ import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.task.TaskStatus;
 import io.github.loadup.components.task.TaskSubmission;
 import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.payment.app.converter.PaymentCaptureConverter;
@@ -132,6 +133,9 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
             var value = authorized(
                     actor, captures.lock(command.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var task = present(value);
+            if (task.nativeTaskId() == null) {
+                throw new CommonException(INVALID_STATE);
+            }
             if (!command.expectedTaskId().equals(task.nativeTaskId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
@@ -179,12 +183,15 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     }
 
     private PaymentCaptureDTO present(PaymentCapture value) {
-        var task = tasks.find(PaymentCaptureExecutionService.TYPE, value.id())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var queued = tasks.find(PaymentCaptureExecutionService.TYPE, value.id());
+        if (queued.isEmpty() && value.state() != PaymentCaptureState.INIT) {
+            return converter.toDTO(value, null, TaskStatus.SUCCEEDED.name(), null, null);
+        }
+        var task = queued.orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!value.id().equals(task.bizId()) || !PaymentCaptureExecutionService.TYPE.equals(task.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return converter.toDTO(value, task);
+        return converter.toDTO(value, task.id(), task.status().name(), task.attempts(), task.maxAttempts());
     }
 
     private PaymentCapture authorized(PaymentActor actor, PaymentCapture value) {

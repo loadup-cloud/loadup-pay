@@ -79,7 +79,7 @@ class RefundMerchantDeliveryTest {
             data);
     final TaskExecution event = new TaskExecution(
             "queue",
-            new TaskSubmission(RefundMerchantEventDTO.TYPE, 1, "refund", "payload", LocalDateTime.now(), ""),
+            new TaskSubmission(RefundMerchantEventDTO.TYPE, "delivery", "payload", LocalDateTime.now()),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
     final String merchantEventId =
@@ -89,7 +89,7 @@ class RefundMerchantDeliveryTest {
     void setup() {
         when(outbox.find("queue"))
                 .thenReturn(Optional.of(
-                        new TaskExecution("queue", RefundMerchantEventDTO.TYPE, "refund", "RUNNING", 1, null)));
+                        new TaskExecution("queue", RefundMerchantEventDTO.TYPE, "delivery", "RUNNING", 1, null)));
         when(codec.merchant("payload")).thenReturn(envelope);
         when(acquire.acceptRefundNotification(envelope)).thenReturn(ack("ENQUEUED"));
     }

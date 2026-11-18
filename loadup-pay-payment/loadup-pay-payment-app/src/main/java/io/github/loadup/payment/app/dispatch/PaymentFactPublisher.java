@@ -49,8 +49,8 @@ public final class PaymentFactPublisher {
         }
         for (var route : destinations) {
             var delivery = fact.delivery(ids.generate());
-            outbox.submit(TaskSubmission.immediate(
-                    route.deliveryType(), fact.schemaVersion(), fact.aggregateId(), JsonUtil.toJson(delivery)));
+            outbox.submit(
+                    TaskSubmission.immediate(route.deliveryType(), delivery.deliveryId(), JsonUtil.toJson(delivery)));
         }
     }
 }

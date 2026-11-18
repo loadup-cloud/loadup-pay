@@ -34,13 +34,13 @@ public record RecoveryPosition(String subjectId, long generation, LocalDateTime 
         require(generation >= 0, INVALID_ARGUMENT);
     }
 
-    public boolean current(RecoveryTaskKey key, LocalDateTime originalExecuteAt) {
+    public boolean current(RecoveryTaskKey key, LocalDateTime nextExecuteAt) {
         Objects.requireNonNull(key);
         require(subjectId.equals(key.subjectId()) && key.generation() <= generation, CONFLICT);
         if (completed || key.generation() < generation) {
             return false;
         }
-        require(dueAt.equals(originalExecuteAt), CONFLICT);
+        require(nextExecuteAt != null && !nextExecuteAt.isBefore(dueAt), CONFLICT);
         return true;
     }
 

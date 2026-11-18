@@ -131,7 +131,6 @@ class MerchantNotificationOperationsServiceTest {
                 MerchantNotificationService.TYPE,
                 new MerchantNotificationKey(row.id(), row.attemptCount()).bizId(),
                 row.nextAttemptAt(),
-                row.nextAttemptAt(),
                 status,
                 5,
                 5,

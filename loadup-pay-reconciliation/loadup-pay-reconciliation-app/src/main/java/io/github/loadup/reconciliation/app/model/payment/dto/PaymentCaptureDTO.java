@@ -82,14 +82,17 @@ public record PaymentCaptureDTO(
         @JsonSetter(nulls = Nulls.FAIL)
         long version,
 
-        @Schema(description = "Original native task identity")
+        @Schema(description = "Task identity while a queue record exists")
         String nativeTaskId,
 
         @Schema(description = "Independent task state; a sealed capture remains immutable after a lost task ACK")
         String nativeStatus,
 
-        @Schema(description = "Current claimed attempts") Integer attempts,
-        @Schema(description = "Configured maximum attempts") Integer maxAttempts) {
+        @Schema(description = "Current claimed attempts while a queue record exists")
+        Integer attempts,
+
+        @Schema(description = "Configured maximum attempts while a queue record exists")
+        Integer maxAttempts) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

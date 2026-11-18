@@ -82,7 +82,7 @@ class PaymentOutcomeDeliverySupportTest {
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>();
     final TaskExecution event = new TaskExecution(
             "queue-event",
-            new TaskSubmission(PaymentDeliveryRoutes.LIMIT, 1, "payment", "payload", LocalDateTime.now(), ""),
+            new TaskSubmission(PaymentDeliveryRoutes.LIMIT, "delivery", "payload", LocalDateTime.now()),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
@@ -110,8 +110,8 @@ class PaymentOutcomeDeliverySupportTest {
     void setup() {
         source(true);
         when(outbox.find("queue-event"))
-                .thenReturn(Optional.of(new TaskExecution(
-                        "queue-event", PaymentDeliveryRoutes.LIMIT, "payment", "PROCESSING", 1, null)));
+                .thenReturn(Optional.of(
+                        new TaskExecution("queue-event", PaymentDeliveryRoutes.LIMIT, "delivery", "RUNNING", 1, null)));
         when(payments.find("payment")).thenAnswer(c -> Optional.of(source.get().payment()));
         when(locks.lock("payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
@@ -195,8 +195,8 @@ class PaymentOutcomeDeliverySupportTest {
     @Test
     void mismatchedQueueTargetIsRejectedBeforeReadingBusinessFacts() {
         when(outbox.find("queue-event"))
-                .thenReturn(Optional.of(new TaskExecution(
-                        "queue-event", PaymentDeliveryRoutes.RISK, "payment", "PROCESSING", 1, null)));
+                .thenReturn(Optional.of(
+                        new TaskExecution("queue-event", PaymentDeliveryRoutes.RISK, "payment", "RUNNING", 1, null)));
         assertThrows(CommonException.class, this::load);
         verifyNoInteractions(payments, locks, results);
     }
@@ -205,7 +205,7 @@ class PaymentOutcomeDeliverySupportTest {
     void completedOrFailedRowsCannotBeUsedAsArbitraryManualDispatchTickets() {
         when(outbox.find("queue-event"))
                 .thenReturn(Optional.of(new TaskExecution(
-                        "queue-event", PaymentDeliveryRoutes.LIMIT, "payment", "FAILED", 5, "Failure")));
+                        "queue-event", PaymentDeliveryRoutes.LIMIT, "delivery", "FAILED", 5, "Failure")));
         assertThrows(CommonException.class, this::load);
         verifyNoInteractions(payments, results);
     }

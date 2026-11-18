@@ -50,7 +50,7 @@ public class PaymentRealtimeDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null || event.payloadVersion() != 1 || !PaymentDeliveryRoutes.REALTIME.equals(event.taskType())) {
+        if (event == null || !PaymentDeliveryRoutes.REALTIME.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -61,7 +61,7 @@ public class PaymentRealtimeDelivery {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.decode(event.payload());
-        if (!envelope.aggregateId().equals(row.bizId())) {
+        if (!envelope.deliveryId().equals(row.bizId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var ack = client.apply(envelope);

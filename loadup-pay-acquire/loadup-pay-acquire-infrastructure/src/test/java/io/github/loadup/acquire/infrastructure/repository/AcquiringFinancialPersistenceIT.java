@@ -390,7 +390,7 @@ class AcquiringFinancialPersistenceIT {
 
     private long outboxCount(AcquiringPersistenceFixtures.Fixture f) {
         return Objects.requireNonNull(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM loadup_task WHERE payload IS NOT NULL AND biz_id = ? AND task_type = ?",
+                "SELECT COUNT(*) FROM loadup_task WHERE payload IS NOT NULL AND payload::jsonb ->> 'aggregateId' = ? AND task_type = ?",
                 Long.class,
                 f.stored().order().id(),
                 OrderSnapshotEvents.DELIVERY_TYPE));

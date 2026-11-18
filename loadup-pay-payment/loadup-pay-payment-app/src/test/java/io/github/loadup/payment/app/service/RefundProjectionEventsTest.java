@@ -402,11 +402,12 @@ class RefundProjectionEventsTest {
                 .filter(m -> m.taskType().equals(PaymentDeliveryRoutes.REFUND_MERCHANT))
                 .toList();
         assertEquals(2, merchant.size());
-        var message = merchant.stream()
-                .filter(m -> m.bizId().equals("request"))
+        var mapper = JsonMapper.builder().build();
+        var envelope = merchant.stream()
+                .map(message -> mapper.readValue(message.payload(), Map.class))
+                .filter(delivery -> "request".equals(delivery.get("aggregateId")))
                 .findFirst()
                 .orElseThrow();
-        var envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
         var data = (Map<?, ?>) envelope.get("data");
         assertEquals("RefundRequest", data.get("aggregateType"));
         assertEquals("PARTIAL_SUCCEEDED", data.get("state"));

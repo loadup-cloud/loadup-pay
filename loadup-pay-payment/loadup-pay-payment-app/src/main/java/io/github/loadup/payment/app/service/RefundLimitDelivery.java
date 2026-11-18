@@ -59,9 +59,7 @@ public class RefundLimitDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.payloadVersion() != 1
-                || !PaymentDeliveryRoutes.REFUND_LIMIT.equals(event.taskType())) {
+        if (event == null || !PaymentDeliveryRoutes.REFUND_LIMIT.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var message = event;
@@ -73,7 +71,7 @@ public class RefundLimitDelivery {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.limit(message.payload());
-        if (!row.bizId().equals(envelope.aggregateId())
+        if (!row.bizId().equals(envelope.deliveryId())
                 || !(FrozenEventTypes.accepts(
                                 PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), envelope.eventType())
                         || BusinessEventTypes.REFUND_OUTCOME.equals(envelope.eventType()))) {

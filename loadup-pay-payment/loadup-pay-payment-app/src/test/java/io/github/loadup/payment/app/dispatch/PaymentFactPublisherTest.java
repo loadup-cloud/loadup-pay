@@ -113,8 +113,7 @@ class PaymentFactPublisherTest {
             assertEquals(BusinessEventTypes.PAYMENT_FINANCIAL, delivery.get("eventType"));
             assertEquals("evidence", delivery.get("businessEventId"));
             assertEquals("payment-id", delivery.get("aggregateId"));
-            assertEquals("payment-id", message.bizId());
-            assertEquals(1, message.payloadVersion());
+            assertEquals(delivery.get("deliveryId"), message.bizId());
             deliveries.add(delivery);
         }
         assertEquals(

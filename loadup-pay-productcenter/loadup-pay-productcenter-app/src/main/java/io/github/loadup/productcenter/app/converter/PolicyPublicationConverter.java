@@ -27,7 +27,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PolicyPublicationConverter {
     @Mapping(target = "publicationId", source = "value.id")
-    LimitPolicyPublicationDTO toDTO(PolicyPublication value, String deliveryStatus, int attempts);
+    LimitPolicyPublicationDTO toDTO(PolicyPublication value, String deliveryStatus, Integer attempts);
 
     default OffsetDateTime external(LocalDateTime value) {
         return value == null ? null : BusinessTime.external(value);

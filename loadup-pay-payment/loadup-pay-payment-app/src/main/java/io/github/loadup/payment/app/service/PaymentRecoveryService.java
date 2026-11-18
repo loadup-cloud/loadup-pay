@@ -98,7 +98,7 @@ public class PaymentRecoveryService {
         boolean active = transactions.writeLocal(() -> {
             var request = lockPayment(key.paymentId());
             var cursor = cursor(key);
-            if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.executeAt())) {
+            if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.nextExecuteAt())) {
                 return false;
             }
             if (terminal(request)) {
@@ -116,7 +116,7 @@ public class PaymentRecoveryService {
         return transactions.writeLocal(() -> {
             var request = lockPayment(key.paymentId());
             var before = cursor(key);
-            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) {
+            if (!RecoveryTaskProtocol.current(identity, before.position(), task.nextExecuteAt())) {
                 return RecoveryHandlingOutcome.SKIPPED;
             }
             if (terminal(request)) {

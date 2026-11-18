@@ -42,7 +42,7 @@ public class PolicyActivationTaskHandler implements TaskHandler {
 
     @Override
     public void handle(TaskExecution event) {
-        if (event == null || !taskType().equals(event.taskType()) || event.payloadVersion() != 1) {
+        if (event == null || !taskType().equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         PolicyActivationDispatch dispatch;

@@ -85,7 +85,8 @@ public class MerchantNotificationService implements TaskHandler {
         if (!task.id().equals(nativeTask.id())
                 || !TYPE.equals(nativeTask.taskType())
                 || !task.bizId().equals(nativeTask.bizId())
-                || !task.executeAt().equals(nativeTask.executeAt())
+                || task.nextExecuteAt() == null
+                || !task.nextExecuteAt().equals(nativeTask.nextExecuteAt())
                 || nativeTask.status() != TaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts()
                 || nativeTask.leaseUntil() == null
@@ -101,7 +102,7 @@ public class MerchantNotificationService implements TaskHandler {
                         return Optional.<MerchantNotificationDelivery>empty();
                     }
                     if (key.sequence() != before.attemptCount()
-                            || !task.executeAt().equals(before.nextAttemptAt())) {
+                            || task.nextExecuteAt().isBefore(before.nextAttemptAt())) {
                         throw new CommonException(SNAPSHOT_INVALID);
                     }
                     var startedAt = now();

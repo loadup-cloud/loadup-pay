@@ -89,7 +89,7 @@ public class OrderDeadlineService implements TaskHandler {
                 return true;
             }
             if (key.generation() > version
-                    || !task.executeAt().equals(order.order().orderDueAt())) {
+                    || task.nextExecuteAt().isBefore(order.order().orderDueAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var at = LocalDateTime.now(clock);
@@ -138,7 +138,8 @@ public class OrderDeadlineService implements TaskHandler {
         if (!task.id().equals(nativeTask.id())
                 || !taskType().equals(nativeTask.taskType())
                 || !task.bizId().equals(nativeTask.bizId())
-                || !task.executeAt().equals(nativeTask.executeAt())
+                || task.nextExecuteAt() == null
+                || !task.nextExecuteAt().equals(nativeTask.nextExecuteAt())
                 || nativeTask.status() != TaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts()
                 || nativeTask.leaseUntil() == null

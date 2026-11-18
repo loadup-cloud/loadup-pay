@@ -52,7 +52,6 @@ class RecoveryTaskProtocolTest {
                 task.id(),
                 task.taskType(),
                 flow.subject + ".00",
-                task.executeAt(),
                 task.nextExecuteAt(),
                 task.status(),
                 task.attempts(),
@@ -74,8 +73,7 @@ class RecoveryTaskProtocolTest {
                     changed == Changed.ID ? "other-task" : original.id(),
                     changed == Changed.TYPE ? "other-type" : original.taskType(),
                     changed == Changed.BIZ_ID ? "other-subject.0" : original.bizId(),
-                    changed == Changed.EXECUTE_AT ? at.minusSeconds(1) : original.executeAt(),
-                    changed == Changed.NOT_DUE ? at.plusSeconds(1) : original.nextExecuteAt(),
+                    changedSchedule(changed, original),
                     changed == Changed.STATUS || changed == Changed.REGISTERED_STATUS
                             ? TaskStatus.FAILED
                             : original.status(),
@@ -104,7 +102,6 @@ class RecoveryTaskProtocolTest {
                 original.id(),
                 original.taskType(),
                 original.bizId(),
-                original.executeAt(),
                 original.nextExecuteAt(),
                 original.status(),
                 original.attempts(),
@@ -126,6 +123,8 @@ class RecoveryTaskProtocolTest {
     void sharedPositionMappingNeverSkipsAFutureGenerationOrAdvancesAWrongDueTime(Flow flow) {
         var key = new RecoveryTaskKey(flow.subject, 0L);
         assertTrue(RecoveryTaskProtocol.current(key, new RecoveryPosition(flow.subject, 0L, at, false), at));
+        assertTrue(RecoveryTaskProtocol.current(
+                key, new RecoveryPosition(flow.subject, 0L, at, false), at.plusSeconds(5)));
         assertFalse(RecoveryTaskProtocol.current(
                 key, new RecoveryPosition(flow.subject, 1L, at.plusSeconds(30), false), at));
         assertFalse(RecoveryTaskProtocol.current(key, new RecoveryPosition(flow.subject, 0L, at, true), at));
@@ -147,9 +146,17 @@ class RecoveryTaskProtocolTest {
                         .getResultCode());
     }
 
+    private LocalDateTime changedSchedule(Changed changed, TaskExecution task) {
+        return switch (changed) {
+            case NEXT_EXECUTE_AT -> at.minusSeconds(1);
+            case NOT_DUE -> at.plusSeconds(1);
+            default -> task.nextExecuteAt();
+        };
+    }
+
     private TaskExecution task(Flow flow) {
         return new TaskExecution(
-                "task", flow.type, flow.subject + ".0", at, at, TaskStatus.RUNNING, 1, 5, at.plusMinutes(5), null);
+                "task", flow.type, flow.subject + ".0", at, TaskStatus.RUNNING, 1, 5, at.plusMinutes(5), null);
     }
 
     enum Flow {
@@ -167,7 +174,7 @@ class RecoveryTaskProtocolTest {
         ID,
         TYPE,
         BIZ_ID,
-        EXECUTE_AT,
+        NEXT_EXECUTE_AT,
         STATUS,
         ATTEMPTS,
         MAX_ATTEMPTS,

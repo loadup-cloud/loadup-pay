@@ -49,9 +49,7 @@ public class RefundFeeDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null
-                || event.payloadVersion() != 1
-                || !PaymentDeliveryRoutes.REFUND_FEE.equals(event.taskType())) {
+        if (event == null || !PaymentDeliveryRoutes.REFUND_FEE.equals(event.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var message = event;
@@ -63,7 +61,7 @@ public class RefundFeeDelivery {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var envelope = codec.fee(message.payload());
-        if (!row.bizId().equals(envelope.aggregateId())
+        if (!row.bizId().equals(envelope.deliveryId())
                 || !FrozenEventTypes.accepts(
                         PaymentDeliveryRoutes.factType(row.taskType()), row.taskType(), envelope.eventType())
                 || envelope.aggregateVersion() <= 0) {

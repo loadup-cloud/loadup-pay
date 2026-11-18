@@ -283,7 +283,10 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                 ? new AllocationRecoveryKey(subject, generation).bizId()
                 : new OrderTaskKey(subject, generation).bizId();
         var task = tasks.find(type, bizId).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!type.equals(task.taskType()) || !bizId.equals(task.bizId()) || task.status() == null) {
+        if (!type.equals(task.taskType())
+                || !bizId.equals(task.bizId())
+                || task.status() == null
+                || task.nextExecuteAt() == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return task;
@@ -300,7 +303,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
             throw new CommonException(SNAPSHOT_INVALID);
         }
         boolean current = paymentRecovery.isCurrent(order, allocation, cursor, generation);
-        if (generation == cursor.generation() && !cursor.dueAt().equals(task.executeAt())) {
+        if (generation == cursor.generation() && task.nextExecuteAt().isBefore(cursor.dueAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return current;
@@ -309,7 +312,8 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
     private boolean deadlineCurrent(StoredAcquireOrder order, long generation, TaskExecution task) {
         long version = extensions.deadlineVersion(order.order());
         if (generation > version
-                || generation == version && !order.order().orderDueAt().equals(task.executeAt())) {
+                || generation == version
+                        && task.nextExecuteAt().isBefore(order.order().orderDueAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return generation == version
@@ -320,7 +324,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
     private boolean closureCurrent(StoredAcquireOrder order, long generation, TaskExecution task) {
         var intent = closes.findIntent(order.order().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         boolean current = closure.isCurrent(new OrderPaymentScope(order.callerScopeHash()), order, intent, generation);
-        if (task.executeAt().isBefore(intent.requestedAt())) {
+        if (task.nextExecuteAt().isBefore(intent.requestedAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return current;
@@ -342,7 +346,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                 current,
                 current
                         && task.status() == TaskStatus.FAILED
-                        && !LocalDateTime.now(clock).isBefore(task.executeAt()));
+                        && !LocalDateTime.now(clock).isBefore(task.nextExecuteAt()));
     }
 
     private AcquireRecoveryRetryDTO replay(

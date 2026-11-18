@@ -59,15 +59,15 @@ class RefundFeeDeliveryTest {
             new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3));
     final TaskExecution event = new TaskExecution(
             "queue-fee",
-            new TaskSubmission(PaymentDeliveryRoutes.REFUND_FEE, 1, "order", "fee-payload", LocalDateTime.now(), ""),
+            new TaskSubmission(PaymentDeliveryRoutes.REFUND_FEE, "delivery-fee", "fee-payload", LocalDateTime.now()),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(),
             null);
 
     @BeforeEach
     void setup() {
         when(outbox.find("queue-fee"))
-                .thenReturn(Optional.of(
-                        new TaskExecution("queue-fee", PaymentDeliveryRoutes.REFUND_FEE, "order", "RUNNING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-fee", PaymentDeliveryRoutes.REFUND_FEE, "delivery-fee", "RUNNING", 1, null)));
         when(codec.fee("fee-payload")).thenReturn(envelope);
         when(acquire.acceptFeeRefund(envelope))
                 .thenReturn(new FeeRefundAckDTO("delivery-fee", "business-fee", "order", 3, 4, true));
@@ -112,8 +112,8 @@ class RefundFeeDeliveryTest {
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
         when(outbox.find("queue-fee"))
-                .thenReturn(Optional.of(
-                        new TaskExecution("queue-fee", PaymentDeliveryRoutes.REFUND_FEE, "order", "PENDING", 1, null)));
+                .thenReturn(Optional.of(new TaskExecution(
+                        "queue-fee", PaymentDeliveryRoutes.REFUND_FEE, "delivery-fee", "PENDING", 1, null)));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::deliver).getResultCode());
