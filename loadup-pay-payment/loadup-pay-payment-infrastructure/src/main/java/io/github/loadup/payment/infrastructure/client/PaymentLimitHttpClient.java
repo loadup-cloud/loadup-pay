@@ -48,8 +48,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
-public class PaymentLimitHttpClient
-        implements PaymentLimitExecution, PaymentLimitSettlement, RefundLimitRestoration {
+public class PaymentLimitHttpClient implements PaymentLimitExecution, PaymentLimitSettlement, RefundLimitRestoration {
     private final RemoteContractConverter contracts;
     private final PaymentLimitProperties properties;
     private final ServiceAccessTokens tokens;

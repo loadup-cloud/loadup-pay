@@ -69,5 +69,4 @@ public interface RemoteContractConverter {
                     SuccessResponse<io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO> response) {
         return response == null ? null : new SuccessResponse<>(response.result(), toLocal(response.data()));
     }
-
 }

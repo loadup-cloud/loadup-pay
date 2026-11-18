@@ -51,9 +51,8 @@ public class MerchantContractFactsHttpProvider implements MerchantFactsProvider 
             throw new CommonException(ContractResultCodeEnum.MERCHANT_PROVIDER_UNAVAILABLE);
         }
         try {
-            var profile =
-                    HttpServiceResponses.requiredData(
-                            merchants.profile("Bearer " + tokens.token("productcenter", audience), new IdQuery(id)));
+            var profile = HttpServiceResponses.requiredData(
+                    merchants.profile("Bearer " + tokens.token("productcenter", audience), new IdQuery(id)));
             if (!id.equals(profile.id())) {
                 throw new CommonException(ContractResultCodeEnum.MERCHANT_UNVERIFIED);
             }

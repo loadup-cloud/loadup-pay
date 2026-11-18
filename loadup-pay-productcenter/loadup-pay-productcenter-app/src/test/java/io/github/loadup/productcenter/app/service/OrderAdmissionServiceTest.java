@@ -28,6 +28,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -36,10 +37,9 @@ import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.app.converter.OrderAdmissionConverter;
 import io.github.loadup.productcenter.app.converter.OrderAdmissionConverterImpl;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
+import io.github.loadup.productcenter.app.model.AdmissionEligibility;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
 import io.github.loadup.productcenter.app.model.EncodedAcquiringTerms;
-import io.github.loadup.productcenter.app.model.AdmissionEligibility;
-import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 import io.github.loadup.productcenter.app.port.CompiledTermsCodec;
 import io.github.loadup.productcenter.app.port.CurrentContractGateway;
 import io.github.loadup.productcenter.app.port.CustomerEligibilityLookup;
@@ -54,6 +54,7 @@ import io.github.loadup.productcenter.domain.model.ConfigurationLayer;
 import io.github.loadup.productcenter.domain.model.ContractRecord;
 import io.github.loadup.productcenter.domain.model.ContractStatus;
 import io.github.loadup.productcenter.domain.model.MerchantContractRevision;
+import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 import io.github.loadup.productcenter.domain.model.OrderAdmission;
 import io.github.loadup.productcenter.domain.model.ResolvedContractItem;
 import io.github.loadup.productcenter.domain.model.StoredOrderAdmission;
@@ -109,12 +110,19 @@ class OrderAdmissionServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new AdmissionEligibility(
                     new MerchantEligibilityFacts("merchant", true, "ALLOWED", 2, 1),
-                    Map.of("merchant.id", "merchant",
-                            "merchant.code", "M001",
-                            "merchant.type", "ENTERPRISE",
-                            "merchant.industry", "RETAIL",
-                            "merchant.country", "CN",
-                            "merchant.active", "true"));
+                    Map.of(
+                            "merchant.id",
+                            "merchant",
+                            "merchant.code",
+                            "M001",
+                            "merchant.type",
+                            "ENTERPRISE",
+                            "merchant.industry",
+                            "RETAIL",
+                            "merchant.country",
+                            "CN",
+                            "merchant.active",
+                            "true"));
         });
     }
 

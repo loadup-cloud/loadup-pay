@@ -29,6 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
@@ -39,8 +40,8 @@ import io.github.loadup.merchantcenter.client.http.CustomerHttpService;
 import io.github.loadup.productcenter.app.security.ProductActor;
 import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
 import io.github.loadup.productcenter.infrastructure.converter.AdmissionEligibilityConverter;
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -104,10 +105,24 @@ class CustomerEligibilityHttpLookupTest {
         assertEquals("merchant", eligibility.decision().payeeMerchantId());
         assertEquals(1, eligibility.decision().merchantVersion());
         assertEquals(1, eligibility.decision().authorizationVersion());
-        assertEquals(Map.of("merchant.id", "merchant", "merchant.code", "M001",
-                "merchant.type", "ENTERPRISE", "merchant.industry", "RETAIL",
-                "merchant.country", "CN", "merchant.active", "true"), eligibility.merchantFacts());
-        assertThrows(UnsupportedOperationException.class, () -> eligibility.merchantFacts().put("merchant.id", "other"));
+        assertEquals(
+                Map.of(
+                        "merchant.id",
+                        "merchant",
+                        "merchant.code",
+                        "M001",
+                        "merchant.type",
+                        "ENTERPRISE",
+                        "merchant.industry",
+                        "RETAIL",
+                        "merchant.country",
+                        "CN",
+                        "merchant.active",
+                        "true"),
+                eligibility.merchantFacts());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> eligibility.merchantFacts().put("merchant.id", "other"));
         verify(http)
                 .authorize(
                         eq("Bearer " + TOKEN),
@@ -147,7 +162,8 @@ class CustomerEligibilityHttpLookupTest {
 
     @Test
     void preservesOptionalLocationFactsWithoutPrematurePolicyValidation() {
-        var merchant = new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", "", "x".repeat(1025), true);
+        var merchant =
+                new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", "", "x".repeat(1025), true);
         respond(new MerchantEligibilityDTO(true, "ALLOWED", merchant, 2, "grant", 3L));
         var evidence = lookup.authorizeNewOrder("merchant");
         assertEquals("", evidence.merchantFacts().get("merchant.province"));

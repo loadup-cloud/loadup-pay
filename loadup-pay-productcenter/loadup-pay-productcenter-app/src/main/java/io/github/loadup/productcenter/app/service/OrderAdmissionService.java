@@ -23,6 +23,7 @@ import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
+
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -33,9 +34,9 @@ import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import io.github.loadup.contracts.commercial.ContractReference;
 import io.github.loadup.productcenter.app.converter.OrderAdmissionConverter;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
+import io.github.loadup.productcenter.app.model.AdmissionEligibility;
 import io.github.loadup.productcenter.app.model.CompiledAcquiringTerms;
 import io.github.loadup.productcenter.app.model.EncodedAcquiringTerms;
-import io.github.loadup.productcenter.app.model.AdmissionEligibility;
 import io.github.loadup.productcenter.app.port.CompiledTermsCodec;
 import io.github.loadup.productcenter.app.port.CurrentContractGateway;
 import io.github.loadup.productcenter.app.port.CustomerEligibilityLookup;
@@ -131,8 +132,13 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
 
     private static Map<String, TypedValue> trustedFacts(AdmissionEligibility eligibility, AdmissionIntent intent) {
         Map<String, TypedValue> values = new HashMap<>();
-        eligibility.merchantFacts().forEach((key, value) -> values.put(
-                key, "merchant.active".equals(key) ? TypedValue.bool(Boolean.parseBoolean(value)) : TypedValue.text(value)));
+        eligibility
+                .merchantFacts()
+                .forEach((key, value) -> values.put(
+                        key,
+                        "merchant.active".equals(key)
+                                ? TypedValue.bool(Boolean.parseBoolean(value))
+                                : TypedValue.text(value)));
         values.put("transaction.amountMinor", TypedValue.integer(intent.amount().getCent()));
         values.put("transaction.currency", TypedValue.text(intent.amount().getCurrencyValue()));
         return Map.copyOf(values);
@@ -229,8 +235,8 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                 header.status(),
                 header.generation(),
                 List.of(snapshot));
-        ContractDecision runtime = new ContractRuntimeResolver()
-                .resolve(view, item.getKey(), at, trustedFacts(eligibility, intent));
+        ContractDecision runtime =
+                new ContractRuntimeResolver().resolve(view, item.getKey(), at, trustedFacts(eligibility, intent));
         if (!runtime.allowed()) {
             return denied(id, intent, "CONTRACT_" + runtime.reason().name(), merchant);
         }
