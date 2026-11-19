@@ -34,7 +34,6 @@ public interface PaymentRecoveryOperationsConverter {
     @Mapping(target = "nativeStatus", source = "task.status")
     @Mapping(target = "attempts", source = "task.attempts")
     @Mapping(target = "maxAttempts", source = "task.maxAttempts")
-    @Mapping(target = "executeAt", source = "task.executeAt")
     @Mapping(target = "nextExecuteAt", source = "task.nextExecuteAt")
     PaymentRecoveryTaskDTO toDTO(PaymentRecoveryInspection inspection);
 

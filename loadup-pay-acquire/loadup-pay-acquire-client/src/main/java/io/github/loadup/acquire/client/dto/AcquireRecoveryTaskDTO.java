@@ -40,9 +40,6 @@ public record AcquireRecoveryTaskDTO(
         @Schema(description = "Native attempts allowed per retry cycle")
         int maxAttempts,
 
-        @Schema(description = "Original business wake-up time")
-        OffsetDateTime executeAt,
-
         @Schema(description = "Observed native next execution time; use this exact value as a retry precondition")
         OffsetDateTime nextExecuteAt,
 
