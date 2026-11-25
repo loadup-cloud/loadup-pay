@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-payment-channel-contracts</artifactId>
+            <artifactId>loadup-pay-payment-channel-contracts</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -37,7 +37,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-payment-channel-api</artifactId>
+            <artifactId>loadup-pay-payment-channel-api</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

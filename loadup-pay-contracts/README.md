@@ -21,7 +21,7 @@
 
 - client 不依赖 domain、应用实现或其他 Pay 服务 client。
 - app/domain 不导入其他 Pay 服务 client；消费方基础设施负责处理远端协议。
-- 事件工件不依赖服务的 client/domain，也不依赖渠道 API；渠道枚举与金额策略直接引用轻量 payment-channel-contracts。
+- 事件工件不依赖服务的 client/domain，也不依赖渠道 API；渠道枚举与金额策略直接引用 `loadup-pay-payment-channel-contracts`。
 - 使用同一个 reactor 发布版本；包名、类型和调用方按当前模型同步维护，不保留兼容别名或历史适配层。
 - 结构门禁位于 `scripts/tests/test_contract_ownership.py`，验证依赖方向、事件工件职责及 Maven 模块无环。
 

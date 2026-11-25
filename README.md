@@ -1,7 +1,7 @@
 # LoadUp Pay
 
-面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用；支付宝/微信渠道协议由 LoadUp Framework 的
-`loadup-components-payment-channel` 组件族提供。项目采用 Java 25、Spring Boot 4.1.2、LoadUp Framework
+面向商户和子商户的外部渠道收单平台。当前 reactor 包含十个应用；支付宝和微信渠道协议由
+`loadup-pay-payment-channel` 提供。项目采用 Java 25、Spring Boot 4.1.2、LoadUp Framework
 0.0.1-SNAPSHOT、Spring HTTP Service Clients；Pay 自身版本为 0.0.1-SNAPSHOT。
 
 ## 模块导航
@@ -20,8 +20,8 @@
 | [reconciliation](loadup-pay-reconciliation/README.md) | 后置账单核对、差错与独立复核 |
 
 渠道 SPI、路由引擎和支付宝/微信协议 binder 位于
-[Framework payment-channel](../loadup-framework/loadup-components/integration/loadup-components-payment-channel/README.md)；
-payment 通过 `loadup-components-payment-channel-api` 调用统一 Facade，bootstrap 以 runtime 依赖装配 core 和厂商 binder。
+[Pay Payment Channel](loadup-pay-payment-channel/README.md)；
+payment 通过 `loadup-pay-payment-channel-api` 调用统一 Facade，bootstrap 以 runtime 依赖装配 core 和厂商 binder。
 
 通知体系设计及实施状态见 [Notification Center](loadup-pay-notificationcenter/ARCHITECTURE.md)。
 

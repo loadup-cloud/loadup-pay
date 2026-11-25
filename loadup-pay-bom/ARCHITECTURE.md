@@ -4,7 +4,7 @@ Pay BOM 独立声明发布坐标，不继承 Pay parent。parent 导入自身同
 
 | 版本范围 | 管理位置 |
 |---|---|
-| 本仓库 Pay 制品 | Pay BOM，使用自身 `${project.version}` |
+| 本仓库 Pay 制品，含支付渠道 contracts、API、core 和厂商适配器 | Pay BOM，使用自身 `${project.version}` |
 | 配套 Framework | Pay BOM 导入 Framework BOM，使用 `loadup.framework.version` |
 | 配套通用业务模块 | Pay BOM 导入 Modules BOM，使用 `loadup.modules.version` |
 | 内部测试工具 | Pay parent 导入 Testify BOM，实际依赖为 `test` scope |

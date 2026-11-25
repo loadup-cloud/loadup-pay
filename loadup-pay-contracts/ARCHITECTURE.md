@@ -17,7 +17,7 @@ Acquire 维护本地订单准入和付款操作表示，避免其公开响应直
 事件校验仍检查事件来源、身份、版本和金额不变量；本次重构没有增加历史格式分支或兼容转发。
 
 商业合约引用归 `pay-contracts-commercial` 的 `io.github.loadup.contracts.commercial.ContractReference`。
-渠道词汇与固定 CNY 金额校验归 framework 的 payment-channel-contracts；事件保持独立于渠道操作 API。
+渠道词汇与固定 CNY 金额校验归 Pay 的独立 `loadup-pay-payment-channel-contracts`；事件保持独立于渠道操作 API。
 
 阶段 2 只拆分 productcenter 内部商业解析与编译，不改公开条款、AcquiringTermsDTO、compilerVersion/schemaVersion 或规范化哈希协议。内部领域片段不进入 CompiledAcquiringTerms；消费方 acquire/payment 的 DTO 与 RemoteContractConverter 保持原结构。固定输出及待运行回归见[阶段 2 记录](../design/PHASE2_IMPLEMENTATION.md)，未构建或测试。
 

@@ -50,7 +50,7 @@
 统一 ChannelPaymentFacade 在原路由/租户/绑定/能力检查后，以标准 Bulkhead 保护
 query/recover/close/queryRefund/recoverRefund。
 LoadUp ResilienceRegistries 由 payment 业务服务的 runtime core binder 提供，
-`loadup-components-payment-channel-core` 仅依赖 `loadup-components-payment-channel-api`。
+`loadup-pay-payment-channel-core` 仅依赖 `loadup-pay-payment-channel-api`。
 每个 Channel 共用一个 payment-channel-recovery-<channel> 实例，部署配置默认各 16、等待 0ms；非零等待在装配时拒绝。
 使用原生许可/释放，满额在 Provider 前抛 CHANNEL_RECOVERY_BUSY，finally 归还名额，不创建线程池或任何新的金融请求。
 

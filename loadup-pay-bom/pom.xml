@@ -258,6 +258,31 @@
                 <artifactId>loadup-pay-reconciliation-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-pay-payment-channel-alipay</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-pay-payment-channel-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-pay-payment-channel-contracts</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-pay-payment-channel-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>loadup-pay-payment-channel-wechat</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

@@ -37,11 +37,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-gotone-engine</artifactId>
+            <artifactId>loadup-modules-notification-gotone-binder-email</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-gotone-store-jdbc</artifactId>
+            <artifactId>loadup-modules-notification-gotone-store-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

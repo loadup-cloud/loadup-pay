@@ -91,7 +91,7 @@ loadup-components-{domain}/
 
 ### 多后端共存模式（Mode B）
 
-适用于多个 Provider 同时活跃、运行时数据驱动路由。仅 Gotone。
+适用于多个 Provider 同时活跃、运行时数据驱动路由。Pay Payment Channel 装配多个渠道适配器，Gotone 由 Modules Notification 提供。
 
 ```
 loadup-components-{domain}/

@@ -25,7 +25,7 @@
 
 merchantmng/productmng 已合并进 admin，不再作为独立部署单元。admin 不直接访问两个 center 或 OAuth server 的数据库。
 签约前的商户事实查询在 productcenter 本地事务外完成，合约写入与状态锁由 productcenter 负责。
-realtime 和 reconciliation 不裁定支付结果、不修改交易资金事实。渠道协议适配由 Framework payment-channel 提供。
+realtime 和 reconciliation 不裁定支付结果、不修改交易资金事实。渠道协议适配由 [Pay Payment Channel](loadup-pay-payment-channel/README.md) 提供。
 网关仅发布显式列出的公开路由，内部接口和 Actuator 不公开，具体以 [网关配置](deploy/gateway/README.md) 为准。
 
 ## 统一术语与运行边界
@@ -45,9 +45,8 @@ realtime 和 reconciliation 不裁定支付结果、不修改交易资金事实�
 
 merchantcenter、realtime 等小型服务按 `client/service/bootstrap` 拆分：client 保存 Facade、DTO、错误码及传输契约；service 在同一 JAR 内保留 domain/app/infrastructure 包边界，实现领域模型、用例编排和持久化；bootstrap 承载启动类与 HTTP adapter。payment、acquire 等复杂服务继续按 `client/domain/app/infrastructure/adapter/bootstrap` 分层发布。所有 client 不依赖 service 实现，service 是可复用的普通 JAR。
 
-渠道组件按 Framework 的 `loadup-components-payment-channel-api/core/alipay/wechat` 拆分，Pay 不再包含
-`channel/` reactor。payment 的 client/domain/app/infrastructure 只编译依赖 channel API，bootstrap 以 runtime 依赖装配 core
-和厂商 binder。分层服务配置以 `*-bootstrap/src/main/resources/application.yml` 为准，admin/notificationcenter/oauth2-server 使用本模块 `src/main/resources/application.yml`，数据库迁移位于各
+Pay 的 `loadup-pay-payment-channel` 聚合独立 contracts、API、core 及厂商适配器。跨服务共享渠道词汇使用 contracts，
+payment 的各层使用 API，bootstrap 以 runtime 依赖装配 core 和厂商 binder。分层服务配置以 `*-bootstrap/src/main/resources/application.yml` 为准，admin/notificationcenter/oauth2-server 使用本模块 `src/main/resources/application.yml`，数据库迁移位于各
 service（保留完整分层的服务为 infrastructure）的 `src/main/resources/db/migration/pay/<app>`。
 
 ## 金额、状态与执行边界
@@ -127,7 +126,7 @@ schema；一个服务不得依赖另一个服务的表或事务。各服务使�
 共享根 `classpath:db/migration` 会递归扫描 classpath，不能用于隔离应用与依赖 JAR。只在新建的可丢弃开发库上执行初次验证，不对已有库自动执行
 Flyway clean、repair 或数据搬迁。
 
-支付应用保留自己的业务迁移和冻结的组件初始快照；Framework 的 File、Transfer、UPMS、Notification 等业务模块保留各自命名空间的自动迁移，
+支付应用保留自己的业务迁移和冻结的组件初始快照；Modules 的 File、Transfer、UPMS、Notification 等业务模块保留各自命名空间的自动迁移，
 由应用显式选择，统一纳入该应用的一个迁移历史。组件模板变化通过新的增量版本升级，生成器不会覆盖或删除已登记快照。安装 JAR 时应先 clean：旧构建输出可能仍含已删除或已移动的迁移，即使源码目录已经干净也会被 Flyway 扫描。
 
 单数据源装配使用 Spring JDBC 事务管理器，让业务写入、Task 和本地 JDBC 使用同一数据源；Task 会拒绝不匹配的事务管理器。

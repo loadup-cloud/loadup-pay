@@ -34,6 +34,7 @@
     <modules>
         <module>loadup-pay-bom</module>
         <module>loadup-pay-contracts</module>
+        <module>loadup-pay-payment-channel</module>
         <module>loadup-pay-oauth2-server</module>
         <module>loadup-pay-admin</module>
         <module>loadup-pay-merchantcenter</module>

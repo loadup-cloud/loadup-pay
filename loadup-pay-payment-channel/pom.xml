@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.github.loadup-cloud</groupId>
+        <artifactId>loadup-pay</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>loadup-pay-payment-channel</artifactId>
+    <packaging>pom</packaging>
+    <name>LoadUp Pay Payment Channel</name>
+    <description>Payment acquiring channel contracts, routing engine and vendor protocol binders.</description>
+
+    <modules>
+        <module>loadup-pay-payment-channel-contracts</module>
+        <module>loadup-pay-payment-channel-api</module>
+        <module>loadup-pay-payment-channel-core</module>
+        <module>binders/loadup-pay-payment-channel-alipay</module>
+        <module>binders/loadup-pay-payment-channel-wechat</module>
+    </modules>
+</project>

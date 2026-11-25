@@ -46,7 +46,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-payment-channel-core</artifactId>
+            <artifactId>loadup-pay-payment-channel-core</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -56,12 +56,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-payment-channel-alipay</artifactId>
+            <artifactId>loadup-pay-payment-channel-alipay</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-payment-channel-wechat</artifactId>
+            <artifactId>loadup-pay-payment-channel-wechat</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>
