@@ -12,10 +12,6 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-context</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-database</artifactId>
         </dependency>
         <dependency>

@@ -33,14 +33,6 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-context</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-util</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-pay-merchantcenter-client</artifactId>
         </dependency>
         <dependency>
@@ -80,11 +72,6 @@
             <artifactId>mybatis-flex-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
@@ -98,6 +85,16 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mybatis-flex</groupId>
+            <artifactId>mybatis-flex-spring</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
     <build>

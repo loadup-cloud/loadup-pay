@@ -57,10 +57,6 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-util</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-database</artifactId>
         </dependency>
         <dependency>
@@ -74,11 +70,6 @@
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
@@ -134,6 +125,15 @@
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-modules-transfer-core</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
     </dependencies>
     <build>

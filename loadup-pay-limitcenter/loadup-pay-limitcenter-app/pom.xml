@@ -25,7 +25,7 @@
         </dependency>
         <dependency>
             <groupId>io.swagger.core.v3</groupId>
-            <artifactId>swagger-annotations-jakarta</artifactId>
+            <artifactId>swagger-annotations</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -58,10 +58,6 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-context</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-database</artifactId>
         </dependency>
         <dependency>
@@ -89,6 +85,11 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
         </dependency>
     </dependencies>
     <build>

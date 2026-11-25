@@ -11,6 +11,11 @@
     <name>LoadUp Pay Payment Adapter</name>
     <dependencies>
         <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-database</artifactId>
         </dependency>
@@ -52,10 +57,14 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-context</artifactId>
-            <scope>test</scope>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
     </dependencies>
 
