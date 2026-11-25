@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.components.dfs.DfsService;
+import io.github.loadup.components.dfs.DfsTemplate;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.task.JdbcTaskRepository;
 import io.github.loadup.components.task.TaskDispatcher;
@@ -713,7 +713,7 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         @Bean
-        DfsService dfs() throws IOException {
+        DfsTemplate dfs() throws IOException {
             return new ReconciliationImportPersistenceIT.Application().dfs();
         }
     }

@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.components.dfs.DfsService;
+import io.github.loadup.components.dfs.DfsTemplate;
 import io.github.loadup.components.dfs.model.FileDownloadResponse;
 import io.github.loadup.components.dfs.model.FileMetadata;
 import io.github.loadup.components.dfs.model.FileUploadRequest;
@@ -408,8 +408,8 @@ class ReconciliationImportPersistenceIT {
         }
 
         @Bean
-        DfsService dfs() throws IOException {
-            var service = mock(DfsService.class);
+        DfsTemplate dfs() throws IOException {
+            var service = mock(DfsTemplate.class);
             var bytes = new ConcurrentHashMap<String, byte[]>();
             var metadata = new ConcurrentHashMap<String, FileMetadata>();
             when(service.upload(any())).thenAnswer(call -> {
