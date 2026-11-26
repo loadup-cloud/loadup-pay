@@ -101,8 +101,13 @@ Task 等组件使用已冻结的应用级初始快照；框架业务模块的自
 |---|---|
 | 检查 / 修复格式 | `mvnd spotless:check` / `mvnd spotless:apply` |
 | 检查 / 更新 Java 许可证头 | `./spotless.sh check` / `./spotless.sh apply` |
+| 安装提交前自动格式化 | `./spotless.sh install` |
 | 检查依赖禁用规则 | `mvnd enforcer:enforce` |
 | 检查可更新依赖 / 插件 | `mvnd versions:display-dependency-updates` / `mvnd versions:display-plugin-updates` |
+
+pre-commit hook 会格式化已暂存的 Java 文件和 POM，并重新暂存格式化结果。
+同一文件有未暂存改动时，hook 会中止提交，请先处理这些改动再重试。
+使用 `git commit -- <文件>` 时，若 hook 修改了格式，按提示重试提交。
 
 SpotBugs 需要编译产物，例如 `mvnd -pl loadup-pay-payment/loadup-pay-payment-infrastructure -am clean compile spotbugs:check`。
 JaCoCo 不会自动注入测试代理；需要覆盖率时显式执行，例如
