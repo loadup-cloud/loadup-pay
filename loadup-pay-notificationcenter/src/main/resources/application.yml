@@ -53,7 +53,8 @@ loadup:
     enabled: true
     locations:
       - classpath:db/migration/pay/notificationcenter
-      - classpath:db/migration/framework/notification
+      - classpath:db/migration/modules/gotone
+      - classpath:db/migration/modules/inbox
   security:
     resource-server:
       enabled: true

@@ -28,7 +28,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Entry guard for notification HTTP surfaces: API and notification routes require a verified JWT.
+ * Entry guard for notification HTTP surfaces: API routes require a verified JWT.
  *
  * <p>The deployment code header is validated by the shared entry filter; this guard only preserves
  * the original authentication requirement.
@@ -42,7 +42,7 @@ public class NotificationCenterAuthenticationGuard {
             protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                     throws ServletException, IOException {
                 String path = request.getServletPath();
-                if (path.startsWith("/api/") || path.startsWith("/notifications")) {
+                if (path.startsWith("/api/")) {
                     var authentication = SecurityContextHolder.getContext().getAuthentication();
                     if (authentication == null
                             || !authentication.isAuthenticated()

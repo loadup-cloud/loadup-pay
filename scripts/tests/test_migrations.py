@@ -92,14 +92,17 @@ class FrozenSnapshotsTest(unittest.TestCase):
 
 class ApplicationLocationsTest(unittest.TestCase):
     def test_each_bootstrap_selects_only_its_approved_migration_namespaces(self):
-        modules = {"admin": ["upms"], "notificationcenter": ["notification"], "reconciliation": ["file", "transfer"]}
-        for path in ROOT.glob("*/*-bootstrap/src/main/resources/application.yml"):
-            app = path.parts[-6]
+        modules = {"admin": ["upms"], "reconciliation": ["file", "transfer"]}
+        notificationcenter = ROOT / "loadup-pay-notificationcenter/src/main/resources/application.yml"
+        for path in (*ROOT.glob("*/*-bootstrap/src/main/resources/application.yml"), notificationcenter):
+            app = "notificationcenter" if path == notificationcenter else path.parts[-6]
             document = yaml.safe_load(path.read_text())
             config = document.get("loadup", {}).get("flyway") or document.get("spring", {}).get("flyway", {})
             expected = (["classpath:db/migration/oauth2-server"] if app == "oauth2-server" else
                         [f"classpath:db/migration/pay/{app}"] +
                         [f"classpath:db/migration/framework/{name}" for name in modules.get(app, [])])
+            if path == notificationcenter:
+                expected.extend(["classpath:db/migration/modules/gotone", "classpath:db/migration/modules/inbox"])
             actual = config.get("locations", [])
             if isinstance(actual, str):
                 actual = actual.split(",")

@@ -240,7 +240,7 @@ def _check_repository(root: Path, environment_dir: Path | None = None) -> list[s
         elif app == "admin":
             allowed_locations |= {"classpath:db/migration/framework/upms", "classpath:db/migration/framework/audit"}
         elif app == "notificationcenter":
-            allowed_locations.add("classpath:db/migration/framework/notification")
+            allowed_locations |= {"classpath:db/migration/modules/gotone", "classpath:db/migration/modules/inbox"}
         elif app == "reconciliation":
             allowed_locations |= {"classpath:db/migration/framework/file", "classpath:db/migration/framework/transfer"}
         if not isinstance(locations, list) or set(locations) != allowed_locations or len(locations) != len(allowed_locations):

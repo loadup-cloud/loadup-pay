@@ -51,7 +51,7 @@ class OperationsCheckerTest(unittest.TestCase):
         elif app == "admin":
             locations += ["classpath:db/migration/framework/upms", "classpath:db/migration/framework/audit"]
         elif app == "notificationcenter":
-            locations += ["classpath:db/migration/framework/notification"]
+            locations += ["classpath:db/migration/modules/gotone", "classpath:db/migration/modules/inbox"]
         elif app == "reconciliation":
             locations += ["classpath:db/migration/framework/file", "classpath:db/migration/framework/transfer"]
         data = {

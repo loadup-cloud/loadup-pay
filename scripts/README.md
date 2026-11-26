@@ -68,7 +68,7 @@ PGHOST=localhost PGPORT=5432 PGUSER=admin \
 若后续使用自动迁移，需先按实际导入范围建立匹配的 Flyway 基线，不能直接从头重跑同一批迁移。
 
 现有自动方式继续保留：应用显式扫描 `classpath:db/migration/pay/<app>`，并选择获准的 Framework 模块命名空间。
-admin 选择 `framework/upms`，notificationcenter 选择 `framework/notification`，reconciliation 选择 `framework/file` 和 `framework/transfer`。
+admin 选择 `framework/upms`，notificationcenter 选择 `modules/gotone` 和 `modules/inbox`，reconciliation 选择 `framework/file` 和 `framework/transfer`。
 oauth2-server 已有独立目录 `db/migration/oauth2-server`。`classpath:db/migration` 不是应用隔离范围，不应配置为扫描根。
 
 `python3 scripts/gen-migrations.py` 只创建缺失的组件初始快照，提交时同时包含 SQL 和 `scripts/component-migrations.lock.json`。

@@ -39,15 +39,15 @@ class NotificationCenterAuthenticationGuardTest {
     @Test
     void permitsVerifiedTokensOnApiAndNotificationPaths() throws Exception {
         var filter = filter();
-        assertAllowed(filter, "/api/internal/status", authenticated());
-        assertAllowed(filter, "/notifications/list", authenticated());
+        assertAllowed(filter, "/api/internal/v1/gotone/requests/request-id", authenticated());
+        assertAllowed(filter, "/api/inbox/list", authenticated());
     }
 
     @Test
     void rejectsUnauthenticatedApiRequests() throws Exception {
         var filter = filter();
-        assertForbidden(filter, "/api/internal/status", null);
-        assertForbidden(filter, "/notifications/list", null);
+        assertForbidden(filter, "/api/internal/v1/gotone/requests/request-id", null);
+        assertForbidden(filter, "/api/inbox/list", null);
     }
 
     @Test
