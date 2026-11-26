@@ -130,7 +130,7 @@ Flyway clean、repair 或数据搬迁。
 由应用显式选择，统一纳入该应用的一个迁移历史。组件模板变化通过新的增量版本升级，生成器不会覆盖或删除已登记快照。安装 JAR 时应先 clean：旧构建输出可能仍含已删除或已移动的迁移，即使源码目录已经干净也会被 Flyway 扫描。
 
 单数据源装配使用 Spring JDBC 事务管理器，让业务写入、Task 和本地 JDBC 使用同一数据源；Task 会拒绝不匹配的事务管理器。
-GlobalUnique、Task 和 Inbox 的幂等插入使用指定业务唯一键的 `ON CONFLICT DO NOTHING`，不将其他约束错误当作重复请求。
+GlobalUnique 和 Task 的幂等插入使用指定业务唯一键的 `ON CONFLICT DO NOTHING`，不将其他约束错误当作重复请求。Inbox 在事务保存点插入，遇到唯一键冲突后核对接收人和请求键。
 事务中必须使用绑定到相同数据源的 Spring 管理连接；真实数据库并发、回滚及事务装配仍需验收。
 
 时间字段使用 `timestamp(6) without time zone`，JVM、业务 Clock、JDBC 和数据库会话采用同一部署本地时区；显式偏移的协议时间仍表示绝对时间。字符串列使用
