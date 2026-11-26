@@ -39,3 +39,14 @@ capture 明细使用平面 PageResponse；statement 字节经 JSON Base64 传输
 渠道回调 Controller 显式标注 ProtocolResponse，原生正文/内容类型/HTTP 状态不经过统一业务信封包装；仍由原渠道协议验签和提交后 ACK。回归源码已补，未运行。
 
 阶段 3 已同步目标无关事实头与目标级交付边界；旧已冻结载荷/回执保留原样读取，身份、权限、原绑定、幂等和可靠交付规则不变。完整付款证据路径已替代 acquire 落账和额度确认/释放的同步回查；旧冻结载荷保持原查证，退款恢复和费用退款保留最新累计读取。当前契约与待运行验收见[财务证据记录](../design/PHASE3_FINANCIAL_EVIDENCE.md)。源码及回归源码已调整，未构建或测试；详见[阶段 3 实施记录](../design/PHASE3_IMPLEMENTATION.md)。
+
+## 子模块入口
+
+| 工件职责 | 接入 | 设计 |
+| --- | --- | --- |
+| 客户端契约 | [README](loadup-pay-payment-client/README.md) | [ARCHITECTURE](loadup-pay-payment-client/ARCHITECTURE.md) |
+| 启动装配 | [README](loadup-pay-payment-bootstrap/README.md) | [ARCHITECTURE](loadup-pay-payment-bootstrap/ARCHITECTURE.md) |
+| Web 适配 | [README](loadup-pay-payment-adapter/README.md) | [ARCHITECTURE](loadup-pay-payment-adapter/ARCHITECTURE.md) |
+| 应用编排 | [README](loadup-pay-payment-app/README.md) | [ARCHITECTURE](loadup-pay-payment-app/ARCHITECTURE.md) |
+| 领域模型 | [README](loadup-pay-payment-domain/README.md) | [ARCHITECTURE](loadup-pay-payment-domain/ARCHITECTURE.md) |
+| 基础设施 | [README](loadup-pay-payment-infrastructure/README.md) | [ARCHITECTURE](loadup-pay-payment-infrastructure/ARCHITECTURE.md) |

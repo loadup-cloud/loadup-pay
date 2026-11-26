@@ -12,6 +12,19 @@
 
 接入及配置见 [README](README.md)，跨服务协议与数据库基线见 [总体架构](../ARCHITECTURE.md)。
 
+## 目录、发布与准入
+
+```mermaid
+flowchart LR
+    Catalog["已发布目录与产品版本"] --> Contract["编译并保存商户合约修订"]
+    Contract --> Publish["可靠发布初始额度"]
+    Publish --> Limit["LimitCenter 激活策略"]
+    Limit --> Ready["记录额度就绪"]
+    Ready --> Admission["订单准入"]
+    Merchant["商户资格与授权事实"] --> Admission
+    Admission --> Terms["冻结订单条款与摘要"]
+```
+
 ## 合约编译与持久化
 
 - 读取productcenter 自有数据源中的 merchant_contract 和 merchant_contract_revision。当前签约只产生不可变 revision

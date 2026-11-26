@@ -1,4 +1,4 @@
-# Product HTTP contracts
+# Product Center 准入 HTTP 契约
 
 client 持有业务 Facade、Command/Query/DTO、错误码及标准 `ProductHttpService`，提供 POST
 `/api/internal/v1/productcenter/admissions/authorize` 与 `/detail`。成功为 SuccessResponse<OrderAdmissionDTO>，失败为现有 FailureResponse，均使用 HTTP 200。
@@ -11,3 +11,5 @@ acquire 的阶段 1A 将原令牌解析移至基础设施 DelegatedCredentialRes
 原共享 proto、Wire mapper、消息生成与自动装配已删除；应用不再依赖 Dubbo binder 或 nacos profile。消费方 infrastructure 使用提供方 Java 契约并通过 RemoteContractConverter 映射本地模型，app/domain 不直接依赖 client.http 或远端 DTO。
 
 迁移状态、序列化与发布验收见 [HTTP 架构](../../ARCHITECTURE.md)。
+
+[客户端接入](README.md)

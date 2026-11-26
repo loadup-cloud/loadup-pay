@@ -19,3 +19,9 @@
 由开发者执行 `python3 scripts/build.py merchantcenter`；完成配置后使用 `python3 scripts/up.py merchantcenter`。配置目录为 `deploy/config/<env>/merchantcenter`，既有物理数据库名称与迁移版本保持不变。
 
 待验收：当前版本的数据库迁移、管理链路、服务鉴权与真实业务调用。
+
+## 子模块入口
+
+- 客户端契约的[接入](loadup-pay-merchantcenter-client/README.md)与[设计](loadup-pay-merchantcenter-client/ARCHITECTURE.md)。
+- 服务实现的[接入](loadup-pay-merchantcenter-service/README.md)与[设计](loadup-pay-merchantcenter-service/ARCHITECTURE.md)。
+- 启动装配的[接入](loadup-pay-merchantcenter-bootstrap/README.md)与[设计](loadup-pay-merchantcenter-bootstrap/ARCHITECTURE.md)。

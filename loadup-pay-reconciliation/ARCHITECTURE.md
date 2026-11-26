@@ -2,6 +2,20 @@
 
 [README](README.md) 维护配置与 API；本文维护封存、比较、来源证明与独立复核规则。数据库和跨服务边界见 [总体架构](../ARCHITECTURE.md)。
 
+## 双侧输入到差错复核
+
+```mermaid
+flowchart LR
+    Manual["手工渠道账单"] --> Channel["校验并封存 CHANNEL"]
+    Official["Payment 官方账单"] --> Channel
+    Capture["Payment 封存采集"] --> Ledger["验证序号与摘要并封存 LEDGER"]
+    Channel --> Run["按原 run 固定双侧输入"]
+    Ledger --> Run
+    Run --> Match["事务外确定性比较"]
+    Match --> Store["一次提交差错与完成摘要"]
+    Store --> Review["独立复核与只读查证"]
+```
+
 ## 批次与确定性执行
 
 create/attach/start 是独立本地写事务，start 固定原 runId，与 Task 同事务登记。执行分为“只读 RR 取双侧封存输入→事务外纯比较→写事务锁批次并提交全部差错及完成摘要”。查询与计数使用同一只读 RR 快照。

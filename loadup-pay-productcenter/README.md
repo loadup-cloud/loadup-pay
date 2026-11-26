@@ -23,3 +23,14 @@
 ## 策略编译边界
 
 阶段 2 已分离 domain CommercialPolicyParser、类型化策略片段、应用条款投影和额度命令编译。发布/准入总入口仍校验完整配置，额度片段不依赖完整收单编译器。公开 DTO、来源、快照与哈希协议保持原结构，未新增配置覆盖或通知执行策略。源码及回归源码已同步，未构建或测试；文件和验收清单见[阶段 2 记录](../design/PHASE2_IMPLEMENTATION.md)。
+
+## 子模块入口
+
+| 工件职责 | 接入 | 设计 |
+| --- | --- | --- |
+| 客户端契约 | [README](loadup-pay-productcenter-client/README.md) | [ARCHITECTURE](loadup-pay-productcenter-client/ARCHITECTURE.md) |
+| 启动装配 | [README](loadup-pay-productcenter-bootstrap/README.md) | [ARCHITECTURE](loadup-pay-productcenter-bootstrap/ARCHITECTURE.md) |
+| Web 适配 | [README](loadup-pay-productcenter-adapter/README.md) | [ARCHITECTURE](loadup-pay-productcenter-adapter/ARCHITECTURE.md) |
+| 应用编排 | [README](loadup-pay-productcenter-app/README.md) | [ARCHITECTURE](loadup-pay-productcenter-app/ARCHITECTURE.md) |
+| 领域模型 | [README](loadup-pay-productcenter-domain/README.md) | [ARCHITECTURE](loadup-pay-productcenter-domain/ARCHITECTURE.md) |
+| 基础设施 | [README](loadup-pay-productcenter-infrastructure/README.md) | [ARCHITECTURE](loadup-pay-productcenter-infrastructure/ARCHITECTURE.md) |

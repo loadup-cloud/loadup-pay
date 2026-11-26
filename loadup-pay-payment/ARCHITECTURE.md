@@ -7,6 +7,22 @@
 付款终态、acquire 落账、limit 结算、费用/退款通知与 realtime 投影分别有独立完成条件。阶段 3 已将新业务事实类型与目标 Task 路由分开，付款/退款事实经本地订阅配置分发；完整付款证据路径已替代满足条件的远端回查，退款最新累计读取与旧冻结载荷查证保留。阶段 0 的[现状例外](../design/PHASE0_BASELINE.md)保留历史含义，当前边界及待运行证据门禁见[阶段 3 记录](../design/PHASE3_IMPLEMENTATION.md)，运行验收尚未完成。本文不以目标 ACK 代替资金证据或商户送达。
 
 
+## 从受理到结果交付
+
+```mermaid
+flowchart TD
+    Accept["受理请求"] --> Save["提交付款、门禁、任务与快照"]
+    Save --> Worker["原恢复任务建立 attempt"]
+    Worker --> Permit["事务外取得额度许可"]
+    Permit --> Ticket["持久化唯一首次提交权"]
+    Ticket --> Submit["在事务外请求渠道"]
+    Submit --> Observe{"是否取得可信观察"}
+    Observe -->|未知| Retry["按原请求进行查询或关闭"]
+    Retry --> Observe
+    Observe -->|可信| Fact["事务内应用资金事实"]
+    Fact --> Delivery["各目标独立交付与确认"]
+```
+
 ## 当前业务轮询
 
 付款与退款使用同一个纯领域 RecoveryPollingPolicy，配置由 payment-app 的 RecoveryPollingConfiguration 注入。

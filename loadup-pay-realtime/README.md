@@ -25,3 +25,9 @@ detail 只返回订单头和独立退款汇总，子付款/退款分页获取。
 待验收：乱序/重复/冲突、旧版本拒绝重开终态、投影与 receipt 原子回滚、真实身份/来源隔离，以及四类来源的端到端投递。测试入口见 [ProjectionPersistenceIT 说明](loadup-pay-realtime-service/src/test/README.md)。
 
 阶段 3 已同步目标无关事实头与目标级交付边界；旧已冻结载荷/回执保留原样读取，身份、权限、原绑定、幂等和可靠交付规则不变。同步查证未因类型迁移而删除，完整证据与替代门禁仍开放。源码及回归源码已调整，未构建或测试；详见[阶段 3 实施记录](../design/PHASE3_IMPLEMENTATION.md)。
+
+## 子模块入口
+
+- 客户端契约的[接入](loadup-pay-realtime-client/README.md)与[设计](loadup-pay-realtime-client/ARCHITECTURE.md)。
+- 服务实现的[接入](loadup-pay-realtime-service/README.md)与[设计](loadup-pay-realtime-service/ARCHITECTURE.md)。
+- 启动装配的[接入](loadup-pay-realtime-bootstrap/README.md)与[设计](loadup-pay-realtime-bootstrap/ARCHITECTURE.md)。

@@ -28,6 +28,22 @@ merchantmng/productmng 已合并进 admin，不再作为独立部署单元。adm
 realtime 和 reconciliation 不裁定支付结果、不修改交易资金事实。渠道协议适配由 [Pay Payment Channel](loadup-pay-payment-channel/README.md) 提供。
 网关仅发布显式列出的公开路由，内部接口和 Actuator 不公开，具体以 [网关配置](deploy/gateway/README.md) 为准。
 
+## 交易主链路与后置观察
+
+```mermaid
+flowchart LR
+    Merchant["商户或收银台"] --> Acquire["Acquire 收单"]
+    Acquire --> Product["Product Center 准入"]
+    Product --> Merch["Merchant Center 资格"]
+    Acquire --> Payment["Payment 付款与退款"]
+    Payment --> Limit["LimitCenter 执行许可与结算"]
+    Payment --> Channel["支付渠道"]
+    Payment --> Acquire
+    Acquire --> RT["Realtime 投影"]
+    Payment --> RT
+    Recon["Reconciliation 对账"] -->|采集账本与渠道证据| Payment
+```
+
 ## 统一术语与运行边界
 
 - 应用名使用上表十个名称；Maven 目录使用 `loadup-pay-*`。`CustomerHttpService` 等现存 Java 类型、迁移文件名与错误码按源码保留，不据此推导额外服务。

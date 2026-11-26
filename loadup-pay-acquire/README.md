@@ -55,3 +55,14 @@ AcquireActor 仅表达本地部署范围、稳定主体摘要和权限。委托 
 待验收：PostgreSQL 迁移与并发回滚、付款/关单/延期/退款费用乱序、Task/Task 崩溃恢复、JWT 授权矩阵、浏览器/CSP/存储/代理、真实渠道与商户 ACK。持久化测试范围见 [测试说明](loadup-pay-acquire-infrastructure/src/test/README.md)，跨服务要求见 [最终验收](../deploy/ACCEPTANCE.md)。
 
 阶段 3 已同步目标无关事实头与目标级交付边界；旧已冻结载荷/回执保留原样读取，身份、权限、原绑定、幂等和可靠交付规则不变。完整付款证据路径已替代 acquire 落账和额度确认/释放的同步回查；旧冻结载荷保持原查证，退款恢复和费用退款保留最新累计读取。当前契约与待运行验收见[财务证据记录](../design/PHASE3_FINANCIAL_EVIDENCE.md)。源码及回归源码已调整，未构建或测试；详见[阶段 3 实施记录](../design/PHASE3_IMPLEMENTATION.md)。
+
+## 子模块入口
+
+| 工件职责 | 接入 | 设计 |
+| --- | --- | --- |
+| 客户端契约 | [README](loadup-pay-acquire-client/README.md) | [ARCHITECTURE](loadup-pay-acquire-client/ARCHITECTURE.md) |
+| 启动装配 | [README](loadup-pay-acquire-bootstrap/README.md) | [ARCHITECTURE](loadup-pay-acquire-bootstrap/ARCHITECTURE.md) |
+| Web 适配 | [README](loadup-pay-acquire-adapter/README.md) | [ARCHITECTURE](loadup-pay-acquire-adapter/ARCHITECTURE.md) |
+| 应用编排 | [README](loadup-pay-acquire-app/README.md) | [ARCHITECTURE](loadup-pay-acquire-app/ARCHITECTURE.md) |
+| 领域模型 | [README](loadup-pay-acquire-domain/README.md) | [ARCHITECTURE](loadup-pay-acquire-domain/ARCHITECTURE.md) |
+| 基础设施 | [README](loadup-pay-acquire-infrastructure/README.md) | [ARCHITECTURE](loadup-pay-acquire-infrastructure/ARCHITECTURE.md) |

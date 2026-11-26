@@ -1,4 +1,4 @@
-# Payment HTTP contracts
+# Payment 付款 HTTP 契约
 
 payment-client 持有 Facade、Command/Query/DTO、结果码和四组标准 HTTP Service 接口；提供端由 MVC Controller 调用既有 app Facade，
 消费端在 acquire/limitcenter/reconciliation 的 infrastructure 注册代理，显式逐次传递 SERVICE bearer。完整 JWT 和业务权限继续校验。
@@ -20,3 +20,5 @@ PaymentEvidenceContracts 与 DTO 构造器保留 statement 字节哈希和 verif
 原全部 proto、共享事件 Wire mapper、生成与自动装配已删除；acquire/realtime 使用独立 contracts-events 中的事件 DTO 与 EventEnvelope。受理响应、付款终态、各目标持久 ACK 和商户送达是不同完成条件，见[阶段 0 流程](../../design/PHASE0_FLOWS.md)。
 
 真实运行与发布状态见 [总体架构](../../ARCHITECTURE.md)，当前源码迁移不代表构建、测试、数据库或部署已验收。
+
+[客户端接入](README.md)

@@ -1,4 +1,4 @@
-# Reconciliation HTTP contracts
+# Reconciliation 对账 HTTP 契约
 
 client.http.ReconciliationHttpService 定义 POST /api/internal/v1/reconciliation/batches/{create,attach,start,retry,task,detail}。
 复用原四个 Command，task/detail 使用 commons IdQuery。响应是 SuccessResponse<ReconciliationBatchDTO/BatchTaskDTO> 或 FailureResponse。
@@ -11,3 +11,5 @@ client 不再包含 proto、Wire mapper、生成任务或 Dubbo 装配。
 
 提供方完整 JWT 验证，身份来自签名 claims，普通 Header/账户自报 hash 不是授权依据。
 错误、发布与未执行验收见 [总体架构](../../ARCHITECTURE.md)。
+
+[客户端接入](README.md)

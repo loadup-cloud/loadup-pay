@@ -45,3 +45,14 @@
 只支持 WECHAT/`wechat-trade-all-20260116`，不支持的 REVOKED 明细拒绝整份输入；手工上传不升级为官方证明。Transfer 无崩溃租约回收，RUNNING 不自动重领；文件保留/清理、支付宝解析和金融修正仍待完善。
 
 待验收：PostgreSQL 封存/比较/回执的原子性与并发，File/Transfer/S3/JWT/HTTP 真链路、官方来源验真、源端采集与分页完整性、任务中断/重试、独立复核授权及只读查证。入口见 [测试说明](loadup-pay-reconciliation-infrastructure/src/test/README.md)。
+
+## 子模块入口
+
+| 工件职责 | 接入 | 设计 |
+| --- | --- | --- |
+| 客户端契约 | [README](loadup-pay-reconciliation-client/README.md) | [ARCHITECTURE](loadup-pay-reconciliation-client/ARCHITECTURE.md) |
+| 启动装配 | [README](loadup-pay-reconciliation-bootstrap/README.md) | [ARCHITECTURE](loadup-pay-reconciliation-bootstrap/ARCHITECTURE.md) |
+| Web 适配 | [README](loadup-pay-reconciliation-adapter/README.md) | [ARCHITECTURE](loadup-pay-reconciliation-adapter/ARCHITECTURE.md) |
+| 应用编排 | [README](loadup-pay-reconciliation-app/README.md) | [ARCHITECTURE](loadup-pay-reconciliation-app/ARCHITECTURE.md) |
+| 领域模型 | [README](loadup-pay-reconciliation-domain/README.md) | [ARCHITECTURE](loadup-pay-reconciliation-domain/ARCHITECTURE.md) |
+| 基础设施 | [README](loadup-pay-reconciliation-infrastructure/README.md) | [ARCHITECTURE](loadup-pay-reconciliation-infrastructure/ARCHITECTURE.md) |

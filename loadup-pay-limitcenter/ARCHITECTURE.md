@@ -4,6 +4,21 @@
 
 接入及配置见 [README](README.md)，跨服务协议与数据库基线见 [总体架构](../ARCHITECTURE.md)。
 
+## 额度生命周期
+
+```mermaid
+flowchart TD
+    Policy["Product Center 发布策略"] --> Reserve["多规则原子预占"]
+    Reserve --> Gate{"原门禁决策"}
+    Gate -->|许可| Execute["记录许可并进入 EXECUTING"]
+    Gate -->|未执行且过期| Fence["关闭执行窗口"]
+    Execute --> Evidence["可信付款结果"]
+    Evidence -->|确认收款| Confirm["额度确认"]
+    Evidence -->|安全释放条件满足| Release["释放预占"]
+    Fence --> Release
+    Confirm -->|可信退款事实| Restore["按原桶和策略恢复额度"]
+```
+
 ## 激活协议
 
 LimitPolicyActivateCommand 包含 policyId、policyVersion、policyHash、payeeMerchantId、refundAmountRestore、refundCountRestore

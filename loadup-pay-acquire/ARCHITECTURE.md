@@ -18,6 +18,27 @@ acquire 拥有创单意图、订单、冻结合约快照、费用及调整、付
 
 本地 payload_hash 校验持久副本，不能冒充 productcenter 的 compiled_terms_hash。远端调用位于本地写事务之外；上下文绑定 helper 不等于只读事务。运行详情使用独立 REPEATABLE_READ 只读快照，写操作重新加锁核验。
 
+## 创单与原付款意图
+
+```mermaid
+sequenceDiagram
+    actor Merchant as 商户
+    participant Acquire as Acquire
+    participant Product as Product Center
+    participant Pay as Payment
+    Merchant->>Acquire: 使用原商户订单号创单
+    Acquire->>Acquire: A0 保存原请求与 orderId
+    Acquire->>Product: 在本地事务外请求准入
+    Product-->>Acquire: 冻结条款与准入结果
+    Acquire->>Acquire: A1 保存订单、快照与到期任务
+    Merchant->>Acquire: 以 actionKey 发起付款
+    Acquire->>Acquire: A2 保存原占用、付款 ID 和恢复任务
+    Acquire->>Pay: 在本地事务外准备输入并受理
+    Pay-->>Acquire: 受理响应
+    Pay->>Acquire: 交付可信付款结果
+    Acquire->>Acquire: A3 按证据确认或释放占用
+```
+
 ## 创单 A0/A1
 
 1. A0 以部署租户、收款商户、merchantOrderNo 固定原调用主体、入口模式及 orderId。ORDER/CHECKOUT/DIRECT_PAY 不可互换；同键改参冲突，逻辑删除不释放业务键。
