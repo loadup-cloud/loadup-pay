@@ -38,7 +38,7 @@
 | A6 | [RemoteContractConverter](../loadup-pay-acquire/loadup-pay-acquire-infrastructure/src/main/java/io/github/loadup/acquire/infrastructure/converter/RemoteContractConverter.java) 第 26 行起双向映射多组同名远端与本地 Command | 部分隔离主要体现为类型复制；需要按消费方业务能力评估，不能一概删除本地模型 | 0 登记，4 调整 |
 | A7 | 阶段 0 的 MultiTenantAutoConfiguration 在数据库模块注册 Servlet TenantFilter（旧 1B 已移至 WebMVC；新 1B 已删除核心 tenant 绑定，改为部署 Header 校验） | 数据库解析承担 Web 请求上下文生命周期，非 Web 入口另走一套绑定路径 | 1 |
 | A8 | 阶段 0 的 [UPMS app POM](../../loadup-modules/loadup-modules-upms/loadup-modules-upms-app/pom.xml) 依赖 infrastructure 并扫描其包；1C 已移除该依赖与扫描，由 infrastructure 独立装配默认 Gateway | UPMS 用例与默认实现的归属已在源码中分开；其他 core 例外保留，运行证明待补 | 1C 源码完成，未运行验证 |
-| A9 | [GitHubOAuthProvider](../../loadup-modules/loadup-modules-upms/loadup-modules-upms-app/src/main/java/io/github/loadup/modules/upms/app/strategy/oauth/GitHubOAuthProvider.java) 在 app 自行创建 RestTemplate 并解析第三方响应 | OAuth 传输适配与应用策略混合；阶段 0 新登记 E15，不能宣称 app 均无 HTTP 实现 | 独立适配切片，1C 不顺带调整 |
+| A9 | [GitHubOAuthProvider](../../loadup-modules/loadup-modules-upms/loadup-modules-upms-app/src/main/java/io/github/loadup/modules/upms/app/strategy/oauth/GitHubOAuthProvider.java) 在 app 内通过 Spring `RestClient` 调用 GitHub 并解析响应 | OAuth 传输适配与应用策略仍在同一层，见阶段 0 登记 E15 | 独立适配切片 |
 
 通知条款当前包含超时、退避倍数、最大尝试次数等参数。哪些是商业承诺、哪些是平台运行参数，需要按字段分类；阶段 2 先整理职责，不更改现有字段、默认值和存量快照解释。
 
