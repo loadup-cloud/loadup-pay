@@ -15,7 +15,6 @@
  */
 package io.github.loadup.merchantcenter.infrastructure.repository;
 
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.merchantcenter.client.error.MerchantResultCodeEnum;
@@ -24,7 +23,6 @@ import io.github.loadup.merchantcenter.domain.model.Merchant;
 import io.github.loadup.merchantcenter.domain.model.MerchantStatus;
 import io.github.loadup.merchantcenter.infrastructure.converter.MerchantStorageConverter;
 import io.github.loadup.merchantcenter.infrastructure.dataobject.MerchantDO;
-import io.github.loadup.merchantcenter.infrastructure.mapper.MerchantMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -32,23 +30,24 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class MerchantGatewayImpl extends ServiceImpl<MerchantMapper, MerchantDO> implements MerchantGateway {
+public class MerchantGatewayImpl implements MerchantGateway {
     private static final String COLUMNS = "id, merchant_code, name, short_name, type, industry, country, "
             + "province, city, address, registration_no, contact_name, contact_phone, contact_email, status, "
             + "row_version, created_by, updated_by, created_at, updated_at";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final MerchantStorageConverter converter;
     private final Clock clock;
     private final BeanPropertyRowMapper<MerchantDO> rowMapper = BeanPropertyRowMapper.newInstance(MerchantDO.class);
 
-    public MerchantGatewayImpl(
-            NamedParameterJdbcTemplate jdbc, MerchantMapper mapper, MerchantStorageConverter converter, Clock clock) {
+    public MerchantGatewayImpl(NamedParameterJdbcTemplate jdbc, MerchantStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
         this.converter = converter;
         this.clock = clock;
     }
@@ -62,7 +61,11 @@ public class MerchantGatewayImpl extends ServiceImpl<MerchantMapper, MerchantDO>
 
     @Override
     public Optional<Merchant> find(String id) {
-        return getByIdOpt(required(id)).map(converter::toMerchant);
+        return queries.sql("SELECT * FROM merchant_profile WHERE deleted = FALSE AND id = :id")
+                .param("id", required(id))
+                .query(MerchantDO.class)
+                .optional()
+                .map(converter::toMerchant);
     }
 
     @Override

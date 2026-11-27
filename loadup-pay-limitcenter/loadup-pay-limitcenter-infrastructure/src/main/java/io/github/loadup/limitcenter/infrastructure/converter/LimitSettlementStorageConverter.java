@@ -27,6 +27,5 @@ public interface LimitSettlementStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     LimitSettlementReceiptDO toDO(LimitSettlementReceipt value);
 }

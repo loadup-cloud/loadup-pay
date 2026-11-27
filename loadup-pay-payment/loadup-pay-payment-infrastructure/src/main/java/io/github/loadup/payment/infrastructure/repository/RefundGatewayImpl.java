@@ -20,7 +20,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.contracts.event.payment.RefundState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
@@ -39,7 +38,6 @@ import io.github.loadup.payment.infrastructure.dataobject.PaymentRefundCapacityD
 import io.github.loadup.payment.infrastructure.dataobject.RefundAllocationPlanDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundRequestDO;
-import io.github.loadup.payment.infrastructure.mapper.RefundRequestMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -59,7 +57,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 @Repository
-public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRequestDO> implements RefundGateway {
+public class RefundGatewayImpl implements RefundGateway {
     private static final String REQUEST_COLUMNS =
             "id, created_at, updated_at, order_id, payee_merchant_id, merchant_refund_no, reason_code, request_digest,"
                     + " caller_subject_hash, admission_id, amount_minor, currency, allocation_policy, plan_version, state,"
@@ -79,14 +77,13 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
 
     public RefundGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            RefundRequestMapper mapper,
             RefundStorageConverter converter,
             PaymentResultStorageConverter capacityConverter,
             PaymentAcceptanceCodec codec,
             JsonMapper json,
             Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+
         this.clock = clock;
         this.converter = converter;
         this.capacityConverter = capacityConverter;

@@ -22,12 +22,6 @@ import io.github.loadup.modules.upms.app.autoconfigure.UpmsAutoConfiguration;
 import io.github.loadup.modules.upms.authserver.UpmsAuthServerAutoConfiguration;
 import io.github.loadup.modules.upms.authserver.UpmsAuthenticationProvider;
 import io.github.loadup.modules.upms.infrastructure.autoconfigure.UpmsPersistenceAutoConfiguration;
-import io.github.loadup.modules.upms.infrastructure.mapper.DepartmentMapper;
-import io.github.loadup.modules.upms.infrastructure.mapper.PermissionMapper;
-import io.github.loadup.modules.upms.infrastructure.mapper.RoleMapper;
-import io.github.loadup.modules.upms.infrastructure.mapper.UserMapper;
-import io.github.loadup.modules.upms.infrastructure.mapper.UserOAuthBindingMapper;
-import io.github.loadup.modules.upms.infrastructure.mapper.UserRoleMapper;
 import io.github.loadup.modules.upms.web.AuthenticationController;
 import io.github.loadup.modules.upms.web.UpmsWebAutoConfiguration;
 import io.github.loadup.modules.upms.web.UserController;
@@ -101,12 +95,6 @@ class UpmsAssemblyTest {
                 .withPropertyValues("loadup.security.auth-server.protocol-endpoints-enabled=false")
                 .withBean(Clock.class, Clock::systemUTC)
                 .withBean(NamedParameterJdbcTemplate.class, () -> mock(NamedParameterJdbcTemplate.class))
-                .withBean(JdbcClient.class, () -> mock(JdbcClient.class))
-                .withBean(UserMapper.class, () -> mock(UserMapper.class))
-                .withBean(RoleMapper.class, () -> mock(RoleMapper.class))
-                .withBean(PermissionMapper.class, () -> mock(PermissionMapper.class))
-                .withBean(DepartmentMapper.class, () -> mock(DepartmentMapper.class))
-                .withBean(UserOAuthBindingMapper.class, () -> mock(UserOAuthBindingMapper.class))
-                .withBean(UserRoleMapper.class, () -> mock(UserRoleMapper.class));
+                .withBean(JdbcClient.class, () -> mock(JdbcClient.class));
     }
 }

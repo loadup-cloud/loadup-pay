@@ -81,7 +81,6 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "rowVersion", source = "value.version")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationReviewDO toDO(ReconciliationReview value);
 
     @Mapping(target = "id", source = "value.id")
@@ -100,7 +99,6 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "proposedAt", source = "value.proposedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationReviewProposalDO toDO(ReconciliationReviewProposal value);
 
     @Mapping(target = "id", source = "value.id")
@@ -120,7 +118,6 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "occurredAt", source = "value.occurredAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationReviewEventDO toDO(ReconciliationReviewEvent value);
 
     @Named("evidenceSize")

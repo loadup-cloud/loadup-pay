@@ -50,6 +50,5 @@ public interface RefundAcceptanceStorageConverter {
     @Mapping(target = "receiptId", source = "value.receiptId")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     RefundAcceptanceDO toDO(RefundAcceptanceEvidence value);
 }

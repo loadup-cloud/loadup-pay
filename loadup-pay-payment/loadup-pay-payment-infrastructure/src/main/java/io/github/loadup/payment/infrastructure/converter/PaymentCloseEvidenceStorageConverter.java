@@ -45,6 +45,5 @@ public interface PaymentCloseEvidenceStorageConverter {
     @Mapping(target = "currency", source = "value.amount.currencyValue")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     PaymentCloseEvidenceDO toDO(PaymentCloseEvidence value);
 }

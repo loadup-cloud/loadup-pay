@@ -15,8 +15,6 @@
  */
 package io.github.loadup.productcenter.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
 import io.github.loadup.productcenter.domain.gateway.OrderAdmissionGateway;
@@ -24,41 +22,49 @@ import io.github.loadup.productcenter.domain.model.StoredOrderAdmission;
 import io.github.loadup.productcenter.infrastructure.converter.AdmissionStorageConverter;
 import io.github.loadup.productcenter.infrastructure.dataobject.OrderAdmissionDO;
 import io.github.loadup.productcenter.infrastructure.exception.AdmissionOrderConflictException;
-import io.github.loadup.productcenter.infrastructure.mapper.OrderAdmissionMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class OrderAdmissionGatewayImpl extends ServiceImpl<OrderAdmissionMapper, OrderAdmissionDO>
-        implements OrderAdmissionGateway {
+public class OrderAdmissionGatewayImpl implements OrderAdmissionGateway {
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final AdmissionStorageConverter converter;
     private final Clock clock;
 
     public OrderAdmissionGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            OrderAdmissionMapper mapper,
-            AdmissionStorageConverter converter,
-            Clock clock) {
+            NamedParameterJdbcTemplate jdbc, AdmissionStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.clock = clock;
     }
 
     @Override
     public Optional<StoredOrderAdmission> findByOrder(String order) {
-        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("order_id", order))));
+        return read(() -> Optional.ofNullable(
+                queries.sql("SELECT * FROM order_admission WHERE deleted = FALSE AND order_id = :order_id")
+                        .param("order_id", order)
+                        .query(OrderAdmissionDO.class)
+                        .optional()
+                        .orElse(null)));
     }
 
     @Override
     public Optional<StoredOrderAdmission> findById(String id) {
-        return read(() -> Optional.ofNullable(getById(id)));
+        return read(() ->
+                Optional.ofNullable(queries.sql("SELECT * FROM order_admission WHERE deleted = FALSE AND id = :id")
+                        .param("id", id)
+                        .query(OrderAdmissionDO.class)
+                        .optional()
+                        .orElse(null)));
     }
 
     private Optional<StoredOrderAdmission> read(Supplier<Optional<OrderAdmissionDO>> lookup) {

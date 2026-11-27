@@ -129,7 +129,6 @@ public interface ReconciliationStatementStorageConverter {
     @Mapping(target = "id", source = "value.id")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationStatementDO toDO(ReconciliationStatementRequest value);
 
     @Named("receivedMicros")

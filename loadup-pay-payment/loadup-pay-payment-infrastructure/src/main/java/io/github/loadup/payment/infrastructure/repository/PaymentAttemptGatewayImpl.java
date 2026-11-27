@@ -19,7 +19,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCUR
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.ChannelBindingGateway;
@@ -28,7 +27,6 @@ import io.github.loadup.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.payment.infrastructure.converter.PaymentAttemptStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentAttemptDO;
-import io.github.loadup.payment.infrastructure.mapper.PaymentAttemptMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -40,8 +38,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper, PaymentAttemptDO>
-        implements PaymentAttemptGateway {
+public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
     private static final String COLUMNS = "id, created_at, updated_at, payment_id, attempt_no, amount_minor, currency,"
             + " binding_revision_id, channel, access_mode, account_scope_hash, method, channel_request_no, state,"
             + " execution_epoch, no_collection_evidence_id, limit_operation_id, caller_service_id, request_key,"
@@ -54,12 +51,11 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
 
     public PaymentAttemptGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            PaymentAttemptMapper mapper,
             ChannelBindingGateway bindings,
             PaymentAttemptStorageConverter converter,
             Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+
         this.bindings = bindings;
         this.converter = converter;
         this.clock = clock;

@@ -27,6 +27,5 @@ public interface AcquireRecoveryRetryStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     AcquireRecoveryRetryReceiptDO toDO(AcquireRecoveryRetryReceipt value);
 }

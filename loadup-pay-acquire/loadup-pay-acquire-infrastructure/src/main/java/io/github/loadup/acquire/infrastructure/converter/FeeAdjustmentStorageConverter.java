@@ -40,7 +40,6 @@ public interface FeeAdjustmentStorageConverter {
     @Mapping(target = "currency", source = "value.adjustment.currencyValue")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     FeeAdjustmentDO toDO(
             FeeAdjustment value,
             String sourceEventId,

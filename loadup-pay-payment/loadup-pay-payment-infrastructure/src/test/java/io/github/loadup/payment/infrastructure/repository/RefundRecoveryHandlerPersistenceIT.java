@@ -103,7 +103,6 @@ import io.github.loadup.payment.infrastructure.codec.RefundResultCodecImpl;
 import io.github.loadup.payment.infrastructure.converter.RefundAcceptanceStorageConverter;
 import io.github.loadup.payment.infrastructure.converter.RefundResultStorageConverter;
 import io.github.loadup.payment.infrastructure.converter.RefundStorageConverter;
-import io.github.loadup.payment.infrastructure.mapper.RefundTransactionClaimMapper;
 import io.github.loadup.payment.infrastructure.task.RefundRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import java.sql.Timestamp;
@@ -1058,13 +1057,12 @@ class RefundRecoveryHandlerPersistenceIT {
 
         FaultingRefundResults(
                 NamedParameterJdbcTemplate jdbc,
-                RefundTransactionClaimMapper claims,
                 RefundResultStorageConverter converter,
                 RefundStorageConverter storage,
                 Clock clock,
                 Clock databaseClock,
                 RefundFaults faults) {
-            super(jdbc, claims, converter, storage, clock, databaseClock);
+            super(jdbc, converter, storage, clock, databaseClock);
             this.faults = faults;
         }
 
@@ -1202,13 +1200,12 @@ class RefundRecoveryHandlerPersistenceIT {
         @Bean
         RefundResultGateway refundResults(
                 NamedParameterJdbcTemplate jdbc,
-                RefundTransactionClaimMapper claims,
                 RefundResultStorageConverter converter,
                 RefundStorageConverter storage,
                 Clock clock,
                 Clock databaseClock,
                 RefundFaults faults) {
-            return new FaultingRefundResults(jdbc, claims, converter, storage, clock, databaseClock, faults);
+            return new FaultingRefundResults(jdbc, converter, storage, clock, databaseClock, faults);
         }
 
         @Bean

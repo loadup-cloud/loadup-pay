@@ -9,7 +9,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 PAY = re.compile(r"loadup-pay-(.+)-(client|domain|app|infrastructure|adapter|bootstrap|service)$")
-JAVA_REF = re.compile(r"\b(?:io\.github\.loadup|org\.springframework|com\.mybatisflex|jakarta\.persistence)\.[\w.]+")
+JAVA_REF = re.compile(r"\b(?:io\.github\.loadup|org\.springframework|jakarta\.persistence)\.[\w.]+")
 # Keep offsets/newlines so diagnostics refer to the original source. This is a lexical
 # boundary check, not a replacement for Java compilation or bytecode analysis.
 JAVA_NON_CODE = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//[^\n]*|/\*[\s\S]*?\*/')
@@ -33,7 +33,7 @@ def java_violations(source):
         ref = match.group().rstrip(".")
         reason = None
         if (layer == "domain" or contracts) and ref.startswith((
-                "org.springframework.", "com.mybatisflex.", "jakarta.persistence.")):
+                "org.springframework.", "jakarta.persistence.")):
             reason = "A5-TECH: domain/shared facts must not depend on Spring or ORM"
         if ref.startswith("io.github.loadup."):
             target = ref.removeprefix("io.github.loadup.").split(".")

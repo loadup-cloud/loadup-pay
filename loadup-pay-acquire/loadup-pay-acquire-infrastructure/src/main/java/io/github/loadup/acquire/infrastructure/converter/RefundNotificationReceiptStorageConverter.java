@@ -27,6 +27,5 @@ public interface RefundNotificationReceiptStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     RefundNotificationReceiptDO toDO(RefundNotificationReceipt value);
 }

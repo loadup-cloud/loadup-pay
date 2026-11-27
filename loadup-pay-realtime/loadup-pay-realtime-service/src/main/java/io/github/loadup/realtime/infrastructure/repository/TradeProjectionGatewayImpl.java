@@ -21,8 +21,6 @@ import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.INVA
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -42,10 +40,6 @@ import io.github.loadup.realtime.infrastructure.dataobject.TradeOrderDO;
 import io.github.loadup.realtime.infrastructure.dataobject.TradePaymentDO;
 import io.github.loadup.realtime.infrastructure.dataobject.TradeRefundDO;
 import io.github.loadup.realtime.infrastructure.dataobject.TradeSummaryDO;
-import io.github.loadup.realtime.infrastructure.mapper.TradeOrderProjectionMapper;
-import io.github.loadup.realtime.infrastructure.mapper.TradePaymentProjectionMapper;
-import io.github.loadup.realtime.infrastructure.mapper.TradeRefundProjectionMapper;
-import io.github.loadup.realtime.infrastructure.mapper.TradeRefundSummaryMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -56,12 +50,12 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjectionMapper, TradeOrderDO>
-        implements TradeProjectionGateway, TradeQueryGateway {
+public class TradeProjectionGatewayImpl implements TradeProjectionGateway, TradeQueryGateway {
     private static final String ORDER_COLUMNS = "id, created_at, updated_at, order_id, payee_merchant_id, "
             + "merchant_order_no, state, business_created_at, source_version, content_hash, payload, snapshot_at";
     private static final String PAYMENT_COLUMNS =
@@ -70,10 +64,8 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     private static final String REFUND_COLUMNS =
             "id, created_at, updated_at, refund_id, refund_request_id, payment_id, "
                     + "order_id, payee_merchant_id, state, business_created_at, source_version, content_hash, payload, snapshot_at";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
-    private final TradePaymentProjectionMapper payments;
-    private final TradeRefundProjectionMapper refunds;
-    private final TradeRefundSummaryMapper summaries;
     private final Clock clock;
     private final TradeStorageConverter converter;
     private final TradeProjectionCodec codec;
@@ -84,16 +76,10 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
             TradeProjectionCodec codec,
             IdGenerator ids,
             NamedParameterJdbcTemplate jdbc,
-            TradeOrderProjectionMapper mapper,
-            TradePaymentProjectionMapper payments,
-            TradeRefundProjectionMapper refunds,
-            TradeRefundSummaryMapper summaries,
             Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
-        this.payments = payments;
-        this.refunds = refunds;
-        this.summaries = summaries;
+        this.queries = JdbcClient.create(jdbc);
+
         this.clock = clock;
         this.converter = converter;
         this.codec = codec;
@@ -103,8 +89,20 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     private Optional<TradeOrderDO> order(String orderId, String payee, boolean lock) {
         if (!lock) {
             var row = payee == null
-                    ? getOne(QueryWrapper.create().eq("order_id", orderId))
-                    : getOne(QueryWrapper.create().eq("order_id", orderId).eq("payee_merchant_id", payee));
+                    ? queries.sql("SELECT * FROM trade_order_projection WHERE deleted = FALSE AND order_id = :order_id")
+                            .param("order_id", orderId)
+                            .query(TradeOrderDO.class)
+                            .optional()
+                            .orElse(null)
+                    : queries.sql("""
+                            SELECT * FROM trade_order_projection
+                            WHERE deleted = FALSE AND order_id = :order_id AND payee_merchant_id = :payee_merchant_id
+                            """)
+                            .param("order_id", orderId)
+                            .param("payee_merchant_id", payee)
+                            .query(TradeOrderDO.class)
+                            .optional()
+                            .orElse(null);
             return Optional.ofNullable(row);
         }
         var args = new MapSqlParameterSource().addValue("orderId", orderId).addValue("payee", payee);
@@ -203,8 +201,12 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
 
     private Optional<TradePaymentDO> payment(String paymentId, boolean lock) {
         if (!lock) {
-            return Optional.ofNullable(
-                    payments.selectOneByQuery(QueryWrapper.create().eq("payment_id", paymentId)));
+            return Optional.ofNullable(queries.sql(
+                            "SELECT * FROM trade_payment_projection WHERE deleted = FALSE AND payment_id = :payment_id")
+                    .param("payment_id", paymentId)
+                    .query(TradePaymentDO.class)
+                    .optional()
+                    .orElse(null));
         }
         var args = new MapSqlParameterSource().addValue("paymentId", paymentId);
         return jdbc
@@ -299,8 +301,12 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
 
     private Optional<TradeRefundDO> refund(String refundId, boolean lock) {
         if (!lock) {
-            return Optional.ofNullable(
-                    refunds.selectOneByQuery(QueryWrapper.create().eq("refund_id", refundId)));
+            return Optional.ofNullable(queries.sql(
+                            "SELECT * FROM trade_refund_projection WHERE deleted = FALSE AND refund_id = :refund_id")
+                    .param("refund_id", refundId)
+                    .query(TradeRefundDO.class)
+                    .optional()
+                    .orElse(null));
         }
         var args = new MapSqlParameterSource().addValue("refundId", refundId);
         return jdbc
@@ -400,9 +406,21 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         if (!lock) {
             return Optional.ofNullable(
                     payee == null
-                            ? summaries.selectOneByQuery(QueryWrapper.create().eq("order_id", order))
-                            : summaries.selectOneByQuery(
-                                    QueryWrapper.create().eq("order_id", order).eq("payee_merchant_id", payee)));
+                            ? queries.sql(
+                                            "SELECT * FROM trade_refund_summary WHERE deleted = FALSE AND order_id = :order_id")
+                                    .param("order_id", order)
+                                    .query(TradeSummaryDO.class)
+                                    .optional()
+                                    .orElse(null)
+                            : queries.sql("""
+                                    SELECT * FROM trade_refund_summary
+                                    WHERE deleted = FALSE AND order_id = :order_id AND payee_merchant_id = :payee_merchant_id
+                                    """)
+                                    .param("order_id", order)
+                                    .param("payee_merchant_id", payee)
+                                    .query(TradeSummaryDO.class)
+                                    .optional()
+                                    .orElse(null));
         }
         var args = new MapSqlParameterSource().addValue("orderId", order).addValue("payee", payee);
         return jdbc

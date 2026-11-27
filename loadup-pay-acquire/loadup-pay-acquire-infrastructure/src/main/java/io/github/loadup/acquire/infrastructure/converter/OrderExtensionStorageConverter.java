@@ -30,7 +30,6 @@ public interface OrderExtensionStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderExtensionReceiptDO toDO(OrderExtensionReceipt value);
 
     @BeanMapping(ignoreByDefault = true)

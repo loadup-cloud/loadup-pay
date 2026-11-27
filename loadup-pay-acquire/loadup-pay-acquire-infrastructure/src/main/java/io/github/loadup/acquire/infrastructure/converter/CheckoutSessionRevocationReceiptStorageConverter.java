@@ -27,6 +27,5 @@ public interface CheckoutSessionRevocationReceiptStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     CheckoutSessionRevocationReceiptDO toDO(CheckoutSessionRevocationReceipt value);
 }

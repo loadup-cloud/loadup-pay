@@ -43,7 +43,6 @@ public interface RefundProjectionStorageConverter {
     @Mapping(target = "rowVersion", source = "value.version")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderRefundSummaryDO toSummaryDO(String id, OrderRefundSummary value);
 
     @BeanMapping(ignoreByDefault = true)

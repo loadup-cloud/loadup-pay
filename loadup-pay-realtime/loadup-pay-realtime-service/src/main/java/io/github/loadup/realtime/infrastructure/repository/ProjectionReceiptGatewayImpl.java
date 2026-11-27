@@ -19,37 +19,32 @@ import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.CONC
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.realtime.domain.gateway.ProjectionReceiptGateway;
 import io.github.loadup.realtime.domain.gateway.ProjectionWriteRaceException;
 import io.github.loadup.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.realtime.infrastructure.converter.TradeStorageConverter;
 import io.github.loadup.realtime.infrastructure.dataobject.ProjectionReceiptDO;
-import io.github.loadup.realtime.infrastructure.mapper.ProjectionReceiptMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class ProjectionReceiptGatewayImpl extends ServiceImpl<ProjectionReceiptMapper, ProjectionReceiptDO>
-        implements ProjectionReceiptGateway {
+public class ProjectionReceiptGatewayImpl implements ProjectionReceiptGateway {
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final TradeStorageConverter converter;
     private final Clock clock;
 
-    public ProjectionReceiptGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            ProjectionReceiptMapper mapper,
-            TradeStorageConverter converter,
-            Clock clock) {
+    public ProjectionReceiptGatewayImpl(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.clock = clock;
     }
@@ -57,8 +52,15 @@ public class ProjectionReceiptGatewayImpl extends ServiceImpl<ProjectionReceiptM
     @Override
     public Optional<ProjectionReceipt> find(String producer, String delivery) {
         try {
-            return Optional.ofNullable(getOne(
-                            QueryWrapper.create().eq("producer", producer).eq("delivery_id", delivery)))
+            return Optional.ofNullable(queries.sql("""
+                    SELECT * FROM trade_projection_receipt
+                    WHERE deleted = FALSE AND producer = :producer AND delivery_id = :delivery_id
+                    """)
+                            .param("producer", producer)
+                            .param("delivery_id", delivery)
+                            .query(ProjectionReceiptDO.class)
+                            .optional()
+                            .orElse(null))
                     .map(converter::toReceipt);
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);

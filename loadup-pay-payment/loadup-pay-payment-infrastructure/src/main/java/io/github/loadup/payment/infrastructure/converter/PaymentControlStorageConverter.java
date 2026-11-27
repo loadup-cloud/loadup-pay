@@ -27,6 +27,5 @@ public interface PaymentControlStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     PaymentControlReceiptDO toReceiptDO(PaymentControlReceipt value);
 }

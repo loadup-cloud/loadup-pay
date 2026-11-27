@@ -51,7 +51,6 @@ public interface PaymentOutcomeStorageConverter {
     @Mapping(target = "executionFenced", source = "value.outcome.executionFenced")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderPaymentOutcomeDO toDO(PaymentOutcomeReceipt value);
 
     @BeanMapping(ignoreByDefault = true)

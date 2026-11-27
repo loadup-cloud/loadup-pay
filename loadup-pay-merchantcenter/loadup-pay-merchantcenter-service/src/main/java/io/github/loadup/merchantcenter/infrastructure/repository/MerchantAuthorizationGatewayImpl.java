@@ -15,8 +15,6 @@
  */
 package io.github.loadup.merchantcenter.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.merchantcenter.client.enums.GrantState;
 import io.github.loadup.merchantcenter.client.enums.MerchantAction;
@@ -27,8 +25,6 @@ import io.github.loadup.merchantcenter.domain.model.MerchantActionGrant;
 import io.github.loadup.merchantcenter.domain.model.MerchantRelationship;
 import io.github.loadup.merchantcenter.infrastructure.dataobject.MerchantActionGrantDO;
 import io.github.loadup.merchantcenter.infrastructure.dataobject.MerchantRelationshipDO;
-import io.github.loadup.merchantcenter.infrastructure.mapper.MerchantActionGrantMapper;
-import io.github.loadup.merchantcenter.infrastructure.mapper.MerchantRelationshipMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -37,24 +33,23 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** All callers acquire the payee merchant row before modifying authorization records. */
 @Repository
-public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelationshipMapper, MerchantRelationshipDO>
-        implements MerchantAuthorizationGateway {
+public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGateway {
     private static final List<String> LIVE_STATES = List.of("INIT", "ACTIVE");
 
+    private final JdbcClient queries;
     private final JdbcTemplate jdbc;
-    private final MerchantActionGrantMapper grants;
     private final Clock clock;
 
-    public MerchantAuthorizationGatewayImpl(
-            JdbcTemplate jdbc, MerchantRelationshipMapper mapper, MerchantActionGrantMapper grants, Clock clock) {
+    public MerchantAuthorizationGatewayImpl(JdbcTemplate jdbc, JdbcClient queries, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
-        this.grants = grants;
+        this.queries = queries;
+
         this.clock = clock;
     }
 
@@ -117,7 +112,12 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
         if (id == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(getById(id)).map(MerchantAuthorizationGatewayImpl::mapRelationship);
+        return Optional.ofNullable(queries.sql("SELECT * FROM merchant_relationship WHERE deleted = FALSE AND id = :id")
+                        .param("id", id)
+                        .query(MerchantRelationshipDO.class)
+                        .optional()
+                        .orElse(null))
+                .map(MerchantAuthorizationGatewayImpl::mapRelationship);
     }
 
     @Override
@@ -125,12 +125,20 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
         if (parent == null || child == null) {
             return Optional.empty();
         }
-        var query = QueryWrapper.create()
-                .eq("parent_merchant_id", parent)
-                .eq("child_merchant_id", child)
-                .eq("relation_type", "MANAGEMENT")
-                .in("state", LIVE_STATES);
-        return Optional.ofNullable(getOne(query)).map(MerchantAuthorizationGatewayImpl::mapRelationship);
+        return Optional.ofNullable(queries.sql("""
+                SELECT * FROM merchant_relationship
+                WHERE deleted = FALSE AND parent_merchant_id = :parent_merchant_id
+                AND child_merchant_id = :child_merchant_id AND relation_type = :relation_type
+                AND state IN (:state)
+                """)
+                        .param("parent_merchant_id", parent)
+                        .param("child_merchant_id", child)
+                        .param("relation_type", "MANAGEMENT")
+                        .param("state", LIVE_STATES)
+                        .query(MerchantRelationshipDO.class)
+                        .optional()
+                        .orElse(null))
+                .map(MerchantAuthorizationGatewayImpl::mapRelationship);
     }
 
     @Override
@@ -145,7 +153,12 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
         if (id == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(grants.selectOneById(id)).map(MerchantAuthorizationGatewayImpl::mapGrant);
+        return Optional.ofNullable(queries.sql("SELECT * FROM merchant_action_grant WHERE deleted = FALSE AND id = :id")
+                        .param("id", id)
+                        .query(MerchantActionGrantDO.class)
+                        .optional()
+                        .orElse(null))
+                .map(MerchantAuthorizationGatewayImpl::mapGrant);
     }
 
     @Override
@@ -161,13 +174,20 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
         if (principal == null || payee == null) {
             return Optional.empty();
         }
-        var query = QueryWrapper.create()
-                .eq("principal_type", type.name())
-                .eq("principal_id", principal)
-                .eq("payee_merchant_id", payee)
-                .eq("action", action.name())
-                .in("state", LIVE_STATES);
-        return Optional.ofNullable(grants.selectOneByQuery(query)).map(MerchantAuthorizationGatewayImpl::mapGrant);
+        return Optional.ofNullable(queries.sql("""
+                SELECT * FROM merchant_action_grant
+                WHERE deleted = FALSE AND principal_type = :principal_type AND principal_id = :principal_id
+                AND payee_merchant_id = :payee_merchant_id AND action = :action AND state IN (:state)
+                """)
+                        .param("principal_type", type.name())
+                        .param("principal_id", principal)
+                        .param("payee_merchant_id", payee)
+                        .param("action", action.name())
+                        .param("state", LIVE_STATES)
+                        .query(MerchantActionGrantDO.class)
+                        .optional()
+                        .orElse(null))
+                .map(MerchantAuthorizationGatewayImpl::mapGrant);
     }
 
     @Override

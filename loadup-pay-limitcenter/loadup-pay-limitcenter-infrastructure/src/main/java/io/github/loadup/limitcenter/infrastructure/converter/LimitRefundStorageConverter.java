@@ -27,6 +27,5 @@ public interface LimitRefundStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     LimitRefundReceiptDO toDO(LimitRefundReceipt value);
 }

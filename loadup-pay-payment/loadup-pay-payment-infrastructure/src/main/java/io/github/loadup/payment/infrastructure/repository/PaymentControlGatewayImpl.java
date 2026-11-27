@@ -19,8 +19,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCUR
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.contracts.event.payment.PaymentState;
 import io.github.loadup.payment.app.port.PaymentAcceptanceCodec;
@@ -35,7 +33,6 @@ import io.github.loadup.payment.infrastructure.converter.PaymentAcceptanceStorag
 import io.github.loadup.payment.infrastructure.converter.PaymentControlStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentControlReceiptDO;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentOrderDO;
-import io.github.loadup.payment.infrastructure.mapper.PaymentControlReceiptMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -44,16 +41,17 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceiptMapper, PaymentControlReceiptDO>
-        implements PaymentControlGateway {
+public class PaymentControlGatewayImpl implements PaymentControlGateway {
     private static final String PAYMENT_COLUMNS = "id, created_at, updated_at, order_id, allocation_id, admission_id,"
             + " payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state, active_attempt_id,"
             + " successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at,"
             + " terminal_evidence_id, intent_payload, payload_hash, row_version";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock databaseClock;
     private final PaymentAcceptanceStorageConverter converter;
@@ -63,14 +61,14 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
 
     public PaymentControlGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            PaymentControlReceiptMapper mapper,
             PaymentAcceptanceStorageConverter converter,
             PaymentControlStorageConverter receiptConverter,
             PaymentAcceptanceCodec codec,
             Clock clock,
             Clock databaseClock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.databaseClock = databaseClock;
         this.converter = converter;
         this.receiptConverter = receiptConverter;
@@ -205,18 +203,30 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
 
     @Override
     public Optional<PaymentControlReceipt> findReceipt(String kind, String targetId, String requestKey) {
-        return receipt(getOne(
-                QueryWrapper.create().eq("kind", kind).eq("target_id", targetId).eq("request_key", requestKey)));
+        return receipt(queries.sql("""
+                SELECT * FROM payment_control_receipt
+                WHERE deleted = FALSE AND kind = :kind AND target_id = :target_id AND request_key = :request_key
+                """)
+                .param("kind", kind)
+                .param("target_id", targetId)
+                .param("request_key", requestKey)
+                .query(PaymentControlReceiptDO.class)
+                .optional()
+                .orElse(null));
     }
 
     @Override
     public Optional<PaymentControlReceipt> findNoCollectionReceipt(String paymentId) {
-        return receipt(getOne(QueryWrapper.create()
-                .eq("kind", "PAYMENT_CLOSE")
-                .eq("target_id", paymentId)
-                .isNotNull("no_collection_evidence_id")
-                .orderBy("id")
-                .limit(1)));
+        return receipt(queries.sql("""
+                SELECT * FROM payment_control_receipt
+                WHERE deleted = FALSE AND kind = :kind AND target_id = :target_id
+                AND no_collection_evidence_id IS NOT NULL ORDER BY id LIMIT 1
+                """)
+                .param("kind", "PAYMENT_CLOSE")
+                .param("target_id", paymentId)
+                .query(PaymentControlReceiptDO.class)
+                .optional()
+                .orElse(null));
     }
 
     private Optional<PaymentControlReceipt> receipt(PaymentControlReceiptDO row) {

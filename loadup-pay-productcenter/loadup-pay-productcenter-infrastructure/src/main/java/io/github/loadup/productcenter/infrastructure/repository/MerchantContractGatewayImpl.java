@@ -15,8 +15,6 @@
  */
 package io.github.loadup.productcenter.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.productcenter.client.error.ContractResultCodeEnum;
@@ -27,9 +25,6 @@ import io.github.loadup.productcenter.domain.model.ContractRevisionRecord;
 import io.github.loadup.productcenter.domain.model.ContractStatus;
 import io.github.loadup.productcenter.infrastructure.dataobject.ContractRevisionRow;
 import io.github.loadup.productcenter.infrastructure.dataobject.MerchantContractRow;
-import io.github.loadup.productcenter.infrastructure.mapper.ContractRevisionRowMapper;
-import io.github.loadup.productcenter.infrastructure.mapper.MerchantContractRowMapper;
-import io.github.loadup.productcenter.infrastructure.table.Tables;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -39,25 +34,21 @@ import org.postgresql.util.PSQLException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Repository
-public class MerchantContractGatewayImpl extends ServiceImpl<MerchantContractRowMapper, MerchantContractRow>
-        implements MerchantContractGateway {
+public class MerchantContractGatewayImpl implements MerchantContractGateway {
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
-    private final ContractRevisionRowMapper revisionMapper;
     private final Clock clock;
 
-    public MerchantContractGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            MerchantContractRowMapper mapper,
-            ContractRevisionRowMapper revisionMapper,
-            Clock clock) {
+    public MerchantContractGatewayImpl(NamedParameterJdbcTemplate jdbc, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
-        this.revisionMapper = revisionMapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.clock = clock;
     }
 
@@ -134,15 +125,24 @@ public class MerchantContractGatewayImpl extends ServiceImpl<MerchantContractRow
 
     @Override
     public Optional<ContractRecord> find(String id) {
-        return getByIdOpt(required(id)).map(MerchantContractGatewayImpl::toContract);
+        return queries.sql("SELECT * FROM merchant_contract WHERE deleted = FALSE AND id = :id")
+                .param("id", required(id))
+                .query(MerchantContractRow.class)
+                .optional()
+                .map(MerchantContractGatewayImpl::toContract);
     }
 
     @Override
     public Optional<ContractRecord> findByScope(String merchant, String key) {
-        var query = QueryWrapper.create()
-                .where(Tables.MERCHANT_CONTRACT_ROW.MERCHANT_ID.eq(required(merchant)))
-                .and(Tables.MERCHANT_CONTRACT_ROW.SCOPE_KEY.eq(required(key)));
-        return getOneOpt(query).map(MerchantContractGatewayImpl::toContract);
+        return queries.sql("""
+                SELECT * FROM merchant_contract
+                WHERE deleted = FALSE AND merchant_id = :merchant_id AND scope_key = :scope_key
+                """)
+                .param("merchant_id", required(merchant))
+                .param("scope_key", required(key))
+                .query(MerchantContractRow.class)
+                .optional()
+                .map(MerchantContractGatewayImpl::toContract);
     }
 
     @Override
@@ -156,16 +156,25 @@ public class MerchantContractGatewayImpl extends ServiceImpl<MerchantContractRow
 
     @Override
     public Optional<ContractRecord> findByRequest(String key) {
-        var query = QueryWrapper.create().where(Tables.MERCHANT_CONTRACT_ROW.REQUEST_KEY.eq(required(key)));
-        return getOneOpt(query).map(MerchantContractGatewayImpl::toContract);
+        return queries.sql("SELECT * FROM merchant_contract WHERE deleted = FALSE AND request_key = :request_key")
+                .param("request_key", required(key))
+                .query(MerchantContractRow.class)
+                .optional()
+                .map(MerchantContractGatewayImpl::toContract);
     }
 
     @Override
     public Optional<ContractRevisionRecord> revision(String id, int version) {
-        var query = QueryWrapper.create()
-                .where(Tables.CONTRACT_REVISION_ROW.CONTRACT_ID.eq(required(id)))
-                .and(Tables.CONTRACT_REVISION_ROW.REVISION.eq(version));
-        return Optional.ofNullable(revisionMapper.selectOneByQuery(query)).map(MerchantContractGatewayImpl::toRevision);
+        return Optional.ofNullable(queries.sql("""
+                SELECT * FROM merchant_contract_revision
+                WHERE deleted = FALSE AND contract_id = :contract_id AND revision = :revision
+                """)
+                        .param("contract_id", required(id))
+                        .param("revision", version)
+                        .query(ContractRevisionRow.class)
+                        .optional()
+                        .orElse(null))
+                .map(MerchantContractGatewayImpl::toRevision);
     }
 
     @Override

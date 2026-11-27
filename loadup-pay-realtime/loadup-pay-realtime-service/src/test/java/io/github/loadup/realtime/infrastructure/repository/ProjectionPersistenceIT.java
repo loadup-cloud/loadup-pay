@@ -44,7 +44,6 @@ import io.github.loadup.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.realtime.infrastructure.codec.TradeProjectionCodecImpl;
 import io.github.loadup.realtime.infrastructure.converter.TradeStorageConverter;
-import io.github.loadup.realtime.infrastructure.mapper.ProjectionReceiptMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -469,12 +468,9 @@ class ProjectionPersistenceIT {
     static class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 
-        FaultingReceipts(
-                NamedParameterJdbcTemplate jdbc,
-                ProjectionReceiptMapper receipts,
-                TradeStorageConverter converter,
-                Clock clock) {
-            super(jdbc, receipts, converter, clock);
+        FaultingReceipts(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter, Clock clock) {
+
+            super(jdbc, converter, clock);
         }
 
         @Override
@@ -502,12 +498,9 @@ class ProjectionPersistenceIT {
         }
 
         @Bean
-        FaultingReceipts receipts(
-                NamedParameterJdbcTemplate jdbc,
-                ProjectionReceiptMapper receipts,
-                TradeStorageConverter converter,
-                Clock clock) {
-            return new FaultingReceipts(jdbc, receipts, converter, clock);
+        FaultingReceipts receipts(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter, Clock clock) {
+
+            return new FaultingReceipts(jdbc, converter, clock);
         }
 
         @Bean("realtimeClock")

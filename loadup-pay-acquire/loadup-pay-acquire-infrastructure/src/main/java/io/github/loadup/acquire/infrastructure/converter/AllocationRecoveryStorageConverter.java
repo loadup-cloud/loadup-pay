@@ -30,7 +30,6 @@ public interface AllocationRecoveryStorageConverter {
     @Mapping(target = "id", source = "value.paymentId")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     AllocationRecoveryCursorDO toDO(AllocationRecoveryCursor value);
 
     @BeanMapping(ignoreByDefault = true)

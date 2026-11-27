@@ -15,9 +15,9 @@
  */
 package io.github.loadup.merchantcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.database.dataobject.BaseDO;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("merchant_profile")
 public class MerchantDO extends BaseDO {

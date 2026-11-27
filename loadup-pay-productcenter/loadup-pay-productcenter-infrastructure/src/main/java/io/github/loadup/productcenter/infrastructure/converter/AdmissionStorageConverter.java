@@ -76,6 +76,5 @@ public interface AdmissionStorageConverter {
     @Mapping(target = "compiledTerms", source = "value.compiledTerms")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderAdmissionDO toDO(StoredOrderAdmission value);
 }

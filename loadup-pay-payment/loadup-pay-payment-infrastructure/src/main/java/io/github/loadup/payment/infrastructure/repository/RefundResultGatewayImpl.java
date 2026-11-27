@@ -20,8 +20,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.components.payment.channel.contract.Channel;
@@ -39,7 +37,6 @@ import io.github.loadup.payment.infrastructure.dataobject.RefundAllocationPlanDO
 import io.github.loadup.payment.infrastructure.dataobject.RefundChannelReceiptDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.payment.infrastructure.dataobject.RefundTransactionClaimDO;
-import io.github.loadup.payment.infrastructure.mapper.RefundTransactionClaimMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -50,12 +47,12 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimMapper, RefundTransactionClaimDO>
-        implements RefundResultGateway {
+public class RefundResultGatewayImpl implements RefundResultGateway {
     private static final String CLAIM_COLUMNS = "id, created_at, updated_at, refund_id, payment_id, attempt_id, "
             + "channel, binding_revision_id, account_scope_hash, channel_request_no, original_channel_transaction_no, "
             + "channel_refund_no, amount_minor, currency, channel_refund_transaction_no, succeeded_at, receipt_id";
@@ -65,6 +62,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
                     + " original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no,"
                     + " amount_minor, currency, state, first_unknown_at, terminal_evidence_id, next_query_at,"
                     + " query_sequence, succeeded_at, row_version";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock databaseClock;
     private final RefundResultStorageConverter converter;
@@ -73,13 +71,13 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
 
     public RefundResultGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            RefundTransactionClaimMapper mapper,
             RefundResultStorageConverter converter,
             RefundStorageConverter storage,
             Clock clock,
             Clock databaseClock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.databaseClock = databaseClock;
         this.converter = converter;
         this.storage = storage;
@@ -197,16 +195,27 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         writable();
         // One exact immutable financial key must see aliases across tenants. Never expose this lookup
         // as an API.
-        var row = getOne(QueryWrapper.create()
-                .eq("channel", channel.name())
-                .eq("account_scope_hash", scope)
-                .eq("channel_refund_transaction_no", number));
+        var row = queries.sql("""
+                SELECT * FROM refund_transaction_claim
+                WHERE deleted = FALSE AND channel = :channel AND account_scope_hash = :account_scope_hash
+                AND channel_refund_transaction_no = :channel_refund_transaction_no
+                """)
+                .param("channel", channel.name())
+                .param("account_scope_hash", scope)
+                .param("channel_refund_transaction_no", number)
+                .query(RefundTransactionClaimDO.class)
+                .optional()
+                .orElse(null);
         return claim(row);
     }
 
     @Override
     public Optional<RefundTransactionClaim> claim(String refundId) {
-        var row = getOne(QueryWrapper.create().eq("refund_id", refundId));
+        var row = queries.sql("SELECT * FROM refund_transaction_claim WHERE deleted = FALSE AND refund_id = :refund_id")
+                .param("refund_id", refundId)
+                .query(RefundTransactionClaimDO.class)
+                .optional()
+                .orElse(null);
         return claim(row);
     }
 

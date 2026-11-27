@@ -35,7 +35,6 @@ public interface PaymentInputStorageConverter {
     @Mapping(target = "currency", source = "value.amount.currencyValue")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     PaymentInputDO toDO(PaymentInput value);
 
     @BeanMapping(ignoreByDefault = true)

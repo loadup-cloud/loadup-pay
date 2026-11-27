@@ -88,7 +88,6 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "rowVersion", source = "value.batch.version")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationBatchDO toDO(StoredReconciliationBatch value);
 
     @Mapping(target = "id", source = "value.artifactId")
@@ -111,7 +110,6 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "rowVersion", constant = "0L")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationInputDO toInput(String fileId, ReconciliationManifest value);
 
     @Mapping(target = "key", source = "row")
@@ -139,6 +137,5 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "state", source = "value.status")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ReconciliationEntryDO toEntry(String inputId, ReconciliationLine value);
 }

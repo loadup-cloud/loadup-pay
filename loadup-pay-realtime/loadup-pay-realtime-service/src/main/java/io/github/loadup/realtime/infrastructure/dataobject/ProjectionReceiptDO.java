@@ -15,10 +15,10 @@
  */
 package io.github.loadup.realtime.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("trade_projection_receipt")
 public class ProjectionReceiptDO extends BaseDO {

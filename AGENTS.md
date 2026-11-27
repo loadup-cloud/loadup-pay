@@ -52,8 +52,6 @@ LoadUp Pay 是基于 Framework 与 Modules 的支付应用仓库。当前十个�
   Maven。
 - 需要验证编译、注解处理或依赖装配时使用 Maven build；不完全禁止构建。优先选择受影响模块及其依赖，用户要求整体构建时执行整体构建。
 - Maven 编译必须带 `clean`，避免 MapStruct 等注解处理器增量生成时发生 `FilerException`。
-- 接入 database 编译期处理器时，处理器内部维护唯一配置，模块无需同步配置；版本由 framework BOM 管理。详见
-  [framework database processor 文档](../loadup-framework/loadup-components/data/loadup-components-database-processor/README.md)。
 - 明确区分格式化、编译、单测与真实环境集成测试；未运行的验证不得标为通过。根据任务需要选择测试和检查跳过参数，避免无收益的重复全量执行。
 
 ---
@@ -163,8 +161,8 @@ payment、acquire 等业务代码量大的服务保留
 | 10 | 无必要的业务模块横向依赖                                | 保持清晰依赖方向，跨模块能力优先通过公开接口集成                                                                                                                              |
 | 11 | Java 文件中写中文注释或 Javadoc                         | 注释/Javadoc 统一使用英文；中文只允许出现在 `*.md` 文档文件中                                                                                                                 |
 | 12 | 脱离当前迁移定义修改布尔字段类型 | PostgreSQL 布尔字段按所属迁移的 BOOLEAN 定义；枚举/标记整数按对应 CHECK 约束                                                                                                                                        |
-| 13 | DO 中重复定义 id/createdAt/updatedAt/deleted            | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
-| 14 | Mapper 中写额外 SQL 方法                                | 用 `QueryWrapper` 在 GatewayImpl 中操作                                                                                                                                       |
+| 13 | DO 中重复定义 id/createdAt/updatedAt            | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
+| 14 | 复杂查询、状态迁移或锁定                                | 在 infrastructure Gateway 中写参数化 SQL                                                                                                                                       |
 | 15 | 新增三方依赖不在 BOM 中声明                             | 版本管理集中在 `loadup-framework-bom/pom.xml`                                                                                                                                  |
 | 16 | 使用 Lombok（`@Data`/`@Getter`/`@Slf4j`/`@Builder` 等） | 写显式 Java 代码；DTO/Command/Query 优先使用 Java `record`；日志打印使用 `LogUtil.info/warn/error(Source.class, ...)`；仅第三方日志适配需要 Logger 时使用 `LogUtil.getLogger` |
 | 17 | 使用 a.equals(b)                                        | 使用StringUtils.equals() 或者Objects.equals()                                                                                                                                 |

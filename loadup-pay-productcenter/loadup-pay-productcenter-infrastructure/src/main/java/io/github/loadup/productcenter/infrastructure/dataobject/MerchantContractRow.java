@@ -15,9 +15,9 @@
  */
 package io.github.loadup.productcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("merchant_contract")
 public class MerchantContractRow extends BaseDO {
@@ -43,8 +43,7 @@ public class MerchantContractRow extends BaseDO {
             String requestDigest,
             String createdBy,
             LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            boolean deleted) {
+            LocalDateTime updatedAt) {
         setId(id);
         this.merchantId = merchantId;
         this.scopeKey = scopeKey;
@@ -56,7 +55,6 @@ public class MerchantContractRow extends BaseDO {
         this.createdBy = createdBy;
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
-        setDeleted(deleted);
     }
 
     public String getMerchantId() {

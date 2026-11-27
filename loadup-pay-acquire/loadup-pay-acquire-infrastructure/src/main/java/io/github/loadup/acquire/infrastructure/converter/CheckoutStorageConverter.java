@@ -43,7 +43,6 @@ public interface CheckoutStorageConverter {
     @Mapping(target = "scopeSnapshot", source = "payload")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     CheckoutSessionDO toDO(StoredCheckoutSession value, String payload);
 
     @BeanMapping(ignoreByDefault = true)

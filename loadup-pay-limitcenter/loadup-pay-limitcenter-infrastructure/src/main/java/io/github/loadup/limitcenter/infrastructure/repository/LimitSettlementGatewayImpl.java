@@ -19,8 +19,6 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.limitcenter.domain.gateway.LimitSettlementGateway;
 import io.github.loadup.limitcenter.domain.gateway.LimitWriteRaceException;
@@ -30,7 +28,6 @@ import io.github.loadup.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.limitcenter.domain.model.LimitSettlementReceipt;
 import io.github.loadup.limitcenter.infrastructure.converter.LimitSettlementStorageConverter;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitSettlementReceiptDO;
-import io.github.loadup.limitcenter.infrastructure.mapper.LimitSettlementReceiptMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -39,30 +36,34 @@ import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementReceiptMapper, LimitSettlementReceiptDO>
-        implements LimitSettlementGateway {
+public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final LimitSettlementStorageConverter converter;
 
     public LimitSettlementGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            LimitSettlementReceiptMapper mapper,
-            LimitSettlementStorageConverter converter,
-            Clock clock) {
+            NamedParameterJdbcTemplate jdbc, LimitSettlementStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.clock = clock;
         this.converter = converter;
     }
 
     @Override
     public Optional<LimitSettlementReceipt> findReceipt(String operation) {
-        var row = Optional.ofNullable(getOne(QueryWrapper.create().eq("operation_id", operation)))
+        var row = Optional.ofNullable(queries.sql(
+                                "SELECT * FROM limit_settlement_receipt WHERE deleted = FALSE AND operation_id = :operation_id")
+                        .param("operation_id", operation)
+                        .query(LimitSettlementReceiptDO.class)
+                        .optional()
+                        .orElse(null))
                 .orElse(null);
         if (row == null) {
             return Optional.empty();

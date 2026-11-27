@@ -19,8 +19,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCUR
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -35,7 +33,6 @@ import io.github.loadup.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.payment.infrastructure.converter.PaymentCaptureStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentCaptureDO;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentCaptureLineDO;
-import io.github.loadup.payment.infrastructure.mapper.PaymentCaptureMapper;
 import java.sql.Statement;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -46,18 +43,19 @@ import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper, PaymentCaptureDO>
-        implements PaymentCaptureGateway {
+public class PaymentCaptureGatewayImpl implements PaymentCaptureGateway {
     private static final String CAPTURE_COLUMNS =
             "id, created_at, updated_at, caller_service_id, request_key, request_digest, channel, account_scope_hash,"
                     + " bill_date, statement_profile, system_zone, state, started_at, finished_at, payment_count,"
                     + " payment_amount_minor, refund_count, refund_amount_minor, content_hash, blocker,"
                     + " blocker_subject_id, row_version";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentCaptureStorageConverter converter;
     private final PaymentCaptureConverter views;
@@ -65,12 +63,12 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
 
     public PaymentCaptureGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            PaymentCaptureMapper mapper,
             PaymentCaptureStorageConverter converter,
             PaymentCaptureConverter views,
             Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.views = views;
         this.clock = clock;
@@ -81,8 +79,15 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         context(false);
         DomainChecks.id(caller);
         DomainChecks.text(key, 128);
-        return model(
-                getOne(QueryWrapper.create().eq("caller_service_id", caller).eq("request_key", key)));
+        return model(queries.sql("""
+                        SELECT * FROM payment_reconciliation_capture
+                        WHERE deleted = FALSE AND caller_service_id = :caller_service_id AND request_key = :request_key
+                        """)
+                .param("caller_service_id", caller)
+                .param("request_key", key)
+                .query(PaymentCaptureDO.class)
+                .optional()
+                .orElse(null));
     }
 
     @Override
@@ -277,7 +282,11 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     private PaymentCaptureDO capture(String id, boolean lock) {
         DomainChecks.id(id);
         if (!lock) {
-            return getById(id);
+            return queries.sql("SELECT * FROM payment_reconciliation_capture WHERE deleted = FALSE AND id = :id")
+                    .param("id", id)
+                    .query(PaymentCaptureDO.class)
+                    .optional()
+                    .orElse(null);
         }
         var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc

@@ -40,7 +40,7 @@ class ArchitectureRulesTest(unittest.TestCase):
 
     def test_merged_service_packages_keep_the_same_rules(self):
         self.assertTrue(gate.java_violations('''package io.github.loadup.realtime.domain.model;
-            import com.mybatisflex.annotation.Table;'''))
+            import org.springframework.data.relational.core.mapping.Table;'''))
         self.assertTrue(gate.java_violations('''package io.github.loadup.realtime.app.service;
             import io.github.loadup.payment.client.dto.PaymentDTO;'''))
         self.assertEqual([], gate.java_violations('''package io.github.loadup.realtime.infrastructure.client;

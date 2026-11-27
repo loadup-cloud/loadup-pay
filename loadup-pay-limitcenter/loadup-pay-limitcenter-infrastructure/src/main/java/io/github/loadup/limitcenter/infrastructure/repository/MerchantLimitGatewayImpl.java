@@ -20,8 +20,6 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.limitcenter.domain.gateway.LimitWriteRaceException;
@@ -35,12 +33,10 @@ import io.github.loadup.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.limitcenter.infrastructure.converter.LimitStorageConverter;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitBucketDO;
+import io.github.loadup.limitcenter.infrastructure.dataobject.LimitExecutionGrantDO;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitOperationGateDO;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitReservationDO;
-import io.github.loadup.limitcenter.infrastructure.mapper.LimitBucketMapper;
-import io.github.loadup.limitcenter.infrastructure.mapper.LimitExecutionGrantMapper;
-import io.github.loadup.limitcenter.infrastructure.mapper.LimitReservationItemMapper;
-import io.github.loadup.limitcenter.infrastructure.mapper.LimitReservationMapper;
+import io.github.loadup.limitcenter.infrastructure.dataobject.LimitReservationItemDO;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -54,12 +50,12 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper, LimitReservationDO>
-        implements MerchantLimitGateway {
+public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     private static final String BUCKET_COLUMNS = "id, created_at, updated_at, rule_scope_id, merchant_id, metric, "
             + "currency, window_type, window_start, window_end, used_value, held_value, row_version";
     private static final String BUCKET_KEY = "rule_scope_id = :scope AND merchant_id = :merchant "
@@ -72,29 +68,18 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
             .thenComparing(key -> key.window().name())
             .thenComparing(key -> key.bounds().start())
             .thenComparing(key -> key.bounds().end());
+    private final JdbcClient queries;
     private final LimitStorageConverter converter;
     private final NamedParameterJdbcTemplate jdbc;
-    private final LimitReservationItemMapper reservationItems;
-    private final LimitExecutionGrantMapper executionGrants;
-    private final LimitBucketMapper buckets;
     private final IdGenerator ids;
     private final Clock clock;
 
     public MerchantLimitGatewayImpl(
-            LimitStorageConverter converter,
-            NamedParameterJdbcTemplate jdbc,
-            LimitReservationMapper mapper,
-            LimitReservationItemMapper reservationItems,
-            LimitExecutionGrantMapper executionGrants,
-            LimitBucketMapper buckets,
-            IdGenerator ids,
-            Clock clock) {
+            LimitStorageConverter converter, NamedParameterJdbcTemplate jdbc, IdGenerator ids, Clock clock) {
         this.converter = converter;
         this.jdbc = jdbc;
-        this.mapper = mapper;
-        this.reservationItems = reservationItems;
-        this.executionGrants = executionGrants;
-        this.buckets = buckets;
+        this.queries = JdbcClient.create(jdbc);
+
         this.ids = ids;
         this.clock = clock;
     }
@@ -162,7 +147,12 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     @Override
     public Optional<StoredLimitReservation> findByOperation(String operation) {
         try {
-            return Optional.ofNullable(getOne(QueryWrapper.create().eq("operation_id", operation)))
+            return Optional.ofNullable(queries.sql(
+                                    "SELECT * FROM limit_reservation WHERE deleted = FALSE AND operation_id = :operation_id")
+                            .param("operation_id", operation)
+                            .query(LimitReservationDO.class)
+                            .optional()
+                            .orElse(null))
                     .map(converter::toStored);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -366,9 +356,19 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     @Override
     public List<LimitReservationItem> loadItems(String reservationId) {
         // Item mutation shares the operation gate. These reads never acquire bucket locks out of order.
-        return reservationItems.selectListByQuery(QueryWrapper.create().eq("reservation_id", reservationId)).stream()
+        return queries
+                .sql("SELECT * FROM limit_reservation_item WHERE deleted = FALSE AND reservation_id = :reservation_id")
+                .param("reservation_id", reservationId)
+                .query(LimitReservationItemDO.class)
+                .list()
+                .stream()
                 .map(row -> {
-                    var bucket = Optional.ofNullable(buckets.selectOneById(row.getBucketId()))
+                    var bucket = Optional.ofNullable(
+                                    queries.sql("SELECT * FROM limit_bucket WHERE deleted = FALSE AND id = :id")
+                                            .param("id", row.getBucketId())
+                                            .query(LimitBucketDO.class)
+                                            .optional()
+                                            .orElse(null))
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     return converter.toItem(row, converter.toKey(bucket));
                 })
@@ -378,8 +378,16 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     @Override
     public Optional<LimitExecutionGrant> findExecutionGrant(String operation, long epoch) {
         try {
-            var query = QueryWrapper.create().eq("operation_id", operation).eq("execution_epoch", epoch);
-            return Optional.ofNullable(executionGrants.selectOneByQuery(query)).map(converter::toExecutionGrant);
+            return Optional.ofNullable(queries.sql("""
+                    SELECT * FROM limit_execution_grant
+                    WHERE deleted = FALSE AND operation_id = :operation_id AND execution_epoch = :execution_epoch
+                    """)
+                            .param("operation_id", operation)
+                            .param("execution_epoch", epoch)
+                            .query(LimitExecutionGrantDO.class)
+                            .optional()
+                            .orElse(null))
+                    .map(converter::toExecutionGrant);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

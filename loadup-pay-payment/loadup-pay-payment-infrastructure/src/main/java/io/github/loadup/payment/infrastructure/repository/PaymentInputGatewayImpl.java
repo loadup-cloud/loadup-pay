@@ -19,8 +19,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.CONCUR
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.payment.domain.gateway.PaymentInputGateway;
@@ -28,7 +26,6 @@ import io.github.loadup.payment.domain.model.PaymentInput;
 import io.github.loadup.payment.domain.model.PaymentInputState;
 import io.github.loadup.payment.infrastructure.converter.PaymentInputStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentInputDO;
-import io.github.loadup.payment.infrastructure.mapper.PaymentInputMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -36,34 +33,37 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, PaymentInputDO>
-        implements PaymentInputGateway {
+public class PaymentInputGatewayImpl implements PaymentInputGateway {
     private static final String COLUMNS = "id, created_at, updated_at, payment_id, order_id, allocation_id,"
             + " payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id,"
             + " fingerprint_key_id, input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at,"
             + " state, bound_attempt_id, row_version";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentInputStorageConverter converter;
     private final Clock clock;
 
     public PaymentInputGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            PaymentInputMapper mapper,
-            PaymentInputStorageConverter converter,
-            Clock clock) {
+            NamedParameterJdbcTemplate jdbc, PaymentInputStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.clock = clock;
     }
 
     @Override
     public Optional<PaymentInput> findByPayment(String paymentId) {
-        return read(getOne(QueryWrapper.create().eq("payment_id", paymentId)));
+        return read(queries.sql("SELECT * FROM payment_input WHERE deleted = FALSE AND payment_id = :payment_id")
+                .param("payment_id", paymentId)
+                .query(PaymentInputDO.class)
+                .optional()
+                .orElse(null));
     }
 
     @Override
@@ -79,7 +79,11 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
 
     private Optional<PaymentInput> input(String inputRef, boolean lock) {
         if (!lock) {
-            return read(getById(inputRef));
+            return read(queries.sql("SELECT * FROM payment_input WHERE deleted = FALSE AND id = :id")
+                    .param("id", inputRef)
+                    .query(PaymentInputDO.class)
+                    .optional()
+                    .orElse(null));
         }
         var args = new MapSqlParameterSource().addValue("id", inputRef);
         return read(jdbc

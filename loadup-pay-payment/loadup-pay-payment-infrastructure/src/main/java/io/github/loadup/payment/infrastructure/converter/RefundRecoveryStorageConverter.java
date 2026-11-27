@@ -30,7 +30,6 @@ public interface RefundRecoveryStorageConverter {
     @Mapping(target = "id", source = "value.requestId")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     RefundRecoveryCursorDO toDO(RefundRecoveryCursor value);
 
     @BeanMapping(ignoreByDefault = true)

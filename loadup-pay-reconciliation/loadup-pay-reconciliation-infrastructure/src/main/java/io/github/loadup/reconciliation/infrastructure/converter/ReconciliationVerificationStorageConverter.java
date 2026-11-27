@@ -132,7 +132,6 @@ public interface ReconciliationVerificationStorageConverter {
     @Mapping(target = "finishedEpochMicros", source = "value.receipt", qualifiedByName = "finishedEpochMicros")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "acceptedEpochMicros", source = "value.receipt.acceptedEpochMicros")
     ReconciliationVerificationDO toDO(ReconciliationVerificationRequest value);
 

@@ -17,12 +17,11 @@ package io.github.loadup.merchantcenter.infrastructure.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.merchantcenter.client.enums.MerchantAction;
 import io.github.loadup.merchantcenter.client.enums.PrincipalType;
@@ -30,19 +29,18 @@ import io.github.loadup.merchantcenter.domain.model.MerchantActionGrant;
 import io.github.loadup.merchantcenter.domain.model.MerchantRelationship;
 import io.github.loadup.merchantcenter.infrastructure.dataobject.MerchantActionGrantDO;
 import io.github.loadup.merchantcenter.infrastructure.dataobject.MerchantRelationshipDO;
-import io.github.loadup.merchantcenter.infrastructure.mapper.MerchantActionGrantMapper;
-import io.github.loadup.merchantcenter.infrastructure.mapper.MerchantRelationshipMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class MerchantAuthorizationGatewayImplTest {
-    private final MerchantRelationshipMapper relationships = mock(MerchantRelationshipMapper.class);
-    private final MerchantActionGrantMapper grants = mock(MerchantActionGrantMapper.class);
 
     private static MerchantRelationshipDO relationship(LocalDateTime from) {
         var row = new MerchantRelationshipDO();
@@ -72,11 +70,23 @@ class MerchantAuthorizationGatewayImplTest {
 
     @Test
     void mapsRelationshipAndGrantRowsToDomainModels() {
-        var gateway = new MerchantAuthorizationGatewayImpl(
-                mock(JdbcTemplate.class), relationships, grants, Clock.systemUTC());
+        var queries = mock(JdbcClient.class, Answers.RETURNS_DEEP_STUBS);
+        var gateway = new MerchantAuthorizationGatewayImpl(mock(JdbcTemplate.class), queries, Clock.systemUTC());
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);
-        when(relationships.selectOneById("relationship")).thenReturn(relationship(from));
-        when(grants.selectOneByQuery(any(QueryWrapper.class))).thenReturn(grant(from));
+        when(queries.sql(contains("merchant_relationship"))
+                        .param("id", "relationship")
+                        .query(MerchantRelationshipDO.class)
+                        .optional())
+                .thenReturn(Optional.of(relationship(from)));
+        when(queries.sql(contains("merchant_action_grant"))
+                        .param("principal_type", "MERCHANT")
+                        .param("principal_id", "parent")
+                        .param("payee_merchant_id", "child")
+                        .param("action", "CREATE_ORDER")
+                        .param("state", List.of("INIT", "ACTIVE"))
+                        .query(MerchantActionGrantDO.class)
+                        .optional())
+                .thenReturn(Optional.of(grant(from)));
         assertEquals(
                 MerchantRelationship.init("relationship", "parent", "child", from, null)
                         .activate(),
@@ -99,7 +109,7 @@ class MerchantAuthorizationGatewayImplTest {
     @Test
     void rejectsLockWithoutTransactionBeforeExecutingSql() {
         var jdbc = mock(JdbcTemplate.class);
-        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
+        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, mock(JdbcClient.class), Clock.systemUTC());
         assertThrows(CommonException.class, () -> gateway.lockRelationship("relationship"));
         verifyNoInteractions(jdbc);
     }
@@ -113,7 +123,7 @@ class MerchantAuthorizationGatewayImplTest {
                     case "update" -> 1;
                     default -> Answers.RETURNS_DEFAULTS.answer(invocation);
                 });
-        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
+        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, mock(JdbcClient.class), Clock.systemUTC());
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);
         var relationship = MerchantRelationship.init("relationship", "parent", "child", from, null)
                 .activate();

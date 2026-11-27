@@ -36,7 +36,6 @@ public interface ChannelBindingStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ChannelMerchantBindingDO toHeadDO(ChannelMerchantBinding value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -77,13 +76,11 @@ public interface ChannelBindingStorageConverter {
                     "java(value.binding().capabilities().contains(io.github.loadup.components.payment.channel.contract.PaymentMethod.H5))")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ChannelBindingRevisionDO toRevisionDO(StoredChannelBindingRevision value, String identityPayload);
 
     ChannelBindingChangeReceipt toReceipt(ChannelBindingChangeReceiptDO row);
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ChannelBindingChangeReceiptDO toReceiptDO(ChannelBindingChangeReceipt value);
 }

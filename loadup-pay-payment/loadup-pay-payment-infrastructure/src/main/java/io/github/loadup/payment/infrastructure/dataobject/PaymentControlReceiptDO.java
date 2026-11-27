@@ -15,9 +15,9 @@
  */
 package io.github.loadup.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.database.dataobject.BaseDO;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("payment_control_receipt")
 public class PaymentControlReceiptDO extends BaseDO {

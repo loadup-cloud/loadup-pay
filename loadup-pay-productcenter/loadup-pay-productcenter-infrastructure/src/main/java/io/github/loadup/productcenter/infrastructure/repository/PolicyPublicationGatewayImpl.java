@@ -15,8 +15,6 @@
  */
 package io.github.loadup.productcenter.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.productcenter.client.error.ProductResultCodeEnum;
 import io.github.loadup.productcenter.domain.gateway.PolicyPublicationGateway;
@@ -24,7 +22,6 @@ import io.github.loadup.productcenter.domain.model.PolicyPublication;
 import io.github.loadup.productcenter.infrastructure.converter.PolicyPublicationStorageConverter;
 import io.github.loadup.productcenter.infrastructure.dataobject.ContractLimitPublicationDO;
 import io.github.loadup.productcenter.infrastructure.exception.PublicationKeyConflictException;
-import io.github.loadup.productcenter.infrastructure.mapper.ContractLimitPublicationMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -36,15 +33,15 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class PolicyPublicationGatewayImpl
-        extends ServiceImpl<ContractLimitPublicationMapper, ContractLimitPublicationDO>
-        implements PolicyPublicationGateway {
+public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
     public static final String COLUMNS = "id, created_at, updated_at, contract_id, contract_revision, "
             + "policy_id, policy_version, policy_hash, state, activated_at, row_version, payee_merchant_id, "
             + "product_scope_key, snapshot_hash, activation_payload, outbox_event_id, requested_at, publication_schema_version";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final PolicyPublicationStorageConverter converter;
     private final Clock clock;
@@ -52,12 +49,10 @@ public class PolicyPublicationGatewayImpl
             BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class);
 
     public PolicyPublicationGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            ContractLimitPublicationMapper mapper,
-            PolicyPublicationStorageConverter converter,
-            Clock clock) {
+            NamedParameterJdbcTemplate jdbc, PolicyPublicationStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.clock = clock;
     }
@@ -99,7 +94,12 @@ public class PolicyPublicationGatewayImpl
 
     @Override
     public Optional<PolicyPublication> findById(String id) {
-        return read(() -> Optional.ofNullable(getById(id)));
+        return read(() -> Optional.ofNullable(
+                queries.sql("SELECT * FROM contract_limit_publication WHERE deleted = FALSE AND id = :id")
+                        .param("id", id)
+                        .query(ContractLimitPublicationDO.class)
+                        .optional()
+                        .orElse(null)));
     }
 
     @Override
@@ -109,18 +109,37 @@ public class PolicyPublicationGatewayImpl
 
     @Override
     public Optional<PolicyPublication> findByContract(String contract, int revision) {
-        return read(() -> Optional.ofNullable(
-                getOne(QueryWrapper.create().eq("contract_id", contract).eq("contract_revision", revision))));
+        return read(() -> Optional.ofNullable(queries.sql("""
+                        SELECT * FROM contract_limit_publication
+                        WHERE deleted = FALSE AND contract_id = :contract_id AND contract_revision = :contract_revision
+                        """)
+                .param("contract_id", contract)
+                .param("contract_revision", revision)
+                .query(ContractLimitPublicationDO.class)
+                .optional()
+                .orElse(null)));
     }
 
     @Override
     public Optional<PolicyPublication> findByMerchant(String merchant) {
-        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("payee_merchant_id", merchant))));
+        return read(() -> Optional.ofNullable(queries.sql("""
+                SELECT * FROM contract_limit_publication
+                WHERE deleted = FALSE AND payee_merchant_id = :payee_merchant_id
+                """)
+                .param("payee_merchant_id", merchant)
+                .query(ContractLimitPublicationDO.class)
+                .optional()
+                .orElse(null)));
     }
 
     @Override
     public Optional<PolicyPublication> findByPolicy(String policy) {
-        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("policy_id", policy))));
+        return read(() -> Optional.ofNullable(
+                queries.sql("SELECT * FROM contract_limit_publication WHERE deleted = FALSE AND policy_id = :policy_id")
+                        .param("policy_id", policy)
+                        .query(ContractLimitPublicationDO.class)
+                        .optional()
+                        .orElse(null)));
     }
 
     private Optional<PolicyPublication> read(Supplier<Optional<ContractLimitPublicationDO>> lookup) {

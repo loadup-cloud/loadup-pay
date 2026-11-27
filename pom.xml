@@ -127,15 +127,10 @@
                             <groupId>org.springframework.boot</groupId>
                             <artifactId>spring-boot-configuration-processor</artifactId>
                         </path>
-                        <path>
-                            <groupId>io.github.loadup-cloud</groupId>
-                            <artifactId>loadup-components-database-processor</artifactId>
-                        </path>
                     </annotationProcessorPaths>
                     <annotationProcessors>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
                         <annotationProcessor>org.springframework.boot.configurationprocessor.ConfigurationMetadataAnnotationProcessor</annotationProcessor>
-                        <annotationProcessor>io.github.loadup.components.database.processor.LoadUpMyBatisFlexProcessor</annotationProcessor>
                     </annotationProcessors>
                 </configuration>
             </plugin>
@@ -154,8 +149,6 @@
                 <configuration>
                     <!-- Framework-owned APT output only; handwritten code remains in scope. -->
                     <excludes>
-                        <exclude>**/dataobject/table/**</exclude>
-                        <exclude>**/mapper/*DOMapper.class</exclude>
                         <exclude>**/converter/*ConverterImpl.class</exclude>
                     </excludes>
                 </configuration>
@@ -226,6 +219,8 @@
                         <bannedDependencies>
                             <searchTransitive>true</searchTransitive>
                             <excludes>
+                                <exclude>com.mybatis-flex:*</exclude>
+                                <exclude>org.mybatis:*</exclude>
                                 <exclude>commons-lang:commons-lang</exclude>
                                 <exclude>cn.hutool</exclude>
                                 <exclude>com.alibaba:fastjson:[,2.0.0)</exclude>

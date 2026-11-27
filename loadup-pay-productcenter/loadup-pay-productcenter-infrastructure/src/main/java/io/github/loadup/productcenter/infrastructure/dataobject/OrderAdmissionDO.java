@@ -15,13 +15,13 @@
  */
 package io.github.loadup.productcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Table(value = "order_admission", mapperGenerateEnable = false)
+@Table("order_admission")
 public class OrderAdmissionDO extends BaseDO {
     private String orderId;
     private String payeeMerchantId;

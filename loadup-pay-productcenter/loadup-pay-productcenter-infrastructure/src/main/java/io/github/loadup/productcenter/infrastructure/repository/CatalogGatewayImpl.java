@@ -15,7 +15,6 @@
  */
 package io.github.loadup.productcenter.infrastructure.repository;
 
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.productcenter.client.error.ContractResultCodeEnum;
@@ -24,7 +23,6 @@ import io.github.loadup.productcenter.domain.model.CatalogEntry;
 import io.github.loadup.productcenter.domain.model.CatalogKind;
 import io.github.loadup.productcenter.domain.model.CatalogStatus;
 import io.github.loadup.productcenter.infrastructure.dataobject.CatalogVersionRow;
-import io.github.loadup.productcenter.infrastructure.mapper.CatalogVersionRowMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -32,17 +30,18 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class CatalogGatewayImpl extends ServiceImpl<CatalogVersionRowMapper, CatalogVersionRow>
-        implements CatalogGateway {
+public class CatalogGatewayImpl implements CatalogGateway {
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
 
-    public CatalogGatewayImpl(NamedParameterJdbcTemplate jdbc, CatalogVersionRowMapper mapper, Clock clock) {
+    public CatalogGatewayImpl(NamedParameterJdbcTemplate jdbc, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
         this.clock = clock;
     }
 
@@ -94,7 +93,11 @@ public class CatalogGatewayImpl extends ServiceImpl<CatalogVersionRowMapper, Cat
 
     @Override
     public Optional<CatalogEntry> find(String id) {
-        return getByIdOpt(required(id)).map(CatalogGatewayImpl::toEntry);
+        return queries.sql("SELECT * FROM contract_catalog_version WHERE deleted = FALSE AND id = :id")
+                .param("id", required(id))
+                .query(CatalogVersionRow.class)
+                .optional()
+                .map(CatalogGatewayImpl::toEntry);
     }
 
     @Override

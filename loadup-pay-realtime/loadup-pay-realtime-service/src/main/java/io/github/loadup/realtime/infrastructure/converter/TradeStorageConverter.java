@@ -37,7 +37,6 @@ public interface TradeStorageConverter {
     @Mapping(target = "businessCreatedAt", source = "value.orderCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     TradeOrderDO toDO(String id, TradeOrderProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -53,7 +52,6 @@ public interface TradeStorageConverter {
     @Mapping(target = "businessCreatedAt", source = "value.initiatedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     TradePaymentDO toDO(String id, TradePaymentProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -69,7 +67,6 @@ public interface TradeStorageConverter {
     @Mapping(target = "businessCreatedAt", source = "value.refundCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     TradeRefundDO toDO(String id, TradeRefundProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -84,7 +81,6 @@ public interface TradeStorageConverter {
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     TradeSummaryDO toDO(String id, TradeRefundSummary value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -98,6 +94,5 @@ public interface TradeStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     ProjectionReceiptDO toDO(ProjectionReceipt value);
 }

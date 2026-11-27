@@ -20,36 +20,33 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.payment.domain.gateway.PaymentCloseEvidenceGateway;
 import io.github.loadup.payment.domain.model.PaymentCloseEvidence;
 import io.github.loadup.payment.infrastructure.converter.PaymentCloseEvidenceStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentCloseEvidenceDO;
-import io.github.loadup.payment.infrastructure.mapper.PaymentCloseEvidenceMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvidenceMapper, PaymentCloseEvidenceDO>
-        implements PaymentCloseEvidenceGateway {
+public class PaymentCloseEvidenceGatewayImpl implements PaymentCloseEvidenceGateway {
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentCloseEvidenceStorageConverter converter;
     private final Clock clock;
 
     public PaymentCloseEvidenceGatewayImpl(
-            NamedParameterJdbcTemplate jdbc,
-            PaymentCloseEvidenceMapper mapper,
-            PaymentCloseEvidenceStorageConverter converter,
-            Clock clock) {
+            NamedParameterJdbcTemplate jdbc, PaymentCloseEvidenceStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.clock = clock;
     }
@@ -57,7 +54,11 @@ public class PaymentCloseEvidenceGatewayImpl extends ServiceImpl<PaymentCloseEvi
     @Override
     public Optional<PaymentCloseEvidence> find(String attemptId) {
         DomainChecks.id(attemptId);
-        var row = getById(attemptId);
+        var row = queries.sql("SELECT * FROM payment_close_evidence WHERE deleted = FALSE AND id = :id")
+                .param("id", attemptId)
+                .query(PaymentCloseEvidenceDO.class)
+                .optional()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }

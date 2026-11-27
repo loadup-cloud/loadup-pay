@@ -93,14 +93,6 @@
             <artifactId>loadup-components-database</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.mybatis-flex</groupId>
-            <artifactId>mybatis-flex-annotation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.mybatis-flex</groupId>
-            <artifactId>mybatis-flex-core</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
         </dependency>
@@ -128,11 +120,6 @@
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-testcontainers</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.mybatis-flex</groupId>
-            <artifactId>mybatis-flex-spring</artifactId>
         </dependency>
         <dependency>
             <groupId>tools.jackson.core</groupId>

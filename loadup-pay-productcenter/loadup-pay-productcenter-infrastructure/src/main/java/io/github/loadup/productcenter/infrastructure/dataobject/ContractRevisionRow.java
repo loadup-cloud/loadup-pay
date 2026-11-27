@@ -15,9 +15,9 @@
  */
 package io.github.loadup.productcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("merchant_contract_revision")
 public class ContractRevisionRow extends BaseDO {
@@ -35,8 +35,7 @@ public class ContractRevisionRow extends BaseDO {
             String snapshot,
             String snapshotHash,
             LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            boolean deleted) {
+            LocalDateTime updatedAt) {
         setId(id);
         this.contractId = contractId;
         this.revision = revision;
@@ -44,7 +43,6 @@ public class ContractRevisionRow extends BaseDO {
         this.snapshotHash = snapshotHash;
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
-        setDeleted(deleted);
     }
 
     public String getContractId() {

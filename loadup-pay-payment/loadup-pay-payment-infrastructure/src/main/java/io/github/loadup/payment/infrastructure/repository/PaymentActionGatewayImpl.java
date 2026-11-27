@@ -20,7 +20,6 @@ import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALI
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.payment.channel.api.codec.ChannelActionCodec;
@@ -30,20 +29,20 @@ import io.github.loadup.payment.domain.model.PaymentActionSource;
 import io.github.loadup.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.payment.infrastructure.converter.PaymentActionStorageConverter;
 import io.github.loadup.payment.infrastructure.dataobject.PaymentActionDO;
-import io.github.loadup.payment.infrastructure.mapper.PaymentActionMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, PaymentActionDO>
-        implements PaymentActionGateway {
+public class PaymentActionGatewayImpl implements PaymentActionGateway {
     private static final int MAX_PAYLOAD_LENGTH = 8192;
 
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentActionStorageConverter converter;
     private final ChannelActionCodec codec;
@@ -51,12 +50,12 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
 
     public PaymentActionGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            PaymentActionMapper mapper,
             PaymentActionStorageConverter converter,
             ChannelActionCodec codec,
             Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.codec = codec;
         this.clock = clock;
@@ -64,7 +63,11 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
 
     @Override
     public Optional<StoredPaymentAction> find(String attemptId) {
-        var row = getById(attemptId);
+        var row = queries.sql("SELECT * FROM payment_action WHERE deleted = FALSE AND id = :id")
+                .param("id", attemptId)
+                .query(PaymentActionDO.class)
+                .optional()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }

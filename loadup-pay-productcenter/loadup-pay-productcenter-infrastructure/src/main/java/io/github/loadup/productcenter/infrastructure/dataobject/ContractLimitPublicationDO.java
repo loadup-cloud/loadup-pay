@@ -15,13 +15,13 @@
  */
 package io.github.loadup.productcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Table(value = "contract_limit_publication", mapperGenerateEnable = false)
+@Table("contract_limit_publication")
 public class ContractLimitPublicationDO extends BaseDO {
     private String contractId;
     private Integer contractRevision;

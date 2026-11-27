@@ -19,8 +19,6 @@ import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnu
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -35,7 +33,6 @@ import io.github.loadup.limitcenter.infrastructure.converter.LimitStorageConvert
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitPolicyHeadDO;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitPolicyRevisionDO;
 import io.github.loadup.limitcenter.infrastructure.dataobject.LimitRuleRuntimeDO;
-import io.github.loadup.limitcenter.infrastructure.mapper.LimitPolicyRevisionMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -44,16 +41,17 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
-public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMapper, LimitPolicyRevisionDO>
-        implements LimitPolicyGateway {
+public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     private static final String HEAD =
             "id, created_at, updated_at, policy_id, payee_merchant_id, latest_version, row_version";
     private static final String RULE =
             "id, created_at, updated_at, owner_policy_id, policy_version, rule_scope_id, merchant_id, metric, currency, window_type, week_start, timezone, current_limit, enforcement_enabled, metering_enabled, row_version";
+    private final JdbcClient queries;
     private final NamedParameterJdbcTemplate jdbc;
     private final LimitStorageConverter converter;
     private final LimitPolicyCodec codec;
@@ -62,13 +60,13 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
 
     public LimitPolicyGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            LimitPolicyRevisionMapper mapper,
             LimitStorageConverter converter,
             LimitPolicyCodec codec,
             IdGenerator ids,
             Clock clock) {
         this.jdbc = jdbc;
-        this.mapper = mapper;
+        this.queries = JdbcClient.create(jdbc);
+
         this.converter = converter;
         this.codec = codec;
         this.ids = ids;
@@ -116,8 +114,16 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
 
     @Override
     public Optional<ActivatedLimitPolicy> findRevision(String policy, int revision) {
-        var query = QueryWrapper.create().eq("policy_id", policy).eq("policy_version", revision);
-        return Optional.ofNullable(getOne(query)).map(row -> codec.decode(row));
+        return Optional.ofNullable(queries.sql("""
+                SELECT * FROM limit_policy_revision
+                WHERE deleted = FALSE AND policy_id = :policy_id AND policy_version = :policy_version
+                """)
+                        .param("policy_id", policy)
+                        .param("policy_version", revision)
+                        .query(LimitPolicyRevisionDO.class)
+                        .optional()
+                        .orElse(null))
+                .map(row -> codec.decode(row));
     }
 
     @Override

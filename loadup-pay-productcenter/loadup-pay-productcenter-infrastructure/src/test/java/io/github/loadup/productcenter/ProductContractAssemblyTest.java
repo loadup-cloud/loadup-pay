@@ -29,9 +29,6 @@ import io.github.loadup.productcenter.app.support.ContractMappingSupport;
 import io.github.loadup.productcenter.app.support.MerchantFacts;
 import io.github.loadup.productcenter.domain.gateway.CatalogGateway;
 import io.github.loadup.productcenter.domain.gateway.MerchantContractGateway;
-import io.github.loadup.productcenter.infrastructure.mapper.CatalogVersionRowMapper;
-import io.github.loadup.productcenter.infrastructure.mapper.ContractRevisionRowMapper;
-import io.github.loadup.productcenter.infrastructure.mapper.MerchantContractRowMapper;
 import io.github.loadup.productcenter.infrastructure.repository.CatalogGatewayImpl;
 import io.github.loadup.productcenter.infrastructure.repository.MerchantContractGatewayImpl;
 import java.time.Clock;
@@ -39,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -49,9 +47,7 @@ class ProductContractAssemblyTest {
             .withBean(PlatformTransactionManager.class, () -> mock(PlatformTransactionManager.class))
             .withBean(JsonMapper.class, () -> JsonMapper.builder().build())
             .withBean(NamedParameterJdbcTemplate.class, () -> mock(NamedParameterJdbcTemplate.class))
-            .withBean(CatalogVersionRowMapper.class, () -> mock(CatalogVersionRowMapper.class))
-            .withBean(MerchantContractRowMapper.class, () -> mock(MerchantContractRowMapper.class))
-            .withBean(ContractRevisionRowMapper.class, () -> mock(ContractRevisionRowMapper.class));
+            .withBean(JdbcClient.class, () -> mock(JdbcClient.class));
 
     @Test
     void componentScanAssemblesContractServicesAndRepositories() {

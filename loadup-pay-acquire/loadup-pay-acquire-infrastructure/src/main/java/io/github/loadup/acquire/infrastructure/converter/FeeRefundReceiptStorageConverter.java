@@ -27,6 +27,5 @@ public interface FeeRefundReceiptStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     FeeRefundReceiptDO toDO(FeeRefundReceipt value);
 }

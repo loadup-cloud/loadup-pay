@@ -54,7 +54,6 @@ class PaymentCloseEvidenceStorageConverterTest {
         assertEquals("ALIPAY", row.getChannel());
         assertEquals(9007199254740993L, row.getAmountMinor());
         assertEquals(9007199254740993L, row.getExecutionEpoch());
-        assertFalse(row.getDeleted());
         assertEquals(value, converter.toModel(row));
         assertFalse(value.toString().contains("private-transaction"));
         assertFalse(row.toString().contains("private-transaction"));

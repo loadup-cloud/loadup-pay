@@ -40,7 +40,6 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "initialSessionId", source = "value.initialSessionId")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderCreateIntentDO toIntentDO(OrderCreateIntent value);
 
     @Mapping(
@@ -90,7 +89,6 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "closedAt", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     AcquireOrderDO toOrderDO(StoredAcquireOrder value);
 
     @Mapping(target = "id", source = "value.snapshotId")
@@ -105,7 +103,6 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "admissionDigest", source = "value.admission.requestDigest")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderContractSnapshotDO toSnapshotDO(StoredAcquireOrder value);
 
     @Mapping(target = "feeType", constant = "ORDER_AMOUNT")
@@ -118,6 +115,5 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "rowVersion", constant = "0L")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     OrderFeeDO toFeeDO(OrderFee value, String payload);
 }

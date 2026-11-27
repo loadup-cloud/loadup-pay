@@ -15,11 +15,11 @@
  */
 package io.github.loadup.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("payment_reconciliation_capture")
 public class PaymentCaptureDO extends BaseDO {

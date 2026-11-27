@@ -32,6 +32,5 @@ public interface RoutingProfileStorageConverter {
     @Mapping(target = "specPayload", source = "payload")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     RoutingProfileDO toDO(RoutingProfile value, String payload);
 }

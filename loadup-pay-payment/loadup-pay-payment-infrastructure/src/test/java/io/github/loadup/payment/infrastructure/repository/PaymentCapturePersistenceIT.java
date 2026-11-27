@@ -50,7 +50,6 @@ import io.github.loadup.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.payment.domain.model.RiskDecision;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.payment.infrastructure.converter.PaymentCaptureStorageConverter;
-import io.github.loadup.payment.infrastructure.mapper.PaymentCaptureMapper;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneOffset;
@@ -313,11 +312,10 @@ class PaymentCapturePersistenceIT {
         @Bean
         FaultingCaptures captures(
                 NamedParameterJdbcTemplate jdbc,
-                PaymentCaptureMapper captures,
                 PaymentCaptureStorageConverter storage,
                 PaymentCaptureConverter views,
                 Clock clock) {
-            return new FaultingCaptures(jdbc, captures, storage, views, clock);
+            return new FaultingCaptures(jdbc, storage, views, clock);
         }
     }
 
@@ -326,11 +324,10 @@ class PaymentCapturePersistenceIT {
 
         FaultingCaptures(
                 NamedParameterJdbcTemplate jdbc,
-                PaymentCaptureMapper captures,
                 PaymentCaptureStorageConverter storage,
                 PaymentCaptureConverter views,
                 Clock clock) {
-            super(jdbc, captures, storage, views, clock);
+            super(jdbc, storage, views, clock);
         }
 
         @Override

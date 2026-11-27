@@ -17,8 +17,6 @@ package io.github.loadup.productcenter.infrastructure.repository;
 
 import static io.github.loadup.productcenter.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.productcenter.app.model.ActivatedLimitPolicy;
 import io.github.loadup.productcenter.app.port.CurrentContractGateway;
@@ -31,13 +29,13 @@ import io.github.loadup.productcenter.domain.model.MerchantContractRevision;
 import io.github.loadup.productcenter.infrastructure.converter.AdmissionStorageConverter;
 import io.github.loadup.productcenter.infrastructure.converter.PolicyPublicationStorageConverter;
 import io.github.loadup.productcenter.infrastructure.dataobject.ContractLimitPublicationDO;
-import io.github.loadup.productcenter.infrastructure.mapper.ContractLimitPublicationMapper;
 import java.util.Optional;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class CurrentContractGatewayImpl extends ServiceImpl<ContractLimitPublicationMapper, ContractLimitPublicationDO>
-        implements CurrentContractGateway {
+public class CurrentContractGatewayImpl implements CurrentContractGateway {
+    private final JdbcClient queries;
     private final ContractPersistenceFacade contracts;
     private final AdmissionStorageConverter converter;
     private final ContractCodec codec;
@@ -46,13 +44,14 @@ public class CurrentContractGatewayImpl extends ServiceImpl<ContractLimitPublica
 
     public CurrentContractGatewayImpl(
             ContractPersistenceFacade contracts,
-            ContractLimitPublicationMapper mapper,
+            JdbcClient queries,
             AdmissionStorageConverter converter,
             ContractCodec codec,
             PolicyPublicationStorageConverter publicationStorage,
             PolicyPublicationCodec publicationCodec) {
         this.contracts = contracts;
-        this.mapper = mapper;
+        this.queries = queries;
+
         this.converter = converter;
         this.codec = codec;
         this.publicationStorage = publicationStorage;
@@ -99,8 +98,15 @@ public class CurrentContractGatewayImpl extends ServiceImpl<ContractLimitPublica
 
     @Override
     public Optional<ActivatedLimitPolicy> publication(String contract, int revision) {
-        var row = Optional.ofNullable(
-                        getOne(QueryWrapper.create().eq("contract_id", contract).eq("contract_revision", revision)))
+        var row = Optional.ofNullable(queries.sql("""
+                                SELECT * FROM contract_limit_publication
+                                WHERE deleted = FALSE AND contract_id = :contract_id AND contract_revision = :contract_revision
+                                """)
+                        .param("contract_id", contract)
+                        .param("contract_revision", revision)
+                        .query(ContractLimitPublicationDO.class)
+                        .optional()
+                        .orElse(null))
                 .orElse(null);
         // Legacy rows without a frozen v1 source/Outbox binding are not trusted activation receipts.
         if (row == null

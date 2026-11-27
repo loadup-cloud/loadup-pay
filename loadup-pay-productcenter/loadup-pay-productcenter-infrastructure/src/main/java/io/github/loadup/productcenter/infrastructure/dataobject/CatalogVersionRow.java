@@ -15,9 +15,9 @@
  */
 package io.github.loadup.productcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.components.database.dataobject.BaseDO;
 import java.time.LocalDateTime;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("contract_catalog_version")
 public class CatalogVersionRow extends BaseDO {
@@ -41,8 +41,7 @@ public class CatalogVersionRow extends BaseDO {
             String content,
             String updatedBy,
             LocalDateTime createdAt,
-            LocalDateTime updatedAt,
-            boolean deleted) {
+            LocalDateTime updatedAt) {
         setId(id);
         this.kind = kind;
         this.code = code;
@@ -53,7 +52,6 @@ public class CatalogVersionRow extends BaseDO {
         this.updatedBy = updatedBy;
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
-        setDeleted(deleted);
     }
 
     public String getKind() {

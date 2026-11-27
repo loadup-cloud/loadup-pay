@@ -37,7 +37,6 @@ public interface MerchantNotificationStorageConverter {
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "targetRef", source = "value.policy.targetRef")
     @Mapping(target = "signingIdentityRef", source = "value.policy.signingIdentityRef")
     @Mapping(target = "timeoutMillis", source = "value.policy.timeoutMillis")
