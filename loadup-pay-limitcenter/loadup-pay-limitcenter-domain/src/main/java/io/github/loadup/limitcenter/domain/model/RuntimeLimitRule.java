@@ -24,7 +24,8 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Objects;
 
 /**
- * Stable counters use the latest threshold, including reservations from older immutable policy revisions.
+ * Stable counters use the latest threshold, including reservations from older immutable policy
+ * revisions.
  */
 public record RuntimeLimitRule(String ownerPolicyId, int policyVersion, LimitRule rule, long rowVersion) {
     public RuntimeLimitRule {

@@ -101,8 +101,8 @@ class PaymentStatementServiceTest {
             "v1",
             new WechatAccountIdentity("app", "mchid", null, null),
             Set.of(PaymentMethod.H5));
-    final byte[] content = "private-statement".getBytes(StandardCharsets.UTF_8),
-            evidence = "private-signed-grant".getBytes(StandardCharsets.UTF_8);
+    final byte[] content = "private-statement".getBytes(StandardCharsets.UTF_8);
+    final byte[] evidence = "private-signed-grant".getBytes(StandardCharsets.UTF_8);
 
     static String hash(String algorithm, byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance(algorithm).digest(bytes));

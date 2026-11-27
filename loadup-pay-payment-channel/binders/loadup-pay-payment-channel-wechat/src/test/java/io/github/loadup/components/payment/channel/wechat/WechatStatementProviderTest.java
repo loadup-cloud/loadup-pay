@@ -94,7 +94,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Real platform RSA verification and canonical request signing; HTTP and KMS endpoints are controlled doubles.
+ * Real platform RSA verification and canonical request signing; HTTP and KMS endpoints are
+ * controlled doubles.
  */
 class WechatStatementProviderTest {
     static final Instant NOW = Instant.parse("2026-10-28T04:00:00Z");
@@ -177,7 +178,8 @@ class WechatStatementProviderTest {
                                     request),
                             new byte[0]);
                     ((OutputStream) call.getArgument(3)).write(content);
-                    // Official file downloads have no Wechatpay-Signature. Their signed grant SHA1 is the integrity
+                    // Official file downloads have no Wechatpay-Signature. Their signed grant SHA1 is the
+                    // integrity
                     // check.
                     return ResponseEntity.ok()
                             .contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -361,7 +363,8 @@ class WechatStatementProviderTest {
     private URI uri(String host, String path, HttpCall request) {
         var query = request.query().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .map(entry -> entry.getKey() + "="
+                .map(entry -> entry.getKey()
+                        + "="
                         + URLEncoder.encode(entry.getValue().getFirst(), StandardCharsets.UTF_8)
                                 .replace("+", "%20"))
                 .collect(Collectors.joining("&"));
@@ -369,7 +372,8 @@ class WechatStatementProviderTest {
     }
 
     private ResponseEntity<byte[]> response(byte[] body) throws Exception {
-        String timestamp = Long.toString(NOW.getEpochSecond()), nonce = "synthetic-nonce";
+        String timestamp = Long.toString(NOW.getEpochSecond());
+        String nonce = "synthetic-nonce";
         var signer = Signature.getInstance("SHA256withRSA");
         signer.initSign(platform.getPrivate());
         signer.update((timestamp + "\n" + nonce + "\n").getBytes(StandardCharsets.UTF_8));

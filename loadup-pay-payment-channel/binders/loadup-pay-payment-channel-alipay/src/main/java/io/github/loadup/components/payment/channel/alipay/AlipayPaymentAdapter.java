@@ -39,7 +39,8 @@ import java.util.Map;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Verified collection queries and unpaid-only close; never treats a closed/refunded trade as uncollected.
+ * Verified collection queries and unpaid-only close; never treats a closed/refunded trade as
+ * uncollected.
  */
 public final class AlipayPaymentAdapter {
     private final AlipayProtocolClient client;
@@ -74,7 +75,8 @@ public final class AlipayPaymentAdapter {
             transactionNo = responses.requiredText(response, "trade_no", 64);
             String status = responses.requiredText(response, "trade_status", 64);
             if ("TRADE_SUCCESS".equals(status) || "TRADE_FINISHED".equals(status)) {
-                // A successful payment must prove the frozen CNY currency; accepted/closed observations stay optional.
+                // A successful payment must prove the frozen CNY currency; accepted/closed observations
+                // stay optional.
                 responses.requireMatch(response, "trans_currency", "CNY");
                 try {
                     succeededAt = AlipayProtocolTime.businessTime(
@@ -107,7 +109,8 @@ public final class AlipayPaymentAdapter {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var observed = query(context, new ChannelPaymentTarget(request.identity(), request.amount()));
-        // Both the initial CREATE and recovery use the original second-truncated deadline, never a new window.
+        // Both the initial CREATE and recovery use the original second-truncated deadline, never a new
+        // window.
         var expiry = request.payableUntil().withNano(0);
         var action = request.method() == PaymentMethod.JSAPI
                         && observed.kind() == ChannelPaymentOutcome.Kind.ACCEPTED
@@ -136,13 +139,15 @@ public final class AlipayPaymentAdapter {
         responses.matchIfPresent(response, "out_trade_no", target.identity().channelRequestNo());
         responses.matchIfPresent(response, "trade_no", before.channelTransactionNo());
         if (!"10000".equals(responses.text(response, "code"))) {
-            // Payment can win between query and close. Requery the same request instead of interpreting an error as
+            // Payment can win between query and close. Requery the same request instead of interpreting
+            // an error as
             // proof.
             return query(context, target);
         }
         responses.requireMatch(response, "out_trade_no", target.identity().channelRequestNo());
         responses.requireMatch(response, "trade_no", before.channelTransactionNo());
-        // Both signed responses are needed for the no-collection conclusion; preserve a composite source digest.
+        // Both signed responses are needed for the no-collection conclusion; preserve a composite
+        // source digest.
         var digest = DigestUtils.sha256("alipay-close|" + before.sourceDigest() + "|" + verified.sourceDigest());
         return new PaymentObservation(
                 target.identity(),

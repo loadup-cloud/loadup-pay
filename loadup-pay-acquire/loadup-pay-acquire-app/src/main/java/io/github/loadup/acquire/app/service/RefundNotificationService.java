@@ -128,7 +128,8 @@ public class RefundNotificationService implements RefundNotificationFacade {
                         || data.amountMinor() > order.amount().getCent()) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                // The payment-success projection may arrive after the refund projection; retry until it is durable.
+                // The payment-success projection may arrive after the refund projection; retry
+                // until it is durable.
                 if (data.amountMinor() > order.paidAmountMinor()) {
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
                 }

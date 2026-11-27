@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 /**
- * Private signed API envelope plus one-way request binding. Never retains the form body's delegated token.
+ * Private signed API envelope plus one-way request binding. Never retains the form body's delegated
+ * token.
  */
 public record AlipayVerifiedExchange(
         AlipayVerifiedResponse response,

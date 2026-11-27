@@ -64,7 +64,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Operational native FAILED retry, separate from original collection/refund execution rights and evidence.
+ * Operational native FAILED retry, separate from original collection/refund execution rights and
+ * evidence.
  */
 @Service
 public class PaymentRecoveryOperationsService implements PaymentRecoveryOperationsFacade {
@@ -163,7 +164,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                     return replay(actor, existing.get(), scope, digest);
                 }
                 var inspection = lockForRetry(command.kind(), command.subjectId(), command.generation());
-                // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order
+                // Serializes competing retry requests for the same order; the ledger uniqueness
+                // also covers cross-order
                 // key reuse.
                 existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {
@@ -217,7 +219,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         switch (kind) {
             case COLLECTION -> {
                 var initial = payments.find(subject).orElseThrow(() -> new CommonException(NOT_FOUND));
-                // The persisted calling service only validates the original binding; it is not the operator's
+                // The persisted calling service only validates the original binding; it is not the
+                // operator's
                 // authority.
                 var original =
                         paymentLocks.lock(subject, initial.callerServiceId()).payment();
@@ -259,7 +262,8 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
     }
 
     /**
-     * Nonlocking reads only. Snapshot isolation, not execution locks, supplies the bounded multi-table view.
+     * Nonlocking reads only. Snapshot isolation, not execution locks, supplies the bounded
+     * multi-table view.
      */
     private PaymentRecoveryInspection readInspection(PaymentRecoveryKind kind, String subject, long generation) {
         final RecoveryView view;

@@ -40,7 +40,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Read immutable local inputs, compare outside transactions, then commit differences and completion together.
+ * Read immutable local inputs, compare outside transactions, then commit differences and completion
+ * together.
  */
 @Service
 public class ReconciliationExecutionService {

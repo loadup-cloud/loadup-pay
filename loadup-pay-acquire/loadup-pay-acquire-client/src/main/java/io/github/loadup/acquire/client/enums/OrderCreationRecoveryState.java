@@ -16,7 +16,8 @@
 package io.github.loadup.acquire.client.enums;
 
 /**
- * Creation state says nothing about collection; completed creation may still have no payment intent.
+ * Creation state says nothing about collection; completed creation may still have no payment
+ * intent.
  */
 public enum OrderCreationRecoveryState {
     NOT_OBSERVED,

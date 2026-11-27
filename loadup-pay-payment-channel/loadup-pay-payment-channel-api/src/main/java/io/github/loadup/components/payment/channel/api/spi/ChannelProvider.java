@@ -19,9 +19,9 @@ import io.github.loadup.components.payment.channel.api.facade.ChannelPaymentOper
 import io.github.loadup.components.payment.channel.contract.Channel;
 
 /**
- * One strategy per channel, shared by direct and service-provider access modes.
- * Providers own wire protocols, credential resolution, signing and response verification.
- * No method may silently fall back to another channel or collecting account.
+ * One strategy per channel, shared by direct and service-provider access modes. Providers own wire
+ * protocols, credential resolution, signing and response verification. No method may silently fall
+ * back to another channel or collecting account.
  */
 public interface ChannelProvider extends ChannelPaymentOperations {
     Channel channel();

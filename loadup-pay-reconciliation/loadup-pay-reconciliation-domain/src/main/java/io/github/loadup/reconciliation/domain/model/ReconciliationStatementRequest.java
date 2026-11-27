@@ -27,7 +27,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationStatementState
 import java.util.Objects;
 
 /**
- * Network intent is persisted first. READY means original files and Transfer are durable, not that parsing succeeded.
+ * Network intent is persisted first. READY means original files and Transfer are durable, not that
+ * parsing succeeded.
  */
 public record ReconciliationStatementRequest(
         String id,

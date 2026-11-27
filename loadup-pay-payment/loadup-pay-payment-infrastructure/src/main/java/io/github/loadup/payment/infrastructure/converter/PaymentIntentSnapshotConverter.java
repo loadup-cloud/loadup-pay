@@ -33,9 +33,7 @@ import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-/**
- * Explicit Java mapping, independent of public DTO JSON names and validation annotations.
- */
+/** Explicit Java mapping, independent of public DTO JSON names and validation annotations. */
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentIntentSnapshotConverter {
     @Mapping(target = "format", constant = PaymentIntentSnapshot.FORMAT)

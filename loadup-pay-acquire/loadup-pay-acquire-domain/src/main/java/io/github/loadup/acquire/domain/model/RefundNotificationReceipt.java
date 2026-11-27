@@ -25,7 +25,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Immutable source delivery binding; ACK concerns registration, not merchant receipt or money movement.
+ * Immutable source delivery binding; ACK concerns registration, not merchant receipt or money
+ * movement.
  */
 public record RefundNotificationReceipt(
         String id,

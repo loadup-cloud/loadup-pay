@@ -25,9 +25,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 
-/**
- * Every accepted command field is frozen independently of a caller-supplied digest.
- */
+/** Every accepted command field is frozen independently of a caller-supplied digest. */
 public record AdmissionIntent(
         String orderId,
         String payeeMerchantId,

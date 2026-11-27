@@ -31,9 +31,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-/**
- * Complete source-owned snapshot; no synchronous source lookup is required by realtime.
- */
+/** Complete source-owned snapshot; no synchronous source lookup is required by realtime. */
 public record RefundSnapshotEventDTO(
         @Schema(description = "Child refund id") String refundId,
         @Schema(description = "Refund request id") String refundRequestId,

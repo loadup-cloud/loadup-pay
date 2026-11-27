@@ -83,10 +83,17 @@ class WechatRefundAdapterTest {
     private final PreparedChannelRefund refund = refund(REFUND_NO, identity("revision-1", HASH), TRANSACTION);
 
     private static String submitPayload(String status) {
-        return "{\"transaction_id\":\"" + TRANSACTION + "\",\"out_trade_no\":\"" + OUT_TRADE
-                + "\",\"out_refund_no\":\"" + REFUND_NO + "\",\"refund_id\":\"wechat-refund-88\","
+        return "{\"transaction_id\":\""
+                + TRANSACTION
+                + "\",\"out_trade_no\":\""
+                + OUT_TRADE
+                + "\",\"out_refund_no\":\""
+                + REFUND_NO
+                + "\",\"refund_id\":\"wechat-refund-88\","
                 + "\"amount\":{\"refund\":10000,\"total\":50000,\"currency\":\"CNY\"},"
-                + "\"create_time\":\"2026-10-22T23:59:00+08:00\",\"status\":\"" + status + "\"}";
+                + "\"create_time\":\"2026-10-22T23:59:00+08:00\",\"status\":\""
+                + status
+                + "\"}";
     }
 
     private static String queryPayload(String status) {

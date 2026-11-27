@@ -282,7 +282,9 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query(
-                        "SELECT " + CAPTURE_COLUMNS + " FROM payment_reconciliation_capture "
+                        "SELECT "
+                                + CAPTURE_COLUMNS
+                                + " FROM payment_reconciliation_capture "
                                 + "WHERE id = :id AND deleted = FALSE FOR UPDATE",
                         args,
                         BeanPropertyRowMapper.newInstance(PaymentCaptureDO.class))

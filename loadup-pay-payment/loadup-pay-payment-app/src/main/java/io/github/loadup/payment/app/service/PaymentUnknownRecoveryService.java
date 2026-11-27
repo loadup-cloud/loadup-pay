@@ -46,7 +46,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * No mutations, native dispatch or channel calls; retry still requires the separate locked audit path.
+ * No mutations, native dispatch or channel calls; retry still requires the separate locked audit
+ * path.
  */
 @Service
 public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFacade {

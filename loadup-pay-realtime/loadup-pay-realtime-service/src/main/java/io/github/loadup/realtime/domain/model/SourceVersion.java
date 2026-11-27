@@ -22,9 +22,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * Versions are comparable only for the same producer and aggregate identity.
- */
+/** Versions are comparable only for the same producer and aggregate identity. */
 public record SourceVersion(String producer, String aggregateType, String aggregateId, long number) {
     public SourceVersion {
         DomainChecks.text(producer, 32);

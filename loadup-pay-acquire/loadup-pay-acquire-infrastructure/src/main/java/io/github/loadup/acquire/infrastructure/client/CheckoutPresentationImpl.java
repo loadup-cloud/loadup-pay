@@ -45,9 +45,15 @@ public class CheckoutPresentationImpl implements CheckoutPresentation {
 
     @Override
     public String url(String order, String token) {
-        // The fragment carries the non-sensitive deployment code used by the cashier page for its fetch header.
-        return properties.pageUrl().toASCIIString() + "#deployment=" + encode(deployment.code()) + "&order="
-                + encode(order) + "&token=" + encode(token);
+        // The fragment carries the non-sensitive deployment code used by the cashier page for its fetch
+        // header.
+        return properties.pageUrl().toASCIIString()
+                + "#deployment="
+                + encode(deployment.code())
+                + "&order="
+                + encode(order)
+                + "&token="
+                + encode(token);
     }
 
     private String encode(String value) {

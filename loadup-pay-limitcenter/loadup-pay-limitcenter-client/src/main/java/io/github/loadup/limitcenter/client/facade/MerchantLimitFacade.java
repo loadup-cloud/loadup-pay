@@ -15,8 +15,6 @@
  */
 package io.github.loadup.limitcenter.client.facade;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface MerchantLimitFacade
         extends LimitReservationFacade, LimitExecutionFacade, LimitSettlementFacade, LimitRefundFacade {}

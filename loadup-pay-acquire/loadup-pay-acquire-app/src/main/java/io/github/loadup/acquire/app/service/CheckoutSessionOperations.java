@@ -93,9 +93,7 @@ public class CheckoutSessionOperations {
         return result;
     }
 
-    /**
-     * Prepare credentials before any order writes; persist inside the caller's A1 transaction.
-     */
+    /** Prepare credentials before any order writes; persist inside the caller's A1 transaction. */
     public StoredCheckoutSession prepareInitial(
             AcquireActor actor, StoredAcquireOrder order, String sessionId, String requestedTarget) {
         requireTransaction();

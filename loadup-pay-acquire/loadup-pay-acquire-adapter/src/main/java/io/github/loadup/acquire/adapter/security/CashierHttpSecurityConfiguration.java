@@ -51,7 +51,8 @@ public class CashierHttpSecurityConfiguration {
     @Bean
     @Order(90)
     SecurityFilterChain cashierSecurityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
-        // Opaque capabilities are checked by the request-backed CashierActorProvider on every Facade invocation.
+        // Opaque capabilities are checked by the request-backed CashierActorProvider on every Facade
+        // invocation.
         // They must not enter the merchant JWT decoder. All other cashier endpoints remain denied.
         http.securityMatcher("/api/cashier/**")
                 .csrf(AbstractHttpConfigurer::disable)

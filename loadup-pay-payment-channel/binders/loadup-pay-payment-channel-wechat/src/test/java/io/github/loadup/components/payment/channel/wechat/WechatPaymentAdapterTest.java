@@ -188,7 +188,8 @@ class WechatPaymentAdapterTest {
 
     private String body(String state) {
         return "{\"sp_appid\":\"wx-provider\",\"sp_mchid\":\"1900000001\",\"sub_appid\":\"wx-sub-app\",\"sub_mchid\":\"1900000002\","
-                + "\"trade_type\":\"JSAPI\",\"out_trade_no\":\"original_01\",\"trade_state\":\"" + state
+                + "\"trade_type\":\"JSAPI\",\"out_trade_no\":\"original_01\",\"trade_state\":\""
+                + state
                 + "\",\"transaction_id\":\"wx-transaction\","
                 + "\"success_time\":\"2026-10-24T03:00:00Z\",\"amount\":{\"total\":1250,\"payer_total\":1000,\"currency\":\"CNY\"}}";
     }

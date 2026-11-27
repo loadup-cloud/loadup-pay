@@ -49,9 +49,7 @@ import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * APIv3 canonical signing and pinned response verification; never creates a financial outcome.
- */
+/** APIv3 canonical signing and pinned response verification; never creates a financial outcome. */
 public class WechatProtocolCodec {
     private final JsonMapper json;
     private final KmsTemplate kms;
@@ -98,8 +96,8 @@ public class WechatProtocolCodec {
         }
         byte[] nonceBytes = new byte[16];
         random.nextBytes(nonceBytes);
-        String nonce = HexFormat.of().formatHex(nonceBytes),
-                timestamp = Long.toString(clock.instant().getEpochSecond());
+        String nonce = HexFormat.of().formatHex(nonceBytes);
+        String timestamp = Long.toString(clock.instant().getEpochSecond());
         String target = uri.getRawPath() + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
         var message = new ByteArrayOutputStream(body.length + target.length() + 256);
         message.writeBytes((method.name() + "\n" + target + "\n" + timestamp + "\n" + nonce + "\n")
@@ -131,9 +129,17 @@ public class WechatProtocolCodec {
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
-        String authorization = "WECHATPAY2-SHA256-RSA2048 mchid=\"" + credentials.merchantId() + "\",nonce_str=\""
-                + nonce + "\",timestamp=\"" + timestamp + "\",serial_no=\"" + credentials.merchantSerial()
-                + "\",signature=\"" + signature + "\"";
+        String authorization = "WECHATPAY2-SHA256-RSA2048 mchid=\""
+                + credentials.merchantId()
+                + "\",nonce_str=\""
+                + nonce
+                + "\",timestamp=\""
+                + timestamp
+                + "\",serial_no=\""
+                + credentials.merchantSerial()
+                + "\",signature=\""
+                + signature
+                + "\"";
         return Map.of("Authorization", authorization, "Wechatpay-Serial", credentials.platformKeyId());
     }
 
@@ -168,9 +174,7 @@ public class WechatProtocolCodec {
         }
     }
 
-    /**
-     * Shared signature verification for original HTTP response or notification bytes.
-     */
+    /** Shared signature verification for original HTTP response or notification bytes. */
     public void verifySignature(WechatCredentials credentials, HttpHeaders headers, byte[] body) {
         if (credentials == null || headers == null || body == null || body.length > 1048576) {
             throw new CommonException(CHANNEL_SIGNATURE_INVALID);

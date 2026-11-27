@@ -28,9 +28,7 @@ import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.payment.client.enums.ChannelBindingState;
 import java.util.Objects;
 
-/**
- * Mutable route head; immutable revisions remain available to existing attempts and refunds.
- */
+/** Mutable route head; immutable revisions remain available to existing attempts and refunds. */
 public record ChannelMerchantBinding(
         String id,
         String payeeMerchantId,

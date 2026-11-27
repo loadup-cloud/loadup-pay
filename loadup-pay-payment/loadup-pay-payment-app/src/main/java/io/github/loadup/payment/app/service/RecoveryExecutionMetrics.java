@@ -30,7 +30,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
- * Invocation measurements only; no database reads, tenant labels, financial decisions or private registries.
+ * Invocation measurements only; no database reads, tenant labels, financial decisions or private
+ * registries.
  */
 @Component
 public class RecoveryExecutionMetrics {

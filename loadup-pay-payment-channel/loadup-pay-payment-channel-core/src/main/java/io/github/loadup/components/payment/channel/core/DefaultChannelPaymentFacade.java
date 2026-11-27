@@ -39,9 +39,7 @@ import java.util.Collection;
 import java.util.Objects;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Immutable strategy registry; routing does not contain provider-specific branches.
- */
+/** Immutable strategy registry; routing does not contain provider-specific branches. */
 public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     private final ChannelStrategyRegistry<ChannelProvider> providers;
     private final ChannelRecoveryConcurrency recovery;

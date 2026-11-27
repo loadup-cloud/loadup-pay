@@ -20,7 +20,8 @@ import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.payment.domain.model.PaymentReceiptDisposition;
 
 /**
- * Callbacks acknowledge only committed channel receipts. Local action preparation has no receipt id.
+ * Callbacks acknowledge only committed channel receipts. Local action preparation has no receipt
+ * id.
  */
 public record PaymentResultApplication(
         PaymentReceiptDisposition disposition, String receiptId, PaymentExecutionDTO payment) {

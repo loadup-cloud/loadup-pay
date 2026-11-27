@@ -23,9 +23,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-/**
- * Resumes only the current native wake-up; never grants a new business attempt budget.
- */
+/** Resumes only the current native wake-up; never grants a new business attempt budget. */
 public record MerchantNotificationWakeCommand(
         @Schema(description = "Original notification delivery id") @NotBlank @Size(max = 64) String id,
 

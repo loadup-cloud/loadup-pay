@@ -59,9 +59,7 @@ public record StoredCheckoutSession(
                 INVALID_ARGUMENT);
     }
 
-    /**
-     * Security revocation is permanent and independent of the session's business terminal state.
-     */
+    /** Security revocation is permanent and independent of the session's business terminal state. */
     public StoredCheckoutSession revoke(long expectedVersion, LocalDateTime at) {
         require(expectedVersion == rowVersion, DomainViolation.Reason.CONFLICT);
         Objects.requireNonNull(at);

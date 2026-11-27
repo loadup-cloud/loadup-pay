@@ -23,7 +23,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import java.util.Collection;
 
 /**
- * Gross input totals; refund totals do not reduce successful payment totals or assert completed fund returns.
+ * Gross input totals; refund totals do not reduce successful payment totals or assert completed
+ * fund returns.
  */
 public record ReconciliationTotals(
         long paymentCount, long paymentAmountMinor, long refundCount, long refundAmountMinor) {
@@ -42,7 +43,10 @@ public record ReconciliationTotals(
     }
 
     public static ReconciliationTotals count(Collection<ReconciliationLine> lines) {
-        long payments = 0, paymentAmount = 0, refunds = 0, refundAmount = 0;
+        long payments = 0;
+        long paymentAmount = 0;
+        long refunds = 0;
+        long refundAmount = 0;
         try {
             for (var line : lines) {
                 if (line.key().kind() == ReconciliationRecordKind.PAYMENT) {

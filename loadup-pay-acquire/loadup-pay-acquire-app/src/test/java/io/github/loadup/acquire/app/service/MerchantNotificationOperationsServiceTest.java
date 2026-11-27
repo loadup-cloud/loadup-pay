@@ -330,7 +330,8 @@ class MerchantNotificationOperationsServiceTest {
         assertThrows(CommonException.class, () -> service.wake(command()));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Native task and audit rollback requires real PostgreSQL proof; the fake manager checks propagation only.
+        // Native task and audit rollback requires real PostgreSQL proof; the fake manager checks
+        // propagation only.
     }
 
     @Test

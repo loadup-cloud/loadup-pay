@@ -115,7 +115,8 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
             var allocation = allocations
                     .findPayment(data.orderId(), data.paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-            // Original ownership is restored from the stored order, never from an event-supplied merchant scope.
+            // Original ownership is restored from the stored order, never from an event-supplied
+            // merchant scope.
             var owner = new OrderPaymentScope(order.callerScopeHash());
             var command = outcomes.bound(owner, order, allocation);
             if (!command.payeeMerchantId().equals(data.payeeMerchantId())

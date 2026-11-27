@@ -188,7 +188,8 @@ public class PaymentInputService implements PaymentInputFacade {
                     || input.method() != query.choice().method()) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
-            // This is metadata, including for bound/expired inputs. Never decrypt, fingerprint, renew or mutate it.
+            // This is metadata, including for bound/expired inputs. Never decrypt, fingerprint, renew
+            // or mutate it.
             return converter.toLookup(true, converter.toDTO(input));
         });
     }

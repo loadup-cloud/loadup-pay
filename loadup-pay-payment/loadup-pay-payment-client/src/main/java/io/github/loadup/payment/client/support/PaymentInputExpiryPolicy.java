@@ -16,7 +16,8 @@
 package io.github.loadup.payment.client.support;
 
 /**
- * Stable identities of conditional input/preparation-expiry closes; retries never create a new control request.
+ * Stable identities of conditional input/preparation-expiry closes; retries never create a new
+ * control request.
  */
 public final class PaymentInputExpiryPolicy {
     public static final String REQUEST_KEY_PREFIX = "input-expiry/";

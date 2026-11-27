@@ -43,7 +43,8 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Exact bounded local lookup. A signed channel request is built exclusively from submitted owner records.
+ * Exact bounded local lookup. A signed channel request is built exclusively from submitted owner
+ * records.
  */
 @Repository
 public class PaymentVerificationTargetReaderImpl implements PaymentVerificationTargetReader {

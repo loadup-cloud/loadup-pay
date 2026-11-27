@@ -104,8 +104,10 @@ class AcquireRealtimeHttpClientTest {
                 expires,
                 "jti",
                 revision);
-        String token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
+        String token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256")))
+                + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims))
+                + ".c3ludGhldGlj";
         credential = token;
         return token;
     }

@@ -21,9 +21,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 
-/**
- * Issuer-only metadata; credentials and reconstruction inputs are excluded.
- */
+/** Issuer-only metadata; credentials and reconstruction inputs are excluded. */
 public record CheckoutSessionStatusDTO(
         @Schema(description = "Session id") String id,
         @Schema(description = "Original order id") String orderId,

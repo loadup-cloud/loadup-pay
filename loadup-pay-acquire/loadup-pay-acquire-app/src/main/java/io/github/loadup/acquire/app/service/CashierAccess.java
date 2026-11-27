@@ -54,7 +54,8 @@ public class CashierAccess {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }
         var stored = bound(actor, order, "PAYMENT_START");
-        // A committed A2 intent may finish after capability expiry; only new reservations need a live session.
+        // A committed A2 intent may finish after capability expiry; only new reservations need a live
+        // session.
         if (creating && (stored.revokedAt() != null || !stored.session().permits(actor.orderId(), now()))) {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }

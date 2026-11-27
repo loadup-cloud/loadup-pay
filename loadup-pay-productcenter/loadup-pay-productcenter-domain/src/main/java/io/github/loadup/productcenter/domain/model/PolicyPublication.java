@@ -27,9 +27,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * Frozen activation intent; only a matching authenticated activation ACK can make it ACTIVE.
- */
+/** Frozen activation intent; only a matching authenticated activation ACK can make it ACTIVE. */
 public record PolicyPublication(
         String id,
         String contractId,

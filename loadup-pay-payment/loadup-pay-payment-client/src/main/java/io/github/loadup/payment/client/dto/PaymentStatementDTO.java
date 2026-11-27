@@ -28,7 +28,8 @@ import java.time.OffsetDateTime;
 import java.util.HexFormat;
 
 /**
- * Private service-to-service source artifact. No browser action, file URL or financial result is implied.
+ * Private service-to-service source artifact. No browser action, file URL or financial result is
+ * implied.
  */
 public record PaymentStatementDTO(
         String bindingRevisionId,

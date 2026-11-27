@@ -28,7 +28,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Immutable acknowledged no-collection close, saved before applying financial state in a separate transaction.
+ * Immutable acknowledged no-collection close, saved before applying financial state in a separate
+ * transaction.
  */
 public record PaymentCloseEvidence(
         ChannelPaymentIdentity identity,

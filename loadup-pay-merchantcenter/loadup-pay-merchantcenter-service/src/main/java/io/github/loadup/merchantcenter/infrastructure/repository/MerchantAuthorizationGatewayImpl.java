@@ -40,9 +40,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * All callers acquire the payee merchant row before modifying authorization records.
- */
+/** All callers acquire the payee merchant row before modifying authorization records. */
 @Repository
 public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelationshipMapper, MerchantRelationshipDO>
         implements MerchantAuthorizationGateway {

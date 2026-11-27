@@ -78,13 +78,25 @@ class AlipayPaymentAdapterTest {
     private final ChannelPaymentTarget target = new ChannelPaymentTarget(identity, AMOUNT);
 
     private static String query(String status) {
-        return "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
-                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"}";
+        return "{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1250.00\","
+                + "\"trade_no\":\""
+                + TRADE_NO
+                + "\",\"trade_status\":\""
+                + status
+                + "\"}";
     }
 
     private static String paid(String status, String sendPayDate, String currency) {
-        var payload = "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
-                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"";
+        var payload = "{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1250.00\","
+                + "\"trade_no\":\""
+                + TRADE_NO
+                + "\",\"trade_status\":\""
+                + status
+                + "\"";
         if (currency != null) {
             payload += ",\"trans_currency\":\"" + currency + "\"";
         }
@@ -152,8 +164,12 @@ class AlipayPaymentAdapterTest {
         assertEquals(ChannelPaymentOutcome.Kind.UNKNOWN, closed.kind());
         assertNotNull(closed.channelTransactionNo());
 
-        stubQuery("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
-                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"SOMETHING_NEW\"}");
+        stubQuery("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1250.00\","
+                + "\"trade_no\":\""
+                + TRADE_NO
+                + "\",\"trade_status\":\"SOMETHING_NEW\"}");
         assertEquals(
                 ChannelPaymentOutcome.Kind.UNKNOWN,
                 adapter.query(direct, target).kind());
@@ -171,15 +187,20 @@ class AlipayPaymentAdapterTest {
         assertQueryRejected(paid("TRADE_SUCCESS", "2026-10-23 18:11:12", "USD"));
         assertQueryRejected(paid("TRADE_SUCCESS", null, "CNY"));
         assertQueryRejected(paid("TRADE_FINISHED", "not-a-time", "CNY"));
-        assertQueryRejected("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO
+        assertQueryRejected("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
                 + "\",\"total_amount\":\"1250.00\",\"trade_status\":\"TRADE_SUCCESS\","
                 + "\"send_pay_date\":\"2026-10-23 18:11:12\"}");
-        assertQueryRejected("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO
-                + "\",\"total_amount\":\"1250.00\",\"trade_no\":\"" + TRADE_NO
+        assertQueryRejected("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1250.00\",\"trade_no\":\""
+                + TRADE_NO
                 + "\",\"trade_status\":\"TRADE_SUCCESS\",\"send_pay_date\":\"2026-10-23 18:11:12\"}");
         assertQueryRejected("{\"code\":10000,\"out_trade_no\":\"" + ORDER_NO + "\"}");
-        assertQueryRejected("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO
-                + "\",\"total_amount\":1250.00,\"trade_no\":\"" + TRADE_NO
+        assertQueryRejected("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":1250.00,\"trade_no\":\""
+                + TRADE_NO
                 + "\",\"trade_status\":\"TRADE_SUCCESS\",\"send_pay_date\":\"2026-10-23 18:11:12\"}");
     }
 
@@ -257,7 +278,9 @@ class AlipayPaymentAdapterTest {
         when(client.call(eq(direct.binding()), eq(AlipayMethod.CLOSE), anyString(), eq(Map.of())))
                 .thenReturn(verified(
                         AlipayMethod.CLOSE,
-                        "{\"code\":\"10000\",\"out_trade_no\":\"other-order\"," + "\"trade_no\":\"" + TRADE_NO
+                        "{\"code\":\"10000\",\"out_trade_no\":\"other-order\","
+                                + "\"trade_no\":\""
+                                + TRADE_NO
                                 + "\"}"));
         assertThrows(CommonException.class, () -> adapter.close(direct, target));
     }

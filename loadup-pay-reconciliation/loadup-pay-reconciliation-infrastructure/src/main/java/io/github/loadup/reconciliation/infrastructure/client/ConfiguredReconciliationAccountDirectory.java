@@ -25,9 +25,7 @@ import io.github.loadup.reconciliation.infrastructure.config.ReconciliationAccou
 import java.time.LocalDate;
 import org.springframework.stereotype.Component;
 
-/**
- * Closed local catalog; no credential file, remote lookup or request-supplied account hash.
- */
+/** Closed local catalog; no credential file, remote lookup or request-supplied account hash. */
 @Component
 public class ConfiguredReconciliationAccountDirectory implements ReconciliationAccountDirectory {
     private final ReconciliationAccountsProperties properties;
@@ -45,7 +43,8 @@ public class ConfiguredReconciliationAccountDirectory implements ReconciliationA
     @Override
     public void authorize(String caller, String code, ReconciliationScope original) {
         var account = account(caller, code);
-        // A parser/profile change does not rewrite old sealed inputs. Account identity and caller grants still apply.
+        // A parser/profile change does not rewrite old sealed inputs. Account identity and caller
+        // grants still apply.
         if (original == null
                 || account.channel() != original.channel()
                 || !account.accountScopeHash().equals(original.accountScopeHash())) {

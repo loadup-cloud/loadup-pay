@@ -48,9 +48,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Internal verified-adapter entry point only. There is no merchant success-injection endpoint.
- */
+/** Internal verified-adapter entry point only. There is no merchant success-injection endpoint. */
 @Service
 public class RefundResultService {
     private final RefundResultGateway results;
@@ -95,7 +93,8 @@ public class RefundResultService {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.guarded(() -> {
-            String digest = codec.factsDigest(observation), payload = codec.encode(observation);
+            String digest = codec.factsDigest(observation);
+            String payload = codec.encode(observation);
             String requestId =
                     results.requestId(observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(

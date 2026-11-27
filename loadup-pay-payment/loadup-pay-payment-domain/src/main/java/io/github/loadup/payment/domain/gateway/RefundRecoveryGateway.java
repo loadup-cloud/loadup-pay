@@ -18,13 +18,9 @@ package io.github.loadup.payment.domain.gateway;
 import io.github.loadup.payment.domain.model.RefundRecoveryCursor;
 import java.util.Optional;
 
-/**
- * Joins the original parent/request transaction; no independent execution claim.
- */
+/** Joins the original parent/request transaction; no independent execution claim. */
 public interface RefundRecoveryGateway {
-    /**
-     * Nonlocking read, usable within a consistent read snapshot.
-     */
+    /** Nonlocking read, usable within a consistent read snapshot. */
     Optional<RefundRecoveryCursor> find(String requestId);
 
     Optional<RefundRecoveryCursor> lock(String requestId);

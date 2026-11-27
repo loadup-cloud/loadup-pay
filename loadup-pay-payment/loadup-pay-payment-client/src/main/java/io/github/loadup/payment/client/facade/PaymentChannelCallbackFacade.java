@@ -19,7 +19,8 @@ import io.github.loadup.components.payment.channel.api.model.ChannelNotification
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
 
 /**
- * Public channel protocol ingress; request headers cannot supply the trusted tenant or a financial outcome.
+ * Public channel protocol ingress; request headers cannot supply the trusted tenant or a financial
+ * outcome.
  */
 public interface PaymentChannelCallbackFacade {
     ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input);

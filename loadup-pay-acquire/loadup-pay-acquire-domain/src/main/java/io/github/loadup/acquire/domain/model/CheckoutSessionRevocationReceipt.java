@@ -25,7 +25,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Immutable request binding; repeated revocations preserve the first marker and never reopen a capability.
+ * Immutable request binding; repeated revocations preserve the first marker and never reopen a
+ * capability.
  */
 public record CheckoutSessionRevocationReceipt(
         String id,

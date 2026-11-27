@@ -33,7 +33,8 @@ import jakarta.validation.constraints.Size;
 import java.util.Set;
 
 /**
- * Trusted operations entry; credentials and merchant authorization tokens remain in their secret stores.
+ * Trusted operations entry; credentials and merchant authorization tokens remain in their secret
+ * stores.
  */
 public record ChannelBindingPublishCommand(
         @Schema(description = "Collecting merchant or sub-merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,

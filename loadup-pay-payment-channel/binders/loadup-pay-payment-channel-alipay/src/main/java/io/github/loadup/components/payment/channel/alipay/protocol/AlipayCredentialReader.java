@@ -128,7 +128,8 @@ public class AlipayCredentialReader {
     }
 
     /**
-     * Verification needs only the frozen descriptor's platform key, never a signing or merchant authorization decrypt.
+     * Verification needs only the frozen descriptor's platform key, never a signing or merchant
+     * authorization decrypt.
      */
     public PublicKey verificationKey(ChannelBindingRevision binding) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -168,7 +169,8 @@ public class AlipayCredentialReader {
         if (path == null || !path.isAbsolute()) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         }
-        // Paths come exclusively from trusted configuration, never from concatenated resource references.
+        // Paths come exclusively from trusted configuration, never from concatenated resource
+        // references.
         try (var input = Files.newInputStream(path)) {
             byte[] payload = input.readNBytes(65537);
             if (payload.length == 0 || payload.length > 65536) {

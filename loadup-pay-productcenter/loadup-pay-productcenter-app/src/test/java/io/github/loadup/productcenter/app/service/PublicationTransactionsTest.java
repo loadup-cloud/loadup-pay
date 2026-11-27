@@ -102,7 +102,10 @@ class PublicationTransactionsTest {
     }
 
     static final class Manager extends AbstractPlatformTransactionManager {
-        int isolation, begins, commits, rollbacks;
+        int isolation;
+        int begins;
+        int commits;
+        int rollbacks;
 
         @Override
         protected Object doGetTransaction() {

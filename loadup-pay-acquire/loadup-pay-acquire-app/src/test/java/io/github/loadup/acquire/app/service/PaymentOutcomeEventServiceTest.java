@@ -535,7 +535,8 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(1, manager.rollbacks);
         assertTrue(accepted.isEmpty());
         verify(events, never()).insert(any());
-        // Financial rollback still needs real PostgreSQL acceptance; these mocks check the transaction boundary.
+        // Financial rollback still needs real PostgreSQL acceptance; these mocks check the transaction
+        // boundary.
     }
 
     @Test

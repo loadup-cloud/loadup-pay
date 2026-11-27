@@ -102,8 +102,12 @@ class AlipaySubmitAdapterTest {
     }
 
     private static String successQuery(String tradeNo, String amount) {
-        return "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"" + amount
-                + "\",\"trans_currency\":\"CNY\",\"trade_no\":\"" + tradeNo
+        return "{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\""
+                + amount
+                + "\",\"trans_currency\":\"CNY\",\"trade_no\":\""
+                + tradeNo
                 + "\",\"trade_status\":\"TRADE_SUCCESS\",\"send_pay_date\":\"2026-10-23 18:30:00\"}";
     }
 
@@ -219,8 +223,11 @@ class AlipaySubmitAdapterTest {
     void payerCodePaySendsOriginalFixedFactsAndCanonicalizesSuccessThroughQuery() throws Exception {
         var request =
                 request(direct, PaymentMethod.PAYMENT_CODE, new ChannelPaymentCodeInput("2812345678901234"), EXPIRY);
-        var payPayload = "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO
-                + "\",\"total_amount\":\"1250.00\",\"trade_no\":\"" + TRADE_NO + "\"}";
+        var payPayload = "{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1250.00\",\"trade_no\":\""
+                + TRADE_NO
+                + "\"}";
         var queryPayload = successQuery(TRADE_NO, "1250.00");
         when(client.call(eq(direct.binding()), eq(AlipayMethod.PAY), anyString(), eq(Map.of())))
                 .thenReturn(verified(AlipayMethod.PAY, payPayload));
@@ -278,12 +285,18 @@ class AlipaySubmitAdapterTest {
     void rejectsPayResponseIdentityAmountAndMalformedCode() {
         var request =
                 request(direct, PaymentMethod.PAYMENT_CODE, new ChannelPaymentCodeInput("2812345678901234"), EXPIRY);
-        stubPay("{\"code\":\"10000\",\"out_trade_no\":\"other-order\",\"total_amount\":\"1250.00\"," + "\"trade_no\":\""
-                + TRADE_NO + "\"}");
+        stubPay("{\"code\":\"10000\",\"out_trade_no\":\"other-order\",\"total_amount\":\"1250.00\","
+                + "\"trade_no\":\""
+                + TRADE_NO
+                + "\"}");
         assertThrows(CommonException.class, () -> adapter.submit(direct, request));
 
-        stubPay("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1249.99\","
-                + "\"trade_no\":\"" + TRADE_NO + "\"}");
+        stubPay("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1249.99\","
+                + "\"trade_no\":\""
+                + TRADE_NO
+                + "\"}");
         assertThrows(CommonException.class, () -> adapter.submit(direct, request));
 
         stubPay("{\"code\":10000}");
@@ -300,7 +313,10 @@ class AlipaySubmitAdapterTest {
         when(client.call(eq(direct.binding()), eq(AlipayMethod.CREATE), anyString(), eq(Map.of())))
                 .thenReturn(verified(
                         AlipayMethod.CREATE,
-                        "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"trade_no\":\"" + TRADE_NO
+                        "{\"code\":\"10000\",\"out_trade_no\":\""
+                                + ORDER_NO
+                                + "\",\"trade_no\":\""
+                                + TRADE_NO
                                 + "\",\"buyer_open_id\":\"payer-open-id\"}"));
         var main = adapter.submit(direct, mainRequest);
         assertEquals(ChannelPaymentOutcome.Kind.ACCEPTED, main.observation().kind());
@@ -326,7 +342,8 @@ class AlipaySubmitAdapterTest {
         when(client.call(eq(operator.binding()), eq(AlipayMethod.CREATE), anyString(), eq(Map.of())))
                 .thenReturn(verified(
                         AlipayMethod.CREATE,
-                        "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO
+                        "{\"code\":\"10000\",\"out_trade_no\":\""
+                                + ORDER_NO
                                 + "\",\"trade_no\":\"operator-trade\",\"op_buyer_open_id\":\"operator-open-id\"}"));
         var provider = adapter.submit(operator, providerRequest);
         assertEquals(ChannelPaymentOutcome.Kind.ACCEPTED, provider.observation().kind());
@@ -351,7 +368,10 @@ class AlipaySubmitAdapterTest {
         when(client.call(eq(direct.binding()), eq(AlipayMethod.CREATE), anyString(), eq(expectedAdditional)))
                 .thenReturn(verified(
                         AlipayMethod.CREATE,
-                        "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"trade_no\":\"" + TRADE_NO
+                        "{\"code\":\"10000\",\"out_trade_no\":\""
+                                + ORDER_NO
+                                + "\",\"trade_no\":\""
+                                + TRADE_NO
                                 + "\",\"buyer_open_id\":\"payer-open-id\"}"));
 
         var created = configured.submit(direct, jsapiRequest);
@@ -383,7 +403,10 @@ class AlipaySubmitAdapterTest {
         when(client.call(eq(direct.binding()), eq(AlipayMethod.CREATE), anyString(), eq(Map.of())))
                 .thenReturn(verified(
                         AlipayMethod.CREATE,
-                        "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"trade_no\":\"" + TRADE_NO
+                        "{\"code\":\"10000\",\"out_trade_no\":\""
+                                + ORDER_NO
+                                + "\",\"trade_no\":\""
+                                + TRADE_NO
                                 + "\",\"buyer_id\":\"2088123456789012\"}"));
         var created = adapter.submit(direct, request);
         assertEquals(ChannelPaymentOutcome.Kind.ACCEPTED, created.observation().kind());
@@ -405,16 +428,24 @@ class AlipaySubmitAdapterTest {
         var payer =
                 new ChannelPayerIdentityInput(Channel.ALIPAY, PayerIdentityType.OPEN_ID, "payer-open-id", "main-app");
         var request = request(direct, PaymentMethod.JSAPI, payer, EXPIRY);
-        stubCreate("{\"code\":\"10000\",\"out_trade_no\":\"other-order\",\"trade_no\":\"" + TRADE_NO
+        stubCreate("{\"code\":\"10000\",\"out_trade_no\":\"other-order\",\"trade_no\":\""
+                + TRADE_NO
                 + "\",\"buyer_open_id\":\"payer-open-id\"}");
         assertThrows(CommonException.class, () -> adapter.submit(direct, request));
 
-        stubCreate("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"trade_no\":\"" + TRADE_NO
+        stubCreate("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"trade_no\":\""
+                + TRADE_NO
                 + "\",\"buyer_open_id\":\"different-id\"}");
         assertThrows(CommonException.class, () -> adapter.submit(direct, request));
 
-        stubCreate("{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1.00\","
-                + "\"trade_no\":\"" + TRADE_NO + "\",\"buyer_open_id\":\"payer-open-id\"}");
+        stubCreate("{\"code\":\"10000\",\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"total_amount\":\"1.00\","
+                + "\"trade_no\":\""
+                + TRADE_NO
+                + "\",\"buyer_open_id\":\"payer-open-id\"}");
         assertThrows(CommonException.class, () -> adapter.submit(direct, request));
 
         clearInvocations(client);

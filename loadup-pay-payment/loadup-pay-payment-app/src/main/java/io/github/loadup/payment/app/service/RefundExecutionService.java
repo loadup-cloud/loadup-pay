@@ -40,7 +40,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * One serial step. Durable scheduling and verified channel binders supply invocations; no merchant success endpoint.
+ * One serial step. Durable scheduling and verified channel binders supply invocations; no merchant
+ * success endpoint.
  */
 @Service
 public class RefundExecutionService {
@@ -122,7 +123,8 @@ public class RefundExecutionService {
         }
         var locked = locks.child(stored, first.get().refund().id());
         var prepared = converter.toPrepared(locked.child().child(), locked.capacity());
-        // Strictly a local registry lookup. Capability checks must not load credentials or make network requests.
+        // Strictly a local registry lookup. Capability checks must not load credentials or make network
+        // requests.
         if (!channel.canRefund(prepared)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }

@@ -24,7 +24,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Semantic inbox: immutable source binding and replayable ACK, committed with the order/allocation/fee.
+ * Semantic inbox: immutable source binding and replayable ACK, committed with the
+ * order/allocation/fee.
  */
 public record PaymentEventReceipt(
         String id,

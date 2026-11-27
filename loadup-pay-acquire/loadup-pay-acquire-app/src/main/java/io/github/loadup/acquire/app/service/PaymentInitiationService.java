@@ -24,9 +24,7 @@ import io.github.loadup.acquire.client.facade.PaymentInitiationFacade;
 import io.github.loadup.commons.error.CommonException;
 import org.springframework.stereotype.Service;
 
-/**
- * Merchant authorization is separate from the shared reservation and acceptance workflow.
- */
+/** Merchant authorization is separate from the shared reservation and acceptance workflow. */
 @Service
 public class PaymentInitiationService implements PaymentInitiationFacade {
     private final AcquireActorProvider actors;

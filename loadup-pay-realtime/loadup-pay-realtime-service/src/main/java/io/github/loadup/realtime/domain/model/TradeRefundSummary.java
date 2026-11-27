@@ -25,7 +25,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Complete order monetary snapshot; individual refunds keep their own projections and source versions.
+ * Complete order monetary snapshot; individual refunds keep their own projections and source
+ * versions.
  */
 public record TradeRefundSummary(
         String orderId,

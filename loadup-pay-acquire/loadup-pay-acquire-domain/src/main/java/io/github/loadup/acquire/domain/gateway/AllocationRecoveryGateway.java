@@ -18,9 +18,7 @@ package io.github.loadup.acquire.domain.gateway;
 import io.github.loadup.acquire.domain.model.AllocationRecoveryCursor;
 import java.util.Optional;
 
-/**
- * Joins the original parent/payment transaction; no independent execution claim.
- */
+/** Joins the original parent/payment transaction; no independent execution claim. */
 public interface AllocationRecoveryGateway {
     Optional<AllocationRecoveryCursor> find(String paymentId);
 

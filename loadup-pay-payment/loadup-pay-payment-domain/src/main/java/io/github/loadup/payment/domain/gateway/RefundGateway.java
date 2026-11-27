@@ -23,23 +23,20 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Reads require a local consistent transaction. Mutations and explicit locks additionally require the parent gate lock.
+ * Reads require a local consistent transaction. Mutations and explicit locks additionally require
+ * the parent gate lock.
  */
 public interface RefundGateway {
     Optional<RefundRequestReference> reference(String id);
 
     Optional<RefundRequestReference> merchantReference(String merchant, String merchantRefundNo);
 
-    /**
-     * Nonlocking reconstruction, usable inside a read-only snapshot.
-     */
+    /** Nonlocking reconstruction, usable inside a read-only snapshot. */
     StoredRefundRequest load(String id);
 
     StoredRefundRequest lock(String id);
 
-    /**
-     * Ascending paymentId locks; FIFO sorting happens only after every capacity is locked.
-     */
+    /** Ascending paymentId locks; FIFO sorting happens only after every capacity is locked. */
     List<PaymentRefundCapacity> lockCapacities(String orderId);
 
     /**

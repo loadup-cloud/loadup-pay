@@ -23,9 +23,7 @@ public interface PaymentAttemptGateway {
 
     Optional<StoredPaymentAttempt> findRequest(String paymentId, String requestKey);
 
-    /**
-     * Lookup is constrained by the trusted endpoint tenant and immutable binding revision.
-     */
+    /** Lookup is constrained by the trusted endpoint tenant and immutable binding revision. */
     Optional<StoredPaymentAttempt> findChannelRequest(String bindingRevisionId, String channelRequestNo);
 
     Optional<StoredPaymentAttempt> lock(String attemptId);

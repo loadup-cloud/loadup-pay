@@ -48,9 +48,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Frozen merchant events and their first native wake-up join the source financial transaction.
- */
+/** Frozen merchant events and their first native wake-up join the source financial transaction. */
 @Component
 public class MerchantNotificationEvents {
     private final OrderCreationGateway orders;

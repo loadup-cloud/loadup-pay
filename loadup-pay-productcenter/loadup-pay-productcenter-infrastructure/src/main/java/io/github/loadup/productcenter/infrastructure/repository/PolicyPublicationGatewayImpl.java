@@ -83,7 +83,9 @@ public class PolicyPublicationGatewayImpl
         try {
             return jdbc
                     .query(
-                            "SELECT " + COLUMNS + " FROM contract_limit_publication "
+                            "SELECT "
+                                    + COLUMNS
+                                    + " FROM contract_limit_publication "
                                     + "WHERE deleted = FALSE AND id = :id FOR UPDATE",
                             args,
                             rowMapper)

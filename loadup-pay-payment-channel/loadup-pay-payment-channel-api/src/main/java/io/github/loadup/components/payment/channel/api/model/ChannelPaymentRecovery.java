@@ -26,9 +26,7 @@ import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-/**
- * Query-only recovery context: no payment code, buyer input, credential or submission ticket.
- */
+/** Query-only recovery context: no payment code, buyer input, credential or submission ticket. */
 public record ChannelPaymentRecovery(
         ChannelPaymentIdentity identity,
         Money amount,

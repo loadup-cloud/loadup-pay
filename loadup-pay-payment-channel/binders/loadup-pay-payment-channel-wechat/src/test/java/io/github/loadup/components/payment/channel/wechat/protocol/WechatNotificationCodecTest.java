@@ -107,11 +107,21 @@ class WechatNotificationCodecTest {
     private static String payment(WechatAccountIdentity identity) {
         var account = identity.subMerchantId() == null
                 ? "\"appid\":\"" + identity.appId() + "\",\"mchid\":\"" + identity.merchantId() + "\""
-                : "\"sp_appid\":\"" + identity.appId() + "\",\"sp_mchid\":\"" + identity.merchantId()
-                        + "\",\"sub_mchid\":\"" + identity.subMerchantId() + "\",\"sub_appid\":\"" + identity.subAppId()
+                : "\"sp_appid\":\""
+                        + identity.appId()
+                        + "\",\"sp_mchid\":\""
+                        + identity.merchantId()
+                        + "\",\"sub_mchid\":\""
+                        + identity.subMerchantId()
+                        + "\",\"sub_appid\":\""
+                        + identity.subAppId()
                         + "\"";
-        return "{" + account + ",\"trade_state\":\"SUCCESS\",\"transaction_id\":\"wx-transaction-18\","
-                + "\"out_trade_no\":\"" + ORDER_NO + "\",\"amount\":{\"total\":125000,\"currency\":\"CNY\"},"
+        return "{"
+                + account
+                + ",\"trade_state\":\"SUCCESS\",\"transaction_id\":\"wx-transaction-18\","
+                + "\"out_trade_no\":\""
+                + ORDER_NO
+                + "\",\"amount\":{\"total\":125000,\"currency\":\"CNY\"},"
                 + "\"success_time\":\"2026-10-24T12:00:00+08:00\"}";
     }
 
@@ -122,8 +132,14 @@ class WechatNotificationCodecTest {
     private static String with(String json, String field, Map<String, Object> value) {
         return json.replaceFirst(
                 "\\\"" + field + "\\\"\\s*:\\s*\\{[^}]*}",
-                "\\\"" + field + "\\\":" + "{\\\"total\\\":" + value.get("total") + ",\\\"currency\\\":\\\""
-                        + value.get("currency") + "\\\"}");
+                "\\\""
+                        + field
+                        + "\\\":"
+                        + "{\\\"total\\\":"
+                        + value.get("total")
+                        + ",\\\"currency\\\":\\\""
+                        + value.get("currency")
+                        + "\\\"}");
     }
 
     private static byte[] withByteChanged(byte[] original) {
@@ -328,11 +344,22 @@ class WechatNotificationCodecTest {
         }
         String ciphertext =
                 Base64.getEncoder().encodeToString(cipher.doFinal(payment.getBytes(StandardCharsets.UTF_8)));
-        String resource = "{\"algorithm\":\"AEAD_AES_256_GCM\",\"original_type\":\"" + originalType
-                + "\",\"nonce\":\"" + RESOURCE_NONCE + "\",\"ciphertext\":\"" + ciphertext + "\""
-                + (omitAssociatedData ? "" : ",\"associated_data\":\"" + associated + "\"") + "}";
-        return ("{\"id\":\"" + id + "\",\"create_time\":\"2026-10-24T12:00:00+08:00\",\"event_type\":\"" + event
-                        + "\",\"resource_type\":\"encrypt-resource\",\"resource\":" + resource + "}")
+        String resource = "{\"algorithm\":\"AEAD_AES_256_GCM\",\"original_type\":\""
+                + originalType
+                + "\",\"nonce\":\""
+                + RESOURCE_NONCE
+                + "\",\"ciphertext\":\""
+                + ciphertext
+                + "\""
+                + (omitAssociatedData ? "" : ",\"associated_data\":\"" + associated + "\"")
+                + "}";
+        return ("{\"id\":\""
+                        + id
+                        + "\",\"create_time\":\"2026-10-24T12:00:00+08:00\",\"event_type\":\""
+                        + event
+                        + "\",\"resource_type\":\"encrypt-resource\",\"resource\":"
+                        + resource
+                        + "}")
                 .getBytes(StandardCharsets.UTF_8);
     }
 

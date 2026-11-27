@@ -161,7 +161,8 @@ public class RecoveryInventoryCollector implements ScheduledTask {
                 for (var cell : cells) {
                     combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));
                 }
-                // Only a complete configured scope replaces the previous publication, never a successful partial
+                // Only a complete configured scope replaces the previous publication, never a successful
+                // partial
                 // prefix.
                 snapshot.set(new Snapshot(Map.copyOf(combined), clock.instant()));
                 increment(success);

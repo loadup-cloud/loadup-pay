@@ -80,10 +80,19 @@ class AlipayRefundAdapterTest {
 
     private static String successPayload(
             String trade, String outTrade, String outRequest, String refundAmount, String totalAmount, String time) {
-        return "{\"code\":\"10000\",\"refund_status\":\"REFUND_SUCCESS\",\"trade_no\":\"" + trade
-                + "\",\"out_trade_no\":\"" + outTrade + "\",\"out_request_no\":\"" + outRequest
-                + "\",\"refund_amount\":\"" + refundAmount + "\",\"total_amount\":\"" + totalAmount
-                + "\",\"gmt_refund_pay\":\"" + time + "\"}";
+        return "{\"code\":\"10000\",\"refund_status\":\"REFUND_SUCCESS\",\"trade_no\":\""
+                + trade
+                + "\",\"out_trade_no\":\""
+                + outTrade
+                + "\",\"out_request_no\":\""
+                + outRequest
+                + "\",\"refund_amount\":\""
+                + refundAmount
+                + "\",\"total_amount\":\""
+                + totalAmount
+                + "\",\"gmt_refund_pay\":\""
+                + time
+                + "\"}";
     }
 
     private static String recoveryPayload(
@@ -145,8 +154,12 @@ class AlipayRefundAdapterTest {
 
     @Test
     void submitsExactOriginalTradeAndRefundFieldsAndKeepsAcceptedStatusNonterminal() throws Exception {
-        var payload = "{\"code\":\"10000\",\"trade_no\":\"" + TRADE_NO + "\",\"out_trade_no\":\""
-                + OUT_TRADE_NO + "\",\"out_request_no\":\"" + REFUND_NO
+        var payload = "{\"code\":\"10000\",\"trade_no\":\""
+                + TRADE_NO
+                + "\",\"out_trade_no\":\""
+                + OUT_TRADE_NO
+                + "\",\"out_request_no\":\""
+                + REFUND_NO
                 + "\",\"refund_fee\":\"300.00\",\"fund_change\":\"Y\"}";
         when(client.call(eq(direct.binding()), eq(AlipayMethod.REFUND), anyString(), eq(Map.of())))
                 .thenReturn(verified(AlipayMethod.REFUND, payload));
@@ -198,8 +211,13 @@ class AlipayRefundAdapterTest {
     void recoveryResubmitsOnlyEligibleOriginalRequestAndPreservesNaturalIdempotencyKey() throws Exception {
         var lookupPayload = recoveryPayload("10000", null, TRADE_NO, OUT_TRADE_NO, REFUND_NO, "0.00", "500.00");
         var query = verified(AlipayMethod.REFUND_QUERY, lookupPayload);
-        var submitPayload = "{\"code\":\"10000\",\"trade_no\":\"" + TRADE_NO + "\",\"out_trade_no\":\"" + OUT_TRADE_NO
-                + "\",\"out_request_no\":\"" + REFUND_NO + "\"}";
+        var submitPayload = "{\"code\":\"10000\",\"trade_no\":\""
+                + TRADE_NO
+                + "\",\"out_trade_no\":\""
+                + OUT_TRADE_NO
+                + "\",\"out_request_no\":\""
+                + REFUND_NO
+                + "\"}";
         var submit = verified(AlipayMethod.REFUND, submitPayload);
         when(client.call(eq(direct.binding()), eq(AlipayMethod.REFUND_QUERY), anyString(), eq(Map.of())))
                 .thenReturn(query);
@@ -379,8 +397,12 @@ class AlipayRefundAdapterTest {
         assertInvalidQuery(successPayload(TRADE_NO, OUT_TRADE_NO, REFUND_NO, "100.00", "500.00", "not-a-time"));
         assertInvalidQuery("{\"code\":\"10000\",\"refund_status\":\"REFUND_SUCCESS\",\"trade_no\":23}");
         assertInvalidQuery("{\"code\":\"10000\",\"refund_status\":\"REFUND_SUCCESS\",\"trade_no\":\""
-                + TRADE_NO + "\",\"out_trade_no\":\"" + OUT_TRADE_NO + "\",\"out_request_no\":\""
-                + REFUND_NO + "\",\"refund_amount\":100}");
+                + TRADE_NO
+                + "\",\"out_trade_no\":\""
+                + OUT_TRADE_NO
+                + "\",\"out_request_no\":\""
+                + REFUND_NO
+                + "\",\"refund_amount\":100}");
     }
 
     @Test

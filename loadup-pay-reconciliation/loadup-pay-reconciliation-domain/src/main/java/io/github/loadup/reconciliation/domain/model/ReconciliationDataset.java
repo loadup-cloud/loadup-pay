@@ -27,7 +27,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Complete bounded normalized input. Duplicate keys and repeated source record ordinals invalidate the input.
+ * Complete bounded normalized input. Duplicate keys and repeated source record ordinals invalidate
+ * the input.
  */
 public record ReconciliationDataset(
         ReconciliationManifest manifest, @DiagnosticHidden List<ReconciliationLine> records) {

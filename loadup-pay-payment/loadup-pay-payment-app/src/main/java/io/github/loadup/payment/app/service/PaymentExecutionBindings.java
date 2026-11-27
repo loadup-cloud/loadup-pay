@@ -36,7 +36,8 @@ import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import java.util.function.Supplier;
 
 /**
- * Payment-local error mapping for the pure binding. No persistence, codecs, actor lookup or execution side effects.
+ * Payment-local error mapping for the pure binding. No persistence, codecs, actor lookup or
+ * execution side effects.
  */
 public final class PaymentExecutionBindings {
     private PaymentExecutionBindings() {}

@@ -22,7 +22,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 /**
- * Versioned business evidence framing, independent of public DTO JSON and database row serialization.
+ * Versioned business evidence framing, independent of public DTO JSON and database row
+ * serialization.
  */
 final class ReconciliationFingerprint {
     private final MessageDigest digest;

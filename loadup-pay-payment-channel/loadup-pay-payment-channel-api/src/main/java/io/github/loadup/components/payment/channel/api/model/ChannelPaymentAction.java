@@ -19,9 +19,7 @@ import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.time.OffsetDateTime;
 
-/**
- * A payer interaction action, not financial success evidence.
- */
+/** A payer interaction action, not financial success evidence. */
 public sealed interface ChannelPaymentAction
         permits AlipayJsapiChannelAction, AlipayH5ChannelAction, WechatJsapiChannelAction, WechatH5ChannelAction {
     Channel channel();

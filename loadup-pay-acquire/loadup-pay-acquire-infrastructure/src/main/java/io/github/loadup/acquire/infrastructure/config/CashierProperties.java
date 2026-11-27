@@ -19,9 +19,7 @@ import io.github.loadup.components.payment.channel.contract.Channel;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Hosted H5 channels must be explicitly enabled after their payment providers are deployed.
- */
+/** Hosted H5 channels must be explicitly enabled after their payment providers are deployed. */
 @ConfigurationProperties("loadup.modules.acquire.cashier")
 public record CashierProperties(Set<Channel> h5Channels) {
     public CashierProperties {

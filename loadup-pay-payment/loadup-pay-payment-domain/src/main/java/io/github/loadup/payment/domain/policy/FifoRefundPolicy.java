@@ -31,9 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * The application persists this result and all capacity reservations in one transaction.
- */
+/** The application persists this result and all capacity reservations in one transaction. */
 public final class FifoRefundPolicy {
     public List<RefundPlanItem> plan(
             String orderId,

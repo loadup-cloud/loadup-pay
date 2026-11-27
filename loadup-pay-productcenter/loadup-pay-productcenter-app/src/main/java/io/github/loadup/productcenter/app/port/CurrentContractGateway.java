@@ -20,9 +20,7 @@ import io.github.loadup.productcenter.domain.model.ContractRecord;
 import io.github.loadup.productcenter.domain.model.MerchantContractRevision;
 import java.util.Optional;
 
-/**
- * Local primary-database access; no remote calls while the contract header is locked.
- */
+/** Local primary-database access; no remote calls while the contract header is locked. */
 public interface CurrentContractGateway {
     Optional<ContractRecord> lockByScope(String merchantId, String scopeKey);
 

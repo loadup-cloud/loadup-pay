@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/**
- * One local read snapshot; pages do not constitute a cross-request export snapshot.
- */
+/** One local read snapshot; pages do not constitute a cross-request export snapshot. */
 public record PaymentUnknownRecoveryPageDTO(
         List<PaymentUnknownRecoveryDTO> items,
         boolean hasMore,

@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Aggregate query projection, not a persisted table or a financial authority.
- */
+/** Aggregate query projection, not a persisted table or a financial authority. */
 public class RecoveryInventoryAggregate {
     private Long rowCount;
     private BigDecimal amountMinor;

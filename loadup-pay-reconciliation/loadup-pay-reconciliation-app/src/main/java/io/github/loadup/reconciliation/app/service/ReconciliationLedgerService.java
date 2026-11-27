@@ -69,9 +69,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Source RPC and file I/O finish before the short atomic input/batch transaction.
- */
+/** Source RPC and file I/O finish before the short atomic input/batch transaction. */
 @Service
 public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
     public static final String FORMAT = "payment-ledger-capture-v1";
@@ -86,7 +84,9 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
     private final ReconciliationConverter converter;
     private final IdGenerator ids;
     private final Validator validator;
-    private final int maxRecords, maxBytes, fetchSeconds;
+    private final int maxRecords;
+    private final int maxBytes;
+    private final int fetchSeconds;
 
     public ReconciliationLedgerService(
             ReconciliationActorProvider actors,
@@ -135,7 +135,8 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         if (batch.batch().ledger() != null || batch.batch().state() != ReconciliationState.INIT) {
             throw new CommonException(INVALID_STATE);
         }
-        // Stable keys are scoped to the original batch and caller, even when remote Create loses its response.
+        // Stable keys are scoped to the original batch and caller, even when remote Create loses its
+        // response.
         var requestKey = DigestUtils.sha256(frame(actor.serviceId(), command.batchId(), command.requestKey()));
         var capture = source.create(ledger.toCreate(batch.batch().scope(), requestKey));
         scope(batch.batch().scope(), capture, capture == null ? null : capture.captureId());

@@ -26,9 +26,7 @@ import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Persisted UNKNOWN identity and cursor metadata only, never an execution ticket.
- */
+/** Persisted UNKNOWN identity and cursor metadata only, never an execution ticket. */
 public record UnknownRecoveryEntry(
         PaymentRecoveryKind kind,
         String recordId,

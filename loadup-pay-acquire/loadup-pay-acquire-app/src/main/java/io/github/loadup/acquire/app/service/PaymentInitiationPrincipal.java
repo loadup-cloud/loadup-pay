@@ -26,7 +26,8 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 
 /**
- * Ephemeral internal authority bound by an authenticated entry point or a committed original recovery intent.
+ * Ephemeral internal authority bound by an authenticated entry point or a committed original
+ * recovery intent.
  */
 record PaymentInitiationPrincipal(
         String scopeHash,

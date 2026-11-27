@@ -15,9 +15,7 @@
  */
 package io.github.loadup.reconciliation.app.port;
 
-/**
- * An expected business-key race requiring a fresh transaction.
- */
+/** An expected business-key race requiring a fresh transaction. */
 public class ReconciliationWriteConflictException extends RuntimeException {
     public ReconciliationWriteConflictException(String message) {
         super(message);

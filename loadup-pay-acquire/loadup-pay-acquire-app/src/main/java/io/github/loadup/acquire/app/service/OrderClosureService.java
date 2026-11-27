@@ -27,7 +27,8 @@ import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 
 /**
- * Authenticated merchant entry point; background continuation uses the persisted original ownership.
+ * Authenticated merchant entry point; background continuation uses the persisted original
+ * ownership.
  */
 @Service
 public class OrderClosureService implements AcquireOrderClosureFacade {

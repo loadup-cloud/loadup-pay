@@ -22,7 +22,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Manual CHANNEL file only; no caller-supplied account, parser, totals or ledger-completeness assertions.
+ * Manual CHANNEL file only; no caller-supplied account, parser, totals or ledger-completeness
+ * assertions.
  */
 public record ReconciliationChannelImportCommand(
         @Schema(description = "Original batch id") @NotBlank @Size(max = 64) String batchId,

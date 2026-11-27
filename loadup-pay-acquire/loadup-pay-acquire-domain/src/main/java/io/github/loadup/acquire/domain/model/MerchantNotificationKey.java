@@ -21,9 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * Native tasks identify a delivery and the number of previously started attempts.
- */
+/** Native tasks identify a delivery and the number of previously started attempts. */
 public record MerchantNotificationKey(String deliveryId, int sequence) {
     public MerchantNotificationKey {
         DomainChecks.id(deliveryId);

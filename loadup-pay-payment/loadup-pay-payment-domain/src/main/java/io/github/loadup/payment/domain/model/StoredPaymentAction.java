@@ -31,7 +31,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
- * Immutable first issued action per original attempt; receipts and successful amounts remain independent.
+ * Immutable first issued action per original attempt; receipts and successful amounts remain
+ * independent.
  */
 public record StoredPaymentAction(
         ChannelPaymentIdentity identity,

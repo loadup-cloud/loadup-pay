@@ -20,9 +20,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Created only after checking the stored capability; no merchant or refund privileges.
- */
+/** Created only after checking the stored capability; no merchant or refund privileges. */
 public record CashierActor(String sessionId, String orderId, LocalDateTime expiresAt) {
     public CashierActor {
         DomainChecks.id(sessionId);

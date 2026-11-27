@@ -25,9 +25,7 @@ import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * References a channel-specific immutable identity; never a universal channel wire payload.
- */
+/** References a channel-specific immutable identity; never a universal channel wire payload. */
 public record ChannelBindingRevision(
         String id,
         String payeeMerchantId,

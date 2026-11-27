@@ -41,7 +41,8 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamConstants;
 
 /**
- * Strict bounded flat XML and HMAC-SHA256 only. No MD5 downgrade, DTD, entities or unsigned error facts.
+ * Strict bounded flat XML and HMAC-SHA256 only. No MD5 downgrade, DTD, entities or unsigned error
+ * facts.
  */
 public class WechatV2Codec {
     private static final int MAX_BYTES = 65536;
@@ -109,7 +110,8 @@ public class WechatV2Codec {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         try {
-            // Reject malformed UTF-8 before parsing; no encoding declaration can reinterpret the signed bytes.
+            // Reject malformed UTF-8 before parsing; no encoding declaration can reinterpret the signed
+            // bytes.
             StandardCharsets.UTF_8
                     .newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
@@ -131,7 +133,8 @@ public class WechatV2Codec {
                 }
                 var fields = new TreeMap<String, String>();
                 int depth = 0;
-                boolean rootSeen = false, ended = false;
+                boolean rootSeen = false;
+                boolean ended = false;
                 String name = null;
                 var value = new StringBuilder();
                 while (reader.hasNext()) {

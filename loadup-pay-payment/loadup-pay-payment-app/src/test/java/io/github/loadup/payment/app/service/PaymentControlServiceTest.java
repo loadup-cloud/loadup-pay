@@ -112,7 +112,8 @@ class PaymentControlServiceTest {
     final PaymentActionService actions = mock(PaymentActionService.class);
     final PaymentRecoveryService recovery = mock(PaymentRecoveryService.class);
     final PaymentEvents events = mock(PaymentEvents.class);
-    final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(), gate = new AtomicReference<>();
+    final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>();
+    final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>();
     final AtomicReference<StoredPaymentAcceptance> payment = new AtomicReference<>();
     final Map<String, PaymentControlReceipt> receipts = new HashMap<>();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(new PaymentActor(

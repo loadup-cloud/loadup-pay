@@ -21,9 +21,7 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationReviewOperatio
 import io.github.loadup.reconciliation.client.enums.ReconciliationReviewState;
 import java.time.OffsetDateTime;
 
-/**
- * Original acknowledgement snapshot; state/version are from this command, not the current head.
- */
+/** Original acknowledgement snapshot; state/version are from this command, not the current head. */
 public record ReconciliationReviewEventDTO(
         String eventId,
         String batchId,

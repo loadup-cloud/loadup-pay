@@ -22,9 +22,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-/**
- * An absent payment has a durable gate and receipt, never a fabricated zero-amount payment.
- */
+/** An absent payment has a durable gate and receipt, never a fabricated zero-amount payment. */
 public record PaymentCloseDTO(
         @Schema(description = "Payment id") @NotBlank @Size(max = 64) String paymentId,
 

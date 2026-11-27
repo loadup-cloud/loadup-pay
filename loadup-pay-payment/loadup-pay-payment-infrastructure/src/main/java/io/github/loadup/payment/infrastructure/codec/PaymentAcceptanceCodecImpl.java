@@ -93,7 +93,8 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
                     || !stored.requestDigest().equals(value.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            // Storage constructors validate the frozen format. Current public Bean Validation is ingress-only.
+            // Storage constructors validate the frozen format. Current public Bean Validation is
+            // ingress-only.
             return snapshots.toCommand(value);
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);

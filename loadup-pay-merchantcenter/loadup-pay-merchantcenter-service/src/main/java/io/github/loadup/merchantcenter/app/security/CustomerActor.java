@@ -20,9 +20,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.merchantcenter.client.enums.PrincipalType;
 import java.util.Objects;
 
-/**
- * Identity facts established by the transport's verified credentials.
- */
+/** Identity facts established by the transport's verified credentials. */
 public record CustomerActor(PrincipalType principalType, String principalId, String merchantId, boolean canManage) {
     public CustomerActor {
         Objects.requireNonNull(principalType);

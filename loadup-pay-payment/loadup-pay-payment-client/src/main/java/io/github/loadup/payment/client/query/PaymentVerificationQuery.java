@@ -27,9 +27,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * Query hints only, never financial success evidence or another channel submission permit.
- */
+/** Query hints only, never financial success evidence or another channel submission permit. */
 public record PaymentVerificationQuery(
         @NotBlank @Size(max = 64) String sourceRequestId,
         @NotNull Channel channel,

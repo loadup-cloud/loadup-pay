@@ -26,9 +26,7 @@ import io.github.loadup.contracts.event.payment.RefundState;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * A single serial child transition and its exact capacity/request effects.
- */
+/** A single serial child transition and its exact capacity/request effects. */
 public record RefundProgressChange(
         RefundExecutionFacts before,
         RefundOrder refund,

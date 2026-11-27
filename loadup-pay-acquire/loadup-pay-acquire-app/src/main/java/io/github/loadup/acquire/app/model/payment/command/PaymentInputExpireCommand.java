@@ -27,7 +27,8 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
- * Conditionally fence an expired, never-accepted original payment; accepted payments continue unchanged.
+ * Conditionally fence an expired, never-accepted original payment; accepted payments continue
+ * unchanged.
  */
 public record PaymentInputExpireCommand(
         @Schema(description = "Original opaque input reference") @NotBlank @Size(max = 64) @DiagnosticHidden

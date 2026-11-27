@@ -29,9 +29,7 @@ import io.github.loadup.contracts.event.payment.PaymentState;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Refunds have independent aggregates and cannot rewrite this successful amount or state.
- */
+/** Refunds have independent aggregates and cannot rewrite this successful amount or state. */
 public record PaymentOrder(
         String id,
         String orderId,
@@ -164,9 +162,7 @@ public record PaymentOrder(
         return copy(PaymentState.CLOSED, null);
     }
 
-    /**
-     * Final failure is a payment-wide no-collection proof; one failed attempt is insufficient.
-     */
+    /** Final failure is a payment-wide no-collection proof; one failed attempt is insufficient. */
     public PaymentOrder fail(NoCollectionEvidence evidence) {
         require(id.equals(evidence.paymentId()), CONFLICT);
         if (state == PaymentState.FAILED) {

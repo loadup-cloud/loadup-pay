@@ -68,8 +68,15 @@ public class HmacCheckoutTokens implements CheckoutTokens {
                 || !nonce.matches("[0-9a-f]{64}")) {
             throw new CommonException(SESSION_UNAVAILABLE);
         }
-        String data = "pay-checkout-v1\n" + session.id() + "\n" + session.orderId() + "\n"
-                + BusinessTime.external(session.expiresAt()).toEpochSecond() + "\n" + nonce + "\n";
+        String data = "pay-checkout-v1\n"
+                + session.id()
+                + "\n"
+                + session.orderId()
+                + "\n"
+                + BusinessTime.external(session.expiresAt()).toEpochSecond()
+                + "\n"
+                + nonce
+                + "\n";
         byte[] mac = HexFormat.of().parseHex(DigestUtils.hmacSha256(data, secret));
         return session.id() + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(mac);
     }

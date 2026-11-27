@@ -34,7 +34,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Read-only owner RPC outside the local transaction; first valid observation wins independently of native ACK.
+ * Read-only owner RPC outside the local transaction; first valid observation wins independently of
+ * native ACK.
  */
 @Component
 public class ReconciliationVerificationDelivery {

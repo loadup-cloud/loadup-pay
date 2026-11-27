@@ -31,9 +31,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.Set;
 
-/**
- * A source-committed terminal projection; never a command to change order or refund amounts.
- */
+/** A source-committed terminal projection; never a command to change order or refund amounts. */
 public record RefundMerchantEventDTO(
         @Schema(description = "RefundOrder or RefundRequest")
         String aggregateType,

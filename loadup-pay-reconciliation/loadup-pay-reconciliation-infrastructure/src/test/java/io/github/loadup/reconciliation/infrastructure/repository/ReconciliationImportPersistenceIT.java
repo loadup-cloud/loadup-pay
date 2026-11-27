@@ -94,7 +94,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Real PostgreSQL business/File/Transfer metadata; only external object bytes and trusted actor are supplied by the test.
+ * Real PostgreSQL business/File/Transfer metadata; only external object bytes and trusted actor are
+ * supplied by the test.
  */
 @SpringBootTest(
         classes = ReconciliationImportPersistenceIT.Application.class,
@@ -268,9 +269,12 @@ class ReconciliationImportPersistenceIT {
         row[22] = "0.02";
         row[24] = "10.00";
         row[25] = "0.00";
-        return WechatTradeStatementParser.HEADER + "\n"
-                + Arrays.stream(row).map(value -> "`" + value).collect(Collectors.joining(",")) + "\n"
-                + WechatTradeStatementParser.TOTAL_HEADER + "\n`1,`9.00,`0.00,`0.00,`0.02,`10.00,`0.00\n";
+        return WechatTradeStatementParser.HEADER
+                + "\n"
+                + Arrays.stream(row).map(value -> "`" + value).collect(Collectors.joining(","))
+                + "\n"
+                + WechatTradeStatementParser.TOTAL_HEADER
+                + "\n`1,`9.00,`0.00,`0.00,`0.02,`10.00,`0.00\n";
     }
 
     private record Fixture(
@@ -306,8 +310,8 @@ class ReconciliationImportPersistenceIT {
     }
 
     static class FaultingImports extends ReconciliationImportGatewayImpl {
-        final AtomicReference<String> failInsertBatch = new AtomicReference<>(),
-                failSealBatch = new AtomicReference<>();
+        final AtomicReference<String> failInsertBatch = new AtomicReference<>();
+        final AtomicReference<String> failSealBatch = new AtomicReference<>();
 
         FaultingImports(NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
             super(jdbc, converter, clock);

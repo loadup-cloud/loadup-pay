@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import java.net.URI;
 
-/**
- * Ephemeral private grant, never persisted as public DTO fields or logged.
- */
+/** Ephemeral private grant, never persisted as public DTO fields or logged. */
 public record WechatStatementGrant(
         @DiagnosticHidden URI uri, @DiagnosticHidden String token, String sha1) {
     @Override

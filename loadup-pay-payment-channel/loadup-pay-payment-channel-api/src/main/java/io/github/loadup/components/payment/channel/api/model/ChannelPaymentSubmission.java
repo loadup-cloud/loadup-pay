@@ -25,7 +25,8 @@ import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
 /**
- * Separates verified channel observations from client actions; a locally signed action may have no observation.
+ * Separates verified channel observations from client actions; a locally signed action may have no
+ * observation.
  */
 public record ChannelPaymentSubmission(
         ChannelPaymentIdentity identity,

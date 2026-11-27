@@ -61,9 +61,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Internal execution seam: remote preparation first, then one irreversible local Y2 claim.
- */
+/** Internal execution seam: remote preparation first, then one irreversible local Y2 claim. */
 @Component
 public class PaymentSubmissionPreparation {
     private final PaymentAcceptanceGateway payments;
@@ -119,7 +117,8 @@ public class PaymentSubmissionPreparation {
     }
 
     /**
-     * Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query, never resubmit.
+     * Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query,
+     * never resubmit.
      */
     public Optional<PaymentSubmissionTicket> prepare(String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {

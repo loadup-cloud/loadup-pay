@@ -21,9 +21,7 @@ import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import java.util.Optional;
 
-/**
- * Caller holds the parent and, for payment updates, the single-payment gate lock.
- */
+/** Caller holds the parent and, for payment updates, the single-payment gate lock. */
 public interface PaymentControlGateway {
     Optional<StoredPaymentAcceptance> lockPayment(String paymentId);
 

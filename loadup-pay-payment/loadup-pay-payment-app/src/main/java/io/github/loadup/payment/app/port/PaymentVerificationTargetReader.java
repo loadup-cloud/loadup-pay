@@ -18,9 +18,7 @@ package io.github.loadup.payment.app.port;
 import io.github.loadup.payment.app.model.PaymentVerificationTarget;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;
 
-/**
- * Bounded owner-only consistent local snapshot, no locks, channel I/O or writes.
- */
+/** Bounded owner-only consistent local snapshot, no locks, channel I/O or writes. */
 public interface PaymentVerificationTargetReader {
     PaymentVerificationTarget read(PaymentVerificationQuery query);
 }

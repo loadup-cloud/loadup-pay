@@ -25,9 +25,7 @@ import io.github.loadup.realtime.client.query.TradeOrderPageQuery;
 import io.github.loadup.realtime.client.query.TradePaymentPageQuery;
 import io.github.loadup.realtime.client.query.TradeRefundPageQuery;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface MerchantTradeQueryFacade {
     TradeDetailDTO detail(TradeDetailQuery query);
 

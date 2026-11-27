@@ -30,9 +30,7 @@ import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Independent financial target; a successful realtime delivery cannot acknowledge this target.
- */
+/** Independent financial target; a successful realtime delivery cannot acknowledge this target. */
 @Component
 public class RefundFeeDelivery {
     private final TaskTemplate outbox;

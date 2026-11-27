@@ -27,10 +27,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
- * Verified, account-bound adapter facts only. No HTTP binding or merchant-supplied success evidence.
- * channelRefundTransactionNo is the provider refund reference: a vendor-issued ID or a stable canonical
- * representation of the verified natural refund key when the provider has no independent refund ID.
- * acceptedAt is optional verified provider acceptance metadata, never terminal refund or capacity-release proof.
+ * Verified, account-bound adapter facts only. No HTTP binding or merchant-supplied success
+ * evidence. channelRefundTransactionNo is the provider refund reference: a vendor-issued ID or a
+ * stable canonical representation of the verified natural refund key when the provider has no
+ * independent refund ID. acceptedAt is optional verified provider acceptance metadata, never
+ * terminal refund or capacity-release proof.
  */
 public record RefundObservation(
         String refundId,

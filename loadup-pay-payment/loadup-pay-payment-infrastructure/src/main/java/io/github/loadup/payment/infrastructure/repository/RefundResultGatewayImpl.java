@@ -195,7 +195,8 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     @Override
     public Optional<RefundTransactionClaim> transaction(Channel channel, String scope, String number) {
         writable();
-        // One exact immutable financial key must see aliases across tenants. Never expose this lookup as an API.
+        // One exact immutable financial key must see aliases across tenants. Never expose this lookup
+        // as an API.
         var row = getOne(QueryWrapper.create()
                 .eq("channel", channel.name())
                 .eq("account_scope_hash", scope)
@@ -340,7 +341,10 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
         var args = new MapSqlParameterSource().addValue("id", id);
         return jdbc
                 .query(
-                        "SELECT " + CHILD_COLUMNS + " FROM refund_order WHERE " + "id = :id AND deleted = FALSE"
+                        "SELECT "
+                                + CHILD_COLUMNS
+                                + " FROM refund_order WHERE "
+                                + "id = :id AND deleted = FALSE"
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(RefundOrderDO.class))

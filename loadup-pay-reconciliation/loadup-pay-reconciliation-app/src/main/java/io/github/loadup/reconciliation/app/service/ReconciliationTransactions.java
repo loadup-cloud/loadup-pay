@@ -48,7 +48,8 @@ public class ReconciliationTransactions {
     }
 
     /**
-     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer
+     * transaction or remote IO.
      */
     public <T> T writeLocal(Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -69,7 +70,8 @@ public class ReconciliationTransactions {
     }
 
     /**
-     * One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote IO.
+     * One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote
+     * IO.
      */
     public <T> T readSnapshot(Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {

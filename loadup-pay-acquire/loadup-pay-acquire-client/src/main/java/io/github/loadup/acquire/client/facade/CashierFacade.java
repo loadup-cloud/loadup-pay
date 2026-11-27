@@ -21,16 +21,15 @@ import io.github.loadup.acquire.client.dto.CashierPaymentDTO;
 import io.github.loadup.acquire.client.dto.CashierPaymentRecoveryDTO;
 import io.github.loadup.commons.request.query.IdQuery;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface CashierFacade extends CashierSummaryFacade {
     CashierPaymentDTO startPayment(CashierPaymentStartCommand command);
 
     CashierPaymentDTO paymentProgress(IdQuery query);
 
     /**
-     * Resolve only an existing original action; never allocates another payment or replaces its input.
+     * Resolve only an existing original action; never allocates another payment or replaces its
+     * input.
      */
     CashierPaymentRecoveryDTO recoverPayment(CashierPaymentRecoverCommand command);
 }

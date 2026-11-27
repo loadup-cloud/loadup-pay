@@ -19,7 +19,8 @@ import io.github.loadup.components.payment.channel.api.model.ChannelNotification
 import io.github.loadup.components.payment.channel.api.model.ChannelNotificationInput;
 
 /**
- * Native external refund notification protocol; authenticated channel facts are never accepted from a merchant DTO.
+ * Native external refund notification protocol; authenticated channel facts are never accepted from
+ * a merchant DTO.
  */
 public interface RefundChannelCallbackFacade {
     ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input);

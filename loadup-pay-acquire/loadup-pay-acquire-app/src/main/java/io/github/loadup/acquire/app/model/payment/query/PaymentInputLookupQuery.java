@@ -26,7 +26,8 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
- * Read only the original input reference for the exact immutable acquiring intent; no payer input is returned.
+ * Read only the original input reference for the exact immutable acquiring intent; no payer input
+ * is returned.
  */
 public record PaymentInputLookupQuery(
         @Schema(description = "Fixed payment id") @NotBlank @Size(max = 64) String paymentId,

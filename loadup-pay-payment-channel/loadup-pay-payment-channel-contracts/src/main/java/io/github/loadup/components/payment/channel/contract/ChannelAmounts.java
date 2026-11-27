@@ -19,9 +19,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
 import java.util.Objects;
 
-/**
- * Amount policy shared by acquiring channel contracts and their consumers.
- */
+/** Amount policy shared by acquiring channel contracts and their consumers. */
 public final class ChannelAmounts {
     private ChannelAmounts() {}
 
@@ -34,9 +32,7 @@ public final class ChannelAmounts {
         DomainViolation.require(value.getCent() >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
-    /**
-     * Validate the acquiring boundary before creating the shared immutable Money value.
-     */
+    /** Validate the acquiring boundary before creating the shared immutable Money value. */
     public static Money cnyAmount(long minor, String currency) {
         DomainViolation.require("CNY".equals(currency), DomainViolation.Reason.CURRENCY_MISMATCH);
         DomainViolation.require(minor >= 0, DomainViolation.Reason.INVALID_ARGUMENT);

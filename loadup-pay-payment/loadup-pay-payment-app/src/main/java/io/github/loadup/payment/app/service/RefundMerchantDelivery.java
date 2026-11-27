@@ -34,9 +34,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Independent Outbox target; acknowledgement means durable registration in acquire.
- */
+/** Independent Outbox target; acknowledgement means durable registration in acquire. */
 @Component
 public class RefundMerchantDelivery {
     private final TaskTemplate outbox;

@@ -33,9 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
-/**
- * Initial merchant policy: all eight stable counters exist, even while enforcement is disabled.
- */
+/** Initial merchant policy: all eight stable counters exist, even while enforcement is disabled. */
 @Component
 public class LimitPolicyCompiler {
     public LimitPolicyActivateCommand compile(String payee, LimitPolicy policy) {

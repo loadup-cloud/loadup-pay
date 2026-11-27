@@ -22,14 +22,16 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import java.util.Optional;
 
 /**
- * Page and count use this service's consistent read-only snapshot; no source-service lookup or locks.
+ * Page and count use this service's consistent read-only snapshot; no source-service lookup or
+ * locks.
  */
 public interface ReconciliationDifferenceReader {
     PageResult<StoredReconciliationDifference> page(
             String batchId, ReconciliationRecordKind kind, ReconciliationDifferenceReason reason, int page, int size);
 
     /**
-     * Exact local immutable evidence; caller owns batch authorization and a local read/write transaction.
+     * Exact local immutable evidence; caller owns batch authorization and a local read/write
+     * transaction.
      */
     Optional<StoredReconciliationDifference> find(String batchId, String differenceId);
 }

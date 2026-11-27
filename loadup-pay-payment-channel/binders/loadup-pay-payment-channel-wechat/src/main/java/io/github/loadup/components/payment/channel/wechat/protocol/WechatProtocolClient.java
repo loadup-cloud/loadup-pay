@@ -62,7 +62,8 @@ public class WechatProtocolClient {
                     method.operation(),
                     call,
                     (verb, uri, bytes) -> codec.sign(method, original, verb, uri, bytes));
-            // Error responses also require the original platform pin; unsigned errors cannot become financial evidence.
+            // Error responses also require the original platform pin; unsigned errors cannot become
+            // financial evidence.
             return codec.verify(method, original, response);
         } catch (CommonException failure) {
             throw failure;

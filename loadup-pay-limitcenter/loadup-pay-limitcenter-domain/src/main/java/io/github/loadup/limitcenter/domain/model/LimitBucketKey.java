@@ -24,9 +24,7 @@ import io.github.loadup.limitcenter.client.enums.LimitMetric;
 import io.github.loadup.limitcenter.client.enums.LimitWindowType;
 import java.util.Objects;
 
-/**
- * Commercial policyVersion is deliberately excluded from counter identity.
- */
+/** Commercial policyVersion is deliberately excluded from counter identity. */
 public record LimitBucketKey(
         String ruleScopeId,
         String merchantId,

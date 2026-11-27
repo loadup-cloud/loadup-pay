@@ -19,7 +19,8 @@ import io.github.loadup.acquire.client.command.PaymentRecoverCommand;
 import io.github.loadup.acquire.client.dto.PaymentRecoveryDTO;
 
 /**
- * Recover only an original merchant action; never reserves another amount or substitutes payment input.
+ * Recover only an original merchant action; never reserves another amount or substitutes payment
+ * input.
  */
 public interface PaymentRecoveryFacade {
     PaymentRecoveryDTO recover(PaymentRecoverCommand command);

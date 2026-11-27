@@ -27,8 +27,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Immutable action codec registry. Vendor binders own strict wire codecs; this class enforces the common kind, size,
- * checksum and type rules.
+ * Immutable action codec registry. Vendor binders own strict wire codecs; this class enforces the
+ * common kind, size, checksum and type rules.
  */
 public final class RegistryChannelActionCodec implements ChannelActionCodec {
     static final int MAX_PAYLOAD_LENGTH = 8192;

@@ -40,7 +40,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Preserves verified unpaid-close acknowledgements across Y3 rollback without creating a new submission right.
+ * Preserves verified unpaid-close acknowledgements across Y3 rollback without creating a new
+ * submission right.
  */
 @Service
 public class PaymentCloseService {
@@ -121,7 +122,8 @@ public class PaymentCloseService {
         }
         var recordedAt = LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
         var proof = transactions.writeLocal(() -> {
-            // The same parent -> payment gate -> payment -> attempt order as Y3; no remote IO under these locks.
+            // The same parent -> payment gate -> payment -> attempt order as Y3; no remote IO
+            // under these locks.
             var locked = locks.lock(original.attempt().paymentId(), original.callerServiceId());
             var current =
                     attempts.lock(original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -135,7 +137,8 @@ public class PaymentCloseService {
             evidence.insert(value);
             return value;
         });
-        // Failure here leaves the immutable proof committed. A later recovery applies this original observation only.
+        // Failure here leaves the immutable proof committed. A later recovery applies this original
+        // observation only.
         return results.record(converter.toObservation(proof));
     }
 

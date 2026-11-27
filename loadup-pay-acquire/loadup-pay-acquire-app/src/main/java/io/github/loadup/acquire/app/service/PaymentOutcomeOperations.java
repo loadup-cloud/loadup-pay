@@ -52,9 +52,7 @@ import java.time.temporal.ChronoUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Shared trusted-fact application; caller authorization remains in each public use case.
- */
+/** Shared trusted-fact application; caller authorization remains in each public use case. */
 @Component
 public class PaymentOutcomeOperations {
     private final OrderCreationGateway orders;

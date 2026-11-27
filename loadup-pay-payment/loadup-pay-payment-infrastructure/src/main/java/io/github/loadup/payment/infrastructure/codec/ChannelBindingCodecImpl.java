@@ -130,7 +130,8 @@ public class ChannelBindingCodecImpl implements ChannelBindingCodec {
 
     @Override
     public String accountScopeHash(Channel channel, ChannelAccountIdentity identity) {
-        // Financial uniqueness follows the real collecting account, across tenant/app/credential aliases.
+        // Financial uniqueness follows the real collecting account, across tenant/app/credential
+        // aliases.
         if (channel == null || identity == null || channel != identity.channel()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

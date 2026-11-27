@@ -83,7 +83,9 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
                 .addValue("binding", bindingRevisionId)
                 .addValue("request", channelRequestNo);
         var rows = jdbc.query(
-                "SELECT " + COLUMNS + " FROM payment_attempt WHERE deleted = FALSE "
+                "SELECT "
+                        + COLUMNS
+                        + " FROM payment_attempt WHERE deleted = FALSE "
                         + "AND binding_revision_id = :binding AND channel_request_no = :request LIMIT 2",
                 args,
                 BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class));
@@ -103,7 +105,10 @@ public class PaymentAttemptGatewayImpl extends ServiceImpl<PaymentAttemptMapper,
     private PaymentAttemptDO one(String condition, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT " + COLUMNS + " FROM payment_attempt WHERE deleted = FALSE AND " + condition
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM payment_attempt WHERE deleted = FALSE AND "
+                                + condition
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class))

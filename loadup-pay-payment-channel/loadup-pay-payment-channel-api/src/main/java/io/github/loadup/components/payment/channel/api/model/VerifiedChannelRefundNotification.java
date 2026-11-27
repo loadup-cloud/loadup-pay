@@ -22,9 +22,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Objects;
 
-/**
- * Authenticated refund trigger only, not a terminal financial outcome.
- */
+/** Authenticated refund trigger only, not a terminal financial outcome. */
 public record VerifiedChannelRefundNotification(
         PreparedChannelRefund refund,
         String notificationId,

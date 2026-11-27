@@ -42,7 +42,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Resumes committed A2 intents; native task ownership never grants a new payment or financial evidence.
+ * Resumes committed A2 intents; native task ownership never grants a new payment or financial
+ * evidence.
  */
 @Service
 public class AllocationRecoveryService implements TaskHandler {
@@ -107,7 +108,8 @@ public class AllocationRecoveryService implements TaskHandler {
         var stored = pending.get();
         var original = stored.allocation();
         var owner = new OrderPaymentScope(stored.callerScopeHash());
-        // Durable original ownership authorizes continuation, never a new A2 or renewed checkout capability.
+        // Durable original ownership authorizes continuation, never a new A2 or renewed checkout
+        // capability.
         var principal =
                 new PaymentInitiationPrincipal(stored.callerScopeHash(), original.actorScope(), (order, creating) -> {
                     if (creating

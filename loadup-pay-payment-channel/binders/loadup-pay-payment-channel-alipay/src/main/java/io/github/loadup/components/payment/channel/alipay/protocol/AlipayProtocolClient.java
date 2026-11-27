@@ -46,9 +46,7 @@ public class AlipayProtocolClient {
         this.codec = codec;
     }
 
-    /**
-     * Page generation has no network response and must never expose delegated authorization.
-     */
+    /** Page generation has no network response and must never expose delegated authorization. */
     public String directWapUrl(
             ChannelBindingRevision binding, URI gateway, String businessJson, Map<String, String> options) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -74,7 +72,8 @@ public class AlipayProtocolClient {
     }
 
     /**
-     * Exact verified envelope for private source provenance. Credentials/signing still resolve exactly once per API call.
+     * Exact verified envelope for private source provenance. Credentials/signing still resolve
+     * exactly once per API call.
      */
     public AlipayVerifiedExchange exchangeVerified(
             ChannelBindingRevision binding, AlipayMethod method, String businessJson, Map<String, String> options) {

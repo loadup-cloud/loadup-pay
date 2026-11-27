@@ -20,9 +20,7 @@ import static io.github.loadup.components.payment.channel.api.error.ChannelResul
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/**
- * Bounded raw official statement; parsing and comparison belong to reconciliation.
- */
+/** Bounded raw official statement; parsing and comparison belong to reconciliation. */
 public record ChannelStatementRequest(ChannelStatementScope scope, int maxBytes) {
     public static final int MAX_BYTES = 16 * 1024 * 1024;
 

@@ -27,9 +27,7 @@ import io.github.loadup.contracts.event.BusinessEventTypes;
 import io.github.loadup.contracts.event.FrozenEventTypes;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-/**
- * Complete monetary snapshot, bounded independently of historical refund-request count.
- */
+/** Complete monetary snapshot, bounded independently of historical refund-request count. */
 public record OrderRefundSummaryEventDTO(
         @Schema(description = "Order id") String orderId,
         @Schema(description = "Payee merchant id") String payeeMerchantId,
@@ -45,6 +43,7 @@ public record OrderRefundSummaryEventDTO(
         long refundSummaryVersion) {
     /** Frozen delivery label; newly published fact types are defined by BusinessEventTypes. */
     public static final String REALTIME_TYPE = "pay.payment.refund-summary.realtime.v1";
+
     /** Frozen delivery label; newly published fact types are defined by BusinessEventTypes. */
     public static final String FEE_TYPE = "pay.payment.refund.fee.v1";
 

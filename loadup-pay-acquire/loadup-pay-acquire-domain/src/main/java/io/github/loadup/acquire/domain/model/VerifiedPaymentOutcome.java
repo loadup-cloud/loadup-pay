@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
-/**
- * Only trusted, persisted payment facts may be adapted to this value.
- */
+/** Only trusted, persisted payment facts may be adapted to this value. */
 public record VerifiedPaymentOutcome(
         String orderId,
         String paymentId,

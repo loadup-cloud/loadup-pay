@@ -35,7 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Native at-least-once close continuation; the persisted original C0 supplies scope, reason and financial identities.
+ * Native at-least-once close continuation; the persisted original C0 supplies scope, reason and
+ * financial identities.
  */
 @Service
 public class OrderClosureRecoveryService implements TaskHandler {

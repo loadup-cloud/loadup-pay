@@ -138,7 +138,8 @@ public class ReconciliationImportExecutionService {
             if (!request.file().sha256().equals(data.manifest().artifactSha256())) {
                 throw new CommonException(INPUT_INVALID);
             }
-            // The content-addressed file, sealed rows, batch reference and logical outcome commit together.
+            // The content-addressed file, sealed rows, batch reference and logical outcome commit
+            // together.
             transactions.writeLocal(() -> {
                 var batch = authorized(request, true);
                 var current = imports.lock(request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

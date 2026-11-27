@@ -135,7 +135,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Actual collection success, refund persistence, projections and native recovery; no database substitutes.
+ * Actual collection success, refund persistence, projections and native recovery; no database
+ * substitutes.
  */
 @SpringBootTest(
         classes = {PaymentResultPersistenceIT.Application.class, RefundRecoveryHandlerPersistenceIT.Configuration.class

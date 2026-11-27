@@ -21,9 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * A successful customer call returns authoritative facts; dependency failure must propagate.
- */
+/** A successful customer call returns authoritative facts; dependency failure must propagate. */
 public record MerchantEligibilityFacts(
         String payeeMerchantId, boolean eligible, String reasonCode, long merchantVersion, long authorizationVersion) {
     public MerchantEligibilityFacts {

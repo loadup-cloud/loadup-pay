@@ -46,7 +46,8 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 
 /**
- * Source-level unit fixture. Its transaction manager records boundaries; it cannot prove database rollback or locking.
+ * Source-level unit fixture. Its transaction manager records boundaries; it cannot prove database
+ * rollback or locking.
  */
 class LimitServiceFixture implements AutoCloseable {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();

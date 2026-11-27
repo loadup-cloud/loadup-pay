@@ -15,9 +15,7 @@
  */
 package io.github.loadup.components.payment.channel.wechat.protocol;
 
-/**
- * The official V2 micropay operation; V3 endpoints are not interchangeable.
- */
+/** The official V2 micropay operation; V3 endpoints are not interchangeable. */
 public enum WechatV2Method {
     MICROPAY("micropay");
     private final String operation;

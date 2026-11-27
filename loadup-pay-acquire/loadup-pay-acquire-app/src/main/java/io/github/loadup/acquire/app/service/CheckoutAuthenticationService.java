@@ -45,7 +45,8 @@ public class CheckoutAuthenticationService {
     }
 
     public CashierActor authenticate(String token, String origin) {
-        // The deployment code header is validated at the entry point; this capability check grants the session.
+        // The deployment code header is validated at the entry point; this capability check grants the
+        // session.
         if (token == null || token.length() > 108 || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}")) {
             throw new CommonException(SESSION_UNAUTHORIZED);
         }

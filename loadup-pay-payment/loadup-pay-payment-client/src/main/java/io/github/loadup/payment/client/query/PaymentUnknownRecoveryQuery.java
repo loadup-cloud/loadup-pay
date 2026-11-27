@@ -25,9 +25,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
-/**
- * Tenant is exclusively resolved from the verified operations SERVICE.
- */
+/** Tenant is exclusively resolved from the verified operations SERVICE. */
 public record PaymentUnknownRecoveryQuery(
         @NotNull PaymentRecoveryKind kind,
 

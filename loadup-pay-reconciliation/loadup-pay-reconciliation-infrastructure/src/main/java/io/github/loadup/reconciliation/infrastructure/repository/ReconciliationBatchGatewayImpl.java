@@ -207,7 +207,8 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
                                 + " channel_account_code, channel, account_scope_hash, bill_date, statement_profile,"
                                 + " state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count,"
                                 + " result_hash, row_version FROM reconciliation_batch WHERE deleted = FALSE AND "
-                                + predicate + (lock ? " FOR UPDATE" : ""),
+                                + predicate
+                                + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationBatchDO.class))
                 .stream()

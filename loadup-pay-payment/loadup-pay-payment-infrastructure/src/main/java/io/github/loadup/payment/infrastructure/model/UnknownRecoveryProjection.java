@@ -18,9 +18,7 @@ package io.github.loadup.payment.infrastructure.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.LocalDateTime;
 
-/**
- * Non-table projection for the bounded operational keyset query.
- */
+/** Non-table projection for the bounded operational keyset query. */
 public class UnknownRecoveryProjection {
     private String recordId;
     private String subjectId;

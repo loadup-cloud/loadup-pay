@@ -24,7 +24,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationSide;
 import java.util.Objects;
 
 /**
- * Created only after trusted provenance, complete-file EOF/hash/trailer and source-export coverage validation.
+ * Created only after trusted provenance, complete-file EOF/hash/trailer and source-export coverage
+ * validation.
  */
 public record ReconciliationManifest(
         ReconciliationSide side,

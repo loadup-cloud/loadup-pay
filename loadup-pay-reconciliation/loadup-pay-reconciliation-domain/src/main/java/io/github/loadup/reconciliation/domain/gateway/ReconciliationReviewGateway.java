@@ -22,7 +22,8 @@ import io.github.loadup.reconciliation.domain.model.ReconciliationReviewProposal
 import java.util.Optional;
 
 /**
- * Current batch is authorized and locked before writes. Head/proposal/event commit on the same DataSource.
+ * Current batch is authorized and locked before writes. Head/proposal/event commit on the same
+ * DataSource.
  */
 public interface ReconciliationReviewGateway {
     Optional<ReconciliationReview> find(String differenceId);

@@ -36,7 +36,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Shared first-attempt creation; caller owns the original parent/payment gates. No submission occurs here.
+ * Shared first-attempt creation; caller owns the original parent/payment gates. No submission
+ * occurs here.
  */
 @Service
 public class PaymentInitialAttemptService {

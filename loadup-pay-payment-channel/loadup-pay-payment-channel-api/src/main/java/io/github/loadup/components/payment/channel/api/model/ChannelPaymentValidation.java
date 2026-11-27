@@ -27,9 +27,7 @@ import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-/**
- * Pre-Y2 parameter inspection grants no execution epoch or permission to collect funds.
- */
+/** Pre-Y2 parameter inspection grants no execution epoch or permission to collect funds. */
 public record ChannelPaymentValidation(
         ChannelPaymentIdentity identity,
         Money amount,

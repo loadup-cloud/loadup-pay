@@ -36,13 +36,12 @@ import java.util.Map;
 import java.util.Set;
 import org.springframework.http.HttpHeaders;
 
-/**
- * Strict source-protocol handling. Download URLs come exclusively from a verified APIv3 grant.
- */
+/** Strict source-protocol handling. Download URLs come exclusively from a verified APIv3 grant. */
 public final class WechatStatementCodec {
     public static final String PROFILE = "wechat-trade-all-20260116";
     public static final String FORMAT = "wechat-tradebill-grant-v1";
-    public static final String PRIMARY = "api.mch.weixin.qq.com", BACKUP = "api2.mch.weixin.qq.com";
+    public static final String PRIMARY = "api.mch.weixin.qq.com";
+    public static final String BACKUP = "api2.mch.weixin.qq.com";
 
     private WechatStatementCodec() {}
 

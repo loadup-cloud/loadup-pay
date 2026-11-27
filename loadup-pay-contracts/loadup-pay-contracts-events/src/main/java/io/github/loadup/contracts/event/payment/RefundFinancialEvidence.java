@@ -26,7 +26,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Frozen successful refund, original collected payment, and the exact committed capacity version. */
+/**
+ * Frozen successful refund, original collected payment, and the exact committed capacity version.
+ */
 public record RefundFinancialEvidence(
         int schemaVersion,
         String refundId,

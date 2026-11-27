@@ -47,7 +47,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Persist original actions under execution locks; local preparations never fabricate channel receipts.
+ * Persist original actions under execution locks; local preparations never fabricate channel
+ * receipts.
  */
 @Service
 public class PaymentActionService {

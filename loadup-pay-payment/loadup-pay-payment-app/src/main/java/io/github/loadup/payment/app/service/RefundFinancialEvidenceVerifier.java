@@ -30,7 +30,10 @@ import java.util.Objects;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** Verifies permanent source claims inside the original refund transaction before freezing an outbound fact. */
+/**
+ * Verifies permanent source claims inside the original refund transaction before freezing an
+ * outbound fact.
+ */
 @Component
 public class RefundFinancialEvidenceVerifier {
     private final RefundResultGateway results;

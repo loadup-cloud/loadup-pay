@@ -30,7 +30,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Complete source snapshots are delivered independently; no source lookup or downstream read participates in the order transaction.
+ * Complete source snapshots are delivered independently; no source lookup or downstream read
+ * participates in the order transaction.
  */
 @Component
 public class OrderSnapshotDelivery {

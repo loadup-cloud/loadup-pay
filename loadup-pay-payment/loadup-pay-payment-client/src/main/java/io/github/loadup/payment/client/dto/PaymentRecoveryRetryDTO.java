@@ -21,9 +21,7 @@ import io.github.loadup.payment.client.enums.PaymentRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 
-/**
- * The first immutable retry decision; never payment or closure completion evidence.
- */
+/** The first immutable retry decision; never payment or closure completion evidence. */
 public record PaymentRecoveryRetryDTO(
         @Schema(description = "Immutable operation receipt id")
         String id,

@@ -15,9 +15,7 @@
  */
 package io.github.loadup.payment.domain.model;
 
-/**
- * Origin of a payer action, independent of payment outcome and financial evidence.
- */
+/** Origin of a payer action, independent of payment outcome and financial evidence. */
 public enum PaymentActionSource {
     CHANNEL_RECEIPT,
     LOCAL_SIGNED

@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/** Source-verified terminal payment and permanent collection/no-collection proof. Caller identity is authenticated separately. */
+/**
+ * Source-verified terminal payment and permanent collection/no-collection proof. Caller identity is
+ * authenticated separately.
+ */
 public record PaymentFinancialEvidence(
         int schemaVersion,
         String paymentId,

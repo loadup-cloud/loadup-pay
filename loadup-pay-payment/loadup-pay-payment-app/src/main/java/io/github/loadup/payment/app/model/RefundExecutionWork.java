@@ -19,7 +19,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefund;
 
 /**
- * Only an in-memory winner receives firstSubmission=true; replays always query the same persisted request.
+ * Only an in-memory winner receives firstSubmission=true; replays always query the same persisted
+ * request.
  */
 public record RefundExecutionWork(String requestId, PreparedChannelRefund prepared, boolean firstSubmission) {
     @Override

@@ -34,7 +34,8 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * Provider-owned, versioned wire evidence framing. Public JSON serializers never participate in capture identity.
+ * Provider-owned, versioned wire evidence framing. Public JSON serializers never participate in
+ * capture identity.
  */
 public final class PaymentCaptureContentHash {
     private PaymentCaptureContentHash() {}
@@ -107,7 +108,11 @@ public final class PaymentCaptureContentHash {
         hash.field(zone);
         hash.field(startedAt.toInstant().toString());
         hash.field(finishedAt.toInstant().toString());
-        long ordinal = 0, payments = 0, paymentAmount = 0, refunds = 0, refundAmount = 0;
+        long ordinal = 0;
+        long payments = 0;
+        long paymentAmount = 0;
+        long refunds = 0;
+        long refundAmount = 0;
         for (var row : lines) {
             if (row.ordinal() != ++ordinal
                     || row.amountMinor() <= 0
@@ -154,7 +159,10 @@ public final class PaymentCaptureContentHash {
                 || Math.addExact(capture.paymentCount(), capture.refundCount()) != lines.size()) {
             return false;
         }
-        long paymentCount = 0, paymentAmount = 0, refundCount = 0, refundAmount = 0;
+        long paymentCount = 0;
+        long paymentAmount = 0;
+        long refundCount = 0;
+        long refundAmount = 0;
         for (var row : lines) {
             if (row.kind() == PaymentLedgerKind.PAYMENT) {
                 paymentCount++;

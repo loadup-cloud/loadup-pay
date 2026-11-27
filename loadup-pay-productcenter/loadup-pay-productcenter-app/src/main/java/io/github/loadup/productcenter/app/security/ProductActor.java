@@ -26,9 +26,7 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Set;
 
-/**
- * Verified delegation credentials are transport-only and never persisted with admissions.
- */
+/** Verified delegation credentials are transport-only and never persisted with admissions. */
 public record ProductActor(
         String principalType,
         String principalId,

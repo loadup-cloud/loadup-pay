@@ -187,7 +187,8 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
                                 + " received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size,"
                                 + " source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM"
                                 + " reconciliation_statement_request WHERE deleted = FALSE AND "
-                                + predicate + (lock ? " FOR UPDATE" : ""),
+                                + predicate
+                                + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class))
                 .stream()

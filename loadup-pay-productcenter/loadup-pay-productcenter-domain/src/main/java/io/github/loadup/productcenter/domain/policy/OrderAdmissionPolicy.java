@@ -28,7 +28,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Evaluate under the current-contract lock; reuse persisted admissions before consulting this policy.
+ * Evaluate under the current-contract lock; reuse persisted admissions before consulting this
+ * policy.
  */
 public final class OrderAdmissionPolicy {
     public boolean acceptsRequestedDeadline(AdmissionIntent intent, LocalDateTime now, long maximumWaitSeconds) {

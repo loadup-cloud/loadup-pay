@@ -22,9 +22,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * UNKNOWN row inventory; nominal amount is not a limitcenter-held or channel-balance fact.
- */
+/** UNKNOWN row inventory; nominal amount is not a limitcenter-held or channel-balance fact. */
 public record RecoveryInventoryCell(
         Kind kind, long unknownCount, long nominalAmountMinor, LocalDateTime oldestUnknownAt) {
     public RecoveryInventoryCell {

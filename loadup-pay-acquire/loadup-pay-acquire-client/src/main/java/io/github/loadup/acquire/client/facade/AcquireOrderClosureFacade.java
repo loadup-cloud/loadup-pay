@@ -20,8 +20,8 @@ import io.github.loadup.acquire.client.dto.AcquireOrderDTO;
 
 public interface AcquireOrderClosureFacade {
     /**
-     * Persist closure and drive a bounded batch; native tasks continue CLOSING in the background.
-     * A merchant replay must retain the original request key and parameters.
+     * Persist closure and drive a bounded batch; native tasks continue CLOSING in the background. A
+     * merchant replay must retain the original request key and parameters.
      */
     AcquireOrderDTO close(AcquireOrderCloseCommand command);
 }

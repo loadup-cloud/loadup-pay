@@ -23,9 +23,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Immutable command binding and first semantic result, independent of later bucket changes.
- */
+/** Immutable command binding and first semantic result, independent of later bucket changes. */
 public record LimitRefundReceipt(
         String id,
         String callerServiceId,

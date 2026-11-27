@@ -21,9 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * A trusted parent-fence acknowledgement, separate from per-payment convergence.
- */
+/** A trusted parent-fence acknowledgement, separate from per-payment convergence. */
 public record ParentCloseEvidence(String orderId, long closeEpoch, boolean fenced, boolean allChildrenConverged) {
     public ParentCloseEvidence {
         DomainChecks.id(orderId);

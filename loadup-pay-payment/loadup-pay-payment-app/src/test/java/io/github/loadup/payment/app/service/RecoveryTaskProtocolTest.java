@@ -162,7 +162,8 @@ class RecoveryTaskProtocolTest {
     enum Flow {
         COLLECTION(PaymentRecoveryService.TYPE, "payment"),
         REFUND(RefundRecoveryService.TYPE, "request");
-        final String type, subject;
+        final String type;
+        final String subject;
 
         Flow(String type, String subject) {
             this.type = type;

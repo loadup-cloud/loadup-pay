@@ -37,7 +37,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Native leases wake durable attempt generations; delivery is at least once and never changes the event body.
+ * Native leases wake durable attempt generations; delivery is at least once and never changes the
+ * event body.
  */
 @Service
 public class MerchantNotificationService implements TaskHandler {

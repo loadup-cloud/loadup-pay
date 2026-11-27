@@ -25,7 +25,8 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 /**
- * The trusted actual collecting account and channel statement profile, independent of an application or payee.
+ * The trusted actual collecting account and channel statement profile, independent of an
+ * application or payee.
  */
 public record ReconciliationScope(
         Channel channel, String accountScopeHash, LocalDate billDate, String statementProfile) {

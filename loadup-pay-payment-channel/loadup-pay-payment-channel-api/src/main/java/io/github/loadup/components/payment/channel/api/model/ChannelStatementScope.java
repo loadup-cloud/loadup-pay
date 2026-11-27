@@ -23,7 +23,8 @@ import io.github.loadup.components.payment.channel.contract.Channel;
 import java.time.LocalDate;
 
 /**
- * A collecting account/day/profile, never a caller-supplied download location or financial execution ticket.
+ * A collecting account/day/profile, never a caller-supplied download location or financial
+ * execution ticket.
  */
 public record ChannelStatementScope(
         Channel channel, String accountScopeHash, LocalDate billDate, String statementProfile) {

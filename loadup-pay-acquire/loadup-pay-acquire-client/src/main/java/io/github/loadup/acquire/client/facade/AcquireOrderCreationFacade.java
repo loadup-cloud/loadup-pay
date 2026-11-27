@@ -20,9 +20,7 @@ import io.github.loadup.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.commons.request.query.IdQuery;
 
-/**
- * Independently implemented creation/read slice of the full order lifecycle.
- */
+/** Independently implemented creation/read slice of the full order lifecycle. */
 public interface AcquireOrderCreationFacade {
     AcquireOrderDTO create(AcquireOrderCreateCommand command);
 

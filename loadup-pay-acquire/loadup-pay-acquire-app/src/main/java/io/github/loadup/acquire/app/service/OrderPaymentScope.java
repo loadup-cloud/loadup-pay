@@ -21,7 +21,8 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 /**
- * Persisted owner binding used by result convergence; it confers no merchant API or creation privileges.
+ * Persisted owner binding used by result convergence; it confers no merchant API or creation
+ * privileges.
  */
 record OrderPaymentScope(String scopeHash) {
     OrderPaymentScope {

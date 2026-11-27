@@ -28,9 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-/**
- * Shared per-channel recovery admission; it never wraps a newly won first-submission ticket.
- */
+/** Shared per-channel recovery admission; it never wraps a newly won first-submission ticket. */
 public final class ChannelRecoveryConcurrency {
     private final Map<Channel, Bulkhead> limits;
 

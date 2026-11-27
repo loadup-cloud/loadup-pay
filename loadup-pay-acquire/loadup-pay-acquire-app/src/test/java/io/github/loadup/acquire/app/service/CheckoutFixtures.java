@@ -152,7 +152,8 @@ final class CheckoutFixtures {
     }
 
     static final class UnitTransactions extends AbstractPlatformTransactionManager {
-        int commits, rollbacks;
+        int commits;
+        int rollbacks;
 
         @Override
         protected Object doGetTransaction() {

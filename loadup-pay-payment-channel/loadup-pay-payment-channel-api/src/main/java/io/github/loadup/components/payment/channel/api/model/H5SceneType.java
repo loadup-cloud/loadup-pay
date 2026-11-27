@@ -15,9 +15,7 @@
  */
 package io.github.loadup.components.payment.channel.api.model;
 
-/**
- * Payer environment for a browser-based payment; not the merchant server environment.
- */
+/** Payer environment for a browser-based payment; not the merchant server environment. */
 public enum H5SceneType {
     WAP,
     IOS,

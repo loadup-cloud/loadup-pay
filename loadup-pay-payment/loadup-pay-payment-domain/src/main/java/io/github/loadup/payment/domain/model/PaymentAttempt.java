@@ -122,9 +122,7 @@ public record PaymentAttempt(
                 paymentId, id, binding.channel(), binding.id(), binding.accountScopeHash(), channelRequestNo);
     }
 
-    /**
-     * The adapter supplies verified facts; NOT_FOUND and transport failures must be UNKNOWN.
-     */
+    /** The adapter supplies verified facts; NOT_FOUND and transport failures must be UNKNOWN. */
     public PaymentAttempt recordOutcome(ChannelPaymentOutcome outcome, boolean executionFenced) {
         require(identity().equals(outcome.identity()) && amount.equals(outcome.amount()), CONFLICT);
         // A channel reversal with returned funds needs an independent financial fact and compensation.

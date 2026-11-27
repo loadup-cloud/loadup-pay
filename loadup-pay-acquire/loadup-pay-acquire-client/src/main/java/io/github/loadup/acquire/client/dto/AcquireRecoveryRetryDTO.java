@@ -21,9 +21,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 
-/**
- * The first immutable retry decision; never payment or closure completion evidence.
- */
+/** The first immutable retry decision; never payment or closure completion evidence. */
 public record AcquireRecoveryRetryDTO(
         @Schema(description = "Immutable operation receipt id")
         String id,

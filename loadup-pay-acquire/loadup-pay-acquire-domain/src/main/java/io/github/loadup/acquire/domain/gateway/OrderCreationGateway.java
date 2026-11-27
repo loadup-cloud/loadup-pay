@@ -20,9 +20,7 @@ import io.github.loadup.acquire.domain.model.OrderFee;
 import io.github.loadup.acquire.domain.model.StoredAcquireOrder;
 import java.util.Optional;
 
-/**
- * Local storage only; the application owns the A0/A1 transaction boundaries.
- */
+/** Local storage only; the application owns the A0/A1 transaction boundaries. */
 public interface OrderCreationGateway {
     Optional<OrderCreateIntent> findIntent(String payee, String merchantOrderNo);
 

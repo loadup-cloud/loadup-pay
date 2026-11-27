@@ -26,12 +26,11 @@ import io.github.loadup.components.payment.channel.api.model.VerifiedChannelNoti
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelRefundNotification;
 import io.github.loadup.components.payment.channel.contract.Channel;
 
-/**
- * Notification protocol only; neither identification nor verification applies payment state.
- */
+/** Notification protocol only; neither identification nor verification applies payment state. */
 public interface ChannelNotificationOperations {
     /**
-     * Resolve a locator using a trusted original binding; encrypted protocols must authenticate before decryption.
+     * Resolve a locator using a trusted original binding; encrypted protocols must authenticate
+     * before decryption.
      */
     ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input);
 

@@ -15,7 +15,5 @@
  */
 package io.github.loadup.components.payment.channel.api.facade;
 
-/**
- * Unified channel entry point; routes the requested channel to its registered strategy.
- */
+/** Unified channel entry point; routes the requested channel to its registered strategy. */
 public interface ChannelPaymentFacade extends ChannelPaymentOperations {}

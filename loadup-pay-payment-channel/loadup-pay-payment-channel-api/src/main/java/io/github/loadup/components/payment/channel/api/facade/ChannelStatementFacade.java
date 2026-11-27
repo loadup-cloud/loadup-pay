@@ -19,9 +19,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelExecutionCon
 import io.github.loadup.components.payment.channel.api.model.ChannelStatementRequest;
 import io.github.loadup.components.payment.channel.api.model.VerifiedChannelStatement;
 
-/**
- * Official statement retrieval is separate from payment and notification strategies.
- */
+/** Official statement retrieval is separate from payment and notification strategies. */
 public interface ChannelStatementFacade {
     VerifiedChannelStatement download(ChannelExecutionContext context, ChannelStatementRequest request);
 }

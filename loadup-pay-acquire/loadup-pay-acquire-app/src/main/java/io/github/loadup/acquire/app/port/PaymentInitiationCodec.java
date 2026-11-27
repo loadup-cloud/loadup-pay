@@ -19,7 +19,8 @@ import io.github.loadup.acquire.app.model.payment.command.PaymentExecuteCommand;
 import io.github.loadup.acquire.domain.model.StoredPaymentAllocation;
 
 /**
- * Owns the acquiring allocation intent format; public payment Commands are only a boundary representation.
+ * Owns the acquiring allocation intent format; public payment Commands are only a boundary
+ * representation.
  */
 public interface PaymentInitiationCodec {
     String encode(PaymentExecuteCommand command);

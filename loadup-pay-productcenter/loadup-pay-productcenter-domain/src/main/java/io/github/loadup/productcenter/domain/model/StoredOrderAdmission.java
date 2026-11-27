@@ -24,9 +24,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.productcenter.client.enums.AdmissionDecision;
 import java.util.Objects;
 
-/**
- * The original decision and its self-contained terms remain immutable after contract stop.
- */
+/** The original decision and its self-contained terms remain immutable after contract stop. */
 public record StoredOrderAdmission(
         AdmissionIntent intent,
         OrderAdmission admission,

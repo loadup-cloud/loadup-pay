@@ -15,9 +15,7 @@
  */
 package io.github.loadup.acquire.client.enums;
 
-/**
- * Local intent recovery status; absence is never proof that no payment can occur.
- */
+/** Local intent recovery status; absence is never proof that no payment can occur. */
 public enum PaymentRecoveryState {
     NOT_OBSERVED,
     INPUT_REQUIRED,

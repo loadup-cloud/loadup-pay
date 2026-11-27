@@ -40,12 +40,14 @@ public interface MerchantAuthorizationGateway {
             PrincipalType type, String principalId, String payeeMerchantId, MerchantAction action);
 
     /**
-     * An expected version of -1 inserts a new resource; other values require a matching persisted version.
+     * An expected version of -1 inserts a new resource; other values require a matching persisted
+     * version.
      */
     void saveRelationship(MerchantRelationship relationship, long expectedVersion);
 
     /**
-     * An expected version of -1 inserts a new resource; other values require a matching persisted version.
+     * An expected version of -1 inserts a new resource; other values require a matching persisted
+     * version.
      */
     void saveGrant(MerchantActionGrant grant, long expectedVersion);
 }

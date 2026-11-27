@@ -21,9 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import java.util.Objects;
 
-/**
- * Both values and the resulting outbox facts must commit in one acquire transaction.
- */
+/** Both values and the resulting outbox facts must commit in one acquire transaction. */
 public record OrderPaymentChange(AcquireOrder order, OrderPaymentAllocation allocation) {
     public OrderPaymentChange {
         Objects.requireNonNull(order);

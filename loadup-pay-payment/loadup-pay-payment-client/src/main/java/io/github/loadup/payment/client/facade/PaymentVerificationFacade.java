@@ -19,7 +19,8 @@ import io.github.loadup.payment.client.dto.PaymentVerificationDTO;
 import io.github.loadup.payment.client.query.PaymentVerificationQuery;
 
 /**
- * Authorized read-only owner lookup and original-account channel query. Replays may observe later provider facts.
+ * Authorized read-only owner lookup and original-account channel query. Replays may observe later
+ * provider facts.
  */
 public interface PaymentVerificationFacade {
     PaymentVerificationDTO verify(PaymentVerificationQuery query);

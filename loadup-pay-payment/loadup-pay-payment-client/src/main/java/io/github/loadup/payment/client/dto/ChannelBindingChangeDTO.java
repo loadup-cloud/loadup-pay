@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.payment.client.enums.ChannelBindingState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-/**
- * Original applied operation snapshot, not a claim about the current mutable head.
- */
+/** Original applied operation snapshot, not a claim about the current mutable head. */
 public record ChannelBindingChangeDTO(
         @Schema(description = "Binding id") String bindingId,
 

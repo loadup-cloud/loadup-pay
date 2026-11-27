@@ -30,23 +30,17 @@ public interface PaymentResultGateway {
 
     void insertReceipt(PaymentChannelReceipt receipt);
 
-    /**
-     * Idempotent only for the same receipt/facts/reason, while holding the owning payment lock.
-     */
+    /** Idempotent only for the same receipt/facts/reason, while holding the owning payment lock. */
     void recordAnomaly(PaymentResultAnomaly anomaly);
 
-    /**
-     * Exact global immutable financial key. Internal only; never expose another tenant's claim.
-     */
+    /** Exact global immutable financial key. Internal only; never expose another tenant's claim. */
     Optional<ChannelTransactionClaim> transaction(Channel channel, String accountScopeHash, String transactionNo);
 
     Optional<ChannelTransactionClaim> attemptClaim(String attemptId);
 
     void insertClaim(ChannelTransactionClaim claim);
 
-    /**
-     * State, evidence and authoritative channel success time are one payment-row CAS.
-     */
+    /** State, evidence and authoritative channel success time are one payment-row CAS. */
     void completeSuccess(StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt);
 
     Optional<PaymentRefundCapacity> capacity(String paymentId);

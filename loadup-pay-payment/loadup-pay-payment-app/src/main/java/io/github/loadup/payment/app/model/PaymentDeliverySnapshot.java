@@ -22,9 +22,7 @@ import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentAttempt;
 import java.time.LocalDateTime;
 
-/**
- * Consistent terminal facts read under local locks, released before calling any downstream.
- */
+/** Consistent terminal facts read under local locks, released before calling any downstream. */
 public record PaymentDeliverySnapshot(
         EventEnvelope<PaymentOutcomeEventDTO> envelope,
         StoredPaymentAcceptance payment,

@@ -56,7 +56,8 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Signed fixed-byte HTTPS delivery with strict semantic ACK; never uses gotone's HTTP-2xx-only success rule.
+ * Signed fixed-byte HTTPS delivery with strict semantic ACK; never uses gotone's HTTP-2xx-only
+ * success rule.
  */
 @Component
 public class HttpMerchantNotificationTransport implements MerchantNotificationTransport {

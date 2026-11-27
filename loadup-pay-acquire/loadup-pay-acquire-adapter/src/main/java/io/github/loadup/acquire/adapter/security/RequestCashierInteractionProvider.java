@@ -31,9 +31,7 @@ import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 
-/**
- * No caller-supplied payer identity or forwarding-header chain is accepted by the hosted API.
- */
+/** No caller-supplied payer identity or forwarding-header chain is accepted by the hosted API. */
 @Component
 public class RequestCashierInteractionProvider implements CashierInteractionProvider {
     private final HttpServletRequest request;

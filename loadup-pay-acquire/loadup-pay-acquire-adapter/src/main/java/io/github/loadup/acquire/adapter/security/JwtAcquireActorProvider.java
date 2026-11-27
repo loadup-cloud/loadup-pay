@@ -44,7 +44,8 @@ public class JwtAcquireActorProvider implements AcquireActorProvider {
         }
         try {
             String type = jwt.getClaimAsString("principal_type");
-            String principal = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
+            String principal = jwt.getSubject();
+            String merchant = jwt.getClaimAsString("merchant_id");
             DomainChecks.text(principal, 128);
             if (!Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) {
                 throw forbidden();

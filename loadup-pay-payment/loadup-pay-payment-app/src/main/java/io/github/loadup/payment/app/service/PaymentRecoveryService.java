@@ -36,9 +36,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Continuation generations complement native task claims; neither is channel evidence.
- */
+/** Continuation generations complement native task claims; neither is channel evidence. */
 @Service
 public class PaymentRecoveryService {
     public static final String TYPE = "pay.payment.collection.progress";
@@ -70,9 +68,7 @@ public class PaymentRecoveryService {
         this.polling = Objects.requireNonNull(polling);
     }
 
-    /**
-     * The original acceptance and its first wake-up commit atomically.
-     */
+    /** The original acceptance and its first wake-up commit atomically. */
     public void register(StoredPaymentAcceptance stored) {
         writable();
         if (stored.payment().state() != PaymentState.INIT
@@ -110,7 +106,8 @@ public class PaymentRecoveryService {
         if (!active) {
             return RecoveryHandlingOutcome.SKIPPED;
         }
-        // The durable Y2 winner owns first submit; recovery of a started attempt only queries or closes its original
+        // The durable Y2 winner owns first submit; recovery of a started attempt only queries or closes
+        // its original
         // request.
         execution.progress(key.paymentId());
         return transactions.writeLocal(() -> {
@@ -132,7 +129,8 @@ public class PaymentRecoveryService {
                         LocalDateTime.now(clock));
                 var next = before.schedule(nextAt, key.generation());
                 cursors.update(before, next);
-                // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
+                // Native task claims are not rescheduled while RUNNING; commit a distinct successor
+                // atomically.
                 tasks.submit(TaskSubmission.scheduled(
                         TYPE, new PaymentRecoveryKey(next.paymentId(), next.generation()).bizId(), next.dueAt()));
                 return RecoveryHandlingOutcome.CONTINUED;

@@ -243,11 +243,13 @@ class OAuth2AuthorizationFlowIT {
         String token = issue("pay:payment:read");
         Assertions.assertThatThrownBy(() -> decoder("acquire").decode(token)).isInstanceOf(JwtException.class);
         String[] parts = token.split("[.]");
-        String tampered = parts[0] + "."
+        String tampered = parts[0]
+                + "."
                 + Base64.getUrlEncoder()
                         .withoutPadding()
                         .encodeToString("{\"sub\":\"attacker\"}".getBytes(StandardCharsets.UTF_8))
-                + "." + parts[2];
+                + "."
+                + parts[2];
         Assertions.assertThatThrownBy(() -> decoder("payment").decode(tampered)).isInstanceOf(JwtException.class);
     }
 

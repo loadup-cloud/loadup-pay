@@ -23,7 +23,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
- * A native order task key; deadline versions and closure generations belong to their respective task types.
+ * A native order task key; deadline versions and closure generations belong to their respective
+ * task types.
  */
 public record OrderTaskKey(String orderId, long generation) {
     public OrderTaskKey {

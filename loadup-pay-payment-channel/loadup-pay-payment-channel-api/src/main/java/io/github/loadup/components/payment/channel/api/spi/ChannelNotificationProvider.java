@@ -18,9 +18,7 @@ package io.github.loadup.components.payment.channel.api.spi;
 import io.github.loadup.components.payment.channel.api.facade.ChannelNotificationOperations;
 import io.github.loadup.components.payment.channel.contract.Channel;
 
-/**
- * One notification protocol strategy per channel.
- */
+/** One notification protocol strategy per channel. */
 public interface ChannelNotificationProvider extends ChannelNotificationOperations {
     Channel channel();
 }

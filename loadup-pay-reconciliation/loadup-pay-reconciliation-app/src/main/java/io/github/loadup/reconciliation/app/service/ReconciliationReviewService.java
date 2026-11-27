@@ -68,7 +68,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Independent administrative conclusions. No financial gateway, source RPC or batch mutation is exposed.
+ * Independent administrative conclusions. No financial gateway, source RPC or batch mutation is
+ * exposed.
  */
 @Service
 public class ReconciliationReviewService implements ReconciliationReviewFacade {
@@ -262,7 +263,8 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     }
 
     /**
-     * Internal approved-scope read for the verification use case; caller already owns its local transaction and permission.
+     * Internal approved-scope read for the verification use case; caller already owns its local
+     * transaction and permission.
      */
     public ApprovedReconciliationReview approvedForVerification(
             ReconciliationActor actor,
@@ -367,7 +369,8 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     private Evidence evidence(ReconciliationActor actor, String batchId, String differenceId, boolean lock) {
         var stored = (lock ? batches.lock(batchId) : batches.find(batchId))
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
-        // Review permissions authorize independent account reviewers; original import/batch mutation permissions remain
+        // Review permissions authorize independent account reviewers; original import/batch mutation
+        // permissions remain
         // separate.
         accounts.authorize(
                 actor.serviceId(), stored.channelAccountCode(), stored.batch().scope());

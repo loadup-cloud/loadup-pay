@@ -18,9 +18,7 @@ package io.github.loadup.reconciliation.app.port;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentVerificationDTO;
 import io.github.loadup.reconciliation.app.model.payment.query.PaymentVerificationQuery;
 
-/**
- * Trusted provider-owned gRPC; network never runs inside a local reconciliation transaction.
- */
+/** Trusted provider-owned gRPC; network never runs inside a local reconciliation transaction. */
 public interface ReconciliationPaymentVerification {
     PaymentVerificationDTO verify(PaymentVerificationQuery query);
 }

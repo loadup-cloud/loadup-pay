@@ -104,7 +104,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Real A2/A3, native tasks, fee and Outbox persistence. Only the cross-service payment response is simulated.
+ * Real A2/A3, native tasks, fee and Outbox persistence. Only the cross-service payment response is
+ * simulated.
  */
 @SpringBootTest(
         classes = AcquiringFinancialPersistenceIT.Application.class,

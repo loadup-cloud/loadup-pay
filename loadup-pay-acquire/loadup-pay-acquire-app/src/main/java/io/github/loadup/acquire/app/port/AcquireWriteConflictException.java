@@ -15,9 +15,7 @@
  */
 package io.github.loadup.acquire.app.port;
 
-/**
- * An expected business-key race requiring a fresh transaction.
- */
+/** An expected business-key race requiring a fresh transaction. */
 public class AcquireWriteConflictException extends RuntimeException {
     public AcquireWriteConflictException(String message) {
         super(message);

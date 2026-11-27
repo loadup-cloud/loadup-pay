@@ -68,7 +68,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * An audited native FAILED retry, never another financial intent, route, deadline or business execution budget.
+ * An audited native FAILED retry, never another financial intent, route, deadline or business
+ * execution budget.
  */
 @Service
 public class AcquireRecoveryOperationsService implements AcquireRecoveryOperationsFacade {
@@ -170,7 +171,8 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
                     return replay(actor, existing.get(), scope, digest);
                 }
                 var inspection = lockForRetry(command.kind(), command.subjectId(), command.generation());
-                // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order
+                // Serializes competing retry requests for the same order; the ledger uniqueness
+                // also covers cross-order
                 // key reuse.
                 existing = receipts.find(scope, command.requestKey());
                 if (existing.isPresent()) {

@@ -81,7 +81,10 @@ public class MerchantGatewayImpl extends ServiceImpl<MerchantMapper, MerchantDO>
         var params = new MapSqlParameterSource().addValue("id", required(id));
         return jdbc
                 .query(
-                        "SELECT " + COLUMNS + " FROM merchant_profile WHERE id = :id " + "AND deleted = FALSE"
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM merchant_profile WHERE id = :id "
+                                + "AND deleted = FALSE"
                                 + (lock ? " FOR UPDATE" : ""),
                         params,
                         rowMapper)

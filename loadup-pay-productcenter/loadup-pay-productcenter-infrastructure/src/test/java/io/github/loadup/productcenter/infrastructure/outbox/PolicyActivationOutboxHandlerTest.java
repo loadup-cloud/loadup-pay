@@ -30,7 +30,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
-class PolicyActivationTaskHandlerTest {
+class PolicyActivationOutboxHandlerTest {
     final PolicyPublicationService service = mock(PolicyPublicationService.class);
     final PolicyActivationTaskHandler handler =
             new PolicyActivationTaskHandler(service, JsonMapper.builder().build());

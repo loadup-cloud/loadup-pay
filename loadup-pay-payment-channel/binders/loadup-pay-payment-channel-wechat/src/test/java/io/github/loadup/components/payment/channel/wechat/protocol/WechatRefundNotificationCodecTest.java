@@ -355,11 +355,20 @@ class WechatRefundNotificationCodecTest {
                 new SecretKeySpec(API_V3_KEY.getBytes(StandardCharsets.US_ASCII), "AES"),
                 new GCMParameterSpec(128, RESOURCE_NONCE.getBytes(StandardCharsets.UTF_8)));
         byte[] ciphertext = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        String resource = "{\"algorithm\":\"AEAD_AES_256_GCM\",\"original_type\":\"" + originalType
-                + "\",\"nonce\":\"" + RESOURCE_NONCE + "\",\"ciphertext\":\""
-                + Base64.getEncoder().encodeToString(ciphertext) + "\"}";
-        return ("{\"id\":\"" + id + "\",\"create_time\":\"2026-10-24T12:00:00+08:00\",\"event_type\":\"" + event
-                        + "\",\"resource_type\":\"encrypt-resource\",\"resource\":" + resource + "}")
+        String resource = "{\"algorithm\":\"AEAD_AES_256_GCM\",\"original_type\":\""
+                + originalType
+                + "\",\"nonce\":\""
+                + RESOURCE_NONCE
+                + "\",\"ciphertext\":\""
+                + Base64.getEncoder().encodeToString(ciphertext)
+                + "\"}";
+        return ("{\"id\":\""
+                        + id
+                        + "\",\"create_time\":\"2026-10-24T12:00:00+08:00\",\"event_type\":\""
+                        + event
+                        + "\",\"resource_type\":\"encrypt-resource\",\"resource\":"
+                        + resource
+                        + "}")
                 .getBytes(StandardCharsets.UTF_8);
     }
 

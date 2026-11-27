@@ -25,9 +25,7 @@ import java.net.URI;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Explicit environment gateway and trusted return destinations; no merchant-supplied redirect.
- */
+/** Explicit environment gateway and trusted return destinations; no merchant-supplied redirect. */
 @ConfigurationProperties("loadup.payment.channel.alipay.h5")
 public record AlipayH5Properties(URI gateway, Map<String, URI> returnUrls) {
     public AlipayH5Properties {

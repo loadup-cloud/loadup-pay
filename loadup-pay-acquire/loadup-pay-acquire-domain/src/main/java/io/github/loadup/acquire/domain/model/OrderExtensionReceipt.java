@@ -25,9 +25,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Immutable evidence of one applied deadline change and its original optimistic precondition.
- */
+/** Immutable evidence of one applied deadline change and its original optimistic precondition. */
 public record OrderExtensionReceipt(
         String id,
         String orderId,

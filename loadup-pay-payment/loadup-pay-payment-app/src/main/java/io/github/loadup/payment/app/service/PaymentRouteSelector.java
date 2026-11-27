@@ -33,7 +33,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Called under parent/payment locks when freezing a new attempt's route; no caller chooses a binding id.
+ * Called under parent/payment locks when freezing a new attempt's route; no caller chooses a
+ * binding id.
  */
 @Component
 public class PaymentRouteSelector {

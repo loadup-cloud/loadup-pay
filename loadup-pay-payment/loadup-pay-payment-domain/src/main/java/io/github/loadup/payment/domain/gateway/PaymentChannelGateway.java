@@ -25,28 +25,23 @@ import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefu
 import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 
 /**
- * Verified channel integration, invoked outside local payment transactions. Capability lookup is local only.
+ * Verified channel integration, invoked outside local payment transactions. Capability lookup is
+ * local only.
  */
 public interface PaymentChannelGateway {
-    /**
-     * Pre-Y2 validation only; never submits a channel request.
-     */
+    /** Pre-Y2 validation only; never submits a channel request. */
     void validate(ChannelPaymentValidation request);
 
     ChannelPaymentSubmission submit(PreparedChannelPayment payment);
 
     PaymentObservation query(ChannelPaymentTarget target);
 
-    /**
-     * Read-only channel recovery; an original attempt snapshot never grants another submission.
-     */
+    /** Read-only channel recovery; an original attempt snapshot never grants another submission. */
     ChannelPaymentSubmission recover(ChannelPaymentRecovery request);
 
     PaymentObservation close(ChannelPaymentTarget target);
 
-    /**
-     * Pure local capability lookup; no network, credential loading or external side effects.
-     */
+    /** Pure local capability lookup; no network, credential loading or external side effects. */
     boolean canRefund(PreparedChannelRefund refund);
 
     RefundObservation submitRefund(PreparedChannelRefund refund);
@@ -54,7 +49,8 @@ public interface PaymentChannelGateway {
     RefundObservation queryRefund(PreparedChannelRefund refund);
 
     /**
-     * Recovery only: may repeat the same provider-idempotent original refund, never creates another refund identity.
+     * Recovery only: may repeat the same provider-idempotent original refund, never creates another
+     * refund identity.
      */
     RefundObservation recoverRefund(PreparedChannelRefund refund);
 }

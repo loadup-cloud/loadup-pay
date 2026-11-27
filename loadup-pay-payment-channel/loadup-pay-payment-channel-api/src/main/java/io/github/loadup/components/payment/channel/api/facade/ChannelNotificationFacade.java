@@ -15,7 +15,5 @@
  */
 package io.github.loadup.components.payment.channel.api.facade;
 
-/**
- * Unified independent notification entry point.
- */
+/** Unified independent notification entry point. */
 public interface ChannelNotificationFacade extends ChannelNotificationOperations {}

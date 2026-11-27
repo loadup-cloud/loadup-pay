@@ -158,7 +158,8 @@ class OrderSnapshotEventsTest {
                 }));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Real database rollback acceptance is still required; this checks the transaction boundary only.
+        // Real database rollback acceptance is still required; this checks the transaction boundary
+        // only.
     }
 
     @Test

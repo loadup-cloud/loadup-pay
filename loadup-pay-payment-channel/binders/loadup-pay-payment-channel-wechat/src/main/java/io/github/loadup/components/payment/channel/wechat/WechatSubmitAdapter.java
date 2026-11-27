@@ -51,9 +51,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * APIv3 JSAPI and H5 prepay adapter for direct and service-provider merchant accounts.
- */
+/** APIv3 JSAPI and H5 prepay adapter for direct and service-provider merchant accounts. */
 public final class WechatSubmitAdapter {
     private final WechatProtocolClient client;
     private final WechatJsapiSigner signer;

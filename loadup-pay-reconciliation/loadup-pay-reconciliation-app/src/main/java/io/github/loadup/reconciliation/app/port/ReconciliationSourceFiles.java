@@ -19,22 +19,19 @@ import io.github.loadup.reconciliation.domain.model.ReconciliationFileSnapshot;
 import java.io.InputStream;
 
 public interface ReconciliationSourceFiles {
-    /**
-     * No business transaction; bounded content read/upload through FileResourceFacade.
-     */
+    /** No business transaction; bounded content read/upload through FileResourceFacade. */
     ReconciliationFileSnapshot upload(String owner, String filename, String type, long size, InputStream content);
 
     ReconciliationFileSnapshot inspect(String owner, String fileId);
 
-    /**
-     * Local metadata only, on the same DataSource and existing transaction.
-     */
+    /** Local metadata only, on the same DataSource and existing transaction. */
     void attach(String owner, ReconciliationFileSnapshot source, String importId);
 
     void verify(String owner, ReconciliationFileSnapshot source, String importId);
 
     /**
-     * Private review evidence reference, separate from statement import provenance. Local metadata only.
+     * Private review evidence reference, separate from statement import provenance. Local metadata
+     * only.
      */
     void attachReview(String owner, ReconciliationFileSnapshot source, String proposalId);
 

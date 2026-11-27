@@ -22,9 +22,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * Immutable issuance receipt; no bearer permit or signing secret is stored.
- */
+/** Immutable issuance receipt; no bearer permit or signing secret is stored. */
 public record LimitExecutionGrant(
         String operationId,
         String paymentId,

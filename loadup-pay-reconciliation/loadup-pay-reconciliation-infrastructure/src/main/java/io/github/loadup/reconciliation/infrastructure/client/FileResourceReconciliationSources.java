@@ -39,9 +39,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * FileResource metadata is local; DFS byte transfer is always outside business transactions.
- */
+/** FileResource metadata is local; DFS byte transfer is always outside business transactions. */
 @Component
 public class FileResourceReconciliationSources implements ReconciliationSourceFiles {
     private static final String REFERENCE_TYPE = "reconciliation-import";

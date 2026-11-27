@@ -25,9 +25,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
-/**
- * Polling pace only. It neither concludes financial outcomes nor grants execution rights.
- */
+/** Polling pace only. It neither concludes financial outcomes nor grants execution rights. */
 public record RecoveryPollingPolicy(
         long initialDelaySeconds, long maximumDelaySeconds, long backoffEverySeconds, int jitterPercent) {
     public RecoveryPollingPolicy {
@@ -59,7 +57,8 @@ public record RecoveryPollingPolicy(
         var anchor = (now.isAfter(previousDueAt) ? now : previousDueAt).truncatedTo(ChronoUnit.MICROS);
         long stages = Duration.between(startedAt, anchor).getSeconds() / backoffEverySeconds;
         long delay = initialDelaySeconds;
-        // Saturate before multiplying; an arbitrarily old request never overflows or resets to a short delay.
+        // Saturate before multiplying; an arbitrarily old request never overflows or resets to a short
+        // delay.
         while (stages-- > 0 && delay < maximumDelaySeconds) {
             delay = delay >= maximumDelaySeconds - delay ? maximumDelaySeconds : delay * 2;
         }

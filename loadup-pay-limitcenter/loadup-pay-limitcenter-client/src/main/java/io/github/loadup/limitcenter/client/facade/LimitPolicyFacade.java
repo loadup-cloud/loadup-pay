@@ -18,9 +18,7 @@ package io.github.loadup.limitcenter.client.facade;
 import io.github.loadup.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.limitcenter.client.dto.LimitPolicyActivationDTO;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface LimitPolicyFacade {
     LimitPolicyActivationDTO activate(LimitPolicyActivateCommand command);
 }

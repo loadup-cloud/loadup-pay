@@ -18,9 +18,7 @@ package io.github.loadup.acquire.client.facade;
 import io.github.loadup.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.acquire.client.dto.PaymentStartDTO;
 
-/**
- * Start one fixed merchant payment action. An accepted INIT is not proof of collection.
- */
+/** Start one fixed merchant payment action. An accepted INIT is not proof of collection. */
 public interface PaymentInitiationFacade {
     PaymentStartDTO startPayment(PaymentStartCommand command);
 }

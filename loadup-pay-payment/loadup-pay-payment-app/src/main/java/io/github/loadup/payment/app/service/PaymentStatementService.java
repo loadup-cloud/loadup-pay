@@ -86,7 +86,8 @@ public class PaymentStatementService implements PaymentStatementFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.guarded(() -> {
-            // Resolve only the original immutable revision. A disabled route must not hide historical evidence.
+            // Resolve only the original immutable revision. A disabled route must not hide historical
+            // evidence.
             var binding = transactions.readSnapshot(() ->
                     bindings.findRevision(query.bindingRevisionId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!query.bindingRevisionId().equals(binding.id())

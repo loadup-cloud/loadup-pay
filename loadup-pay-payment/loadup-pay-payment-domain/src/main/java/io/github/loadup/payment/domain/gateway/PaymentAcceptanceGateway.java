@@ -19,9 +19,7 @@ import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.payment.domain.model.StoredPaymentGate;
 import java.util.Optional;
 
-/**
- * All writes and gate locks share the payment database transaction.
- */
+/** All writes and gate locks share the payment database transaction. */
 public interface PaymentAcceptanceGateway {
     Optional<StoredPaymentAcceptance> find(String paymentId);
 

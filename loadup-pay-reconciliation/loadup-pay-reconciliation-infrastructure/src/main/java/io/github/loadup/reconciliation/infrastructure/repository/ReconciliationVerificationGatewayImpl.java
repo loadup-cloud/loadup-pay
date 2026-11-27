@@ -177,7 +177,8 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
                                 + " observed_refund_transaction_no, succeeded_epoch_micros, source_digest,"
                                 + " started_epoch_micros, finished_epoch_micros, accepted_epoch_micros FROM"
                                 + " reconciliation_verification_request WHERE deleted = FALSE AND "
-                                + predicate + (lock ? " FOR UPDATE" : ""),
+                                + predicate
+                                + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationVerificationDO.class))
                 .stream()

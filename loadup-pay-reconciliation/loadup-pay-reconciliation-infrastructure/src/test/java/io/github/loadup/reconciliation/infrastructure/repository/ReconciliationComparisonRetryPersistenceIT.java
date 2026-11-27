@@ -75,9 +75,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
-/**
- * PostgreSQL proof of rollback, exhausted-task recovery and concurrent retry fencing.
- */
+/** PostgreSQL proof of rollback, exhausted-task recovery and concurrent retry fencing. */
 @SpringBootTest(
         classes = {
             ReconciliationImportPersistenceIT.Application.class,

@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
-/**
- * Verified trigger metadata, never a financial outcome or a no-collection proof.
- */
+/** Verified trigger metadata, never a financial outcome or a no-collection proof. */
 public record VerifiedChannelNotification(
         ChannelPaymentIdentity identity,
         Money amount,

@@ -27,7 +27,8 @@ import io.github.loadup.reconciliation.client.dto.ReconciliationDifferenceDTO;
 import io.github.loadup.reconciliation.client.query.ReconciliationDifferenceQuery;
 
 /**
- * Operations use cases; tenant, caller and account authorization come from trusted invocation context.
+ * Operations use cases; tenant, caller and account authorization come from trusted invocation
+ * context.
  */
 public interface ReconciliationFacade {
     ReconciliationBatchDTO create(ReconciliationBatchCreateCommand command);

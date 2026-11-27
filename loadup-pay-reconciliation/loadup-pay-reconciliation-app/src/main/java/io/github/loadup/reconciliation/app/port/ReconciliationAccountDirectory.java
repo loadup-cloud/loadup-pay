@@ -20,7 +20,8 @@ import io.github.loadup.reconciliation.domain.model.ReconciliationStatementAccou
 import java.time.LocalDate;
 
 /**
- * Trusted local configuration only. Neither method may perform network or file I/O under a batch transaction.
+ * Trusted local configuration only. Neither method may perform network or file I/O under a batch
+ * transaction.
  */
 public interface ReconciliationAccountDirectory {
     ReconciliationScope resolve(String callerService, String accountCode, LocalDate billDate);

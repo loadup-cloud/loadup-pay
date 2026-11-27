@@ -23,7 +23,8 @@ import java.util.ArrayList;
 import java.util.Objects;
 
 /**
- * Pure merge of two complete inputs; no source lookups, clocks, financial writes or partial-window orphan decisions.
+ * Pure merge of two complete inputs; no source lookups, clocks, financial writes or partial-window
+ * orphan decisions.
  */
 public final class ReconciliationMatcher {
     public ReconciliationResult compare(ReconciliationDataset channel, ReconciliationDataset ledger) {
@@ -36,7 +37,8 @@ public final class ReconciliationMatcher {
                 CONFLICT);
         var differences = new ArrayList<ReconciliationDifference>();
         long matched = 0;
-        int c = 0, l = 0;
+        int c = 0;
+        int l = 0;
         while (c < channel.records().size() || l < ledger.records().size()) {
             var fromChannel = c < channel.records().size() ? channel.records().get(c) : null;
             var fromLedger = l < ledger.records().size() ? ledger.records().get(l) : null;

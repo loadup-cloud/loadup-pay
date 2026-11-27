@@ -15,9 +15,7 @@
  */
 package io.github.loadup.payment.client.enums;
 
-/**
- * Operational age bands, never a financial status or execution permission.
- */
+/** Operational age bands, never a financial status or execution permission. */
 public enum PaymentRecoveryAttentionLevel {
     NORMAL,
     REVIEW,

@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.util.Objects;
 
 /**
- * A consistent validated financial view, never proof that a database lock or Y2 ticket is still owned.
+ * A consistent validated financial view, never proof that a database lock or Y2 ticket is still
+ * owned.
  */
 public record PaymentExecutionContext(PaymentGateBinding gates, PaymentAttemptBinding attempt) {
     public PaymentExecutionContext {

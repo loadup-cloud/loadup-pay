@@ -18,9 +18,7 @@ package io.github.loadup.payment.domain.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/**
- * Transport-neutral encryption envelope produced by the infrastructure cryptographic port.
- */
+/** Transport-neutral encryption envelope produced by the infrastructure cryptographic port. */
 public record EncryptedPaymentInput(
         String encryptionKey,
         int encryptionVersion,

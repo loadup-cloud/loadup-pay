@@ -21,9 +21,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * A review never reinterprets a newer run or a different sealed result.
- */
+/** A review never reinterprets a newer run or a different sealed result. */
 public record ReconciliationReviewReference(
         String differenceId, String batchId, String runId, String resultHash, String matchKeyHash) {
     public ReconciliationReviewReference {

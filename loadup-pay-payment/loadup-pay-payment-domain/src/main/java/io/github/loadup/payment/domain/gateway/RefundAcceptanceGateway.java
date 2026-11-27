@@ -20,7 +20,8 @@ import java.util.Optional;
 
 public interface RefundAcceptanceGateway {
     /**
-     * Parent/request/capacity/child locks already held. False preserves the first timestamp and signals a metadata conflict.
+     * Parent/request/capacity/child locks already held. False preserves the first timestamp and
+     * signals a metadata conflict.
      */
     boolean remember(RefundAcceptanceEvidence value, long expectedChildVersion);
 

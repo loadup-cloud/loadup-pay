@@ -25,7 +25,8 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Exact immutable input manifests and deterministic differences bind completion to this particular comparison.
+ * Exact immutable input manifests and deterministic differences bind completion to this particular
+ * comparison.
  */
 public record ReconciliationResult(
         ReconciliationManifest channel,
@@ -48,7 +49,8 @@ public record ReconciliationResult(
         differences = List.copyOf(differences).stream()
                 .sorted(Comparator.comparing(ReconciliationDifference::key))
                 .toList();
-        long channelDifferences = 0, ledgerDifferences = 0;
+        long channelDifferences = 0;
+        long ledgerDifferences = 0;
         ReconciliationKey previous = null;
         for (var difference : differences) {
             require(!difference.key().equals(previous), CONFLICT);

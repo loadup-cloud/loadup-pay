@@ -17,9 +17,7 @@ package io.github.loadup.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/**
- * Typed refund continuation identity; canonical parsing belongs to the module-local protocol.
- */
+/** Typed refund continuation identity; canonical parsing belongs to the module-local protocol. */
 public record RefundRecoveryKey(String requestId, long generation) {
     public RefundRecoveryKey {
         new RecoveryTaskKey(requestId, generation);

@@ -19,7 +19,8 @@ import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import java.util.Set;
 
 /**
- * Hosted interactions explicitly enabled by deployment; the frozen contract remains an independent upper bound.
+ * Hosted interactions explicitly enabled by deployment; the frozen contract remains an independent
+ * upper bound.
  */
 public interface CashierCapabilities {
     Set<PaymentChoiceDTO> choices();

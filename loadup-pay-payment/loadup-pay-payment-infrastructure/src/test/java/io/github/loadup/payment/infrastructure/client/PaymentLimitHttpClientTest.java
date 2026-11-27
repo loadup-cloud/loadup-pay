@@ -96,8 +96,10 @@ class PaymentLimitHttpClientTest {
 
     String token(Map<String, Object> claims) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
-        var token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
+        var token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256")))
+                + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims))
+                + ".c3ludGhldGlj";
         credential = token;
         return token;
     }

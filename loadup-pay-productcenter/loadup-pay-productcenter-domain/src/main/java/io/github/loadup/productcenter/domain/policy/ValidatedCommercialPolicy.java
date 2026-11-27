@@ -17,7 +17,10 @@ package io.github.loadup.productcenter.domain.policy;
 
 import io.github.loadup.productcenter.domain.model.ResolvedConfiguration;
 
-/** Complete commercial policy; provenance remains attached to the resolved input, outside the public terms schema. */
+/**
+ * Complete commercial policy; provenance remains attached to the resolved input, outside the public
+ * terms schema.
+ */
 public record ValidatedCommercialPolicy(
         OrderPolicy order,
         PaymentPolicy payment,

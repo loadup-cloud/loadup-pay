@@ -54,7 +54,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Complete synthetic A1 evidence; creation intents, snapshots, headers and fee rows use actual gateways.
+ * Complete synthetic A1 evidence; creation intents, snapshots, headers and fee rows use actual
+ * gateways.
  */
 final class AcquiringPersistenceFixtures {
     static final LocalDateTime AT = LocalDateTime.of(2026, 10, 26, 12, 0);
@@ -65,7 +66,10 @@ final class AcquiringPersistenceFixtures {
     }
 
     static Fixture order(OrderCreationCodec codec, AcquireOrderConverter converter, String mode) {
-        String tenant = id("tenant"), orderId = id("order"), merchant = id("merchant"), merchantNo = id("merchant-no");
+        String tenant = id("tenant");
+        String orderId = id("order");
+        String merchant = id("merchant");
+        String merchantNo = id("merchant-no");
         var command = new AcquireOrderCreateCommand(
                 merchant, merchantNo, "scope", 10000L, "CNY", "Synthetic acquiring order", null);
         String payload;

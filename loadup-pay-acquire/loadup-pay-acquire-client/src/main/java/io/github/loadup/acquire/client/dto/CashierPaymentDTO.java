@@ -23,7 +23,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
 /**
- * Session-safe projection; accepted=false and absent state/version require a trusted non-acceptance receipt.
+ * Session-safe projection; accepted=false and absent state/version require a trusted non-acceptance
+ * receipt.
  */
 public record CashierPaymentDTO(
         @Schema(description = "Original order id") String orderId,

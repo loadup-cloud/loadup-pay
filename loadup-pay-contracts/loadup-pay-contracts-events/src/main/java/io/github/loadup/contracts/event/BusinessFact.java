@@ -23,7 +23,9 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-/** Fact metadata and an immutable DTO payload; each destination receives its own delivery identity. */
+/**
+ * Fact metadata and an immutable DTO payload; each destination receives its own delivery identity.
+ */
 public record BusinessFact<T>(
         String businessEventId,
         String producer,

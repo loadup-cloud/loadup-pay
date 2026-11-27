@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * The original close request is immutable; only the bounded scan cursor advances.
- */
+/** The original close request is immutable; only the bounded scan cursor advances. */
 public record OrderCloseIntent(
         String id,
         String orderId,

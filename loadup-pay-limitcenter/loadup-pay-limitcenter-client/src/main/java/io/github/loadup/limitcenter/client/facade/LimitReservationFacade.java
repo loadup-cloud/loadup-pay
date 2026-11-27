@@ -19,9 +19,7 @@ import io.github.loadup.limitcenter.client.command.LimitReserveCommand;
 import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.limitcenter.client.query.LimitOperationQuery;
 
-/**
- * Durable reservation slice; execution and outcome processing are separate use cases.
- */
+/** Durable reservation slice; execution and outcome processing are separate use cases. */
 public interface LimitReservationFacade {
     LimitReservationDTO reserve(LimitReserveCommand command);
 

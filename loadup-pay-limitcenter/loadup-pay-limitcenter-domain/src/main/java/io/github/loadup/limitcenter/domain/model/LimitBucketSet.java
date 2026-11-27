@@ -64,9 +64,7 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
         return new LimitBucketSet(updated);
     }
 
-    /**
-     * Requires a trusted release decision at the application boundary.
-     */
+    /** Requires a trusted release decision at the application boundary. */
     public LimitBucketSet releaseReserved(List<LimitReservationItem> items) {
         require(!items.isEmpty() && items.size() == buckets.size(), CONFLICT);
         Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);
@@ -88,9 +86,7 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
         return ToStringAsJson.reflectionToString(this);
     }
 
-    /**
-     * Applies only positive deltas to the original buckets, preserving their held quantities.
-     */
+    /** Applies only positive deltas to the original buckets, preserving their held quantities. */
     public LimitBucketSet restoreRefund(List<LimitItemRestore> changes) {
         require(!changes.isEmpty() && changes.size() == buckets.size(), CONFLICT);
         Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);

@@ -29,7 +29,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Append-only command receipt/audit event; replay returns this exact event, never a later review head.
+ * Append-only command receipt/audit event; replay returns this exact event, never a later review
+ * head.
  */
 public record ReconciliationReviewEvent(
         String id,

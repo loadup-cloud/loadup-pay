@@ -158,8 +158,10 @@ class PaymentAcceptanceHttpClientTest {
 
     String writeToken(Map<String, Object> claims) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
-        String value = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
+        String value = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256")))
+                + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims))
+                + ".c3ludGhldGlj";
         credential = value;
         return value;
     }

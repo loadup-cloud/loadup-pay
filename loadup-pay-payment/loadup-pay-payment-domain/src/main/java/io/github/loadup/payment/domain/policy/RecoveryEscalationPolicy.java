@@ -23,9 +23,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Operational attention only; no outcome, capacity release, resubmission or task mutation.
- */
+/** Operational attention only; no outcome, capacity release, resubmission or task mutation. */
 public record RecoveryEscalationPolicy(long reviewAfterSeconds, long urgentAfterSeconds) {
     public RecoveryEscalationPolicy {
         require(

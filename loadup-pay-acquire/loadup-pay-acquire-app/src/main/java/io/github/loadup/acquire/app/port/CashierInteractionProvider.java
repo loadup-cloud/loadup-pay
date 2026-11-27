@@ -20,7 +20,8 @@ import io.github.loadup.acquire.client.dto.payment.PaymentChoiceDTO;
 import io.github.loadup.acquire.client.dto.payment.PaymentInteractionDTO;
 
 /**
- * Produces trusted payer interaction from the server request or an authenticated channel authorization flow.
+ * Produces trusted payer interaction from the server request or an authenticated channel
+ * authorization flow.
  */
 public interface CashierInteractionProvider {
     PaymentInteractionDTO prepare(CashierActor actor, PaymentChoiceDTO choice);

@@ -56,7 +56,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Synthetic inputs and legitimate domain transitions; persistence is always handled by real generated Mappers/Gateways.
+ * Synthetic inputs and legitimate domain transitions; persistence is always handled by real
+ * generated Mappers/Gateways.
  */
 final class FinancialPersistenceFixtures {
     static final LocalDateTime AT = LocalDateTime.of(2026, 10, 26, 12, 0);
@@ -66,7 +67,10 @@ final class FinancialPersistenceFixtures {
     }
 
     static Fixture prepared(PaymentAcceptanceCodec codec, ChannelBindingCodec bindings) {
-        String tenant = id("tenant"), payment = id("payment"), order = id("order"), merchant = id("merchant");
+        String tenant = id("tenant");
+        String payment = id("payment");
+        String order = id("order");
+        String merchant = id("merchant");
         var terms = new AdmittedOrderTermsDTO(
                 id("admission"),
                 order,

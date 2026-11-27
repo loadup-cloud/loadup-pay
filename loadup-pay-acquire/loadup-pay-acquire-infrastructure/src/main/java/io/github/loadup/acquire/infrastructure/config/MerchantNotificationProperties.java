@@ -24,9 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Merchant-owned immutable catalog references; changing a target requires a new reference.
- */
+/** Merchant-owned immutable catalog references; changing a target requires a new reference. */
 @ConfigurationProperties("loadup.modules.acquire.merchant-notifications")
 public record MerchantNotificationProperties(Map<String, Target> targets, Map<String, Signing> signingIdentities) {
     public MerchantNotificationProperties {

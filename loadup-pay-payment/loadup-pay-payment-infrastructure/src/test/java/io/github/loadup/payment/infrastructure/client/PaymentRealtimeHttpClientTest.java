@@ -102,8 +102,10 @@ class PaymentRealtimeHttpClientTest {
                 audience,
                 "exp",
                 clock.instant().getEpochSecond() + 300);
-        credential = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
+        credential = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256")))
+                + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims))
+                + ".c3ludGhldGlj";
     }
 
     @BeforeEach

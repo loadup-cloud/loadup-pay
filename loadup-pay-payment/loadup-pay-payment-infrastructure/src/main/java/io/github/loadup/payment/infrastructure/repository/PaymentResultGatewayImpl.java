@@ -135,7 +135,9 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
                 .addValue("number", number);
         var row = jdbc
                 .query(
-                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE channel = :channel AND"
+                        "SELECT "
+                                + CLAIM_COLUMNS
+                                + " FROM channel_transaction_claim WHERE channel = :channel AND"
                                 + " account_scope_hash = :scope AND channel_transaction_no = :number"
                                 + " AND deleted = FALSE",
                         args,
@@ -151,7 +153,9 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
         var args = new MapSqlParameterSource().addValue("attempt", attempt);
         var row = jdbc
                 .query(
-                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE "
+                        "SELECT "
+                                + CLAIM_COLUMNS
+                                + " FROM channel_transaction_claim WHERE "
                                 + "attempt_id = :attempt AND deleted = FALSE",
                         args,
                         BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class))

@@ -23,7 +23,8 @@ public interface PaymentInitiationGateway {
     Optional<StoredPaymentAllocation> findAction(String orderId, String actorScope, String actionKey);
 
     /**
-     * Attach the prepared input reference once, under the original order lock, without changing money.
+     * Attach the prepared input reference once, under the original order lock, without changing
+     * money.
      */
     void attachInput(StoredPaymentAllocation original, StoredPaymentAllocation prepared);
 

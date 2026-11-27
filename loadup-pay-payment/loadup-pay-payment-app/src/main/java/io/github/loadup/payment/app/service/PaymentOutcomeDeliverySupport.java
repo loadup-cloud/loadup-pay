@@ -45,7 +45,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Only the local Outbox dispatcher calls this seam. Queue labels are not user/service authentication.
+ * Only the local Outbox dispatcher calls this seam. Queue labels are not user/service
+ * authentication.
  */
 @Component
 public class PaymentOutcomeDeliverySupport {

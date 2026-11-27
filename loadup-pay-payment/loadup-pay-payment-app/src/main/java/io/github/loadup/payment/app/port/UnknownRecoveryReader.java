@@ -22,7 +22,8 @@ import java.util.List;
 
 public interface UnknownRecoveryReader {
     /**
-     * Read-only RR, at most limit + 1 rows ordered by time/id. Null cutoff means all UNKNOWN; no count/row locks/remote IO.
+     * Read-only RR, at most limit + 1 rows ordered by time/id. Null cutoff means all UNKNOWN; no
+     * count/row locks/remote IO.
      */
     List<UnknownRecoveryEntry> list(PaymentRecoveryKind kind, UnknownRecoveryWindow window);
 }

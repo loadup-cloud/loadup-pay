@@ -42,7 +42,8 @@ public class JwtRefundActorProvider implements RefundActorProvider {
         }
         try {
             String type = jwt.getClaimAsString("principal_type");
-            String subject = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
+            String subject = jwt.getSubject();
+            String merchant = jwt.getClaimAsString("merchant_id");
             if (!Set.of("MERCHANT", "MERCHANT_APP").contains(type)
                     || jwt.getIssuer() == null
                     || subject == null

@@ -90,7 +90,9 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
         var args = new MapSqlParameterSource("policy", policy);
         return jdbc
                 .query(
-                        "SELECT " + HEAD + " FROM limit_policy_head WHERE policy_id = :policy "
+                        "SELECT "
+                                + HEAD
+                                + " FROM limit_policy_head WHERE policy_id = :policy "
                                 + "AND deleted = FALSE FOR UPDATE",
                         args,
                         BeanPropertyRowMapper.newInstance(LimitPolicyHeadDO.class))
@@ -122,7 +124,9 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
     public Optional<RuntimeLimitRule> lockRule(LimitRule rule) {
         transaction();
         var rows = jdbc.query(
-                "SELECT " + RULE + " FROM limit_rule_runtime WHERE rule_scope_id = :scope "
+                "SELECT "
+                        + RULE
+                        + " FROM limit_rule_runtime WHERE rule_scope_id = :scope "
                         + "AND merchant_id = :merchant AND metric = :metric AND currency = :currency AND window_type = :window "
                         + "AND deleted = FALSE FOR UPDATE",
                 ruleKey(rule),

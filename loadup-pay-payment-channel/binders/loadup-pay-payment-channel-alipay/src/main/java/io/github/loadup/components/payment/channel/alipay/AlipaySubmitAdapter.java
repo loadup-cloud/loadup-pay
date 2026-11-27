@@ -56,7 +56,8 @@ import java.util.TreeMap;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Payer-code debit, JSAPI creation, or local direct-WAP preparation with independent financial evidence.
+ * Payer-code debit, JSAPI creation, or local direct-WAP preparation with independent financial
+ * evidence.
  */
 public final class AlipaySubmitAdapter {
     private final AlipayProtocolClient client;
@@ -224,7 +225,8 @@ public final class AlipaySubmitAdapter {
                     responses.text(response, "total_amount"), payment.amount().getCent());
             var tradeNo = responses.requiredText(response, "trade_no", 64);
             // Canonical success time comes from the same query path used during recovery.
-            // Never compare a submit gmt_payment with a different query send_pay_date as duplicate financial facts.
+            // Never compare a submit gmt_payment with a different query send_pay_date as duplicate
+            // financial facts.
             var observed = queries.query(context, new ChannelPaymentTarget(payment.identity(), payment.amount()));
             if (observed.channelTransactionNo() != null && !tradeNo.equals(observed.channelTransactionNo())) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);

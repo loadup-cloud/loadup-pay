@@ -89,7 +89,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 /**
- * Real PostgreSQL review/File metadata; actor identity and private object byte transport remain controlled test inputs.
+ * Real PostgreSQL review/File metadata; actor identity and private object byte transport remain
+ * controlled test inputs.
  */
 @SpringBootTest(
         classes = ReconciliationReviewPersistenceIT.Application.class,

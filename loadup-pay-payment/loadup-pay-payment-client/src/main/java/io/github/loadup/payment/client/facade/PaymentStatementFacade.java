@@ -18,9 +18,7 @@ package io.github.loadup.payment.client.facade;
 import io.github.loadup.payment.client.dto.PaymentStatementDTO;
 import io.github.loadup.payment.client.query.PaymentStatementQuery;
 
-/**
- * Read-only official statement source; repeat reads may yield independent signed grants.
- */
+/** Read-only official statement source; repeat reads may yield independent signed grants. */
 public interface PaymentStatementFacade {
     PaymentStatementDTO download(PaymentStatementQuery query);
 }

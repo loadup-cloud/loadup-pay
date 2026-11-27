@@ -189,7 +189,8 @@ public class PaymentInitiationOperations {
                 snapshots.publish(change.order().id(), change.order().version());
                 return allocation;
             });
-            // No transaction spans the network. Failure leaves the original hold and exact command recoverable.
+            // No transaction spans the network. Failure leaves the original hold and exact command
+            // recoverable.
             PaymentExecuteCommand execute = codec.decode(stored);
             if (stored.allocation().state() == AllocationState.RELEASED
                     && stored.allocation().paymentSourceVersion() == 0) {
@@ -203,7 +204,8 @@ public class PaymentInitiationOperations {
                         converter.toInputPreparation(execute, command.actionKey(), command.interaction()));
                 validatePrepared(prepared);
                 if (execute.preparedInputRef() == null) {
-                    // Only the opaque reference is attached locally. Raw input never enters the order database.
+                    // Only the opaque reference is attached locally. Raw input never enters the order
+                    // database.
                     var reference = prepared.inputRef();
                     stored = transactions.writeLocal(
                             () -> attachInput(actor, command.orderId(), command.actionKey(), reference));
@@ -226,7 +228,8 @@ public class PaymentInitiationOperations {
     }
 
     /**
-     * Resume a committed intent using its frozen command, without preparing another input or reserving money.
+     * Resume a committed intent using its frozen command, without preparing another input or
+     * reserving money.
      */
     PaymentIntentRecovery recover(
             PaymentInitiationPrincipal actor,
@@ -277,7 +280,8 @@ public class PaymentInitiationOperations {
                                 || order.order().reservedPaymentCount() < 1)) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                // The v1 digest already commits the interaction kind. Only an exact NONE digest proves input was
+                // The v1 digest already commits the interaction kind. Only an exact NONE digest
+                // proves input was
                 // intentionally absent.
                 boolean inputless = choice.method() == PaymentMethod.H5
                         && allocation
@@ -313,12 +317,14 @@ public class PaymentInitiationOperations {
                 }
                 validatePrepared(lookup.input());
                 var reference = lookup.input().inputRef();
-                // Preserve even an expired original input. Acceptance and execution keep enforcing its original
+                // Preserve even an expired original input. Acceptance and execution keep enforcing its
+                // original
                 // deadline.
                 stored = transactions.writeLocal(() -> attachInput(actor, orderId, actionKey, reference));
                 execute = codec.decode(stored);
             }
-            // Released/tombstoned intents are resolved by the existing outcome receipt, never accepted again.
+            // Released/tombstoned intents are resolved by the existing outcome receipt, never
+            // accepted again.
             if (stored.allocation().state() == AllocationState.HELD) {
                 if (plan.inputRequired()) {
                     if (execute.preparedInputRef() == null) {
@@ -356,7 +362,8 @@ public class PaymentInitiationOperations {
                                 PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), null);
                     }
                 }
-                // Exact original idempotent acceptance; no current route, interaction or financial identity is
+                // Exact original idempotent acceptance; no current route, interaction or financial
+                // identity is
                 // substituted.
                 var result = payment.accept(execute);
                 validateResult(execute, result);
@@ -368,7 +375,8 @@ public class PaymentInitiationOperations {
 
     private PaymentIntentRecovery closeExpiredPreparation(
             PaymentInitiationPrincipal actor, PaymentExecuteCommand execute) {
-        // Absence is not evidence. The original close serializes with acceptance and fences any late preparation.
+        // Absence is not evidence. The original close serializes with acceptance and fences any late
+        // preparation.
         var response = closure.close(converter.toPreparationExpiryClose(execute));
         if (response == null
                 || !validator.validate(response).isEmpty()

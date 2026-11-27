@@ -130,7 +130,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Real local Y2/plan/capacity boundaries. Risk, limitcenter, channel IO and unused terminal events are controlled test doubles.
+ * Real local Y2/plan/capacity boundaries. Risk, limitcenter, channel IO and unused terminal events
+ * are controlled test doubles.
  */
 @SpringBootTest(classes = FinancialPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
@@ -376,7 +377,8 @@ class FinancialPersistenceIT {
     @Test
     void competingRefundPlansCannotReserveMoreThanTheRealSucceededCapacity() throws Exception {
         var fixture = seedCapacity();
-        String firstId = id("refund-request"), secondId = id("refund-request");
+        String firstId = id("refund-request");
+        String secondId = id("refund-request");
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {

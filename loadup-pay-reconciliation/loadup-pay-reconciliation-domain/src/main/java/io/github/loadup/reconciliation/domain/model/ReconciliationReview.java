@@ -25,7 +25,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationReviewState;
 import java.util.Objects;
 
 /**
- * One independent administrative review per immutable difference. Approved reviews never erase that difference.
+ * One independent administrative review per immutable difference. Approved reviews never erase that
+ * difference.
  */
 public record ReconciliationReview(
         ReconciliationReviewReference reference,

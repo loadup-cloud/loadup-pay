@@ -23,9 +23,7 @@ import io.github.loadup.commons.money.Money;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.util.Objects;
 
-/**
- * Original expected payment facts; error responses need not contain an amount.
- */
+/** Original expected payment facts; error responses need not contain an amount. */
 public record ChannelPaymentTarget(ChannelPaymentIdentity identity, Money amount) {
     public ChannelPaymentTarget {
         Objects.requireNonNull(identity);

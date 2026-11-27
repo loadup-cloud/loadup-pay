@@ -36,7 +36,8 @@ public class JwtMerchantNotificationActorProvider implements MerchantNotificatio
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            String type = jwt.getClaimAsString("principal_type"), principal = jwt.getSubject();
+            String type = jwt.getClaimAsString("principal_type");
+            String principal = jwt.getSubject();
             String merchant = jwt.getClaimAsString("merchant_id");
             if (principal == null || !principal.equals(principal.trim()) || type == null) {
                 throw new CommonException(ACTION_FORBIDDEN);

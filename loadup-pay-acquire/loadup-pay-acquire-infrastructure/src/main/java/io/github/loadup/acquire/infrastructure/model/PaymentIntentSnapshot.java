@@ -40,7 +40,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Owner-local storage format. No public Command, DTO, credentials or raw interaction objects are serialized here.
+ * Owner-local storage format. No public Command, DTO, credentials or raw interaction objects are
+ * serialized here.
  */
 public record PaymentIntentSnapshot(
         String format,

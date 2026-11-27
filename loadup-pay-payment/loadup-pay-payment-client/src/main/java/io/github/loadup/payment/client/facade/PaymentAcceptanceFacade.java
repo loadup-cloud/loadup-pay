@@ -19,9 +19,7 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.client.dto.PaymentExecutionDTO;
 
-/**
- * Durable acceptance only; accepted INIT does not imply a channel submission.
- */
+/** Durable acceptance only; accepted INIT does not imply a channel submission. */
 public interface PaymentAcceptanceFacade {
     PaymentExecutionDTO accept(PaymentExecuteCommand command);
 

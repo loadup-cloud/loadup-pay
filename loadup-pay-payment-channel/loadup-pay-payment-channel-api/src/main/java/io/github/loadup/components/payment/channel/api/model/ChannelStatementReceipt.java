@@ -23,7 +23,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.OffsetDateTime;
 
 /**
- * Private provenance bytes retain signed grant evidence; they may contain short-lived bearer URLs and are never browser data.
+ * Private provenance bytes retain signed grant evidence; they may contain short-lived bearer URLs
+ * and are never browser data.
  */
 public record ChannelStatementReceipt(
         String format,

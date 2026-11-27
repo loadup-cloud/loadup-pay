@@ -120,7 +120,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Real SQL, native Outbox claim/ACK and application transactions; owner transport and object bytes are controlled.
+ * Real SQL, native Outbox claim/ACK and application transactions; owner transport and object bytes
+ * are controlled.
  */
 @SpringBootTest(
         classes = ReconciliationVerificationPersistenceIT.Application.class,

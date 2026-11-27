@@ -20,9 +20,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
-/**
- * A consistent authoritative payment and its persistent execution gate.
- */
+/** A consistent authoritative payment and its persistent execution gate. */
 public record PaymentOutcomeDTO(
         @Schema(description = "Authoritative persisted payment") @NotNull @Valid PaymentExecutionDTO payment,
 

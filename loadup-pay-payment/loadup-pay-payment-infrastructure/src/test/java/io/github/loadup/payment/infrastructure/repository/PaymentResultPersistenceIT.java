@@ -139,7 +139,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Actual Y3 and recovery handler with native claims; the original Y2 is a persisted boundary precondition.
+ * Actual Y3 and recovery handler with native claims; the original Y2 is a persisted boundary
+ * precondition.
  */
 @SpringBootTest(
         classes = PaymentResultPersistenceIT.Application.class,
@@ -265,7 +266,8 @@ class PaymentResultPersistenceIT {
         assertSettledOnce(fixture);
         var committed = resultService.record(original);
         assertEquals(APPLIED, committed.disposition());
-        // The original accepted ACK may be lost; replay returns the durable receipt without another financial effect.
+        // The original accepted ACK may be lost; replay returns the durable receipt without another
+        // financial effect.
         assertEquals(committed, resultService.record(original));
         execution.progress(fixture.command().paymentId());
         assertSettledOnce(fixture);
@@ -468,7 +470,8 @@ class PaymentResultPersistenceIT {
             assertEquals(0L, count("payment_refund_capacity", fixture));
             return true;
         });
-        // The provider can now return ambiguous CLOSED/UNKNOWN. Recovery must consume the earlier acknowledged proof.
+        // The provider can now return ambiguous CLOSED/UNKNOWN. Recovery must consume the earlier
+        // acknowledged proof.
         remote.observations.put(
                 submitted.id(),
                 new PaymentObservation(
@@ -556,7 +559,8 @@ class PaymentResultPersistenceIT {
                 assertCounts(fixture, 0L, 0L, 1L, 0L, 1L);
                 assertEquals(TaskStatus.PENDING, nativeTask(fixture, 1L).status());
 
-                // The current generation can finish while an expired generation-zero query is still in flight.
+                // The current generation can finish while an expired generation-zero query is still in
+                // flight.
                 remote.observations.put(original.identity().attemptId(), original);
                 clock.advance(Duration.ofSeconds(30));
                 var successor = claim(fixture, 1L);
@@ -814,7 +818,8 @@ class PaymentResultPersistenceIT {
                 var original = remote.observations.get(first.attempt().attempt().id());
                 var committed = workers.submit(() -> resultService.record(original));
                 assertDoesNotThrow(() -> committed.get(10, TimeUnit.SECONDS));
-                // The same RR view stays consistent while the financial transaction commits independently.
+                // The same RR view stays consistent while the financial transaction commits
+                // independently.
                 assertEquals(
                         expected,
                         unknowns.list(PaymentRecoveryKind.COLLECTION, query).stream()
@@ -1105,7 +1110,8 @@ class PaymentResultPersistenceIT {
     }
 
     /**
-     * Virtual business/native time, independent of persistence audit timestamps and the machine clock.
+     * Virtual business/native time, independent of persistence audit timestamps and the machine
+     * clock.
      */
     static class ControlledClock extends Clock {
         private final AtomicReference<Instant> instant;
@@ -1229,7 +1235,8 @@ class PaymentResultPersistenceIT {
     }
 
     /**
-     * Only authenticated external facts and unreachable first-submit/action branches are test doubles.
+     * Only authenticated external facts and unreachable first-submit/action branches are test
+     * doubles.
      */
     static class RemoteChannel {
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);

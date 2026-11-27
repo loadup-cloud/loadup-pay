@@ -20,9 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
-/**
- * Exactly one service or merchant scope, supplied only by the verified JWT adapter.
- */
+/** Exactly one service or merchant scope, supplied only by the verified JWT adapter. */
 public record RealtimeActor(String serviceId, String merchantId, Set<String> permissions) {
     public RealtimeActor {
         permissions = Set.copyOf(permissions);

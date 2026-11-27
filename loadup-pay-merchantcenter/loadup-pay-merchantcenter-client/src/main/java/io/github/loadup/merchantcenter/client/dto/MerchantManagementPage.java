@@ -22,9 +22,7 @@ import io.github.loadup.commons.result.SuccessResponse;
 import java.util.Collection;
 import java.util.Objects;
 
-/**
- * Decodes either a flat page or a failure envelope from the internal management protocol.
- */
+/** Decodes either a flat page or a failure envelope from the internal management protocol. */
 public record MerchantManagementPage<T>(Result result, Collection<T> data, PageInfo pageInfo) {
     public SuccessResponse<PageDTO<T>> asResponse() {
         return new SuccessResponse<>(

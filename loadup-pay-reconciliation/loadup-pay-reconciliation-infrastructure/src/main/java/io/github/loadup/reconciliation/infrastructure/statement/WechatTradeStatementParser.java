@@ -53,7 +53,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Strict API ALL-format parser. Content completeness never proves channel provenance or authorizes ledger imports.
+ * Strict API ALL-format parser. Content completeness never proves channel provenance or authorizes
+ * ledger imports.
  */
 @Component
 public class WechatTradeStatementParser {
@@ -77,7 +78,8 @@ public class WechatTradeStatementParser {
     }
 
     /**
-     * The caller owns the stream and must independently establish the source file's identity and provenance.
+     * The caller owns the stream and must independently establish the source file's identity and
+     * provenance.
      */
     public ReconciliationDataset parse(
             InputStream source,
@@ -116,7 +118,12 @@ public class WechatTradeStatementParser {
                 throw new CommonException(INPUT_INVALID);
             }
             var lines = new ArrayList<ReconciliationLine>();
-            long netPayment = 0, netRefund = 0, couponRefund = 0, fees = 0, grossPayment = 0, grossRefund = 0;
+            long netPayment = 0;
+            long netRefund = 0;
+            long couponRefund = 0;
+            long fees = 0;
+            long grossPayment = 0;
+            long grossRefund = 0;
             String line;
             while ((line = reader.readLine()) != null && !TOTAL_HEADER.equals(line)) {
                 if (lines.size() >= maxRecords) {
@@ -129,12 +136,12 @@ public class WechatTradeStatementParser {
                         || !LocalDateTime.parse(fields[0], TIME).toLocalDate().equals(scope.billDate())) {
                     throw new CommonException(INPUT_INVALID);
                 }
-                long orderNet = money(fields[12], false),
-                        refundNet = money(fields[16], false),
-                        refundCoupon = money(fields[17], false);
-                long fee = money(fields[22], true),
-                        orderGross = money(fields[24], false),
-                        refundGross = money(fields[25], false);
+                long orderNet = money(fields[12], false);
+                long refundNet = money(fields[16], false);
+                long refundCoupon = money(fields[17], false);
+                long fee = money(fields[22], true);
+                long orderGross = money(fields[24], false);
+                long refundGross = money(fields[25], false);
                 ReconciliationRecordKind kind;
                 ReconciliationEntryStatus status;
                 long amount;
@@ -176,7 +183,8 @@ public class WechatTradeStatementParser {
                         default -> throw new CommonException(INPUT_INVALID);
                     };
                 } else {
-                    // Revocation has a distinct compensation identity; never drop it or manufacture a child-refund
+                    // Revocation has a distinct compensation identity; never drop it or manufacture a
+                    // child-refund
                     // number.
                     throw new CommonException(INPUT_INVALID);
                 }

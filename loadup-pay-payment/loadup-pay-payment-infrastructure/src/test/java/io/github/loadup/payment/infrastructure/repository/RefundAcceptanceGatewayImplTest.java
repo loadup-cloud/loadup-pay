@@ -55,7 +55,8 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Local metadata decisions only; generated SQL, lock ownership and real rollback are covered by PostgreSQL IT sources.
+ * Local metadata decisions only; generated SQL, lock ownership and real rollback are covered by
+ * PostgreSQL IT sources.
  */
 class RefundAcceptanceGatewayImplTest {
     private final AnnotationConfigApplicationContext context =

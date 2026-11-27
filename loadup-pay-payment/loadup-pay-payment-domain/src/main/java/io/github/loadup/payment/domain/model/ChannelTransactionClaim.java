@@ -23,9 +23,7 @@ import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Permanent ownership of a real channel transaction, across app/credential aliases.
- */
+/** Permanent ownership of a real channel transaction, across app/credential aliases. */
 public record ChannelTransactionClaim(
         String id,
         ChannelPaymentIdentity identity,

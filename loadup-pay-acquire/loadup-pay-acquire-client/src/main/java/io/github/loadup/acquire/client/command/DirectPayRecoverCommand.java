@@ -30,7 +30,8 @@ import java.time.OffsetDateTime;
 import java.util.Locale;
 
 /**
- * Non-sensitive original DirectPay metadata; identifies the original order and first payment without raw payer input.
+ * Non-sensitive original DirectPay metadata; identifies the original order and first payment
+ * without raw payer input.
  */
 public record DirectPayRecoverCommand(
         @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,

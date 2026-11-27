@@ -26,9 +26,7 @@ import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-/**
- * Server-signed invocation data; never evidence that the payer has completed payment.
- */
+/** Server-signed invocation data; never evidence that the payer has completed payment. */
 public record WechatJsapiChannelAction(
         String appId,
         String timeStamp,

@@ -29,7 +29,8 @@ import java.time.OffsetDateTime;
 import java.util.Set;
 
 /**
- * One point-in-time read, not a mutation receipt. UNKNOWN or missing local coverage never means no collection.
+ * One point-in-time read, not a mutation receipt. UNKNOWN or missing local coverage never means no
+ * collection.
  */
 public record PaymentVerificationDTO(
         PaymentVerificationQuery request,

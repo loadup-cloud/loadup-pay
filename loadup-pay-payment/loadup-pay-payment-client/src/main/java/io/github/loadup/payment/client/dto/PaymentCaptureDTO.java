@@ -26,9 +26,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
-/**
- * Frozen source result only; blocked captures have no exportable lines, totals or content hash.
- */
+/** Frozen source result only; blocked captures have no exportable lines, totals or content hash. */
 @Schema(description = "Immutable reconciliation source capture; unrelated to a payment authorization/capture flow")
 public record PaymentCaptureDTO(
         @Schema(description = "Original source capture id") String captureId,

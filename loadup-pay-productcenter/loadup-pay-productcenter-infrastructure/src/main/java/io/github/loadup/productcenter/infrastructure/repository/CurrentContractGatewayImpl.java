@@ -79,7 +79,8 @@ public class CurrentContractGatewayImpl extends ServiceImpl<ContractLimitPublica
 
     @Override
     public MerchantContractRevision snapshot(ContractRecord header) {
-        // The reused framework currently signs immutable revision 1; reject inconsistent storage explicitly.
+        // The reused framework currently signs immutable revision 1; reject inconsistent storage
+        // explicitly.
         var row = contracts.revision(header.id(), 1).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         try {
             var snapshot = codec.read(row.snapshot(), MerchantContractRevision.class);

@@ -22,9 +22,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import java.net.InetAddress;
 
-/**
- * A reported payer IP literal; never performs DNS lookup or trusts forwarding headers.
- */
+/** A reported payer IP literal; never performs DNS lookup or trusts forwarding headers. */
 public record ChannelH5Input(@DiagnosticHidden String payerClientIp, H5SceneType sceneType)
         implements ChannelPaymentInput {
     public ChannelH5Input {

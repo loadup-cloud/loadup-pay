@@ -28,9 +28,7 @@ import java.util.Set;
  * Persistence or integration port; implementations own transactions and trusted tenant isolation.
  */
 public interface ChannelBindingGateway {
-    /**
-     * Lock route heads in a stable order before selecting a new attempt's immutable binding.
-     */
+    /** Lock route heads in a stable order before selecting a new attempt's immutable binding. */
     List<RoutableChannelBinding> lockActive(
             String payeeMerchantId, Channel channel, Set<AccessMode> allowedModes, PaymentMethod method);
 

@@ -142,7 +142,8 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                                     .open(),
                             0));
                 }
-                // A competing payment under this parent may have committed while acquiring the gate.
+                // A competing payment under this parent may have committed while acquiring the
+                // gate.
                 prior = store.find(command.paymentId());
                 if (prior.isPresent()) {
                     return replay(actor, command, prior.get());

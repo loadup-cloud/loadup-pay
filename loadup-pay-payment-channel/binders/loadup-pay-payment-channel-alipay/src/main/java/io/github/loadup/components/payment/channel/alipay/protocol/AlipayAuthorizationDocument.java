@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsCiphertext;
 
-/**
- * The merchant's delegated authorization is a separate versioned resource.
- */
+/** The merchant's delegated authorization is a separate versioned resource. */
 public record AlipayAuthorizationDocument(
         String reference,
         String version,

@@ -235,7 +235,8 @@ class RefundRecoveryServiceTest {
         assertThrows(CommonException.class, this::handle);
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // The mock storage cannot prove database rollback. Both mutations join one real transaction in production.
+        // The mock storage cannot prove database rollback. Both mutations join one real transaction in
+        // production.
     }
 
     @Test

@@ -104,7 +104,8 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var original = payments.find(refund.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            // RefundExecutionLocks has already verified the original successful attempt and permanent collection claim.
+            // RefundExecutionLocks has already verified the original successful attempt and permanent
+            // collection claim.
             if (original.terminalEvidenceId() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }

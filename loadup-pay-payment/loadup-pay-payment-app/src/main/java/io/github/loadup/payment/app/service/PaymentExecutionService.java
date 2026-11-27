@@ -56,9 +56,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Durable state decides query versus first submit; a task claim never grants a debit retry.
- */
+/** Durable state decides query versus first submit; a task claim never grants a debit retry. */
 @Service
 public class PaymentExecutionService {
     private final PaymentAcceptanceGateway payments;
@@ -158,7 +156,8 @@ public class PaymentExecutionService {
                 if (ticket.isEmpty()) {
                     return true;
                 }
-                // This in-memory Y2 winner is consumed exactly once, even when the response or Y3 commit is lost.
+                // This in-memory Y2 winner is consumed exactly once, even when the response or Y3
+                // commit is lost.
                 var prepared = ticket.get().payment();
                 var applied = results.recordSubmission(prepared, channels.submit(prepared));
                 if (applied.disposition() == PaymentReceiptDisposition.CONFLICT) {
@@ -205,7 +204,8 @@ public class PaymentExecutionService {
                     ? order.state() == PaymentState.INIT && order.version() == 0
                     : stored.attempt().state() == PaymentAttemptState.INIT
                             && stored.attempt().executionEpoch() == 0;
-            // A concurrent Y2 winner turns a local rejection into observation only, never a fabricated no-collection
+            // A concurrent Y2 winner turns a local rejection into observation only, never a
+            // fabricated no-collection
             // fact.
             if (rejectUnsubmitted && !neverSubmitted) {
                 return Optional.empty();
@@ -259,7 +259,8 @@ public class PaymentExecutionService {
             }
             if (stored == null) {
                 String requestKey = "initial/" + paymentId;
-                // The original complete request digest already binds tenant, caller and frozen payment parameters.
+                // The original complete request digest already binds tenant, caller and frozen payment
+                // parameters.
                 var updated = initial.create(
                         accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
                 stored = attempts.lock(updated.payment().activeAttemptId())

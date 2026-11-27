@@ -338,7 +338,8 @@ class ReconciliationServiceTest {
         assertThrows(CommonException.class, () -> execution.handle(task));
         assertEquals(before + 1, manager.rollbacks);
         assertEquals(ReconciliationState.RUNNING, stored.get().batch().state());
-        // These mocks prove ordering and transaction propagation, never real SQL rollback of inserted differences.
+        // These mocks prove ordering and transaction propagation, never real SQL rollback of inserted
+        // differences.
     }
 
     private void ready() {
@@ -384,7 +385,8 @@ class ReconciliationServiceTest {
     }
 
     static final class Tx extends AbstractPlatformTransactionManager {
-        int commits, rollbacks;
+        int commits;
+        int rollbacks;
 
         @Override
         protected Object doGetTransaction() {

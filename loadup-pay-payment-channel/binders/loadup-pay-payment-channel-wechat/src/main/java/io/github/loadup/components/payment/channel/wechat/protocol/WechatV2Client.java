@@ -31,9 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * One original debit through a named HTTP operation, no transport retry or protocol fallback.
- */
+/** One original debit through a named HTTP operation, no transport retry or protocol fallback. */
 public class WechatV2Client {
     private final HttpTemplate http;
     private final WechatCredentialReader credentials;

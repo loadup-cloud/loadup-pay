@@ -31,7 +31,8 @@ public record AlipaySignedRequest(
     public String formBody() {
         return parameters.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
+                .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8)
+                        + "="
                         + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
                 .collect(Collectors.joining("&"));
     }

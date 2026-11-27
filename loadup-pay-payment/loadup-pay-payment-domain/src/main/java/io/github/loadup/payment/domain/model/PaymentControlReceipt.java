@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
- * Immutable local command receipt. The digest is calculated by payment, never accepted from the caller.
+ * Immutable local command receipt. The digest is calculated by payment, never accepted from the
+ * caller.
  */
 public record PaymentControlReceipt(
         String id,

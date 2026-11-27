@@ -47,7 +47,8 @@ import org.springframework.context.annotation.Import;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Conditional V2 payer-code and V3 strategy assembly, with no dependency on the consumer application.
+ * Conditional V2 payer-code and V3 strategy assembly, with no dependency on the consumer
+ * application.
  */
 @Import(WechatStatementConverterImpl.class)
 @AutoConfiguration

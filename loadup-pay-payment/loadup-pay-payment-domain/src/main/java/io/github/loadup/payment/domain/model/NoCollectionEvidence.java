@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
- * Created only after submission is fenced and channel/local evidence establishes no collection risk.
+ * Created only after submission is fenced and channel/local evidence establishes no collection
+ * risk.
  */
 public record NoCollectionEvidence(String evidenceId, String paymentId, boolean executionFenced) {
     public NoCollectionEvidence {

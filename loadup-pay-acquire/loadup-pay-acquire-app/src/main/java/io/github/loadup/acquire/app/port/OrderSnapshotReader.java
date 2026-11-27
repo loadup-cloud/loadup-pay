@@ -18,8 +18,6 @@ package io.github.loadup.acquire.app.port;
 import io.github.loadup.acquire.app.model.OrderSnapshotFacts;
 
 public interface OrderSnapshotReader {
-    /**
-     * Requires the caller's writable order transaction; never reads from a replica.
-     */
+    /** Requires the caller's writable order transaction; never reads from a replica. */
     OrderSnapshotFacts lockCurrent(String orderId);
 }

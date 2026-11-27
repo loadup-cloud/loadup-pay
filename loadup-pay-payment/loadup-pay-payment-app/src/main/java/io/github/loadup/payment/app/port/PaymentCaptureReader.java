@@ -19,7 +19,8 @@ import io.github.loadup.payment.domain.model.PaymentCaptureRead;
 import io.github.loadup.payment.domain.model.PaymentCaptureScope;
 
 /**
- * All source queries are on payment's own DataSource and the caller's actual read-only RR transaction.
+ * All source queries are on payment's own DataSource and the caller's actual read-only RR
+ * transaction.
  */
 public interface PaymentCaptureReader {
     PaymentCaptureRead read(PaymentCaptureScope scope);

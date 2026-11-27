@@ -106,8 +106,10 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
                 }
                 String notificationId = verified.notificationId();
                 String key = "refund-notification:"
-                        + DigestUtils.sha256(notificationId.getBytes(StandardCharsets.UTF_8).length + ":"
-                                + notificationId + facts.factsDigest(query));
+                        + DigestUtils.sha256(notificationId.getBytes(StandardCharsets.UTF_8).length
+                                + ":"
+                                + notificationId
+                                + facts.factsDigest(query));
                 String source = DigestUtils.sha256(
                         "refund-notification-source:" + verified.sourceDigest() + ":" + query.sourceDigest());
                 return results.record(converter.toObservation(query, key, source))

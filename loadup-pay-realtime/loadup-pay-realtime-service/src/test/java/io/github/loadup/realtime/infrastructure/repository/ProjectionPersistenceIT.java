@@ -74,9 +74,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Actual projection and receipt persistence; no transport, storage or transaction substitutes.
- */
+/** Actual projection and receipt persistence; no transport, storage or transaction substitutes. */
 @SpringBootTest(
         classes = ProjectionPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -371,7 +369,10 @@ class ProjectionPersistenceIT {
             assertEquals(
                     projections,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM " + fixture.kind.table + " WHERE " + fixture.kind.key
+                                    "SELECT COUNT(*) FROM "
+                                            + fixture.kind.table
+                                            + " WHERE "
+                                            + fixture.kind.key
                                             + " = ?",
                                     Long.class,
                                     fixture.aggregate)
@@ -420,7 +421,10 @@ class ProjectionPersistenceIT {
         PAYMENT("payment", "payment", "trade_payment_projection", "payment_id"),
         REFUND("payment", "refund", "trade_refund_projection", "refund_id"),
         SUMMARY("payment", "refund-summary", "trade_refund_summary", "order_id");
-        final String producer, permission, table, key;
+        final String producer;
+        final String permission;
+        final String table;
+        final String key;
 
         Kind(String producer, String permission, String table, String key) {
             this.producer = producer;
@@ -441,9 +445,7 @@ class ProjectionPersistenceIT {
 
     private record Outcome(ProjectionAckDTO ack, String failure) {}
 
-    /**
-     * Only the trusted actor adapter is supplied by the test; each racing caller owns its scope.
-     */
+    /** Only the trusted actor adapter is supplied by the test; each racing caller owns its scope. */
     static class Actors implements RealtimeActorProvider {
         private final ThreadLocal<RealtimeActor> current = new ThreadLocal<>();
 
@@ -463,9 +465,7 @@ class ProjectionPersistenceIT {
         }
     }
 
-    /**
-     * Injects failure only after the actual JDBC insert of the receipt.
-     */
+    /** Injects failure only after the actual JDBC insert of the receipt. */
     static class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 

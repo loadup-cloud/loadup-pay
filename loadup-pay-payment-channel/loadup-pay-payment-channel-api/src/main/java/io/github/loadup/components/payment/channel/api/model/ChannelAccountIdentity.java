@@ -26,8 +26,6 @@ public sealed interface ChannelAccountIdentity permits AlipayAccountIdentity, We
 
     AccessMode accessMode();
 
-    /**
-     * The actual collecting account, independent of app aliases and credential versions.
-     */
+    /** The actual collecting account, independent of app aliases and credential versions. */
     String collectingAccountId();
 }

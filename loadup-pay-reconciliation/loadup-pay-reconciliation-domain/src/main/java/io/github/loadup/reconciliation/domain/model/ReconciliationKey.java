@@ -25,7 +25,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationRecordKind;
 import java.util.Objects;
 
 /**
- * Refunds use the original transaction plus original merchant child-refund request, not a guessed universal refund id.
+ * Refunds use the original transaction plus original merchant child-refund request, not a guessed
+ * universal refund id.
  */
 public record ReconciliationKey(
         ReconciliationRecordKind kind,

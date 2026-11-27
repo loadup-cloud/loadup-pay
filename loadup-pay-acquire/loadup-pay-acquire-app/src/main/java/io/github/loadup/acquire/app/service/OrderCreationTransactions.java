@@ -50,7 +50,8 @@ public class OrderCreationTransactions {
     }
 
     /**
-     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer
+     * transaction or remote IO.
      */
     public <T> T writeLocal(Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -71,7 +72,8 @@ public class OrderCreationTransactions {
     }
 
     /**
-     * A short consistent local database snapshot. No row locks, mutations, remote IO or outer transaction.
+     * A short consistent local database snapshot. No row locks, mutations, remote IO or outer
+     * transaction.
      */
     public <T> T readSnapshot(Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {

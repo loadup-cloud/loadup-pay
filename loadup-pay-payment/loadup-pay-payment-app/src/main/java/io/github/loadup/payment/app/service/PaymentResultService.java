@@ -59,8 +59,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Y3 internal use case. Call only with authenticated, account-verified adapter facts.
- * No merchant/operations HTTP endpoint accepts an observation or an evidence id.
+ * Y3 internal use case. Call only with authenticated, account-verified adapter facts. No
+ * merchant/operations HTTP endpoint accepts an observation or an evidence id.
  */
 @Component
 public class PaymentResultService {
@@ -163,7 +163,8 @@ public class PaymentResultService {
                 return transactions.writeLocal(() -> {
                     var current = locks.lock(original.identity().paymentId(), accepted.callerServiceId());
                     actions.record(current, original, submission, null);
-                    // No observation, receipt, state transition, successful capacity or result event exists yet.
+                    // No observation, receipt, state transition, successful capacity or result event
+                    // exists yet.
                     return new PaymentResultApplication(IGNORED, null, actions.present(current));
                 });
             });
@@ -173,7 +174,8 @@ public class PaymentResultService {
         }
         return transactions.guarded(() -> {
             var observation = submission.observation();
-            String digest = codec.factsDigest(observation), payload = codec.encode(observation);
+            String digest = codec.factsDigest(observation);
+            String payload = codec.encode(observation);
             var accepted =
                     payments.find(original.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(() -> {
@@ -181,7 +183,8 @@ public class PaymentResultService {
                 if (applied.disposition() == CONFLICT) {
                     return applied;
                 }
-                // Re-read under the same parent/payment locks; Y3 may already have observed a terminal winner.
+                // Re-read under the same parent/payment locks; Y3 may already have observed a
+                // terminal winner.
                 var current = locks.lock(original.identity().paymentId(), accepted.callerServiceId());
                 actions.record(current, original, submission, applied.receiptId());
                 return new PaymentResultApplication(

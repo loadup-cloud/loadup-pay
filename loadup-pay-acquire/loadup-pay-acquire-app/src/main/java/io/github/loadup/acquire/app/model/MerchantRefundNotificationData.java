@@ -19,7 +19,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.OffsetDateTime;
 
 /**
- * Public business projection; source evidence ids, channel accounts and submission secrets are excluded.
+ * Public business projection; source evidence ids, channel accounts and submission secrets are
+ * excluded.
  */
 public record MerchantRefundNotificationData(
         String orderId,

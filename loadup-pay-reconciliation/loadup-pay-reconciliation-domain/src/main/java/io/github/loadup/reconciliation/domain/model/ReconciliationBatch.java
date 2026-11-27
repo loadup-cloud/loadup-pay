@@ -27,7 +27,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationState;
 import java.util.Objects;
 
 /**
- * Append-only input sealing and one durable run. Infrastructure failures never manufacture matched results.
+ * Append-only input sealing and one durable run. Infrastructure failures never manufacture matched
+ * results.
  */
 public record ReconciliationBatch(
         String id,

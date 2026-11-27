@@ -20,7 +20,8 @@ import io.github.loadup.reconciliation.domain.model.ReconciliationManifest;
 import java.util.Optional;
 
 /**
- * Reads only this service's sealed normalized storage; no file, source-service or channel I/O under batch locks.
+ * Reads only this service's sealed normalized storage; no file, source-service or channel I/O under
+ * batch locks.
  */
 public interface ReconciliationInputGateway {
     Optional<ReconciliationManifest> sealedManifest(String artifactId);

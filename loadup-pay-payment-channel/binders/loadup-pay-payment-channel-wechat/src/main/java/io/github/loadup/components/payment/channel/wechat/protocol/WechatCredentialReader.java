@@ -40,7 +40,8 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Only trusted catalog paths may supply a frozen descriptor; no path is constructed from request input.
+ * Only trusted catalog paths may supply a frozen descriptor; no path is constructed from request
+ * input.
  */
 public class WechatCredentialReader {
     private final WechatProperties properties;
@@ -72,9 +73,7 @@ public class WechatCredentialReader {
         }
     }
 
-    /**
-     * Caller owns and must zero the returned APIv3 key. No fallback to a current key version.
-     */
+    /** Caller owns and must zero the returned APIv3 key. No fallback to a current key version. */
     public byte[] apiV3Key(ChannelBindingRevision binding) {
         var encrypted = document(binding).apiV3Key();
         if (encrypted == null) {
@@ -95,9 +94,7 @@ public class WechatCredentialReader {
         return value;
     }
 
-    /**
-     * APIv2 and APIv3 keys are separate products; callers own and zero this exact-version key.
-     */
+    /** APIv2 and APIv3 keys are separate products; callers own and zero this exact-version key. */
     public byte[] apiV2Key(ChannelBindingRevision binding) {
         var encrypted = document(binding).apiV2Key();
         if (encrypted == null) {

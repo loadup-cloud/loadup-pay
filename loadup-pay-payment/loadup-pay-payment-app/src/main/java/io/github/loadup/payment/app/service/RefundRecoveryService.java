@@ -36,9 +36,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Continuation generations complement native task claims; neither is channel evidence.
- */
+/** Continuation generations complement native task claims; neither is channel evidence. */
 @Service
 public class RefundRecoveryService {
     public static final String TYPE = "pay.payment.refund.progress";
@@ -67,9 +65,7 @@ public class RefundRecoveryService {
         this.polling = Objects.requireNonNull(polling);
     }
 
-    /**
-     * Caller holds the original parent/request transaction when inserting the fixed refund plan.
-     */
+    /** Caller holds the original parent/request transaction when inserting the fixed refund plan. */
     public void register(StoredRefundRequest stored) {
         writable();
         if (stored.request().version() != 0
@@ -105,7 +101,8 @@ public class RefundRecoveryService {
         if (!active) {
             return RecoveryHandlingOutcome.SKIPPED;
         }
-        // Existing durable first-submit winner and original-request query logic own all channel side effects.
+        // Existing durable first-submit winner and original-request query logic own all channel side
+        // effects.
         execution.progress(key.requestId());
         return transactions.writeLocal(() -> {
             var request = locks.request(key.requestId());
@@ -126,7 +123,8 @@ public class RefundRecoveryService {
                         LocalDateTime.now(clock));
                 var next = before.schedule(nextAt, key.generation());
                 cursors.update(before, next);
-                // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
+                // Native task claims are not rescheduled while RUNNING; commit a distinct successor
+                // atomically.
                 tasks.submit(TaskSubmission.scheduled(
                         TYPE, new RefundRecoveryKey(next.requestId(), next.generation()).bizId(), next.dueAt()));
                 return RecoveryHandlingOutcome.CONTINUED;

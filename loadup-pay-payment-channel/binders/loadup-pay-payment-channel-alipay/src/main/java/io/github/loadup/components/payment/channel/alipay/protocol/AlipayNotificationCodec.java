@@ -37,7 +37,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Strict RSA2 trade notification verification; the verified notification remains only a query trigger.
+ * Strict RSA2 trade notification verification; the verified notification remains only a query
+ * trigger.
  */
 public final class AlipayNotificationCodec {
     private final AlipayCredentialReader credentials;
@@ -154,7 +155,8 @@ public final class AlipayNotificationCodec {
             if (separator <= 0) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
-            String key = decode(field.substring(0, separator)), value = decode(field.substring(separator + 1));
+            String key = decode(field.substring(0, separator));
+            String value = decode(field.substring(separator + 1));
             if (!key.matches("[A-Za-z][A-Za-z0-9_]{0,63}")
                     || value.length() > 16384
                     || parameters.putIfAbsent(key, value) != null) {
@@ -173,7 +175,8 @@ public final class AlipayNotificationCodec {
                     if (i + 2 >= part.length()) {
                         throw new CommonException(CHANNEL_RESPONSE_INVALID);
                     }
-                    int high = Character.digit(part.charAt(++i), 16), low = Character.digit(part.charAt(++i), 16);
+                    int high = Character.digit(part.charAt(++i), 16);
+                    int low = Character.digit(part.charAt(++i), 16);
                     if (high < 0 || low < 0) {
                         throw new CommonException(CHANNEL_RESPONSE_INVALID);
                     }

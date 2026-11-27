@@ -22,9 +22,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * The generation fences obsolete wake-ups; it is not a channel submission key.
- */
+/** The generation fences obsolete wake-ups; it is not a channel submission key. */
 public record AllocationRecoveryKey(String paymentId, long generation) {
     public AllocationRecoveryKey {
         DomainChecks.id(paymentId);

@@ -45,7 +45,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Original submitted owner target and read-only provider query only. No Y2/Y3, close, refund submit, or outbox writes.
+ * Original submitted owner target and read-only provider query only. No Y2/Y3, close, refund
+ * submit, or outbox writes.
  */
 @Service
 public class PaymentVerificationService implements PaymentVerificationFacade {

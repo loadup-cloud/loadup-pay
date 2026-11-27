@@ -48,7 +48,8 @@ public record LimitReservationItem(
     }
 
     /**
-     * The cumulative snapshot is a high-water mark, so duplicates and older refunds restore no extra quota.
+     * The cumulative snapshot is a high-water mark, so duplicates and older refunds restore no extra
+     * quota.
      */
     public LimitItemRestore restoreRefund(
             LimitReservation reservation,

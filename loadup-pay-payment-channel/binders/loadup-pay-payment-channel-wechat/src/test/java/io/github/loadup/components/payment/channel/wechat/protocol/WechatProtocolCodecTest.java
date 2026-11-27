@@ -94,8 +94,15 @@ class WechatProtocolCodecTest {
                         eq(KmsSignatureAlgorithm.RSA_SHA256_PKCS1),
                         canonical.capture());
         assertEquals(
-                "GET\n" + uri.getRawPath() + "?" + uri.getRawQuery() + "\n" + NOW.getEpochSecond() + "\n"
-                        + nonce.group(1) + "\n\n",
+                "GET\n"
+                        + uri.getRawPath()
+                        + "?"
+                        + uri.getRawQuery()
+                        + "\n"
+                        + NOW.getEpochSecond()
+                        + "\n"
+                        + nonce.group(1)
+                        + "\n\n",
                 new String(canonical.getValue(), StandardCharsets.UTF_8));
         assertEquals(PLATFORM, headers.get("Wechatpay-Serial"));
         clearInvocations(kms);
@@ -110,8 +117,13 @@ class WechatProtocolCodecTest {
         assertTrue(postNonce.find());
         verify(kms).sign(any(), any(), canonical.capture());
         assertEquals(
-                "POST\n/v3/pay/transactions/jsapi\n" + NOW.getEpochSecond() + "\n" + postNonce.group(1) + "\n"
-                        + new String(body, StandardCharsets.UTF_8) + "\n",
+                "POST\n/v3/pay/transactions/jsapi\n"
+                        + NOW.getEpochSecond()
+                        + "\n"
+                        + postNonce.group(1)
+                        + "\n"
+                        + new String(body, StandardCharsets.UTF_8)
+                        + "\n",
                 new String(canonical.getValue(), StandardCharsets.UTF_8));
     }
 

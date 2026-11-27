@@ -23,9 +23,7 @@ import java.util.Optional;
  * execution context before the connection is acquired.
  */
 public interface MerchantFactsGateway {
-    /**
-     * Serializes eligibility and authorization changes for this payee in the current transaction.
-     */
+    /** Serializes eligibility and authorization changes for this payee in the current transaction. */
     MerchantFacts lock(String merchantId);
 
     Optional<MerchantFacts> find(String merchantId);

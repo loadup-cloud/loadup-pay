@@ -56,7 +56,8 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Bounded, local RR evidence read. Never selects encrypted inputs/contracts, locks financial rows or calls a channel.
+ * Bounded, local RR evidence read. Never selects encrypted inputs/contracts, locks financial rows
+ * or calls a channel.
  */
 @Repository
 public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
@@ -124,7 +125,9 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 .addValue("end", scope.windowEnd())
                 .addValue("limit", maxRecords + 1);
         var collectionRows = jdbc.query(
-                "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE deleted = FALSE AND channel ="
+                "SELECT "
+                        + CLAIM_COLUMNS
+                        + " FROM channel_transaction_claim WHERE deleted = FALSE AND channel ="
                         + " :channel AND account_scope_hash = :scope AND succeeded_at >= :start AND"
                         + " succeeded_at < :end ORDER BY succeeded_at ASC, id ASC LIMIT :limit",
                 collectionArgs,
@@ -163,7 +166,8 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         for (int start = 0; start < refundRows.size(); start += 256) {
             addRefunds(refundRows.subList(start, Math.min(start + 256, refundRows.size())), result);
         }
-        long paymentTotal = 0, refundTotal = 0;
+        long paymentTotal = 0;
+        long refundTotal = 0;
         for (var line : result) {
             try {
                 if (line.kind() == PaymentLedgerKind.PAYMENT) {
@@ -326,12 +330,15 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                         group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
         var originals = unique(
                 jdbc.query(
-                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE "
+                        "SELECT "
+                                + CLAIM_COLUMNS
+                                + " FROM channel_transaction_claim WHERE "
                                 + "deleted = FALSE AND payment_id IN (:ids)",
                         originalArgs,
                         BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class)),
                 ChannelTransactionClaimDO::getPaymentId);
-        // Original collection evidence is checked with the same complete binding checks, regardless of its payment
+        // Original collection evidence is checked with the same complete binding checks, regardless of
+        // its payment
         // date.
         addCollections(new ArrayList<>(originals.values()), new ArrayList<>());
         var terminalArgs = new MapSqlParameterSource()

@@ -20,9 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
-/**
- * Merchant identity and permissions extracted only from a verified credential.
- */
+/** Merchant identity and permissions extracted only from a verified credential. */
 public record RefundActor(String merchantId, String subjectHash, Set<String> permissions) {
     public RefundActor {
         DomainChecks.id(merchantId);

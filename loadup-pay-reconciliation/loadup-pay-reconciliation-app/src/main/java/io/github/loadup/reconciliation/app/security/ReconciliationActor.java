@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
-/**
- * Supplied only by an authenticated inbound adapter; request DTOs carry no permission claims.
- */
+/** Supplied only by an authenticated inbound adapter; request DTOs carry no permission claims. */
 public record ReconciliationActor(String serviceId, Set<String> permissions) {
     public ReconciliationActor {
         DomainChecks.id(serviceId);

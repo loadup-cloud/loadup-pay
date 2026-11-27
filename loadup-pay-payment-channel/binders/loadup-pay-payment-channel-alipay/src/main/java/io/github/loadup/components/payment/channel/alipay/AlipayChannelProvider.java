@@ -27,9 +27,7 @@ import io.github.loadup.components.payment.channel.api.model.RefundObservation;
 import io.github.loadup.components.payment.channel.api.spi.ChannelProvider;
 import io.github.loadup.components.payment.channel.contract.Channel;
 
-/**
- * Alipay collection and refund strategy, independent of payment application orchestration.
- */
+/** Alipay collection and refund strategy, independent of payment application orchestration. */
 public final class AlipayChannelProvider implements ChannelProvider {
     private final AlipayRefundAdapter refunds;
     private final AlipayPaymentAdapter payments;

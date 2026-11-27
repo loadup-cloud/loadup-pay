@@ -29,7 +29,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
- * Immutable provider acceptance metadata. It is never a terminal refund, release or settlement claim.
+ * Immutable provider acceptance metadata. It is never a terminal refund, release or settlement
+ * claim.
  */
 public record RefundAcceptanceEvidence(
         String refundId,

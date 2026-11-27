@@ -15,8 +15,6 @@
  */
 package io.github.loadup.payment.client.facade;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface PaymentExecutionFacade
         extends PaymentAcceptanceFacade, PaymentControlFacade, PaymentOutcomeFacade, PaymentAttemptFacade {}

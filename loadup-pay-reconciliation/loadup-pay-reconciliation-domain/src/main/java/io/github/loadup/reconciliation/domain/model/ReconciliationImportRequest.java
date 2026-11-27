@@ -28,7 +28,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationSourceKind;
 import java.util.Objects;
 
 /**
- * One immutable file intent and one native task. Parser failures never become reconciliation success.
+ * One immutable file intent and one native task. Parser failures never become reconciliation
+ * success.
  */
 public record ReconciliationImportRequest(
         String id,

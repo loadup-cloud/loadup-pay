@@ -333,6 +333,7 @@ class ChannelBindingServiceTest {
                         .getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock ports establish the boundary; real PostgreSQL rollback remains an integration acceptance item.
+        // Mock ports establish the boundary; real PostgreSQL rollback remains an integration acceptance
+        // item.
     }
 }

@@ -364,7 +364,8 @@ class RefundPlanningServiceTest {
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         verify(recovery).register(any());
-        // The in-memory transaction fixture checks propagation only; real database rollback remains integration
+        // The in-memory transaction fixture checks propagation only; real database rollback remains
+        // integration
         // acceptance.
     }
 

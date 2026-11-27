@@ -59,7 +59,8 @@ final class RealtimeFixtures {
     }
 
     static final class Transactions extends AbstractPlatformTransactionManager {
-        int commits, rollbacks;
+        int commits;
+        int rollbacks;
 
         @Override
         protected Object doGetTransaction() {

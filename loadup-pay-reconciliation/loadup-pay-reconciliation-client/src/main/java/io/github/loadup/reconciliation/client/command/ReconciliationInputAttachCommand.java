@@ -23,7 +23,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * Artifact identity must resolve to approved complete import/export evidence, not an arbitrary uploaded file.
+ * Artifact identity must resolve to approved complete import/export evidence, not an arbitrary
+ * uploaded file.
  */
 public record ReconciliationInputAttachCommand(
         @Schema(description = "Reconciliation batch id") @NotBlank @Size(max = 64) String batchId,

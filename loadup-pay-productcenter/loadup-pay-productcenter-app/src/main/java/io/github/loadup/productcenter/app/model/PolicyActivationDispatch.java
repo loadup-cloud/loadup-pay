@@ -18,9 +18,7 @@ package io.github.loadup.productcenter.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * No access token or policy payload is copied into the queue.
- */
+/** No access token or policy payload is copied into the queue. */
 public record PolicyActivationDispatch(String publicationId) {
     public static final String TYPE = "product.limit-policy.activate.v1";
 

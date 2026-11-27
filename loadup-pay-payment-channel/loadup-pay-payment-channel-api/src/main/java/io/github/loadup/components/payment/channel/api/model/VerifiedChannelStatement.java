@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 /**
- * Successful transport provenance only; the bytes still require a complete account/date/format/trailer parser.
+ * Successful transport provenance only; the bytes still require a complete
+ * account/date/format/trailer parser.
  */
 public record VerifiedChannelStatement(
         String bindingRevisionId,

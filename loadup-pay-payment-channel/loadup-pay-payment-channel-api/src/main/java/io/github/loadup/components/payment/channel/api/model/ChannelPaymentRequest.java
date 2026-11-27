@@ -25,7 +25,8 @@ import java.time.OffsetDateTime;
 import java.util.Objects;
 
 /**
- * Business context frozen by the upstream order; lifetime is not recomputed from channel submission time.
+ * Business context frozen by the upstream order; lifetime is not recomputed from channel submission
+ * time.
  */
 public record ChannelPaymentRequest(
         PreparedChannelPayment payment,

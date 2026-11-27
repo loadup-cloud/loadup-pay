@@ -20,7 +20,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 public record MerchantProfileDTO(
         @Schema(description = "Resource identifier") String id,
-
         @Schema(description = "Merchant code") String merchantCode,
         @Schema(description = "Type") String type,
         @Schema(description = "Industry") String industry,

@@ -24,9 +24,7 @@ import io.github.loadup.contracts.commercial.ContractReference;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Authoritative current facts adapted from the reused framework contract aggregate.
- */
+/** Authoritative current facts adapted from the reused framework contract aggregate. */
 public record MerchantContractFacts(
         String merchantId,
         ContractReference reference,

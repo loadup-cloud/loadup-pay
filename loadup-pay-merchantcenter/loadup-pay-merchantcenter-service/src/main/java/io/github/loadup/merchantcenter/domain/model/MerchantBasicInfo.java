@@ -31,15 +31,10 @@ public record MerchantBasicInfo(
         String country,
         String province,
         String city,
-
         @Masked(MaskType.FULL) String address,
-
         @Masked(MaskType.FULL) String registrationNo,
-
         @Masked(MaskType.NAME) String contactName,
-
         @Masked(MaskType.PHONE) String contactPhone,
-
         @Masked(MaskType.EMAIL) String contactEmail) {
     public MerchantBasicInfo {
         for (String value : new String[] {merchantCode, name, industry, country}) {

@@ -18,9 +18,7 @@ package io.github.loadup.components.payment.channel.api.model;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 
-/**
- * Original attempt metadata for receipt correlation; this value is not a submission permit.
- */
+/** Original attempt metadata for receipt correlation; this value is not a submission permit. */
 public sealed interface ChannelPaymentExecution permits PreparedChannelPayment, ChannelPaymentRecovery {
     ChannelPaymentIdentity identity();
 

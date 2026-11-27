@@ -137,7 +137,8 @@ public class RefundPlanningService implements RefundFacade {
                 return replay(actor, known.get(), digest);
             }
             lockParent(actor, command.orderId());
-            // A competing key on another order must fail by digest, not expose or load that order's children.
+            // A competing key on another order must fail by digest, not expose or load that order's
+            // children.
             known = refunds.merchantReference(actor.merchantId(), command.merchantRefundNo());
             if (known.isPresent()) {
                 return replayLocked(actor, known.get(), command.orderId(), digest);
@@ -221,7 +222,8 @@ public class RefundPlanningService implements RefundFacade {
             eligible.forEach(c -> byPayment.put(c.paymentId(), c));
             for (var item : plan) {
                 String refundId = ids.generate();
-                // Stable channel request numbers are independent of UUID formatting and always fit provider limits.
+                // Stable channel request numbers are independent of UUID formatting and always fit
+                // provider limits.
                 String channelNo = codec.checksum("refund/" + refundId).substring(0, 32);
                 var child = RefundOrder.init(refundId, requestId, item.paymentId(), item.amount(), channelNo);
                 children.add(converter.toChild(child, item.sequenceNo(), claims.get(item.paymentId())));

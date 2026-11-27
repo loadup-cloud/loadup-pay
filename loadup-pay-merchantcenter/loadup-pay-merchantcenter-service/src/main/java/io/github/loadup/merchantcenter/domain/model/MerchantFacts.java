@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
- * Only the trusted facts needed by the acquiring domain; full profile belongs to the reused merchant module.
+ * Only the trusted facts needed by the acquiring domain; full profile belongs to the reused
+ * merchant module.
  */
 public record MerchantFacts(String merchantId, boolean active, long version) {
     public MerchantFacts {

@@ -19,8 +19,6 @@ import io.github.loadup.acquire.client.command.PaymentProgressRefreshCommand;
 import io.github.loadup.acquire.client.dto.PaymentProgressDTO;
 
 public interface PaymentProgressFacade {
-    /**
-     * Pull trusted payment facts and apply a terminal outcome to the original amount hold.
-     */
+    /** Pull trusted payment facts and apply a terminal outcome to the original amount hold. */
     PaymentProgressDTO refresh(PaymentProgressRefreshCommand query);
 }

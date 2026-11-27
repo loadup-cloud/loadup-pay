@@ -23,9 +23,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-/**
- * Permanently disables one original capability without cancelling or refunding its payments.
- */
+/** Permanently disables one original capability without cancelling or refunding its payments. */
 public record CheckoutSessionRevokeCommand(
         @Schema(description = "Original checkout session id") @NotBlank @Size(max = 64) String id,
 

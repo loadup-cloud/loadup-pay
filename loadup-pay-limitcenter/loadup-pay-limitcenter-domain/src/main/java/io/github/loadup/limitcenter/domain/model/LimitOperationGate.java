@@ -23,9 +23,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Objects;
 
-/**
- * Persists a release even when Reserve has not arrived.
- */
+/** Persists a release even when Reserve has not arrived. */
 public record LimitOperationGate(
         String operationId,
         String paymentId,

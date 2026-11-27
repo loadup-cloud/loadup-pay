@@ -107,7 +107,9 @@ class WechatV2CodecTest {
         var signature = HexFormat.of().withUpperCase().formatHex(codec.mac(fields, key));
         String xml =
                 "<xml><return_code>SUCCESS</return_code><result_code>FAIL</result_code><err_code>USERPAYING</err_code>"
-                        + "<FutureField>extension</FutureField><sign>" + signature + "</sign></xml>";
+                        + "<FutureField>extension</FutureField><sign>"
+                        + signature
+                        + "</sign></xml>";
         assertEquals(
                 "extension",
                 codec.verify(WechatV2Method.MICROPAY, xml.getBytes(StandardCharsets.UTF_8), key)

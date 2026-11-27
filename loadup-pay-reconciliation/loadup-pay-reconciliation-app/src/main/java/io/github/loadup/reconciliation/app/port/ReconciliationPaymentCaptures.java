@@ -23,7 +23,8 @@ import io.github.loadup.reconciliation.app.model.payment.dto.PaymentLedgerLineDT
 import io.github.loadup.reconciliation.app.model.payment.query.PaymentCaptureLinesQuery;
 
 /**
- * Network calls only, with a trusted tenant and the reconciliation service credential; no local transaction.
+ * Network calls only, with a trusted tenant and the reconciliation service credential; no local
+ * transaction.
  */
 public interface ReconciliationPaymentCaptures {
     PaymentCaptureDTO create(PaymentCaptureCreateCommand command);

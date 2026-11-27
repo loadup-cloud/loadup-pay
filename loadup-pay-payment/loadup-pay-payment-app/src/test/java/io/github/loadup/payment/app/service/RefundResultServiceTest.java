@@ -330,7 +330,8 @@ class RefundResultServiceTest {
                 CommonException.class, () -> service.record(observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock state is not a rollback proof. Real claim/child/request/capacity rollback still needs PostgreSQL
+        // Mock state is not a rollback proof. Real claim/child/request/capacity rollback still needs
+        // PostgreSQL
         // acceptance.
     }
 

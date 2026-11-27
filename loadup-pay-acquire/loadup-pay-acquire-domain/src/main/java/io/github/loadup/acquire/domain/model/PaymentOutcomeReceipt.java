@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Immutable terminal fact committed with the order and its original allocation.
- */
+/** Immutable terminal fact committed with the order and its original allocation. */
 public record PaymentOutcomeReceipt(
         String id, String allocationId, VerifiedPaymentOutcome outcome, LocalDateTime observedAt) {
     public PaymentOutcomeReceipt {

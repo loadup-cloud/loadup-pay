@@ -40,7 +40,8 @@ import java.util.TreeMap;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Maps verified Alipay refund responses to original-account facts; never infers absence of a refund.
+ * Maps verified Alipay refund responses to original-account facts; never infers absence of a
+ * refund.
  */
 public final class AlipayRefundAdapter {
     private final AlipayProtocolClient client;
@@ -101,7 +102,8 @@ public final class AlipayRefundAdapter {
                     responses.text(response, "total_amount"),
                     refund.originalAmount().getCent());
         }
-        // Absence of refund_status is not a no-refund proof; stable out_request_no supplies provider idempotency.
+        // Absence of refund_status is not a no-refund proof; stable out_request_no supplies provider
+        // idempotency.
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256(
                 "alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
@@ -148,7 +150,8 @@ public final class AlipayRefundAdapter {
             } catch (RuntimeException invalidTime) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
-            // Alipay's ordinary refund API identifies refunds by this verified natural key, not a refund_id.
+            // Alipay's ordinary refund API identifies refunds by this verified natural key, not a
+            // refund_id.
             reference = "alipay:"
                     + DigestUtils.sha256(framed(refund.originalChannelTransactionNo(), refund.channelRefundNo()));
             kind = ChannelRefundOutcome.Kind.SUCCEEDED;

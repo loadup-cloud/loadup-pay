@@ -18,9 +18,7 @@ package io.github.loadup.components.payment.channel.wechat.protocol;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/**
- * Original verified response text; API acceptance alone is not payment success.
- */
+/** Original verified response text; API acceptance alone is not payment success. */
 public record WechatVerifiedResponse(
         WechatMethod method, int status, @DiagnosticHidden String payload, String sourceDigest) {
     @Override

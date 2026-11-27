@@ -54,7 +54,8 @@ public record PaymentCapture(
                         && requestDigest.matches("[0-9a-f]{64}")
                         && version == (state == PaymentCaptureState.INIT ? 0L : 1L),
                 INVALID_ARGUMENT);
-        boolean initial = state == PaymentCaptureState.INIT, sealed = state == PaymentCaptureState.SEALED;
+        boolean initial = state == PaymentCaptureState.INIT;
+        boolean sealed = state == PaymentCaptureState.SEALED;
         require(initial == (startedAt == null) && initial == (finishedAt == null), INVALID_STATE);
         if (!initial) {
             require(!finishedAt.isBefore(startedAt), INVALID_ARGUMENT);

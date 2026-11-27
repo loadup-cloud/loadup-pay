@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Original caller ownership and immutable admission travel with the domain order.
- */
+/** Original caller ownership and immutable admission travel with the domain order. */
 public record StoredAcquireOrder(
         AcquireOrder order,
         String merchantOrderNo,

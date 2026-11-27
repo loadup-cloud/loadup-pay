@@ -20,9 +20,7 @@ import io.github.loadup.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.payment.client.query.PaymentInputLookupQuery;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface PaymentInputFacade {
     PaymentInputDTO prepare(PaymentInputPrepareCommand command);
 

@@ -232,7 +232,8 @@ class PaymentAcceptanceServiceTest {
         assertThrows(CommonException.class, () -> accept(command));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Unit counters prove propagation only; real SQL rollback remains an independent database acceptance.
+        // Unit counters prove propagation only; real SQL rollback remains an independent database
+        // acceptance.
     }
 
     @Test
@@ -463,7 +464,8 @@ class PaymentAcceptanceServiceTest {
     }
 
     static final class UnitTransactions extends AbstractPlatformTransactionManager {
-        int commits, rollbacks;
+        int commits;
+        int rollbacks;
 
         @Override
         protected Object doGetTransaction() {

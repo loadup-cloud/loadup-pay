@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Trusted API-calling machine IP by binding revision, never a browser forwarding header.
- */
+/** Trusted API-calling machine IP by binding revision, never a browser forwarding header. */
 @ConfigurationProperties("loadup.payment.channel.wechat.codepay")
 public record WechatCodepayProperties(Map<String, String> serverIps) {
     public WechatCodepayProperties {

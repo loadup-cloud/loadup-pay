@@ -63,8 +63,8 @@ public final class WechatJsapiSigner {
         var original = credentials.read(context.binding());
         byte[] nonceBytes = new byte[16];
         random.nextBytes(nonceBytes);
-        String timestamp = Long.toString(clock.instant().getEpochSecond()),
-                nonce = HexFormat.of().formatHex(nonceBytes);
+        String timestamp = Long.toString(clock.instant().getEpochSecond());
+        String nonce = HexFormat.of().formatHex(nonceBytes);
         String packageValue = "prepay_id=" + prepayId;
         var key = original.signingKey();
         try {

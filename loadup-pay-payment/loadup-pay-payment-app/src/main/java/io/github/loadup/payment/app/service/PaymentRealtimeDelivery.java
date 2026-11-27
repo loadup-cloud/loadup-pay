@@ -31,7 +31,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Complete source snapshots are delivered independently; no source lookup or downstream read participates in Y3.
+ * Complete source snapshots are delivered independently; no source lookup or downstream read
+ * participates in Y3.
  */
 @Component
 public class PaymentRealtimeDelivery {

@@ -26,9 +26,7 @@ import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * The existing order header owns deadlineVersion; native tasks only wake its due check.
- */
+/** The existing order header owns deadlineVersion; native tasks only wake its due check. */
 @Component
 public class OrderDeadlineTasks {
     public static final String TYPE = "pay.acquire.order.deadline";

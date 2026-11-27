@@ -64,9 +64,7 @@ public record MerchantActionGrant(
         return new MerchantActionGrant(id, type, principal, payee, relationship, action, GrantState.INIT, from, to, 0);
     }
 
-    /**
-     * Principal ownership is resolved from trusted identity facts, never a public request field.
-     */
+    /** Principal ownership is resolved from trusted identity facts, never a public request field. */
     public boolean allows(
             PrincipalType type,
             String principal,

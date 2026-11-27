@@ -23,9 +23,7 @@ import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.payment.channel.contract.ChannelAmounts;
 
-/**
- * A trusted final payment outcome, not a timeout or a caller's claim.
- */
+/** A trusted final payment outcome, not a timeout or a caller's claim. */
 public record LimitReleaseEvidence(
         String paymentId, Money amount, long paymentVersion, String evidenceId, boolean executionFenced) {
     public LimitReleaseEvidence {

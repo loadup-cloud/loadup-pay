@@ -68,7 +68,8 @@ public class ContractResolveService implements ContractResolveFacade {
             }
             values.put(key, converter.toValue(value));
         });
-        // Read authoritative state after external fact loading; do not use asynchronous caches for revocation.
+        // Read authoritative state after external fact loading; do not use asynchronous caches for
+        // revocation.
         var header = gateway.findByScope(query.merchantId(), query.scopeKey())
                 .orElseThrow(() -> new CommonException(ContractResultCodeEnum.NOT_FOUND));
         var snapshot = contracts.snapshot(header);

@@ -18,9 +18,7 @@ package io.github.loadup.merchantcenter.client.facade;
 import io.github.loadup.merchantcenter.client.command.MerchantActionAuthorizeCommand;
 import io.github.loadup.merchantcenter.client.dto.MerchantEligibilityDTO;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface MerchantEligibilityFacade {
     MerchantEligibilityDTO authorize(MerchantActionAuthorizeCommand command);
 }

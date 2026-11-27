@@ -19,9 +19,7 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.productcenter.client.command.OrderAdmissionAuthorizeCommand;
 import io.github.loadup.productcenter.client.dto.OrderAdmissionDTO;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface OrderAdmissionFacade {
     OrderAdmissionDTO authorize(OrderAdmissionAuthorizeCommand command);
 

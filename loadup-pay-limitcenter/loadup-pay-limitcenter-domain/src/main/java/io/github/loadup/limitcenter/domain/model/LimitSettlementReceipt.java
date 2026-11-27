@@ -22,9 +22,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/**
- * One immutable final monetary outcome; alternate delivery ids cannot consume quota twice.
- */
+/** One immutable final monetary outcome; alternate delivery ids cannot consume quota twice. */
 public record LimitSettlementReceipt(
         String id,
         String operationId,

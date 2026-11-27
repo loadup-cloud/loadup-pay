@@ -109,7 +109,8 @@ public class PaymentChannelCallbackController {
                     .contentType(MediaType.parseMediaType(acknowledgement.contentType()))
                     .body(acknowledgement.body());
         } catch (RuntimeException rejected) {
-            // Unknown endpoints and unavailable protocol strategies cannot produce a successful acknowledgement.
+            // Unknown endpoints and unavailable protocol strategies cannot produce a successful
+            // acknowledgement.
             return ResponseEntity.badRequest().build();
         }
     }

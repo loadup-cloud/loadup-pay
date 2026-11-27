@@ -69,8 +69,13 @@ class AlipayProtocolCodecTest {
         var signer = Signature.getInstance("SHA256withRSA");
         signer.initSign(pair.getPrivate());
         signer.update(payload.getBytes(StandardCharsets.UTF_8));
-        return "{\"" + method.responseNode() + "\":" + payload + ",\"sign\":\""
-                + Base64.getEncoder().encodeToString(signer.sign()) + "\"}";
+        return "{\""
+                + method.responseNode()
+                + "\":"
+                + payload
+                + ",\"sign\":\""
+                + Base64.getEncoder().encodeToString(signer.sign())
+                + "\"}";
     }
 
     @Test
@@ -85,7 +90,8 @@ class AlipayProtocolCodecTest {
         var bytes = ArgumentCaptor.forClass(byte[].class);
         verify(kms).sign(any(), eq(KmsSignatureAlgorithm.RSA_SHA256_PKCS1), bytes.capture());
         assertEquals(
-                "app_auth_token=secret-auth-token&app_id=app&biz_content=" + business
+                "app_auth_token=secret-auth-token&app_id=app&biz_content="
+                        + business
                         + "&charset=utf-8&format=json&method=alipay.trade.pay"
                         + "&notify_url=https://merchant.example/notify?a=b c&sign_type=RSA2&timestamp=2026-10-23 18:11:12"
                         + "&version=1.0",

@@ -312,7 +312,8 @@ class PaymentCaptureServiceTest {
     }
 
     static final class Tx extends AbstractPlatformTransactionManager {
-        int isolation, timeout;
+        int isolation;
+        int timeout;
 
         @Override
         protected Object doGetTransaction() {

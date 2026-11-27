@@ -81,7 +81,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Uses synthetic responses signed by a real RSA key; no network, credential files or bill downloads.
+ * Uses synthetic responses signed by a real RSA key; no network, credential files or bill
+ * downloads.
  */
 class AlipayStatementGrantClientTest {
     static final Instant NOW = Instant.parse("2026-10-28T04:00:00Z");
@@ -170,8 +171,13 @@ class AlipayStatementGrantClientTest {
                     signer.update(raw.getBytes(StandardCharsets.UTF_8));
                     String signature =
                             corruptSignature ? "AQ==" : Base64.getEncoder().encodeToString(signer.sign());
-                    byte[] response = ("{\"" + AlipayMethod.BILL_DOWNLOAD_URL.responseNode() + "\":" + raw
-                                    + ",\"sign\":\"" + signature + "\"}")
+                    byte[] response = ("{\""
+                                    + AlipayMethod.BILL_DOWNLOAD_URL.responseNode()
+                                    + "\":"
+                                    + raw
+                                    + ",\"sign\":\""
+                                    + signature
+                                    + "\"}")
                             .getBytes(StandardCharsets.UTF_8);
                     received.set(response);
                     current.set(NOW.plus(responseDelay));

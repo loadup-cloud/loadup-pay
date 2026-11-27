@@ -373,7 +373,8 @@ public class PaymentControlService implements PaymentControlFacade {
                         || !original.choice().equals(command.choice())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                // Input expiry cannot revoke an already accepted payment, including one currently in flight.
+                // Input expiry cannot revoke an already accepted payment, including one currently in
+                // flight.
                 return converter.toInputExpiry(command, PaymentInputExpiryDisposition.PAYMENT_EXISTS, null);
             }
             if (input.state() != PaymentInputState.INIT) {

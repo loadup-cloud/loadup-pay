@@ -27,7 +27,8 @@ import java.time.OffsetDateTime;
 import java.util.Set;
 
 /**
- * Ephemeral API grant only. This type neither authorizes an arbitrary fetch nor proves an empty/successful statement.
+ * Ephemeral API grant only. This type neither authorizes an arbitrary fetch nor proves an
+ * empty/successful statement.
  */
 public record AlipayStatementGrant(
         String bindingRevisionId,

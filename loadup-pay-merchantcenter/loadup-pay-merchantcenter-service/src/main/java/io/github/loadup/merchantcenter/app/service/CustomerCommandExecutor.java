@@ -33,9 +33,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
-/**
- * Claims and business writes join the caller's primary-database transaction.
- */
+/** Claims and business writes join the caller's primary-database transaction. */
 @Component
 public class CustomerCommandExecutor {
     private final GlobalUniqueTemplate unique;

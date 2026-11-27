@@ -154,7 +154,9 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
                 WHERE refund_request_id = :request AND deleted = FALSE ORDER BY sequence_no ASC
                 """, args, BeanPropertyRowMapper.newInstance(RefundAllocationPlanDO.class));
             var rows = jdbc.query(
-                    "SELECT " + CHILD_COLUMNS + " FROM refund_order WHERE "
+                    "SELECT "
+                            + CHILD_COLUMNS
+                            + " FROM refund_order WHERE "
                             + "refund_request_id = :request AND deleted = FALSE",
                     args,
                     BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
@@ -318,7 +320,10 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     private RefundRequestDO request(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT " + REQUEST_COLUMNS + " FROM refund_request WHERE deleted = FALSE AND " + predicate
+                        "SELECT "
+                                + REQUEST_COLUMNS
+                                + " FROM refund_request WHERE deleted = FALSE AND "
+                                + predicate
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(RefundRequestDO.class))

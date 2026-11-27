@@ -18,8 +18,9 @@ package io.github.loadup.payment.domain.gateway;
 import io.github.loadup.payment.domain.model.RiskOutcome;
 
 /**
- * At-least-once result delivery. Providers deduplicate businessEventId and bind the full source version/fact.
- * Return only after the receiver accepted the fact; propagate failures so Outbox can retry.
+ * At-least-once result delivery. Providers deduplicate businessEventId and bind the full source
+ * version/fact. Return only after the receiver accepted the fact; propagate failures so Outbox can
+ * retry.
  */
 public interface RiskOutcomeGateway {
     void confirm(RiskOutcome outcome);

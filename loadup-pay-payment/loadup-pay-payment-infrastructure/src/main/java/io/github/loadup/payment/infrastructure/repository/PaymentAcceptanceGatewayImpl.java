@@ -80,7 +80,9 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
         var args = new MapSqlParameterSource().addValue("allocation", id);
         return stored(jdbc
                 .query(
-                        "SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
+                        "SELECT "
+                                + PAYMENT_COLUMNS
+                                + " FROM payment_order WHERE "
                                 + "allocation_id = :allocation AND deleted = FALSE",
                         args,
                         BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))

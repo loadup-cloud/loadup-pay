@@ -24,7 +24,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Actual persisted header metadata, including original audit creation time, read inside the order transaction.
+ * Actual persisted header metadata, including original audit creation time, read inside the order
+ * transaction.
  */
 public record OrderSnapshotFacts(
         String orderId,

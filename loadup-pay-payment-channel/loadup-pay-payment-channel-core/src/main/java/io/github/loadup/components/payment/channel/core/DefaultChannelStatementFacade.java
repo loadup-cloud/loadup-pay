@@ -32,9 +32,7 @@ import java.util.Collection;
 import java.util.HexFormat;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * A distinct registry: no financial provider fallback, database access or claim/ACK semantics.
- */
+/** A distinct registry: no financial provider fallback, database access or claim/ACK semantics. */
 public final class DefaultChannelStatementFacade implements ChannelStatementFacade {
     private final ChannelStrategyRegistry<ChannelStatementProvider> providers;
 

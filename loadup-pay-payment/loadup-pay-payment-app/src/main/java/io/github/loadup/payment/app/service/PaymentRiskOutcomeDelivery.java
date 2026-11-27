@@ -42,7 +42,8 @@ public class PaymentRiskOutcomeDelivery {
 
     public void deliver(TaskExecution event) {
         var snapshot = support.load(event, PaymentDeliveryRoutes.RISK);
-        // A local close may precede any consultation. Never invent DEFAULT_ALLOW/a consultation for that case.
+        // A local close may precede any consultation. Never invent DEFAULT_ALLOW/a consultation for
+        // that case.
         if (snapshot.attempt() == null || snapshot.attempt().riskDecision() == null) {
             return;
         }

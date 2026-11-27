@@ -46,7 +46,8 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * OpenAPI v2 public-key mode, UTF-8 and RSA2. Does not turn protocol success into financial success.
+ * OpenAPI v2 public-key mode, UTF-8 and RSA2. Does not turn protocol success into financial
+ * success.
  */
 public class AlipayProtocolCodec {
     private final JsonMapper json;

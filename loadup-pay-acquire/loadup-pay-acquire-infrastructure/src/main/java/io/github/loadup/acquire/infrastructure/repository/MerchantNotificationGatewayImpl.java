@@ -91,7 +91,10 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
         long total = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM merchant_notification_delivery WHERE " + where, args, Long.class);
         var rows = jdbc.query(
-                "SELECT " + COLUMNS + " FROM merchant_notification_delivery WHERE " + where
+                "SELECT "
+                        + COLUMNS
+                        + " FROM merchant_notification_delivery WHERE "
+                        + where
                         + " ORDER BY occurred_at DESC, id DESC LIMIT :limit OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(MerchantNotificationDeliveryDO.class));
@@ -181,9 +184,11 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     private MerchantNotificationDeliveryDO read(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT " + COLUMNS
+                        "SELECT "
+                                + COLUMNS
                                 + " FROM merchant_notification_delivery WHERE deleted = FALSE AND "
-                                + predicate + (lock ? " FOR UPDATE" : ""),
+                                + predicate
+                                + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(MerchantNotificationDeliveryDO.class))
                 .stream()

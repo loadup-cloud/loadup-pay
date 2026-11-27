@@ -27,9 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-/**
- * Immutable strategy lookup shared by the payment and notification facades.
- */
+/** Immutable strategy lookup shared by the payment and notification facades. */
 final class ChannelStrategyRegistry<S> {
     private final Map<Channel, S> strategies;
 

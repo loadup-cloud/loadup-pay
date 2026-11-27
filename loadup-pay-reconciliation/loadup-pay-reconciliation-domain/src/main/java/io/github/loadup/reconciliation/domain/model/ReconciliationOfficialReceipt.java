@@ -22,7 +22,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
- * Pinned private files and verified protocol metadata. Protocol instants are absolute epoch microseconds.
+ * Pinned private files and verified protocol metadata. Protocol instants are absolute epoch
+ * microseconds.
  */
 public record ReconciliationOfficialReceipt(
         String bindingRevisionId,

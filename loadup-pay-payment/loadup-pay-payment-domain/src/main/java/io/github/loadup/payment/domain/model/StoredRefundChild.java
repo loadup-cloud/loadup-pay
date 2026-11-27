@@ -24,9 +24,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdent
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Frozen original collecting identity; a refund never selects a new payment route.
- */
+/** Frozen original collecting identity; a refund never selects a new payment route. */
 public record StoredRefundChild(
         RefundOrder refund,
         int sequenceNo,

@@ -53,9 +53,7 @@ import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Authenticated payment notification decoder. Decryption never applies financial state.
- */
+/** Authenticated payment notification decoder. Decryption never applies financial state. */
 public final class WechatNotificationCodec {
     private final WechatCredentialReader credentials;
     private final WechatProtocolCodec signatures;
@@ -193,7 +191,9 @@ public final class WechatNotificationCodec {
             associated = text;
         }
         String nonce = responses.text(resource, "nonce", 16);
-        byte[] key = null, ciphertext = null, plaintext = null;
+        byte[] key = null;
+        byte[] ciphertext = null;
+        byte[] plaintext = null;
         try {
             ciphertext = Base64.getDecoder()
                     .decode(responses.text(resource, "ciphertext", ChannelNotificationInput.MAX_BODY_BYTES));

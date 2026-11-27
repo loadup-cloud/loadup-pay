@@ -41,7 +41,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * A signed notification triggers an original-account query; only committed Y3 facts permit the provider ACK.
+ * A signed notification triggers an original-account query; only committed Y3 facts permit the
+ * provider ACK.
  */
 @Service
 public class PaymentChannelCallbackService implements PaymentChannelCallbackFacade {

@@ -34,9 +34,7 @@ import io.github.loadup.payment.app.port.RefundProjectionEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Replays a successful child independently of fee and realtime targets.
- */
+/** Replays a successful child independently of fee and realtime targets. */
 @Component
 public class RefundLimitDelivery {
     private final TaskTemplate outbox;

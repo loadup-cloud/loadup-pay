@@ -393,7 +393,8 @@ class LimitRefundServiceTest {
         assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 1000)));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // This in-memory fixture cannot prove database rollback; the production mutations share the same transaction.
+        // This in-memory fixture cannot prove database rollback; the production mutations share the
+        // same transaction.
     }
 
     LimitRefundRestoreCommand captured(String refund, long capacityVersion) {

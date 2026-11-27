@@ -25,9 +25,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-/**
- * Stable A0 identity. Dependency failure leaves INIT recoverable with the same order id.
- */
+/** Stable A0 identity. Dependency failure leaves INIT recoverable with the same order id. */
 public record OrderCreateIntent(
         String id,
         String orderId,

@@ -84,7 +84,9 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
         var args = new MapSqlParameterSource().addValue("id", paymentId);
         var row = jdbc
                 .query(
-                        "SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
+                        "SELECT "
+                                + PAYMENT_COLUMNS
+                                + " FROM payment_order WHERE "
                                 + "id = :id AND deleted = FALSE FOR UPDATE",
                         args,
                         BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))

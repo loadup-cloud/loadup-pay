@@ -40,9 +40,7 @@ import java.util.Locale;
 import java.util.Map;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Query/close proofs always use the original order number and original merchant identity.
- */
+/** Query/close proofs always use the original order number and original merchant identity. */
 public final class WechatPaymentAdapter {
     private final WechatProtocolClient client;
     private final WechatResponseReader responses;
@@ -136,12 +134,14 @@ public final class WechatPaymentAdapter {
         var account = original(context, target);
         var original = probe(context, target);
         var before = original.observation();
-        // Micropay reversal can refund a paid transaction; it requires a separate compensation protocol and mTLS.
+        // Micropay reversal can refund a paid transaction; it requires a separate compensation protocol
+        // and mTLS.
         // Neither the V3 unpaid close nor a fabricated no-collection fact is valid for this product.
         if (!"JSAPI".equals(original.tradeType()) && !"MWEB".equals(original.tradeType())) {
             return before;
         }
-        // A pending observation can also mean USERPAYING; only an acknowledged close establishes the stop boundary.
+        // A pending observation can also mean USERPAYING; only an acknowledged close establishes the
+        // stop boundary.
         if (before.kind() != ChannelPaymentOutcome.Kind.ACCEPTED) {
             return before;
         }

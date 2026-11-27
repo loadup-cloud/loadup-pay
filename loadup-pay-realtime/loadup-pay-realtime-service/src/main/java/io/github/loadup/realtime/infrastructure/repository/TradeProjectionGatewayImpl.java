@@ -110,7 +110,9 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         var args = new MapSqlParameterSource().addValue("orderId", orderId).addValue("payee", payee);
         return jdbc
                 .query(
-                        "SELECT " + ORDER_COLUMNS + " FROM trade_order_projection WHERE "
+                        "SELECT "
+                                + ORDER_COLUMNS
+                                + " FROM trade_order_projection WHERE "
                                 + "order_id = :orderId AND deleted = FALSE"
                                 + (payee == null ? "" : " AND payee_merchant_id = :payee")
                                 + " FOR UPDATE",
@@ -207,7 +209,9 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         var args = new MapSqlParameterSource().addValue("paymentId", paymentId);
         return jdbc
                 .query(
-                        "SELECT " + PAYMENT_COLUMNS + " FROM trade_payment_projection WHERE "
+                        "SELECT "
+                                + PAYMENT_COLUMNS
+                                + " FROM trade_payment_projection WHERE "
                                 + "payment_id = :paymentId AND deleted = FALSE FOR UPDATE",
                         args,
                         BeanPropertyRowMapper.newInstance(TradePaymentDO.class))
@@ -301,7 +305,9 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         var args = new MapSqlParameterSource().addValue("refundId", refundId);
         return jdbc
                 .query(
-                        "SELECT " + REFUND_COLUMNS + " FROM trade_refund_projection WHERE "
+                        "SELECT "
+                                + REFUND_COLUMNS
+                                + " FROM trade_refund_projection WHERE "
                                 + "refund_id = :refundId AND deleted = FALSE FOR UPDATE",
                         args,
                         BeanPropertyRowMapper.newInstance(TradeRefundDO.class))
@@ -554,7 +560,9 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         String from = " FROM trade_order_projection" + where;
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
         var rows = jdbc.query(
-                "SELECT " + ORDER_COLUMNS + from
+                "SELECT "
+                        + ORDER_COLUMNS
+                        + from
                         + " ORDER BY business_created_at DESC, order_id DESC LIMIT :size OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(TradeOrderDO.class));
@@ -588,7 +596,9 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         String from = " FROM trade_payment_projection" + where;
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
         var rows = jdbc.query(
-                "SELECT " + PAYMENT_COLUMNS + from
+                "SELECT "
+                        + PAYMENT_COLUMNS
+                        + from
                         + " ORDER BY business_created_at DESC, payment_id DESC LIMIT :size OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(TradePaymentDO.class));
@@ -626,7 +636,9 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         String from = " FROM trade_refund_projection" + where;
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
         var rows = jdbc.query(
-                "SELECT " + REFUND_COLUMNS + from
+                "SELECT "
+                        + REFUND_COLUMNS
+                        + from
                         + " ORDER BY business_created_at DESC, refund_id DESC LIMIT :size OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(TradeRefundDO.class));

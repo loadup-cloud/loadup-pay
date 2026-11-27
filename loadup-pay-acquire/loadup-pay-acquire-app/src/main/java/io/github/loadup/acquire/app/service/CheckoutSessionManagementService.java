@@ -52,9 +52,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Permanent issuer-owned revocation is independent of payment and session business lifecycles.
- */
+/** Permanent issuer-owned revocation is independent of payment and session business lifecycles. */
 @Service
 public class CheckoutSessionManagementService implements CheckoutSessionManagementFacade {
     private final AcquireActorProvider actors;
@@ -133,7 +131,8 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
                 var order = orders.lockOrder(observed.session().orderId());
                 var before = sessions.lock(command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 owned(actor, order, before);
-                // A concurrent original request can commit while this transaction waits on the order/session locks.
+                // A concurrent original request can commit while this transaction waits on the
+                // order/session locks.
                 var serialized = receipts.find(actor.scopeHash(), command.requestKey());
                 if (serialized.isPresent()) {
                     return replay(actor, serialized.get(), digest);

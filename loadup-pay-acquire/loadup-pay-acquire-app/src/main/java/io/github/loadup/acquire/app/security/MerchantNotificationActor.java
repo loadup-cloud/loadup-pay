@@ -22,9 +22,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
 
-/**
- * Resource scope comes only from authenticated JWT claims, never the notification query.
- */
+/** Resource scope comes only from authenticated JWT claims, never the notification query. */
 public record MerchantNotificationActor(
         String principalType, String principalId, String merchantId, Set<String> permissions) {
     public MerchantNotificationActor {

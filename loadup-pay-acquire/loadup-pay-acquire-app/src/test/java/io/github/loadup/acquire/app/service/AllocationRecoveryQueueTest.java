@@ -126,8 +126,11 @@ class AllocationRecoveryQueueTest {
                         .getResultCode());
         var amended = new StoredPaymentAllocation(
                 allocation.allocation(), OWNER, allocation.intentPayload(), allocation.payloadHash(), 1L);
-        System.err.println("AMENDED rowVersion=" + amended.rowVersion() + " state="
-                + amended.allocation().state() + " srcVersion="
+        System.err.println("AMENDED rowVersion="
+                + amended.rowVersion()
+                + " state="
+                + amended.allocation().state()
+                + " srcVersion="
                 + amended.allocation().paymentSourceVersion());
         assertSame(
                 INVALID_STATE,

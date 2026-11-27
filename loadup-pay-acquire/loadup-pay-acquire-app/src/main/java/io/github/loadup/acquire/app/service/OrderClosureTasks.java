@@ -29,9 +29,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * The immutable close request and its scan rowVersion own all continuation identities.
- */
+/** The immutable close request and its scan rowVersion own all continuation identities. */
 @Component
 public class OrderClosureTasks {
     public static final String TYPE = "pay.acquire.order.close.progress";

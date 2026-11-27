@@ -172,7 +172,11 @@ class PaymentAcceptanceTransactionsTest {
     }
 
     static final class Manager extends AbstractPlatformTransactionManager {
-        int isolation, commits, rollbacks, begins, timeout;
+        int isolation;
+        int commits;
+        int rollbacks;
+        int begins;
+        int timeout;
 
         @Override
         protected Object doGetTransaction() {

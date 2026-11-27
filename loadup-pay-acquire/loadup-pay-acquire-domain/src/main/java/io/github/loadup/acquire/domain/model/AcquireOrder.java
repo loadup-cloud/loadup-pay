@@ -31,9 +31,7 @@ import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Gross successful receipts are immutable with respect to independent refunds.
- */
+/** Gross successful receipts are immutable with respect to independent refunds. */
 public record AcquireOrder(
         String id,
         String payeeMerchantId,
@@ -230,9 +228,7 @@ public record AcquireOrder(
                 Math.incrementExact(version));
     }
 
-    /**
-     * A due-time check never silently stops a KEEP_PENDING order from accepting payments.
-     */
+    /** A due-time check never silently stops a KEEP_PENDING order from accepting payments. */
     public AcquireOrder checkDue(LocalDateTime now) {
         Objects.requireNonNull(now);
         if (now.isBefore(orderDueAt) || state != AcquireOrderState.INIT && state != AcquireOrderState.PENDING) {
@@ -261,7 +257,8 @@ public record AcquireOrder(
     }
 
     /**
-     * The deadline is derived from the original due time and the frozen cumulative extension allowance.
+     * The deadline is derived from the original due time and the frozen cumulative extension
+     * allowance.
      */
     public AcquireOrder extend(
             LocalDateTime requestedDueAt,

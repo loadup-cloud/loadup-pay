@@ -18,9 +18,7 @@ package io.github.loadup.reconciliation.domain.gateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationStatementRequest;
 import java.util.Optional;
 
-/**
- * Mutations and active lookup require the original batch lock first.
- */
+/** Mutations and active lookup require the original batch lock first. */
 public interface ReconciliationStatementGateway {
     Optional<ReconciliationStatementRequest> findRequest(String caller, String requestKey);
 

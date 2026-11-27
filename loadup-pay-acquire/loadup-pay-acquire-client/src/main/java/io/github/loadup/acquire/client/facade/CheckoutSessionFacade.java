@@ -18,9 +18,7 @@ package io.github.loadup.acquire.client.facade;
 import io.github.loadup.acquire.client.command.CheckoutSessionCreateCommand;
 import io.github.loadup.acquire.client.dto.CheckoutDTO;
 
-/**
- * Business use cases; identity and authorization come from a trusted invocation context.
- */
+/** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface CheckoutSessionFacade {
     CheckoutDTO create(CheckoutSessionCreateCommand command);
 }

@@ -18,9 +18,7 @@ package io.github.loadup.productcenter.domain.gateway;
 import io.github.loadup.productcenter.domain.model.StoredOrderAdmission;
 import java.util.Optional;
 
-/**
- * Application owns transactions; duplicate inserts must roll back before reading the winner.
- */
+/** Application owns transactions; duplicate inserts must roll back before reading the winner. */
 public interface OrderAdmissionGateway {
     Optional<StoredOrderAdmission> findByOrder(String orderId);
 

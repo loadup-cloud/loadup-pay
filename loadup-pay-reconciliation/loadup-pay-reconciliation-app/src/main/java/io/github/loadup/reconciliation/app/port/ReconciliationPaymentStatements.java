@@ -18,9 +18,7 @@ package io.github.loadup.reconciliation.app.port;
 import io.github.loadup.reconciliation.app.model.payment.dto.PaymentStatementDTO;
 import io.github.loadup.reconciliation.app.model.payment.query.PaymentStatementQuery;
 
-/**
- * Provider-owned gRPC only; no transaction or financial mutation.
- */
+/** Provider-owned gRPC only; no transaction or financial mutation. */
 public interface ReconciliationPaymentStatements {
     PaymentStatementDTO download(PaymentStatementQuery query);
 }

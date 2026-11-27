@@ -24,9 +24,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * Channel-specific invocation fields, never an untyped browser-supplied map.
- */
+/** Channel-specific invocation fields, never an untyped browser-supplied map. */
 public record WechatJsapiActionDTO(
         @Schema(description = "WeChat application id") @NotBlank @Size(max = 64) String appId,
 

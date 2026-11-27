@@ -105,9 +105,7 @@ public class OrderClosureOperations {
         });
     }
 
-    /**
-     * Caller holds the order lock; C0 and its first native continuation commit atomically.
-     */
+    /** Caller holds the order lock; C0 and its first native continuation commit atomically. */
     OrderCloseIntent startLocked(OrderPaymentScope actor, StoredAcquireOrder order, AcquireOrderCloseCommand command) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
@@ -169,7 +167,8 @@ public class OrderClosureOperations {
             advance(actor, intent, nextCursor);
             var status = payment.parentFenceStatus(converter.toStatusQuery(intent));
             requireParent(intent, status);
-            // Fencing alone never proves that all local holds or remote collection attempts have converged.
+            // Fencing alone never proves that all local holds or remote collection attempts have
+            // converged.
             return transactions.writeLocal(() -> {
                 var order = orders.lockOrder(intent.orderId());
                 owned(actor, order);

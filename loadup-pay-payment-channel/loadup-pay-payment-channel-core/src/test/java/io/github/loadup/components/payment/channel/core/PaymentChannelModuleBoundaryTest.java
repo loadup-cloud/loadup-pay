@@ -26,8 +26,8 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * Source boundary gate: the API stays framework-neutral, core does not see vendor binders, and binders do not reach into
- * business services or each other.
+ * Source boundary gate: the API stays framework-neutral, core does not see vendor binders, and
+ * binders do not reach into business services or each other.
  */
 class PaymentChannelModuleBoundaryTest {
     private static final Pattern BUSINESS_REFERENCE = Pattern.compile(

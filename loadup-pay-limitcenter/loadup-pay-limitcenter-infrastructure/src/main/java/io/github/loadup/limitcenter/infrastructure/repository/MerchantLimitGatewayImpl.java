@@ -183,7 +183,10 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     private Optional<LimitBucketDO> bucket(LimitBucketKey key, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT " + BUCKET_COLUMNS + " FROM limit_bucket WHERE " + BUCKET_KEY
+                        "SELECT "
+                                + BUCKET_COLUMNS
+                                + " FROM limit_bucket WHERE "
+                                + BUCKET_KEY
                                 + (lock ? " FOR UPDATE" : ""),
                         bucketKey(key),
                         BeanPropertyRowMapper.newInstance(LimitBucketDO.class))
@@ -325,7 +328,8 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
                     .addValue("updated", LocalDateTime.now(clock));
             int changed = jdbc.update(
                     "UPDATE limit_bucket SET used_value = :used, held_value = :held, "
-                            + "row_version = :version, updated_at = :updated WHERE " + BUCKET_KEY
+                            + "row_version = :version, updated_at = :updated WHERE "
+                            + BUCKET_KEY
                             + " AND row_version = :expected",
                     args);
             if (changed != 1) {

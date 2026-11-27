@@ -29,9 +29,7 @@ import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Ciphertext and immutable use scope; raw payer input never enters a payment intent.
- */
+/** Ciphertext and immutable use scope; raw payer input never enters a payment intent. */
 public record PaymentInput(
         @DiagnosticHidden String id,
         String paymentId,

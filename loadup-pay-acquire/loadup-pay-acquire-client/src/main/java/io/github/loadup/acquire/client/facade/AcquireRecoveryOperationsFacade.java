@@ -21,7 +21,8 @@ import io.github.loadup.acquire.client.dto.AcquireRecoveryTaskDTO;
 import io.github.loadup.acquire.client.query.AcquireRecoveryTaskQuery;
 
 /**
- * Audited acquiring task operations; never changes original financial or business attempt identities.
+ * Audited acquiring task operations; never changes original financial or business attempt
+ * identities.
  */
 public interface AcquireRecoveryOperationsFacade {
     AcquireRecoveryTaskDTO detail(AcquireRecoveryTaskQuery query);

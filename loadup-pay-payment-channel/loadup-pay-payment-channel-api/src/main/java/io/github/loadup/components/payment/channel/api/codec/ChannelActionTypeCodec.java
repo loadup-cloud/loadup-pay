@@ -18,27 +18,23 @@ package io.github.loadup.components.payment.channel.api.codec;
 import io.github.loadup.components.payment.channel.api.model.ChannelPaymentAction;
 
 /**
- * Vendor-owned codec for exactly one payment action type. The registry enforces the common payload size, checksum and
- * whitespace-free discriminator rules; implementations own strict wire JSON and record validation.
+ * Vendor-owned codec for exactly one payment action type. The registry enforces the common payload
+ * size, checksum and whitespace-free discriminator rules; implementations own strict wire JSON and
+ * record validation.
  */
 public interface ChannelActionTypeCodec<A extends ChannelPaymentAction> {
-    /**
-     * Stable snapshot discriminator, for example ALIPAY_JSAPI.
-     */
+    /** Stable snapshot discriminator, for example ALIPAY_JSAPI. */
     String kind();
 
-    /**
-     * The single concrete action type handled by this codec.
-     */
+    /** The single concrete action type handled by this codec. */
     Class<A> actionType();
 
-    /**
-     * Encode one action without checksum or size framing.
-     */
+    /** Encode one action without checksum or size framing. */
     String encode(A action);
 
     /**
-     * Decode strict wire JSON into one action. Unknown, duplicate or trailing fields must be rejected.
+     * Decode strict wire JSON into one action. Unknown, duplicate or trailing fields must be
+     * rejected.
      */
     A decode(String payload);
 }

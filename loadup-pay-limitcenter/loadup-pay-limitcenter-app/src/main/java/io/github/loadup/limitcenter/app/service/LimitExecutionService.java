@@ -132,7 +132,8 @@ public class LimitExecutionService implements LimitExecutionFacade {
             if (!now.isBefore(value.reserveExpiresAt())) {
                 throw new CommonException(RESERVATION_EXPIRED);
             }
-            // Public evidence identifiers never establish proof of a previous channel attempt's final outcome.
+            // Public evidence identifiers never establish proof of a previous channel attempt's final
+            // outcome.
             var next = stored.transitionTo(value.beginExecution(command.attemptId(), now));
             String key = permits.activeKeyId();
             String permit = permits.issue(

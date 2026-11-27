@@ -18,9 +18,7 @@ package io.github.loadup.payment.app.port;
 import io.github.loadup.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.payment.app.model.RefundSummaryFacts;
 
-/**
- * Complete newly persisted source rows, read in their owning writable transaction.
- */
+/** Complete newly persisted source rows, read in their owning writable transaction. */
 public interface RefundSnapshotReader {
     RefundSnapshotFacts child(String refundId);
 

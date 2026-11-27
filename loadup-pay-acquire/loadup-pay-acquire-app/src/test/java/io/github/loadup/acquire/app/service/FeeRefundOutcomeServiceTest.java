@@ -87,7 +87,8 @@ class FeeRefundOutcomeServiceTest {
     final Map<String, FeeRefundReceipt> accepted = new HashMap<>();
     final UnitTransactions manager = new UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
-    // Deliberately INIT: payment's refund fact may arrive before acquire has applied the payment outcome.
+    // Deliberately INIT: payment's refund fact may arrive before acquire has applied the payment
+    // outcome.
     final StoredAcquireOrder stored = order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
     final FeeRefundOutcomeService service = new FeeRefundOutcomeService(
             actor::get,

@@ -20,9 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
-/**
- * Missing input is not evidence that no payment exists or can be accepted later.
- */
+/** Missing input is not evidence that no payment exists or can be accepted later. */
 public record PaymentInputLookupDTO(
         @Schema(description = "Whether the exact original input was observed") @JsonInclude(JsonInclude.Include.ALWAYS)
         boolean found,

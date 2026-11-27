@@ -48,9 +48,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Native delayed download followed by one same-DataSource File/proof/Transfer/import commit.
- */
+/** Native delayed download followed by one same-DataSource File/proof/Transfer/import commit. */
 @Service
 public class ReconciliationStatementExecutionService {
     public static final String TYPE = "pay.reconciliation.statement";
@@ -139,7 +137,8 @@ public class ReconciliationStatementExecutionService {
         lease(task);
         var downloaded = payment.download(converter.toQuery(original));
         scope(original, downloaded);
-        byte[] content = downloaded.content(), evidence = downloaded.evidence();
+        byte[] content = downloaded.content();
+        byte[] evidence = downloaded.evidence();
         var file = files.upload(
                 original.callerServiceId(),
                 "statement-" + original.id() + ".csv",

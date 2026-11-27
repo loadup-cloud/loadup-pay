@@ -21,9 +21,7 @@ import io.github.loadup.limitcenter.domain.model.LimitRule;
 import io.github.loadup.limitcenter.domain.model.RuntimeLimitRule;
 import java.util.Optional;
 
-/**
- * Mutations and locks join the caller's database transaction.
- */
+/** Mutations and locks join the caller's database transaction. */
 public interface LimitPolicyGateway {
     LimitPolicyHead lockOrCreateHead(String policyId, String payeeMerchantId);
 

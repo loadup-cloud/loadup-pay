@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/**
- * Scope and original binding come from the owned batch/account directory, never the request.
- */
+/** Scope and original binding come from the owned batch/account directory, never the request. */
 public record ReconciliationStatementSubmitCommand(
         @NotBlank @Size(max = 64) String batchId,
         @NotBlank @Size(max = 128) String requestKey) {

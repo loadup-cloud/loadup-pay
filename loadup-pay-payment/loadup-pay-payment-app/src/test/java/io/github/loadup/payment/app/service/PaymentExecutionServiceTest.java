@@ -357,9 +357,7 @@ class PaymentExecutionServiceTest {
         return new PaymentResultApplication(APPLIED, "receipt", null);
     }
 
-    /**
-     * Keeps the deadline fixture local so the test does not alter shared payment fixtures.
-     */
+    /** Keeps the deadline fixture local so the test does not alter shared payment fixtures. */
     private static final class PaymentFixturesCommandWithExpiredDeadline {
         PaymentExecuteCommand command() {
             var original = AttemptFixtures.command();

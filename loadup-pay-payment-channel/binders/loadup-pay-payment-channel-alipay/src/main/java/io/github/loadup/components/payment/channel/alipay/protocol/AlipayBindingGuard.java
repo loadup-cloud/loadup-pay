@@ -26,9 +26,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentIdent
 import io.github.loadup.components.payment.channel.contract.Channel;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Direct adapter entry points enforce the same frozen-account boundary as the facade.
- */
+/** Direct adapter entry points enforce the same frozen-account boundary as the facade. */
 public final class AlipayBindingGuard {
     private AlipayBindingGuard() {}
 

@@ -29,9 +29,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Set;
 
-/**
- * Locally signed direct WAP request; never channel acceptance or collection evidence.
- */
+/** Locally signed direct WAP request; never channel acceptance or collection evidence. */
 public record AlipayH5ChannelAction(@DiagnosticHidden String redirectUrl, OffsetDateTime expiresAt)
         implements ChannelPaymentAction {
     private static final Set<String> REQUIRED =

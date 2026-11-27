@@ -507,7 +507,8 @@ class PaymentResultServiceTest {
 
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // The in-memory receipt map does not roll back; the transaction counters only verify lifecycle propagation.
+        // The in-memory receipt map does not roll back; the transaction counters only verify lifecycle
+        // propagation.
         verify(results).insertReceipt(any());
     }
 
@@ -773,7 +774,8 @@ class PaymentResultServiceTest {
         assertThrows(CommonException.class, () -> service.record(success()));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock maps do not model database rollback; actual persistence is a separate PostgreSQL acceptance gate.
+        // Mock maps do not model database rollback; actual persistence is a separate PostgreSQL
+        // acceptance gate.
     }
 
     @Test

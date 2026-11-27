@@ -42,7 +42,8 @@ import java.util.TreeMap;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Original-account domestic refund adapter. Only an authoritative refund query produces terminal facts.
+ * Original-account domestic refund adapter. Only an authoritative refund query produces terminal
+ * facts.
  */
 public final class WechatRefundAdapter {
     private final WechatProtocolClient client;
@@ -60,9 +61,7 @@ public final class WechatRefundAdapter {
         this.notifications = notifications;
     }
 
-    /**
-     * Pure metadata only; the caller may hold refund locks while checking capabilities.
-     */
+    /** Pure metadata only; the caller may hold refund locks while checking capabilities. */
     public boolean canRefund(PreparedChannelRefund refund) {
         return refund != null
                 && refund.original().channel() == Channel.WECHAT
@@ -74,7 +73,8 @@ public final class WechatRefundAdapter {
     public RefundObservation submit(ChannelExecutionContext context, PreparedChannelRefund refund) {
         var account = original(context, refund);
         var body = new TreeMap<String, Object>();
-        // A transaction_id uniquely addresses the original payment; out_trade_no is checked in the response.
+        // A transaction_id uniquely addresses the original payment; out_trade_no is checked in the
+        // response.
         body.put("transaction_id", refund.originalChannelTransactionNo());
         body.put("out_refund_no", refund.channelRefundNo());
         if (account.subMerchantId() != null) {
@@ -93,7 +93,8 @@ public final class WechatRefundAdapter {
         if (notifyUrl != null) {
             body.put("notify_url", notifyUrl.toASCIIString());
         }
-        // An absent explicit refund URL preserves the separately configured merchant-platform refund callback.
+        // An absent explicit refund URL preserves the separately configured merchant-platform refund
+        // callback.
         var response =
                 client.call(context.binding(), WechatMethod.REFUND, Map.of(), Map.of(), json.writeValueAsString(body));
         var data = responses.read(response, WechatMethod.REFUND);
@@ -107,7 +108,8 @@ public final class WechatRefundAdapter {
                 kind = ChannelRefundOutcome.Kind.ACCEPTED;
             }
         }
-        // Even a synchronous SUCCESS must converge through the same canonical query timestamp and receipt path.
+        // Even a synchronous SUCCESS must converge through the same canonical query timestamp and
+        // receipt path.
         return observation(refund, response, kind, null, null, RefundObservation.Source.SUBMIT_RESPONSE, acceptedAt);
     }
 
@@ -123,7 +125,8 @@ public final class WechatRefundAdapter {
         if (queried.status() != 404 || !"RESOURCE_NOT_EXISTS".equals(data.get("code"))) {
             return interpret(refund, account, queried);
         }
-        // RESOURCE_NOT_EXISTS is not a no-refund proof. The provider's original-number idempotency makes this repeat
+        // RESOURCE_NOT_EXISTS is not a no-refund proof. The provider's original-number idempotency
+        // makes this repeat
         // safe.
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256(

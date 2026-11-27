@@ -26,7 +26,10 @@ import io.github.loadup.components.task.TaskTemplate;
 import io.github.loadup.contracts.event.BusinessFact;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** Fan-out stays inside the aggregate's original local transaction; every target retains its own Outbox lifecycle. */
+/**
+ * Fan-out stays inside the aggregate's original local transaction; every target retains its own
+ * Outbox lifecycle.
+ */
 public final class PaymentFactPublisher {
     private final TaskTemplate outbox;
     private final IdGenerator ids;

@@ -19,7 +19,8 @@ import io.github.loadup.payment.domain.model.PaymentCloseEvidence;
 import java.util.Optional;
 
 /**
- * One immutable fact per original attempt. Caller serializes insertion with the original payment/attempt locks.
+ * One immutable fact per original attempt. Caller serializes insertion with the original
+ * payment/attempt locks.
  */
 public interface PaymentCloseEvidenceGateway {
     Optional<PaymentCloseEvidence> find(String attemptId);

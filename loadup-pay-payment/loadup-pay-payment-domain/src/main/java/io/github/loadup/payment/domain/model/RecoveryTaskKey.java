@@ -23,7 +23,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
- * Module-local continuation identity. It cannot become a channel submission or financial operation key.
+ * Module-local continuation identity. It cannot become a channel submission or financial operation
+ * key.
  */
 public record RecoveryTaskKey(String subjectId, long generation) {
     public RecoveryTaskKey {

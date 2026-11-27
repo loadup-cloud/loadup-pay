@@ -43,7 +43,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The API's documented merchant/authorized-merchant trade bill grant. Download/profile implementation is separate.
+ * The API's documented merchant/authorized-merchant trade bill grant. Download/profile
+ * implementation is separate.
  */
 public final class AlipayStatementGrantClient {
     public static final String FORMAT = "alipay-trade-grant-v1";
@@ -85,7 +86,8 @@ public final class AlipayStatementGrantClient {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
         }
         var started = now();
-        // trade_zft_merchant/smid and platform-wide ledgers are different products and must never be inferred here.
+        // trade_zft_merchant/smid and platform-wide ledgers are different products and must never be
+        // inferred here.
         var exchange = client.exchangeVerified(
                 binding,
                 AlipayMethod.BILL_DOWNLOAD_URL,

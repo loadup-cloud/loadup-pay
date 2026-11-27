@@ -18,9 +18,7 @@ package io.github.loadup.acquire.app.port;
 import io.github.loadup.acquire.domain.model.CheckoutSession;
 import io.github.loadup.acquire.domain.model.StoredCheckoutSession;
 
-/**
- * Protocol v1: stable deterministic HMAC, random nonce and only a token digest in storage.
- */
+/** Protocol v1: stable deterministic HMAC, random nonce and only a token digest in storage. */
 public interface CheckoutTokens {
     String keyRef();
 

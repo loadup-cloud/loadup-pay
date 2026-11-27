@@ -25,7 +25,8 @@ import io.github.loadup.components.payment.channel.api.model.PreparedChannelRefu
 import io.github.loadup.payment.client.enums.PaymentVerificationDisposition;
 
 /**
- * Local snapshot only. At most one target is present; missing coverage has no invented amounts or funds outcome.
+ * Local snapshot only. At most one target is present; missing coverage has no invented amounts or
+ * funds outcome.
  */
 public record PaymentVerificationTarget(
         @DiagnosticHidden ChannelPaymentTarget payment,

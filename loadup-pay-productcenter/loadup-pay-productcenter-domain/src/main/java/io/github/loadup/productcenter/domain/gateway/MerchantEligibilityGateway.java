@@ -17,9 +17,7 @@ package io.github.loadup.productcenter.domain.gateway;
 
 import io.github.loadup.productcenter.domain.model.MerchantEligibilityFacts;
 
-/**
- * Persistence or integration port; implementations own transactions and fixed schema isolation.
- */
+/** Persistence or integration port; implementations own transactions and fixed schema isolation. */
 public interface MerchantEligibilityGateway {
     MerchantEligibilityFacts authorizeNewOrder(String payeeMerchantId);
 }

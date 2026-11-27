@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsCiphertext;
 
-/**
- * Immutable mounted descriptor. Merchant private keys remain in KMS.
- */
+/** Immutable mounted descriptor. Merchant private keys remain in KMS. */
 public record WechatCredentialDocument(
         String reference,
         String version,

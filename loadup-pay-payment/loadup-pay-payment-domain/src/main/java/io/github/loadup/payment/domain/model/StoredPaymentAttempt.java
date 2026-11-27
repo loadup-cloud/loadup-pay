@@ -25,9 +25,7 @@ import io.github.loadup.components.payment.channel.api.model.ChannelPaymentOutco
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Stable route/request identities and the durable one-way Y2 submission boundary.
- */
+/** Stable route/request identities and the durable one-way Y2 submission boundary. */
 public record StoredPaymentAttempt(
         PaymentAttempt attempt,
         String limitOperationId,

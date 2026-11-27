@@ -27,9 +27,7 @@ import java.util.Optional;
 public interface RefundResultGateway {
     Optional<String> requestId(String refundId);
 
-    /**
-     * Caller already holds parent -> request -> capacities; locks only this child.
-     */
+    /** Caller already holds parent -> request -> capacities; locks only this child. */
     RefundExecutionFacts lockChild(String refundId);
 
     Optional<RefundChannelReceipt> receipt(String refundId, RefundObservation.Source source, String key);
@@ -45,7 +43,8 @@ public interface RefundResultGateway {
     void insertClaim(RefundTransactionClaim claim);
 
     /**
-     * Child, request and changed capacity CAS share the caller's transaction. Never changes original collection rows.
+     * Child, request and changed capacity CAS share the caller's transaction. Never changes original
+     * collection rows.
      */
     void update(RefundProgressChange change);
 }

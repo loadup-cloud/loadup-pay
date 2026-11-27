@@ -15,9 +15,7 @@
  */
 package io.github.loadup.acquire.client.enums;
 
-/**
- * Only acquiring-owned native task types may be inspected or retried.
- */
+/** Only acquiring-owned native task types may be inspected or retried. */
 public enum AcquireRecoveryKind {
     PAYMENT_ALLOCATION,
     ORDER_DEADLINE,

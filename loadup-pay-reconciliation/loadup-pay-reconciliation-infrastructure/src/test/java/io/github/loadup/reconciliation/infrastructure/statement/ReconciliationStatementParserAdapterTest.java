@@ -40,7 +40,9 @@ class ReconciliationStatementParserAdapterTest {
 
     @Test
     void fullOriginalBytesAreVerifiedBeforeAnyCompletenessConclusion() throws Exception {
-        var content = WechatTradeStatementParser.HEADER + "\n" + WechatTradeStatementParser.TOTAL_HEADER
+        var content = WechatTradeStatementParser.HEADER
+                + "\n"
+                + WechatTradeStatementParser.TOTAL_HEADER
                 + "\n`0,`0.00,`0.00,`0.00,`0.00,`0.00,`0.00\n";
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         var request = request(bytes);

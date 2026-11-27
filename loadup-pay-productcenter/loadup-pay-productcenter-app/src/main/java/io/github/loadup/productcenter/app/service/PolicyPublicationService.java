@@ -282,7 +282,8 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             var task = queue.get();
             return converter.toDTO(stored, task.status().name(), task.attempts());
         }
-        // The worker commits the business ACK before deleting the task. Refresh a possibly older business read.
+        // The worker commits the business ACK before deleting the task. Refresh a possibly older
+        // business read.
         var latest = publications.findById(stored.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         latest.requireSameIntent(stored);
         if (!"ACTIVE".equals(latest.state())) {

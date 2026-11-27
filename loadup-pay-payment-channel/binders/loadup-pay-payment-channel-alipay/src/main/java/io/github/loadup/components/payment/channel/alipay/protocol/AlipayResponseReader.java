@@ -26,9 +26,7 @@ import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Strict typed field access after the protocol client has verified the original response bytes.
- */
+/** Strict typed field access after the protocol client has verified the original response bytes. */
 public final class AlipayResponseReader {
     private final JsonMapper json;
 

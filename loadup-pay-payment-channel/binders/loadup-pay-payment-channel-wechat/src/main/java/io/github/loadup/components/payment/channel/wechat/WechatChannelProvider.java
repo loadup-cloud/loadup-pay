@@ -28,9 +28,7 @@ import io.github.loadup.components.payment.channel.api.spi.ChannelProvider;
 import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.contract.PaymentMethod;
 
-/**
- * Independent WeChat strategy; unsupported capabilities never fall back to another channel.
- */
+/** Independent WeChat strategy; unsupported capabilities never fall back to another channel. */
 public final class WechatChannelProvider implements ChannelProvider {
     private final WechatSubmitAdapter submissions;
     private final WechatPaymentAdapter payments;

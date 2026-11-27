@@ -18,9 +18,7 @@ package io.github.loadup.acquire.client.facade;
 import io.github.loadup.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.commons.request.query.IdQuery;
 
-/**
- * Requires a verified checkout capability, never a merchant identity or a raw order id alone.
- */
+/** Requires a verified checkout capability, never a merchant identity or a raw order id alone. */
 public interface CashierSummaryFacade {
     CashierOrderDTO summary(IdQuery query);
 }

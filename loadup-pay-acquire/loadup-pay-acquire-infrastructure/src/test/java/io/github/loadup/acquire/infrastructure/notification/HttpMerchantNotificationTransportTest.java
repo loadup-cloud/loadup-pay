@@ -78,7 +78,9 @@ class HttpMerchantNotificationTransportTest {
     private static final String BODY = "{\"eventId\":\"event-a\",\"eventType\":\"PaymentSucceeded\","
             + "\"schemaVersion\":1,\"producer\":\"acquire\",\"aggregateType\":\"PaymentOrder\","
             + "\"aggregateId\":\"payment-a\",\"aggregateVersion\":7,"
-            + "\"occurredAt\":\"" + BusinessTime.external(NOW).toString() + "\",\"data\":{\"orderId\":\"order-a\","
+            + "\"occurredAt\":\""
+            + BusinessTime.external(NOW).toString()
+            + "\",\"data\":{\"orderId\":\"order-a\","
             + "\"paymentId\":\"payment-a\",\"payeeMerchantId\":\"merchant-a\","
             + "\"amountMinor\":1250,\"currency\":\"CNY\",\"orderPaidAmountMinor\":1250,"
             + "\"orderAmountMinor\":1250,\"orderState\":\"PAID\"}}";

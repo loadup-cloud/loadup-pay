@@ -180,7 +180,8 @@ class OrderFeeGatewayImplTest {
                 .update(ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
         assertEquals("INIT", row.getState());
         assertEquals(1, manager.rollbacks);
-        // This manager checks propagation only. Real ledger/CAS rollback still needs PostgreSQL acceptance.
+        // This manager checks propagation only. Real ledger/CAS rollback still needs PostgreSQL
+        // acceptance.
     }
 
     static class UnitTransactions extends AbstractPlatformTransactionManager {

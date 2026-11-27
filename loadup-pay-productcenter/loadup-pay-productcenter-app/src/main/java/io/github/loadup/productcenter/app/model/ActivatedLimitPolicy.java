@@ -18,9 +18,7 @@ package io.github.loadup.productcenter.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.LocalDateTime;
 
-/**
- * Local receipt from the authenticated limitcenter activation workflow.
- */
+/** Local receipt from the authenticated limitcenter activation workflow. */
 public record ActivatedLimitPolicy(
         String policyId, int policyVersion, String policyHash, String state, LocalDateTime activatedAt) {
     public boolean activeAt(LocalDateTime now) {

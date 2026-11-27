@@ -19,9 +19,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.HttpMethod;
 
-/**
- * Fixed named operations; callers cannot supply arbitrary URLs or HTTP methods.
- */
+/** Fixed named operations; callers cannot supply arbitrary URLs or HTTP methods. */
 public enum WechatMethod {
     DIRECT_JSAPI("direct-jsapi", HttpMethod.POST, "/v3/pay/transactions/jsapi"),
     PARTNER_JSAPI("partner-jsapi", HttpMethod.POST, "/v3/pay/partner/transactions/jsapi"),
@@ -67,7 +65,8 @@ public enum WechatMethod {
         if (variable < 0) {
             return path.equals(actualPath);
         }
-        String prefix = path.substring(0, variable), suffix = path.substring(variable + marker.length());
+        String prefix = path.substring(0, variable);
+        String suffix = path.substring(variable + marker.length());
         if (!actualPath.startsWith(prefix)
                 || !actualPath.endsWith(suffix)
                 || actualPath.length() <= prefix.length() + suffix.length()) {

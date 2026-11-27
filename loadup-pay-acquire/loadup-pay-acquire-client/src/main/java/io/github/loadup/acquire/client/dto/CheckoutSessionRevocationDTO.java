@@ -21,9 +21,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 
-/**
- * Immutable acknowledgement of the original operation, not a command to alter payment state.
- */
+/** Immutable acknowledgement of the original operation, not a command to alter payment state. */
 public record CheckoutSessionRevocationDTO(
         @Schema(description = "Revocation audit receipt id") String id,
         @Schema(description = "Original session id") String sessionId,

@@ -172,7 +172,8 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
                 "SELECT id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no,"
                         + " channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only,"
                         + " amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE "
-                        + where + " ORDER BY id ASC LIMIT :limit OFFSET :offset",
+                        + where
+                        + " ORDER BY id ASC LIMIT :limit OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationDifferenceDO.class));
         var ids = new HashSet<String>();

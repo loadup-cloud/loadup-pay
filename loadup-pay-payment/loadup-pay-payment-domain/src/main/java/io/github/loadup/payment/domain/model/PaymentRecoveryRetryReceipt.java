@@ -26,9 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * Immutable operational authority and first decision, separate from all financial evidence.
- */
+/** Immutable operational authority and first decision, separate from all financial evidence. */
 public record PaymentRecoveryRetryReceipt(
         String id,
         String requestKey,

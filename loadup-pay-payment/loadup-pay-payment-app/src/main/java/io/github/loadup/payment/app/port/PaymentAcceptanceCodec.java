@@ -19,7 +19,8 @@ import io.github.loadup.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.payment.domain.model.StoredPaymentAcceptance;
 
 /**
- * Owns a local storage format; public Commands are mapped at encode/decode boundaries, never persisted directly.
+ * Owns a local storage format; public Commands are mapped at encode/decode boundaries, never
+ * persisted directly.
  */
 public interface PaymentAcceptanceCodec {
     String encode(PaymentExecuteCommand command);

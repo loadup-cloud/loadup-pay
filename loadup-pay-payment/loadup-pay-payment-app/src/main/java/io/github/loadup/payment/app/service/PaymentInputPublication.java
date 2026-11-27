@@ -33,7 +33,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Serializes publication with acceptance and close using their original parent lock, never a new child gate.
+ * Serializes publication with acceptance and close using their original parent lock, never a new
+ * child gate.
  */
 @Component
 public class PaymentInputPublication {
@@ -52,7 +53,8 @@ public class PaymentInputPublication {
             bound(parent.get(), actor, command, null);
             return parent.get();
         }
-        // A duplicate parent INSERT causes the entire local transaction to roll back before the existing retry.
+        // A duplicate parent INSERT causes the entire local transaction to roll back before the
+        // existing retry.
         var value = new StoredPaymentGate(
                 ids.generate(),
                 command.payeeMerchantId(),
@@ -64,7 +66,8 @@ public class PaymentInputPublication {
     }
 
     /**
-     * Call only after checking for the winning immutable input under the parent lock; exact replays remain readable.
+     * Call only after checking for the winning immutable input under the parent lock; exact replays
+     * remain readable.
      */
     public void requireNew(PaymentActor actor, PaymentInputPrepareCommand command, StoredPaymentGate parent) {
         writable(actor);

@@ -300,7 +300,8 @@ class AcquireRecoveryOperationsServiceTest {
         assertEquals(NOW, audited.expectedNextExecuteAt());
         assertEquals("order", audited.orderId());
         assertFalse(command().toString().contains(command().reason()));
-        // A later cycle can fail with the same attempts count; the original request key still replays its first
+        // A later cycle can fail with the same attempts count; the original request key still replays
+        // its first
         // decision.
         put(AllocationRecoveryQueue.TYPE, "payment.0", NOW.plusSeconds(1), TaskStatus.FAILED);
         clearInvocations(orders, allocations, cursors, paymentRecovery, tasks);
@@ -433,7 +434,8 @@ class AcquireRecoveryOperationsServiceTest {
         assertSame(failure, assertThrows(CommonException.class, () -> service.retry(command())));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
-        // UnitTransactions proves callback rollback intent; database atomicity remains an unexecuted integration check.
+        // UnitTransactions proves callback rollback intent; database atomicity remains an unexecuted
+        // integration check.
     }
 
     @Test

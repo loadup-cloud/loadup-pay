@@ -23,9 +23,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Objects;
 
-/**
- * The held amount and owner-local immutable payment intent snapshot are committed together.
- */
+/** The held amount and owner-local immutable payment intent snapshot are committed together. */
 public record StoredPaymentAllocation(
         OrderPaymentAllocation allocation,
         String callerScopeHash,

@@ -57,9 +57,7 @@ public interface PaymentInitiationStorageConverter {
     @Mapping(target = "rowVersion", source = "rowVersion")
     OrderPaymentAllocationDO toInputPatch(StoredPaymentAllocation value);
 
-    /**
-     * An intentional four-column patch leaves admission, deadline and payment facts untouched.
-     */
+    /** An intentional four-column patch leaves admission, deadline and payment facts untouched. */
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "paymentReservedMinor", source = "paymentReservedMinor")
     @Mapping(target = "reservedPaymentCount", source = "reservedPaymentCount")

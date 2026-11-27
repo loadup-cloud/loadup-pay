@@ -26,7 +26,8 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 /**
- * The +08:00 boundary is the domestic channel statement protocol, never a global/JVM time-zone override.
+ * The +08:00 boundary is the domestic channel statement protocol, never a global/JVM time-zone
+ * override.
  */
 public record PaymentCaptureScope(
         Channel channel, String accountScopeHash, LocalDate billDate, String statementProfile, String systemZone) {

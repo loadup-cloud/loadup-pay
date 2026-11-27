@@ -21,7 +21,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationStatementState
 import java.time.LocalDate;
 
 /**
- * READY exposes the linked import identity; source files and private proof have no public download URL.
+ * READY exposes the linked import identity; source files and private proof have no public download
+ * URL.
  */
 public record ReconciliationStatementDTO(
         String sourceId,

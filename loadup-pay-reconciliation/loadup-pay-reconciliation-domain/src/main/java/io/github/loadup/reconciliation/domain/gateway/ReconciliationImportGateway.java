@@ -18,9 +18,7 @@ package io.github.loadup.reconciliation.domain.gateway;
 import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
 import java.util.Optional;
 
-/**
- * Local metadata only. Batch is locked before import mutation or active-import lookup.
- */
+/** Local metadata only. Batch is locked before import mutation or active-import lookup. */
 public interface ReconciliationImportGateway {
     Optional<ReconciliationImportRequest> findRequest(String caller, String requestKey);
 

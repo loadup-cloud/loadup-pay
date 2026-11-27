@@ -24,9 +24,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 
-/**
- * Frozen contract policy. Backoff arithmetic saturates and rounds upward, never overflowing.
- */
+/** Frozen contract policy. Backoff arithmetic saturates and rounds upward, never overflowing. */
 public record MerchantNotificationPolicy(
         String targetRef,
         String signingIdentityRef,

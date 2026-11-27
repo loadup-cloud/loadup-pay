@@ -15,9 +15,7 @@
  */
 package io.github.loadup.limitcenter.domain.gateway;
 
-/**
- * A recognized business-key race that requires a fresh transaction and re-evaluation.
- */
+/** A recognized business-key race that requires a fresh transaction and re-evaluation. */
 public class LimitWriteRaceException extends RuntimeException {
     public LimitWriteRaceException(String message) {
         super(message);

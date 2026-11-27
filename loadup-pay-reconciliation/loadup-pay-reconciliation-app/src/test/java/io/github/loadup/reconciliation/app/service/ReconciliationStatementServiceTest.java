@@ -102,7 +102,8 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Unit orchestration only. Actual rollback and native scanner semantics require separate PostgreSQL acceptance.
+ * Unit orchestration only. Actual rollback and native scanner semantics require separate PostgreSQL
+ * acceptance.
  */
 class ReconciliationStatementServiceTest {
     final AnnotationConfigApplicationContext spring =
@@ -153,8 +154,8 @@ class ReconciliationStatementServiceTest {
             16777216);
     final ReconciliationStatementExecutionService execution = new ReconciliationStatementExecutionService(
             tasks, transfers, sources, batches, imports, accounts, payment, files, tx, converter, official, clock);
-    final byte[] bytes = "synthetic-original-statement".getBytes(StandardCharsets.UTF_8),
-            proof = "synthetic-private-proof".getBytes(StandardCharsets.UTF_8);
+    final byte[] bytes = "synthetic-original-statement".getBytes(StandardCharsets.UTF_8);
+    final byte[] proof = "synthetic-private-proof".getBytes(StandardCharsets.UTF_8);
     final ReconciliationFileSnapshot file =
             new ReconciliationFileSnapshot("file", "storage", bytes.length, hash("SHA-256", bytes));
     final ReconciliationFileSnapshot evidence =

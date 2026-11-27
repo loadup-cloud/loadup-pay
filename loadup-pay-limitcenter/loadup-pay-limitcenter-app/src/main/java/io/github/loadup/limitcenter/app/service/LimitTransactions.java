@@ -66,7 +66,8 @@ public class LimitTransactions {
     }
 
     /**
-     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer
+     * transaction or remote IO.
      */
     public <T> T writeLocal(LimitCenterResultCodeEnum conflict, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -77,7 +78,8 @@ public class LimitTransactions {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
                 } catch (LimitWriteRaceException | TransientDataAccessException race) {
-                    // Every retry starts a fresh transaction, after the previous attempt has fully rolled back.
+                    // Every retry starts a fresh transaction, after the previous attempt has fully rolled
+                    // back.
                     if (attempt == 2) {
                         throw new CommonException(CONCURRENT_UPDATE);
                     }

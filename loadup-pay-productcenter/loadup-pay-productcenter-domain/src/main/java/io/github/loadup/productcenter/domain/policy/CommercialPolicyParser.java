@@ -39,7 +39,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Parses the complete closed scalar vocabulary without transport DTOs or infrastructure dependencies. */
+/**
+ * Parses the complete closed scalar vocabulary without transport DTOs or infrastructure
+ * dependencies.
+ */
 public final class CommercialPolicyParser {
     private static CommonException unsupported() {
         return new CommonException(UNSUPPORTED_POLICY);

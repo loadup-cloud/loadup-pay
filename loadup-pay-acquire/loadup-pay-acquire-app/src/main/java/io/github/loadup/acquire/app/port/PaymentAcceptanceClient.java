@@ -24,9 +24,7 @@ import io.github.loadup.acquire.app.model.payment.dto.PaymentInputLookupDTO;
 import io.github.loadup.acquire.app.model.payment.query.PaymentInputLookupQuery;
 import io.github.loadup.acquire.client.dto.payment.PaymentExecutionDTO;
 
-/**
- * Service identity is supplied by the transport, never by the merchant.
- */
+/** Service identity is supplied by the transport, never by the merchant. */
 public interface PaymentAcceptanceClient {
     PaymentInputDTO prepareInput(PaymentInputPrepareCommand command);
 

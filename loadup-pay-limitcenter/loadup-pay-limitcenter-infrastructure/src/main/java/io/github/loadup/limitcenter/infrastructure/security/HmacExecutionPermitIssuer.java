@@ -25,9 +25,7 @@ import io.github.loadup.limitcenter.infrastructure.config.LimitPermitProperties;
 import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Component;
 
-/**
- * Protocol v1 uses length-framed UTF-8 fields and the framework HMAC implementation.
- */
+/** Protocol v1 uses length-framed UTF-8 fields and the framework HMAC implementation. */
 @Component
 public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
     private final LimitPermitProperties properties;

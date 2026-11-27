@@ -32,9 +32,7 @@ import io.github.loadup.components.payment.channel.api.model.VerifiedChannelRefu
 import io.github.loadup.components.payment.channel.api.spi.ChannelNotificationProvider;
 import io.github.loadup.components.payment.channel.contract.Channel;
 
-/**
- * Alipay trade notification strategy; acknowledgements are fixed protocol values.
- */
+/** Alipay trade notification strategy; acknowledgements are fixed protocol values. */
 public final class AlipayNotificationProvider implements ChannelNotificationProvider {
     private final AlipayNotificationCodec codec;
 

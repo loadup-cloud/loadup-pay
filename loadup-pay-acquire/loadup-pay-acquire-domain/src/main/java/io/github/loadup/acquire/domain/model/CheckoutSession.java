@@ -26,9 +26,7 @@ import io.github.loadup.contracts.event.acquire.AcquireOrderState;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Token generation and hashing belong to the security adapter, not this aggregate.
- */
+/** Token generation and hashing belong to the security adapter, not this aggregate. */
 public record CheckoutSession(String id, String orderId, CheckoutSessionState state, LocalDateTime expiresAt) {
     public CheckoutSession {
         DomainChecks.id(id);

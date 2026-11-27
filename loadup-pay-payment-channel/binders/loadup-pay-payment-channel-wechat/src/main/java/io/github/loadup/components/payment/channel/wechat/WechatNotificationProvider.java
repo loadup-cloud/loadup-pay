@@ -32,7 +32,8 @@ import io.github.loadup.components.payment.channel.contract.Channel;
 import io.github.loadup.components.payment.channel.wechat.protocol.WechatNotificationCodec;
 
 /**
- * Native APIv3 acknowledgement. A failure HTTP status must remain non-2xx to request provider retry.
+ * Native APIv3 acknowledgement. A failure HTTP status must remain non-2xx to request provider
+ * retry.
  */
 public final class WechatNotificationProvider implements ChannelNotificationProvider {
     private final WechatNotificationCodec codec;

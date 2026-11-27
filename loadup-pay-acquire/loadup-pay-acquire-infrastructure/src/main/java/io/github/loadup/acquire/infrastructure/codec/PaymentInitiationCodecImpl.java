@@ -82,7 +82,8 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
                     || !allocation.amount().getCurrencyValue().equals(value.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            // The owner-local format permits staged input references, without depending on current Command validation.
+            // The owner-local format permits staged input references, without depending on current
+            // Command validation.
             return snapshots.toCommand(value);
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);

@@ -170,7 +170,8 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
                                 + " statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind,"
                                 + " task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import"
                                 + " WHERE deleted = FALSE AND "
-                                + predicate + (lock ? " FOR UPDATE" : ""),
+                                + predicate
+                                + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class))
                 .stream()

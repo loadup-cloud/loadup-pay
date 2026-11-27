@@ -48,7 +48,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Frozen intent and original Outbox publication precede every owner query. No funds posting or source result input.
+ * Frozen intent and original Outbox publication precede every owner query. No funds posting or
+ * source result input.
  */
 @Service
 public class ReconciliationVerificationService implements ReconciliationVerificationFacade {
@@ -148,7 +149,8 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         var original = transactions.readSnapshot(() ->
                 checked(actor, requests.find(command.requestId()).orElseThrow(() -> new CommonException(NOT_FOUND))));
         return transactions.writeLocal(() -> {
-            // Stable batch -> review -> verification order. Retry never replaces the frozen query or recorded
+            // Stable batch -> review -> verification order. Retry never replaces the frozen query or
+            // recorded
             // observation.
             reviews.approvedForVerification(
                     actor,

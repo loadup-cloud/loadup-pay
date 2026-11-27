@@ -40,7 +40,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Complete lifecycle snapshots and terminal-only financial deliveries share the original local transaction.
+ * Complete lifecycle snapshots and terminal-only financial deliveries share the original local
+ * transaction.
  */
 @Component
 public class PaymentEvents {
@@ -90,7 +91,8 @@ public class PaymentEvents {
     }
 
     /**
-     * Caller invokes this only after inserting or changing the payment aggregate version. No financial delivery is emitted.
+     * Caller invokes this only after inserting or changing the payment aggregate version. No
+     * financial delivery is emitted.
      */
     public void publishSnapshot(StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
         facts.publish(freezeSnapshot(payment, occurredAt));

@@ -301,7 +301,8 @@ class ReconciliationLedgerServiceTest {
     }
 
     private PaymentCaptureDTO capture(PaymentCaptureState state, String hash) {
-        boolean initial = state == PaymentCaptureState.INIT, complete = state == PaymentCaptureState.SEALED;
+        boolean initial = state == PaymentCaptureState.INIT;
+        boolean complete = state == PaymentCaptureState.SEALED;
         String content = complete
                 ? PaymentCaptureContentHash.compute(
                         "capture",

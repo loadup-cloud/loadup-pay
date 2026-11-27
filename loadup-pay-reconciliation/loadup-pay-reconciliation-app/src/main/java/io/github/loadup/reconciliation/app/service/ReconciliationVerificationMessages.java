@@ -23,7 +23,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * Owner-local bounded payload carries only the original persisted request id, never a public DTO or query parameters.
+ * Owner-local bounded payload carries only the original persisted request id, never a public DTO or
+ * query parameters.
  */
 public final class ReconciliationVerificationMessages {
     public static final String TYPE = "pay.reconciliation.verification";

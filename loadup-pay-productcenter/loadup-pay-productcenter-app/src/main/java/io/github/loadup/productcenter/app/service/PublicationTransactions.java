@@ -44,7 +44,8 @@ public class PublicationTransactions {
     }
 
     /**
-     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer
+     * transaction or remote IO.
      */
     public <T> T writeLocal(Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {

@@ -28,7 +28,8 @@ import io.github.loadup.contracts.event.payment.PaymentState;
 import java.util.Objects;
 
 /**
- * Immutable cross-record binding only. Not a lock, actor authorization, gate permission or Y2 submission ticket.
+ * Immutable cross-record binding only. Not a lock, actor authorization, gate permission or Y2
+ * submission ticket.
  */
 public record PaymentAttemptBinding(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
     public PaymentAttemptBinding {
@@ -47,7 +48,8 @@ public record PaymentAttemptBinding(StoredPaymentAcceptance accepted, StoredPaym
     }
 
     /**
-     * Wrong targets are auditable observation conflicts; corrupt bound records still fail instead of fabricating receipts.
+     * Wrong targets are auditable observation conflicts; corrupt bound records still fail instead of
+     * fabricating receipts.
      */
     public static ObservationRejection observationRejection(
             StoredPaymentAcceptance accepted,
@@ -86,9 +88,7 @@ public record PaymentAttemptBinding(StoredPaymentAcceptance accepted, StoredPaym
         return this;
     }
 
-    /**
-     * Eligibility before durable Y2; the caller must still hold and check both OPEN gates.
-     */
+    /** Eligibility before durable Y2; the caller must still hold and check both OPEN gates. */
     public PaymentAttemptBinding requireSubmittable() {
         requireActive();
         require(
@@ -99,17 +99,13 @@ public record PaymentAttemptBinding(StoredPaymentAcceptance accepted, StoredPaym
         return this;
     }
 
-    /**
-     * Submitted original facts remain observable after fencing, replacement or a terminal winner.
-     */
+    /** Submitted original facts remain observable after fencing, replacement or a terminal winner. */
     public PaymentAttemptBinding requireObservable() {
         require(submitted(stored), INVALID_STATE);
         return this;
     }
 
-    /**
-     * Closing eligibility does not establish no-collection evidence or release any capacity.
-     */
+    /** Closing eligibility does not establish no-collection evidence or release any capacity. */
     public PaymentAttemptBinding requireClosable() {
         requireActive();
         var state = accepted.payment().state();
@@ -120,7 +116,8 @@ public record PaymentAttemptBinding(StoredPaymentAcceptance accepted, StoredPaym
     }
 
     /**
-     * Rechecks the already-issued in-memory winner before building its original request; never issues a ticket.
+     * Rechecks the already-issued in-memory winner before building its original request; never issues
+     * a ticket.
      */
     public PaymentAttemptBinding requireSubmissionRequest() {
         requireActive();

@@ -15,9 +15,7 @@
  */
 package io.github.loadup.payment.client.enums;
 
-/**
- * Only payment-owned native task types may be inspected or retried.
- */
+/** Only payment-owned native task types may be inspected or retried. */
 public enum PaymentRecoveryKind {
     COLLECTION,
     REFUND_REQUEST

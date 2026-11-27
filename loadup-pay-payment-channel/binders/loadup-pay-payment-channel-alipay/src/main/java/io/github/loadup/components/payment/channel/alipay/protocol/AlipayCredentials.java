@@ -20,9 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsKeyRef;
 import java.security.PublicKey;
 
-/**
- * Resolved only from the version frozen in an immutable channel binding.
- */
+/** Resolved only from the version frozen in an immutable channel binding. */
 public record AlipayCredentials(
         String appId,
         String sellerId,

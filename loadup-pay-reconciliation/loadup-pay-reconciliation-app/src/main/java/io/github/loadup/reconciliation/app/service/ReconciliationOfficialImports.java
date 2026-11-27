@@ -26,7 +26,8 @@ import io.github.loadup.reconciliation.domain.model.ReconciliationImportRequest;
 import org.springframework.stereotype.Component;
 
 /**
- * Mandatory local provenance check for official imports. No file/network reads under the transaction.
+ * Mandatory local provenance check for official imports. No file/network reads under the
+ * transaction.
  */
 @Component
 public class ReconciliationOfficialImports {

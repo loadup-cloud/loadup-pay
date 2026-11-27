@@ -22,9 +22,7 @@ import io.github.loadup.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.limitcenter.client.dto.LimitExecutionVerificationDTO;
 import io.github.loadup.limitcenter.client.dto.LimitReservationDTO;
 
-/**
- * Execution permission is separate from channel payment outcome evidence.
- */
+/** Execution permission is separate from channel payment outcome evidence. */
 public interface LimitExecutionFacade {
     LimitExecutionPermitDTO beginExecution(LimitBeginExecutionCommand command);
 

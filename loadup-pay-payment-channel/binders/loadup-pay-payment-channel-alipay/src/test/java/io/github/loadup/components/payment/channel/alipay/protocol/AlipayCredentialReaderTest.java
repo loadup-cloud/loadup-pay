@@ -51,9 +51,16 @@ class AlipayCredentialReaderTest {
     Path directory;
 
     private static String credential(String reference, String version, String app, String seller, String key) {
-        return "{\"reference\":\"" + reference + "\",\"version\":\"" + version
-                + "\",\"appId\":\"" + app + "\",\"sellerId\":\"" + seller
-                + "\",\"signingKeyName\":\"signing-key\",\"signingKeyVersion\":4,\"platformPublicKey\":\"" + key
+        return "{\"reference\":\""
+                + reference
+                + "\",\"version\":\""
+                + version
+                + "\",\"appId\":\""
+                + app
+                + "\",\"sellerId\":\""
+                + seller
+                + "\",\"signingKeyName\":\"signing-key\",\"signingKeyVersion\":4,\"platformPublicKey\":\""
+                + key
                 + "\"}";
     }
 

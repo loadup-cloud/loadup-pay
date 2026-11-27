@@ -26,7 +26,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Both sides remain immutable evidence. A difference authorizes neither a refund nor a source-state rewrite.
+ * Both sides remain immutable evidence. A difference authorizes neither a refund nor a source-state
+ * rewrite.
  */
 public record ReconciliationDifference(
         ReconciliationKey key,

@@ -15,9 +15,7 @@
  */
 package io.github.loadup.payment.app.port;
 
-/**
- * An expected business-key race; the transaction must roll back before retrying.
- */
+/** An expected business-key race; the transaction must roll back before retrying. */
 public class PaymentWriteConflictException extends RuntimeException {
     public PaymentWriteConflictException(String message) {
         super(message);

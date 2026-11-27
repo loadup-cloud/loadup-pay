@@ -91,7 +91,8 @@ public class ChannelBindingService implements ChannelBindingFacade {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.id(command.bindingCode());
             DomainChecks.text(command.requestKey(), 128);
-            // The typed identity validates channel and mode; executable capabilities belong to registered providers.
+            // The typed identity validates channel and mode; executable capabilities belong to
+            // registered providers.
             var candidate = converter.toBinding(
                     command,
                     "candidate",

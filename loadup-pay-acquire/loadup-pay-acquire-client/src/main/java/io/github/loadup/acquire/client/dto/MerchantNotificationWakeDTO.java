@@ -20,9 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 
-/**
- * Immutable operation receipt, not the latest delivery state or proof of merchant receipt.
- */
+/** Immutable operation receipt, not the latest delivery state or proof of merchant receipt. */
 public record MerchantNotificationWakeDTO(
         @Schema(description = "Audit receipt id") String id,
         @Schema(description = "Original delivery id") String deliveryId,

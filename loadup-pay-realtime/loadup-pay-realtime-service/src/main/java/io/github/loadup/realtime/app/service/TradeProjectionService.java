@@ -58,7 +58,8 @@ public class TradeProjectionService implements TradeProjectionFacade {
     private final RealtimeTransactions transactions;
     private final IdGenerator ids;
     private final Clock clock;
-    private final String acquireService, paymentService;
+    private final String acquireService;
+    private final String paymentService;
 
     public TradeProjectionService(
             RealtimeActorProvider actors,

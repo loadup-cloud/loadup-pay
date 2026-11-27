@@ -26,9 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Bounded untrusted wire bytes; parsers must reject duplicate fields and malformed encodings.
- */
+/** Bounded untrusted wire bytes; parsers must reject duplicate fields and malformed encodings. */
 public record ChannelNotificationInput(
         String contentType,
         @DiagnosticHidden Map<String, List<String>> headers,

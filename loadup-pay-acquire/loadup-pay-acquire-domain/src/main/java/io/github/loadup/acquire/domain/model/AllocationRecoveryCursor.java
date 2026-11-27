@@ -24,9 +24,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Only business continuation identity; scheduling claims and leases belong to TaskExecution.
- */
+/** Only business continuation identity; scheduling claims and leases belong to TaskExecution. */
 public record AllocationRecoveryCursor(
         String paymentId, String orderId, long generation, LocalDateTime dueAt, boolean completed) {
     public AllocationRecoveryCursor {

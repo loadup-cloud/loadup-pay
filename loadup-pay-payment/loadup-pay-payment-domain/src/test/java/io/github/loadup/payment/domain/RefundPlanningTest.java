@@ -62,7 +62,8 @@ class RefundPlanningTest {
         var child = RefundOrder.init("r1", "request", "p1", Money.ofMinor(1000, "CNY"), "channel-refund");
         var request = RefundRequest.init(
                 "request", "order", "merchant", "merchant-refund", Money.ofMinor(1000, "CNY"), List.of(child));
-        //        var unknown = child.recordOutcome(new ChannelRefundOutcome("r1", ChannelRefundOutcome.Kind.UNKNOWN,
+        //        var unknown = child.recordOutcome(new ChannelRefundOutcome("r1",
+        // ChannelRefundOutcome.Kind.UNKNOWN,
         // Money.ofMinor(1000, "CNY"), null));
         //        request = request.apply(unknown);
         //        assertEquals(RefundRequestState.PROCESSING, request.state());

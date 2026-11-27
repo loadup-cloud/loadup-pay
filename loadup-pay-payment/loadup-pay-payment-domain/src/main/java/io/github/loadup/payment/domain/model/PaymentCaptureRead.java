@@ -30,7 +30,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One complete bounded read-only RR result, or a blocker sample. A blocked result is never a partial successful export.
+ * One complete bounded read-only RR result, or a blocker sample. A blocked result is never a
+ * partial successful export.
  */
 public record PaymentCaptureRead(
         PaymentCaptureScope scope,

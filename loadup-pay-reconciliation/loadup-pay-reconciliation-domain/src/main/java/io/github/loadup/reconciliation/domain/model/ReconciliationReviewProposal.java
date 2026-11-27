@@ -26,9 +26,7 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationReviewConclusi
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Immutable maker proposal, including the exact optional private evidence snapshot.
- */
+/** Immutable maker proposal, including the exact optional private evidence snapshot. */
 public record ReconciliationReviewProposal(
         String id,
         ReconciliationReviewReference reference,

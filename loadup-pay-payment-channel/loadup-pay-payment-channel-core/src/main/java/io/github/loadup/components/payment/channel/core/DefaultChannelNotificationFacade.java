@@ -37,7 +37,8 @@ import java.util.Collection;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Notification strategies are selected independently of payment orchestration and never apply financial state.
+ * Notification strategies are selected independently of payment orchestration and never apply
+ * financial state.
  */
 public final class DefaultChannelNotificationFacade implements ChannelNotificationFacade {
     private final ChannelStrategyRegistry<ChannelNotificationProvider> providers;

@@ -75,7 +75,9 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         var args = new MapSqlParameterSource().addValue("caller", caller).addValue("key", key);
         var row = jdbc
                 .query(
-                        "SELECT " + COLUMNS + " FROM routing_profile WHERE "
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM routing_profile WHERE "
                                 + "caller_service_id = :caller AND request_key = :key AND deleted = FALSE",
                         args,
                         BeanPropertyRowMapper.newInstance(RoutingProfileDO.class))

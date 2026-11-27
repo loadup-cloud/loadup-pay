@@ -58,7 +58,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Real migration, generated Mapper, gateway and native-task boundaries; does not exercise financial submission.
+ * Real migration, generated Mapper, gateway and native-task boundaries; does not exercise financial
+ * submission.
  */
 @SpringBootTest(classes = RecoveryPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
@@ -108,7 +109,8 @@ class RecoveryPersistenceIT {
 
     @Test
     void initialCursorAndNativeRegistrationRollBackTogether() {
-        String tenant = id("tenant"), payment = id("payment");
+        String tenant = id("tenant");
+        String payment = id("payment");
         assertThrows(
                 IllegalStateException.class,
                 () -> transactions.writeLocal(() -> {
@@ -125,7 +127,8 @@ class RecoveryPersistenceIT {
 
     @Test
     void successorFailureCannotCommitOnlyTheCursorOrOnlyTheNewTask() {
-        String tenant = id("tenant"), payment = id("payment");
+        String tenant = id("tenant");
+        String payment = id("payment");
         seed(tenant, payment);
         assertThrows(
                 IllegalStateException.class,
@@ -146,7 +149,8 @@ class RecoveryPersistenceIT {
 
     @Test
     void concurrentWorkersCanCommitOnlyOneSuccessorForTheOriginalGeneration() throws Exception {
-        String tenant = id("tenant"), payment = id("payment");
+        String tenant = id("tenant");
+        String payment = id("payment");
         seed(tenant, payment);
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
@@ -187,7 +191,8 @@ class RecoveryPersistenceIT {
 
     @Test
     void readSnapshotDoesNotHoldTheCursorWriteLockAndKeepsItsOriginalMultiTableView() throws Exception {
-        String tenant = id("tenant"), payment = id("payment");
+        String tenant = id("tenant");
+        String payment = id("payment");
         seed(tenant, payment);
         var observed = new CountDownLatch(1);
         var written = new CountDownLatch(1);
@@ -237,7 +242,9 @@ class RecoveryPersistenceIT {
 
     @Test
     void failedNativeRetryAndActualAuditGatewayHaveTheSameRollbackBoundary() {
-        String tenant = id("tenant"), subject = id("payment"), request = id("operation");
+        String tenant = id("tenant");
+        String subject = id("payment");
+        String request = id("operation");
         transactions.writeLocal(() -> tasks.submit(TaskSubmission.scheduled(AUDIT_TYPE, key(subject, 0), AT)));
         dispatcher.execute();
         var failed = transactions.readSnapshot(

@@ -28,7 +28,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Pure metadata checks only. Native lookup/claim/heartbeat/ACK and all financial work remain with their owners.
+ * Pure metadata checks only. Native lookup/claim/heartbeat/ACK and all financial work remain with
+ * their owners.
  */
 public final class RecoveryTaskProtocol {
     private RecoveryTaskProtocol() {}

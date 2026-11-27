@@ -37,7 +37,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Bridges payment-owned persistence to the independent channel facade; contains no channel protocol.
+ * Bridges payment-owned persistence to the independent channel facade; contains no channel
+ * protocol.
  */
 @Component
 public class PaymentChannelGatewayImpl implements PaymentChannelGateway {

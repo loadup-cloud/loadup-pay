@@ -175,7 +175,8 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                         return checked(first.get(), intent);
                     }
                     var header = contracts.lockByScope(intent.payeeMerchantId(), intent.productScopeKey());
-                    // Serialize against both status changes and another admission waiting on this contract.
+                    // Serialize against both status changes and another admission waiting on
+                    // this contract.
                     var afterLock = admissions.findByOrder(intent.orderId());
                     if (afterLock.isPresent()) {
                         return checked(afterLock.get(), intent);

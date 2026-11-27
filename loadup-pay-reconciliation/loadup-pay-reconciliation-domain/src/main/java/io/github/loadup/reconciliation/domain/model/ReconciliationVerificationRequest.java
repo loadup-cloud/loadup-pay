@@ -27,7 +27,8 @@ import io.github.loadup.reconciliation.client.enums.ReconciliationVerificationSt
 import java.util.Objects;
 
 /**
- * Frozen approved review and one Outbox delivery. Recorded observations never erase the original difference.
+ * Frozen approved review and one Outbox delivery. Recorded observations never erase the original
+ * difference.
  */
 public record ReconciliationVerificationRequest(
         String id,

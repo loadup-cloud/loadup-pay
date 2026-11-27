@@ -40,7 +40,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Composes durable creation and payment actions; failures retain their original independently committed facts.
+ * Composes durable creation and payment actions; failures retain their original independently
+ * committed facts.
  */
 @Service
 public class DirectPaymentService implements DirectPaymentFacade {
@@ -109,7 +110,8 @@ public class DirectPaymentService implements DirectPaymentFacade {
             throw new CommonException(AcquireResultCodeEnum.SNAPSHOT_INVALID);
         }
         if (resolved.state() != PaymentRecoveryState.RESOLVED) {
-            // Only the explicit original request may prepare input/start A2. Recovery never creates either.
+            // Only the explicit original request may prepare input/start A2. Recovery never creates
+            // either.
             payments.startPayment(converter.toStart(command, created.orderId()));
             resolved = recovery.recover(original);
         }

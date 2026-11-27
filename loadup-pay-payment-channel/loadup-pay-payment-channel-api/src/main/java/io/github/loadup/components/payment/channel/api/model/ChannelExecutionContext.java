@@ -19,9 +19,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import java.util.Objects;
 
-/**
- * Trusted immutable channel binding resolved by the calling application's adapter.
- */
+/** Trusted immutable channel binding resolved by the calling application's adapter. */
 public record ChannelExecutionContext(@DiagnosticHidden ChannelBindingRevision binding) {
     public ChannelExecutionContext {
         Objects.requireNonNull(binding);

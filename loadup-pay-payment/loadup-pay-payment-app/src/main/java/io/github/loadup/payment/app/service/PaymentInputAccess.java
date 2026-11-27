@@ -44,9 +44,7 @@ import java.time.temporal.ChronoUnit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Internal input lifecycle. Decryption does not grant a channel submission or retry permit.
- */
+/** Internal input lifecycle. Decryption does not grant a channel submission or retry permit. */
 @Component
 public class PaymentInputAccess {
     private final PaymentInputGateway inputs;
@@ -71,9 +69,7 @@ public class PaymentInputAccess {
         this.clock = clock;
     }
 
-    /**
-     * Called only after holding the original parent and single-payment gates.
-     */
+    /** Called only after holding the original parent and single-payment gates. */
     public void requireNewAcceptance(String service, PaymentExecuteCommand command, LocalDateTime now) {
         requireTransaction();
         if (!requiresInput(command)) {
@@ -90,7 +86,8 @@ public class PaymentInputAccess {
     }
 
     /**
-     * Joins the Y2 payment/attempt CAS transaction; no network or cryptographic call is performed here.
+     * Joins the Y2 payment/attempt CAS transaction; no network or cryptographic call is performed
+     * here.
      */
     public void bindToAttempt(StoredPaymentAcceptance accepted, String attemptId, LocalDateTime now) {
         requireTransaction();
@@ -114,7 +111,8 @@ public class PaymentInputAccess {
     }
 
     /**
-     * Only an already active attempt can read its bound input; there is deliberately no HTTP decrypt endpoint.
+     * Only an already active attempt can read its bound input; there is deliberately no HTTP decrypt
+     * endpoint.
      */
     public PaymentInteractionDTO openForAttempt(String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -149,9 +147,7 @@ public class PaymentInputAccess {
         });
     }
 
-    /**
-     * Opens only the original still-unbound input for local parameter inspection before Y2.
-     */
+    /** Opens only the original still-unbound input for local parameter inspection before Y2. */
     public PaymentInteractionDTO openForPreparation(StoredPaymentAcceptance original, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);

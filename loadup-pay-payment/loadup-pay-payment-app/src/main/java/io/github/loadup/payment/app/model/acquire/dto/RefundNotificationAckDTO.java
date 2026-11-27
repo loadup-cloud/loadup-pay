@@ -24,7 +24,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
 
 /**
- * Acknowledges durable notification registration or the original disabled policy, never merchant delivery.
+ * Acknowledges durable notification registration or the original disabled policy, never merchant
+ * delivery.
  */
 public record RefundNotificationAckDTO(
         @Schema(description = "Original internal delivery id")

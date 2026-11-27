@@ -231,7 +231,8 @@ class ReconciliationImportServiceTest {
         assertThrows(CommonException.class, () -> service.submit(command("file")));
         assertNull(stored.get());
         verify(imports, never()).insert(any());
-        // Mockito proves call ordering only; File/Transfer/intent SQL rollback still requires the real-DB IT.
+        // Mockito proves call ordering only; File/Transfer/intent SQL rollback still requires the
+        // real-DB IT.
     }
 
     @Test

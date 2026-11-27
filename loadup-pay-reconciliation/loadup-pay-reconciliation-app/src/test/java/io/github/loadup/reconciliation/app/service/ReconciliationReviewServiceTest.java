@@ -102,7 +102,8 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Focused application semantics only; fake transaction manager does not establish database rollback proof.
+ * Focused application semantics only; fake transaction manager does not establish database rollback
+ * proof.
  */
 class ReconciliationReviewServiceTest {
     final AnnotationConfigApplicationContext spring =
@@ -206,7 +207,8 @@ class ReconciliationReviewServiceTest {
                 .attachReview(anyString(), any(), anyString());
         when(reviews.history(eq("difference"), anyInt(), anyInt())).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-            int page = call.getArgument(1), size = call.getArgument(2);
+            int page = call.getArgument(1);
+            int size = call.getArgument(2);
             var all = events.values().stream()
                     .sorted(Comparator.comparingLong(ReconciliationReviewEvent::version))
                     .toList();

@@ -15,9 +15,7 @@
  */
 package io.github.loadup.realtime.domain.gateway;
 
-/**
- * A recognized projection or delivery business-key race requiring a fresh transaction.
- */
+/** A recognized projection or delivery business-key race requiring a fresh transaction. */
 public class ProjectionWriteRaceException extends RuntimeException {
     public ProjectionWriteRaceException(String message) {
         super(message);

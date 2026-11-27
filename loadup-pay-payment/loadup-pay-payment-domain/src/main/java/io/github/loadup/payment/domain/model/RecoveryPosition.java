@@ -25,7 +25,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Pure continuation protocol shared inside payment; no native lease, financial state or dispatch permission.
+ * Pure continuation protocol shared inside payment; no native lease, financial state or dispatch
+ * permission.
  */
 public record RecoveryPosition(String subjectId, long generation, LocalDateTime dueAt, boolean completed) {
     public RecoveryPosition {

@@ -43,7 +43,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
 
 class HmacCheckoutTokensTest {
-    final String oldSecret = "synthetic-v1-" + "a".repeat(32), newSecret = "synthetic-v2-" + "b".repeat(32);
+    final String oldSecret = "synthetic-v1-" + "a".repeat(32);
+    final String newSecret = "synthetic-v2-" + "b".repeat(32);
     final LocalDateTime expiry = LocalDateTime.of(2026, 10, 21, 12, 5);
     final CheckoutSession session = new CheckoutSession("session", "order", CheckoutSessionState.ACTIVE, expiry);
     final String nonce = "c".repeat(64);
@@ -77,7 +78,10 @@ class HmacCheckoutTokensTest {
     void protocolMatchesIndependentJcaHmacWithExactLfAndEpochFields() throws Exception {
         var tokens = issuer("v1", Map.of("v1", oldSecret));
         String data = "pay-checkout-v1\nsession\norder\n"
-                + BusinessTime.external(expiry).toEpochSecond() + "\n" + nonce + "\n";
+                + BusinessTime.external(expiry).toEpochSecond()
+                + "\n"
+                + nonce
+                + "\n";
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(oldSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         String expected = "session."
