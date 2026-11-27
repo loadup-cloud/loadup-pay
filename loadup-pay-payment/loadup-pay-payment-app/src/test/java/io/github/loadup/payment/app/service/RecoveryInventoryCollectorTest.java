@@ -106,6 +106,7 @@ class RecoveryInventoryCollectorTest {
             }
             verifyNoMoreInteractions(reader);
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery inventory collection", e);
         }
     }
 
@@ -149,6 +150,7 @@ class RecoveryInventoryCollectorTest {
                             .counter()
                             .count());
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery inventory collection", e);
         }
     }
 
@@ -163,6 +165,7 @@ class RecoveryInventoryCollectorTest {
             assertTrue(Double.isNaN(gauge(registry, ".unknown.count", "refund")));
             assertEquals(0.0, gauge(registry, ".initialized", null));
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery inventory collection", e);
         }
     }
 
@@ -183,6 +186,7 @@ class RecoveryInventoryCollectorTest {
             verify(reader, times(2)).read();
             assertEquals(0.0, gauge(registry, ".sample.age", null));
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery inventory collection", e);
         }
     }
 
@@ -193,6 +197,7 @@ class RecoveryInventoryCollectorTest {
             var registry = new SimpleMeterRegistry();
             collector(reader, registry, new MutableClock(), false).execute();
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery inventory collection", e);
         }
         var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
         new RecoveryInventoryCollector(
@@ -209,6 +214,7 @@ class RecoveryInventoryCollectorTest {
             var registry = new SimpleMeterRegistry();
             assertTrue(true);
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery inventory collection", e);
         }
     }
 

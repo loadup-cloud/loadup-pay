@@ -89,7 +89,7 @@ class RecoveryExecutionMetricsTest {
                             .timer()
                             .count());
         } catch (Throwable ex) {
-
+            throw new AssertionError("Unexpected failure while checking recovery execution metrics", ex);
         }
     }
 
@@ -120,6 +120,7 @@ class RecoveryExecutionMetricsTest {
                             .timer()
                             .count());
         } catch (Throwable ex) {
+            throw new AssertionError("Unexpected failure while checking recovery execution metrics", ex);
         }
     }
 
@@ -153,6 +154,7 @@ class RecoveryExecutionMetricsTest {
                 }
             }
         } catch (Throwable ex) {
+            throw new AssertionError("Unexpected failure while checking recovery execution metrics", ex);
         }
     }
 
@@ -199,6 +201,7 @@ class RecoveryExecutionMetricsTest {
                 release.countDown();
             }
         } catch (Throwable ex) {
+            throw new AssertionError("Unexpected failure while checking recovery execution metrics", ex);
         }
     }
 }

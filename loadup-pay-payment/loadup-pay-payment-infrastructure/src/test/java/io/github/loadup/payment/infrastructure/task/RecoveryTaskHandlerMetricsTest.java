@@ -67,6 +67,7 @@ class RecoveryTaskHandlerMetricsTest {
                             .timer()
                             .count());
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery task handler metrics", e);
         }
     }
 
@@ -95,6 +96,7 @@ class RecoveryTaskHandlerMetricsTest {
                             .gauge()
                             .value());
         } catch (Exception e) {
+            throw new AssertionError("Unexpected failure while checking recovery task handler metrics", e);
         }
     }
 }
