@@ -70,7 +70,8 @@ public interface PaymentResultStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     ChannelTransactionClaim toClaim(ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
 
     @Mapping(target = "paymentId", source = "identity.paymentId")
@@ -89,7 +90,8 @@ public interface PaymentResultStorageConverter {
     @Mapping(
             target = "succeededAmount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getSucceededMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getSucceededMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     PaymentRefundCapacity toCapacity(PaymentRefundCapacityDO row);

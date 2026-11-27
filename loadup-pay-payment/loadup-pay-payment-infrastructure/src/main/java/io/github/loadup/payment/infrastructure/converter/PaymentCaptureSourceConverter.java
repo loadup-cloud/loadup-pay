@@ -35,7 +35,8 @@ public interface PaymentCaptureSourceConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(claim.getAmountMinor(), claim.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(claim.getAmountMinor(),"
+                            + " claim.getCurrency()))")
     @Mapping(target = "sourceAt", source = "claim.succeededAt")
     @Mapping(target = "sourceId", source = "claim.paymentId")
     @Mapping(target = "evidenceId", source = "claim.receiptId")
@@ -51,7 +52,8 @@ public interface PaymentCaptureSourceConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(accepted.getAmountMinor(), accepted.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(accepted.getAmountMinor(),"
+                            + " accepted.getCurrency()))")
     @Mapping(target = "sourceAt", source = "accepted.acceptedAt")
     @Mapping(target = "sourceId", source = "accepted.id")
     @Mapping(target = "evidenceId", source = "accepted.receiptId")

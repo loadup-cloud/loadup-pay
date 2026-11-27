@@ -8,14 +8,14 @@
 
 ## 适配器
 
-| 适配器 | 职责 |
-|---|---|
-| `WechatSubmitAdapter` | JSAPI/H5 下单、唤起签名与动作构造 |
-| `WechatPaymentAdapter` | 原号查询/恢复/关闭 |
-| `WechatRefundAdapter` | 直连/服务商退款提交、查询与有限恢复 |
-| `WechatCodepayAdapter` | V2 付款码首提与原号查证 |
-| `WechatNotificationProvider` | 支付/退款通知验签、解密与 ACK |
-| `WechatStatementProvider` | 官方 ALL 账单申请、签名下载与 SHA1 核验 |
+| 适配器                       | 职责                                    |
+|------------------------------|-----------------------------------------|
+| `WechatSubmitAdapter`        | JSAPI/H5 下单、唤起签名与动作构造       |
+| `WechatPaymentAdapter`       | 原号查询/恢复/关闭                      |
+| `WechatRefundAdapter`        | 直连/服务商退款提交、查询与有限恢复     |
+| `WechatCodepayAdapter`       | V2 付款码首提与原号查证                 |
+| `WechatNotificationProvider` | 支付/退款通知验签、解密与 ACK           |
+| `WechatStatementProvider`    | 官方 ALL 账单申请、签名下载与 SHA1 核验 |
 
 ## 边界
 

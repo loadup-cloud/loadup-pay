@@ -31,7 +31,8 @@ public interface RefundAcceptanceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     RefundAcceptanceEvidence toModel(RefundAcceptanceDO row);
 
     @Mapping(target = "id", source = "value.refundId")

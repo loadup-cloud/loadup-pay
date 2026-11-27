@@ -41,8 +41,8 @@ public class PaymentRecoveryController {
 
     @PostMapping("/recover")
     @Operation(
-            summary =
-                    "Recover only the original merchant action after a lost response; never creates a replacement payment")
+            summary = "Recover only the original merchant action after a lost response; never creates a replacement"
+                    + " payment")
     public ResponseEntity<SuccessResponse<PaymentRecoveryDTO>> recover(
             @Valid @RequestBody PaymentRecoverCommand command) {
         return ResponseEntity.ok()

@@ -30,7 +30,8 @@ public interface FeeAdjustmentStorageConverter {
     @Mapping(
             target = "adjustment",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(fee.adjustmentDueMinor(), fee.baseAmount().getCurrencyValue()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(fee.adjustmentDueMinor(),"
+                            + " fee.baseAmount().getCurrencyValue()))")
     @Mapping(target = "refundSourceVersion", source = "fee.refundBasisVersion")
     FeeAdjustment toAdjustment(String id, OrderFee fee, String triggerKey);
 

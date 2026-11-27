@@ -56,7 +56,8 @@ public interface RefundResultStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     RefundTransactionClaim toClaim(RefundTransactionClaimDO row, ChannelPaymentIdentity original);
 
     @Mapping(target = "paymentId", source = "original.paymentId")

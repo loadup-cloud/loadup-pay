@@ -52,10 +52,10 @@ public class FeeRefundReceiptGatewayImpl implements FeeRefundReceiptGateway {
     public Optional<FeeRefundReceipt> find(String id) {
         var args = new MapSqlParameterSource().addValue("delivery", id);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, delivery_id, business_event_id, order_id,
-                       source_version, applied_version, request_digest, caller_service_id, accepted_at
-                FROM fee_refund_receipt WHERE delivery_id = :delivery AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(FeeRefundReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, delivery_id, business_event_id, order_id,
+                   source_version, applied_version, request_digest, caller_service_id, accepted_at
+            FROM fee_refund_receipt WHERE delivery_id = :delivery AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(FeeRefundReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -81,12 +81,12 @@ public class FeeRefundReceiptGatewayImpl implements FeeRefundReceiptGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO fee_refund_receipt (id, created_at, updated_at, deleted, delivery_id, business_event_id,
-                    order_id, source_version, applied_version, request_digest, caller_service_id, accepted_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :deliveryId, :businessEventId, :orderId,
-                    :sourceVersion, :appliedVersion, :requestDigest, :callerServiceId, :acceptedAt)
-                ON CONFLICT (delivery_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO fee_refund_receipt (id, created_at, updated_at, deleted, delivery_id, business_event_id,
+                order_id, source_version, applied_version, request_digest, caller_service_id, accepted_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :deliveryId, :businessEventId, :orderId,
+                :sourceVersion, :appliedVersion, :requestDigest, :callerServiceId, :acceptedAt)
+            ON CONFLICT (delivery_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Fee refund delivery already exists");
         }

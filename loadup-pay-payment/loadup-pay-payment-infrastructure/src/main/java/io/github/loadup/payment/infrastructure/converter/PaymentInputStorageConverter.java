@@ -27,7 +27,8 @@ public interface PaymentInputStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     PaymentInput toInput(PaymentInputDO row);
 
     @Mapping(target = "amountMinor", source = "value.amount.cent")

@@ -59,9 +59,8 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var args = new MapSqlParameterSource().addValue("limit", window.limit() + 1);
-        String base =
-                switch (kind) {
-                    case COLLECTION -> """
+        String base = switch (kind) {
+            case COLLECTION -> """
                         SELECT p.id AS record_id, p.id AS subject_id, p.order_id, p.payee_merchant_id,
                                p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
                                c.generation AS recovery_generation, c.completed AS recovery_completed
@@ -69,7 +68,7 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
                           ON c.id = p.id AND c.deleted = FALSE
                         WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
                         """;
-                    case REFUND_REQUEST -> """
+            case REFUND_REQUEST -> """
                         SELECT p.id AS record_id, p.refund_request_id AS subject_id, r.order_id, r.payee_merchant_id,
                                p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
                                c.generation AS recovery_generation, c.completed AS recovery_completed
@@ -79,7 +78,7 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
                           ON c.id = p.refund_request_id AND c.deleted = FALSE
                         WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
                         """;
-                };
+        };
         var sql = new StringBuilder(base);
         if (window.cutoff() != null) {
             sql.append(" AND p.first_unknown_at <= :cutoff");

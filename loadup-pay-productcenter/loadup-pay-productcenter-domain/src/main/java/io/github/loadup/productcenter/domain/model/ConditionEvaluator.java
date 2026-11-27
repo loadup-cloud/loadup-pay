@@ -127,18 +127,17 @@ public final class ConditionEvaluator {
             return MatchResult.INDETERMINATE;
         }
         int compared = compare(actual, expected.getFirst());
-        boolean matches =
-                switch (rule.operator()) {
-                    case EQ -> compared == 0;
-                    case NE -> compared != 0;
-                    case GT -> compared > 0;
-                    case GE -> compared >= 0;
-                    case LT -> compared < 0;
-                    case LE -> compared <= 0;
-                    case IN -> expected.stream().anyMatch(v -> compare(actual, v) == 0);
-                    case NOT_IN -> expected.stream().noneMatch(v -> compare(actual, v) == 0);
-                    case BETWEEN -> compared >= 0 && compare(actual, expected.getLast()) <= 0;
-                };
+        boolean matches = switch (rule.operator()) {
+            case EQ -> compared == 0;
+            case NE -> compared != 0;
+            case GT -> compared > 0;
+            case GE -> compared >= 0;
+            case LT -> compared < 0;
+            case LE -> compared <= 0;
+            case IN -> expected.stream().anyMatch(v -> compare(actual, v) == 0);
+            case NOT_IN -> expected.stream().noneMatch(v -> compare(actual, v) == 0);
+            case BETWEEN -> compared >= 0 && compare(actual, expected.getLast()) <= 0;
+        };
         return matches ? MatchResult.MATCH : MatchResult.NO_MATCH;
     }
 }

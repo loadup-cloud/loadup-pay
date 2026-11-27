@@ -41,8 +41,8 @@ public class PaymentUnknownRecoveryController {
 
     @PostMapping("/list")
     @Operation(
-            summary =
-                    "List tenant-scoped UNKNOWN payment/child-refund cases; operations SERVICE with recovery read permission only")
+            summary = "List tenant-scoped UNKNOWN payment/child-refund cases; operations SERVICE with recovery read"
+                    + " permission only")
     public ResponseEntity<SuccessResponse<PaymentUnknownRecoveryPageDTO>> list(
             @Valid @RequestBody PaymentUnknownRecoveryQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.list(query)));

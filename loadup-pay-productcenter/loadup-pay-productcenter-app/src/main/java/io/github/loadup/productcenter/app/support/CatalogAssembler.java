@@ -124,12 +124,11 @@ public class CatalogAssembler {
             }
             clauses.add(clause.negated() ? new Condition.Not(node) : node);
         }
-        Condition condition =
-                switch (definition.mode()) {
-                    case "ALL" -> new Condition.All(clauses);
-                    case "ANY" -> new Condition.Any(clauses);
-                    default -> throw new CommonException(ContractResultCodeEnum.UNKNOWN_CONDITION_MODE);
-                };
+        Condition condition = switch (definition.mode()) {
+            case "ALL" -> new Condition.All(clauses);
+            case "ANY" -> new Condition.Any(clauses);
+            default -> throw new CommonException(ContractResultCodeEnum.UNKNOWN_CONDITION_MODE);
+        };
         new ConditionEvaluator().validate(condition);
         return condition;
     }

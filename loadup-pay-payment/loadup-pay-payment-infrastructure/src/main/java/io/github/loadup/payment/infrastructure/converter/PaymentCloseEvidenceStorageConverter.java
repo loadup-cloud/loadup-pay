@@ -30,7 +30,8 @@ public interface PaymentCloseEvidenceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     PaymentCloseEvidence toModel(PaymentCloseEvidenceDO row);
 
     @Mapping(target = "id", source = "value.identity.attemptId")

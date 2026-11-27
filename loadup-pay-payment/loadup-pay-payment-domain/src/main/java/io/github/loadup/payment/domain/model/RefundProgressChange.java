@@ -70,14 +70,13 @@ public record RefundProgressChange(
         if (before.submissionStartedAt() == null) {
             require(refund.equals(current.beginSubmission()), CONFLICT);
         } else {
-            var kind =
-                    switch (refund.state()) {
-                        case PROCESSING -> ChannelRefundOutcome.Kind.ACCEPTED;
-                        case UNKNOWN -> ChannelRefundOutcome.Kind.UNKNOWN;
-                        case SUCCEEDED -> ChannelRefundOutcome.Kind.SUCCEEDED;
-                        case FAILED -> ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND;
-                        case INIT -> throw new DomainViolation(CONFLICT);
-                    };
+            var kind = switch (refund.state()) {
+                case PROCESSING -> ChannelRefundOutcome.Kind.ACCEPTED;
+                case UNKNOWN -> ChannelRefundOutcome.Kind.UNKNOWN;
+                case SUCCEEDED -> ChannelRefundOutcome.Kind.SUCCEEDED;
+                case FAILED -> ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND;
+                case INIT -> throw new DomainViolation(CONFLICT);
+            };
             require(
                     current.recordOutcome(new ChannelRefundOutcome(
                                     current.id(), kind, refund.amount(), refund.terminalEvidenceId()))

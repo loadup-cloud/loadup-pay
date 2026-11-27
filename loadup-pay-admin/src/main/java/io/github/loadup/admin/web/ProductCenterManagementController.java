@@ -50,7 +50,8 @@ public class ProductCenterManagementController {
 
     @PostMapping("/catalog/save")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:write') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:catalog:write') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<CatalogVersionDTO> save(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody CatalogSaveCommand request) {
         return SuccessResponse.of(responses.required(() -> center.save(authorization, request)));
@@ -58,7 +59,8 @@ public class ProductCenterManagementController {
 
     @PostMapping("/catalog/page")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public PageResponse<CatalogVersionDTO> catalogPage(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody CatalogPageQuery request) {
         return PageResponse.of(responses.required(
@@ -67,23 +69,24 @@ public class ProductCenterManagementController {
 
     @PostMapping("/catalog/detail")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<CatalogVersionDTO> catalogDetail(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody IdQuery request) {
         return SuccessResponse.of(responses.required(() -> center.catalogDetail(authorization, request)));
     }
 
     @PostMapping("/catalog/publish")
-    @PreAuthorize(
-            "hasAuthority('contract:catalog:publish') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:catalog:publish') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     public SuccessResponse<CatalogVersionDTO> publish(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody CatalogActionCommand request) {
         return SuccessResponse.of(responses.required(() -> center.publish(authorization, request)));
     }
 
     @PostMapping("/catalog/retire")
-    @PreAuthorize(
-            "hasAuthority('contract:catalog:publish') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:catalog:publish') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     public SuccessResponse<CatalogVersionDTO> retire(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody CatalogActionCommand request) {
         return SuccessResponse.of(responses.required(() -> center.retire(authorization, request)));
@@ -91,7 +94,8 @@ public class ProductCenterManagementController {
 
     @PostMapping("/merchant-contracts/page")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public PageResponse<MerchantContractDTO> contractPage(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody MerchantContractPageQuery request) {
@@ -101,15 +105,16 @@ public class ProductCenterManagementController {
 
     @PostMapping("/merchant-contracts/detail")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<MerchantContractDTO> contractDetail(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody IdQuery request) {
         return SuccessResponse.of(responses.required(() -> center.contractDetail(authorization, request)));
     }
 
     @PostMapping("/merchant-contracts/status")
-    @PreAuthorize(
-            "hasAuthority('contract:merchant:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:merchant:manage') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     public SuccessResponse<MerchantContractDTO> status(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody ContractStatusCommand request) {
         return SuccessResponse.of(responses.required(() -> center.status(authorization, request)));
@@ -117,7 +122,8 @@ public class ProductCenterManagementController {
 
     @PostMapping("/limit-publications/publish")
     @PreAuthorize(
-            "hasAuthority('pay:product:publish') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('pay:product:publish') and authentication.credentials.getClaimAsString('principal_type') =="
+                    + " 'OPERATOR'")
     public SuccessResponse<LimitPolicyPublicationDTO> publishLimits(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody LimitPolicyPublishCommand request) {
@@ -125,16 +131,16 @@ public class ProductCenterManagementController {
     }
 
     @PostMapping("/limit-publications/detail")
-    @PreAuthorize(
-            "hasAuthority('pay:product:publication:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('pay:product:publication:read') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     public SuccessResponse<LimitPolicyPublicationDTO> limitPublication(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody IdQuery request) {
         return SuccessResponse.of(responses.required(() -> center.limitPublication(authorization, request)));
     }
 
     @PostMapping("/limit-publications/replay")
-    @PreAuthorize(
-            "hasAuthority('pay:product:publication:replay') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('pay:product:publication:replay') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     public SuccessResponse<LimitPolicyPublicationDTO> replayLimits(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody LimitPolicyReplayCommand request) {

@@ -31,7 +31,8 @@ public interface RefundProjectionStorageConverter {
     @Mapping(
             target = "orderAmount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getOrderAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getOrderAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     OrderRefundSummary toSummary(OrderRefundSummaryDO row);
@@ -58,7 +59,8 @@ public interface RefundProjectionStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "refundCreatedAt", source = "row.createdAt")
     @Mapping(target = "sourceUpdatedAt", source = "row.updatedAt")
     @Mapping(target = "sourceVersion", source = "row.rowVersion")

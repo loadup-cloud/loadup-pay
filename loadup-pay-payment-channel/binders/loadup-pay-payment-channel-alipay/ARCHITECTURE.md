@@ -8,11 +8,11 @@
 
 ## 适配器
 
-| 适配器 | 职责 |
-|---|---|
-| `AlipaySubmitAdapter` | 付款码/JSAPI/H5 提交、本地动作构造 |
-| `AlipayPaymentAdapter` | 原号查询、关闭、结果核验 |
-| `AlipayRefundAdapter` | 退款提交/查询、原号恢复 |
+| 适配器                       | 职责                                      |
+|------------------------------|-------------------------------------------|
+| `AlipaySubmitAdapter`        | 付款码/JSAPI/H5 提交、本地动作构造        |
+| `AlipayPaymentAdapter`       | 原号查询、关闭、结果核验                  |
+| `AlipayRefundAdapter`        | 退款提交/查询、原号恢复                   |
 | `AlipayNotificationProvider` | 通知识别、验签、原账户/金额核验与固定 ACK |
 
 ## 边界

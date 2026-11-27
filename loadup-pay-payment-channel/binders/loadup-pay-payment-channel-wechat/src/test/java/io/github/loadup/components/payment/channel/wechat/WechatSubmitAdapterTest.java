@@ -164,12 +164,11 @@ class WechatSubmitAdapterTest {
                 var body = ArgumentCaptor.forClass(String.class);
                 verify(client).call(eq(context.binding()), eq(operation), eq(Map.of()), eq(Map.of()), body.capture());
                 var data = json.readValue(body.getValue(), Map.class);
-                var expectedType =
-                        switch (sceneType) {
-                            case WAP -> "Wap";
-                            case IOS -> "iOS";
-                            case ANDROID -> "Android";
-                        };
+                var expectedType = switch (sceneType) {
+                    case WAP -> "Wap";
+                    case IOS -> "iOS";
+                    case ANDROID -> "Android";
+                };
                 assertEquals(
                         Map.of("payer_client_ip", "8.8.8.8", "h5_info", Map.of("type", expectedType)),
                         data.get("scene_info"));

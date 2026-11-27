@@ -50,24 +50,24 @@ public class MerchantManagementController {
     }
 
     @PostMapping("/merchants/create")
-    @PreAuthorize(
-            "hasAuthority('merchant:write') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('merchant:write') and authentication.credentials.getClaimAsString('principal_type') =="
+            + " 'OPERATOR'")
     public SuccessResponse<MerchantDTO> create(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody MerchantCreateCommand request) {
         return SuccessResponse.of(responses.required(() -> center.create(authorization, request)));
     }
 
     @PostMapping("/merchants/update")
-    @PreAuthorize(
-            "hasAuthority('merchant:write') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('merchant:write') and authentication.credentials.getClaimAsString('principal_type') =="
+            + " 'OPERATOR'")
     public SuccessResponse<MerchantDTO> update(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody MerchantUpdateCommand request) {
         return SuccessResponse.of(responses.required(() -> center.update(authorization, request)));
     }
 
     @PostMapping("/merchants/page")
-    @PreAuthorize(
-            "hasAuthority('merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('merchant:read') and authentication.credentials.getClaimAsString('principal_type') =="
+            + " 'OPERATOR'")
     public PageResponse<MerchantDTO> page(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody MerchantPageQuery request) {
         return PageResponse.of(
@@ -75,16 +75,16 @@ public class MerchantManagementController {
     }
 
     @PostMapping("/merchants/detail")
-    @PreAuthorize(
-            "hasAuthority('merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('merchant:read') and authentication.credentials.getClaimAsString('principal_type') =="
+            + " 'OPERATOR'")
     public SuccessResponse<MerchantDTO> detail(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody IdQuery request) {
         return SuccessResponse.of(responses.required(() -> center.detail(authorization, request)));
     }
 
     @PostMapping("/merchants/status")
-    @PreAuthorize(
-            "hasAuthority('merchant:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('merchant:manage') and authentication.credentials.getClaimAsString('principal_type') =="
+            + " 'OPERATOR'")
     public SuccessResponse<MerchantDTO> status(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody MerchantStatusCommand request) {
         return SuccessResponse.of(responses.required(() -> center.status(authorization, request)));
@@ -92,7 +92,8 @@ public class MerchantManagementController {
 
     @PostMapping("/relationships/create")
     @PreAuthorize(
-            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') =="
+                    + " 'OPERATOR'")
     public SuccessResponse<MerchantRelationshipDTO> createRelationship(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody MerchantRelationshipCreateCommand request) {
@@ -101,7 +102,8 @@ public class MerchantManagementController {
 
     @PostMapping("/relationships/revoke")
     @PreAuthorize(
-            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') =="
+                    + " 'OPERATOR'")
     public SuccessResponse<MerchantRelationshipDTO> revokeRelationship(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody MerchantRelationshipRevokeCommand request) {
@@ -110,7 +112,8 @@ public class MerchantManagementController {
 
     @PostMapping("/grants/create")
     @PreAuthorize(
-            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') =="
+                    + " 'OPERATOR'")
     public SuccessResponse<MerchantActionGrantDTO> grant(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody MerchantActionGrantCommand request) {
@@ -119,7 +122,8 @@ public class MerchantManagementController {
 
     @PostMapping("/grants/revoke")
     @PreAuthorize(
-            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('pay:customer:manage') and authentication.credentials.getClaimAsString('principal_type') =="
+                    + " 'OPERATOR'")
     public SuccessResponse<MerchantActionGrantDTO> revokeGrant(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody MerchantActionGrantRevokeCommand request) {

@@ -57,8 +57,8 @@ public class CashierPaymentController {
 
     @PostMapping("/recover")
     @Operation(
-            summary =
-                    "Resolve the original action after a lost response without reserving money or replacing payer input")
+            summary = "Resolve the original action after a lost response without reserving money or replacing payer"
+                    + " input")
     public ResponseEntity<SuccessResponse<CashierPaymentRecoveryDTO>> recover(
             @Valid @RequestBody CashierPaymentRecoverCommand command) {
         return ResponseEntity.ok()

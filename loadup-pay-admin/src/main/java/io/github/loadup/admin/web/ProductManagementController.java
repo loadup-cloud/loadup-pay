@@ -45,7 +45,8 @@ public class ProductManagementController {
 
     @PostMapping("/catalog/detail")
     @PreAuthorize(
-            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:catalog:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<CatalogVersionDTO> catalogDetail(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody IdQuery request) {
         return SuccessResponse.of(responses.required(() -> center.catalogDetail(authorization, request)));
@@ -53,7 +54,8 @@ public class ProductManagementController {
 
     @PostMapping("/merchant-contracts/preview")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<MerchantContractDTO> preview(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody ContractSignCommand request) {
         return SuccessResponse.of(responses.required(() -> center.preview(authorization, request)));
@@ -61,7 +63,8 @@ public class ProductManagementController {
 
     @PostMapping("/merchant-contracts/sign")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:sign') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<MerchantContractDTO> sign(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody ContractSignCommand request) {
         return SuccessResponse.of(responses.required(() -> center.sign(authorization, request)));
@@ -69,7 +72,8 @@ public class ProductManagementController {
 
     @PostMapping("/merchant-contracts/page")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public PageResponse<MerchantContractDTO> contractPage(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody MerchantContractPageQuery request) {
@@ -79,15 +83,16 @@ public class ProductManagementController {
 
     @PostMapping("/merchant-contracts/detail")
     @PreAuthorize(
-            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+            "hasAuthority('contract:merchant:read') and authentication.credentials.getClaimAsString('principal_type')"
+                    + " == 'OPERATOR'")
     public SuccessResponse<MerchantContractDTO> contractDetail(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody IdQuery request) {
         return SuccessResponse.of(responses.required(() -> center.contractDetail(authorization, request)));
     }
 
     @PostMapping("/merchant-contracts/status")
-    @PreAuthorize(
-            "hasAuthority('contract:merchant:manage') and authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
+    @PreAuthorize("hasAuthority('contract:merchant:manage') and"
+            + " authentication.credentials.getClaimAsString('principal_type') == 'OPERATOR'")
     public SuccessResponse<MerchantContractDTO> status(
             @RequestHeader("Authorization") String authorization, @Valid @RequestBody ContractStatusCommand request) {
         return SuccessResponse.of(responses.required(() -> center.status(authorization, request)));

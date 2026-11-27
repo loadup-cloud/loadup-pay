@@ -53,9 +53,9 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
         var args =
                 new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at
-                FROM acquire_recovery_retry_receipt WHERE deleted = FALSE AND caller_scope_hash = :caller AND request_key = :key
-                """, args, BeanPropertyRowMapper.newInstance(AcquireRecoveryRetryReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at
+            FROM acquire_recovery_retry_receipt WHERE deleted = FALSE AND caller_scope_hash = :caller AND request_key = :key
+            """, args, BeanPropertyRowMapper.newInstance(AcquireRecoveryRetryReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -81,10 +81,10 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO acquire_recovery_retry_receipt (id, created_at, updated_at, deleted, request_key, caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId, :requestDigest, :kind, :subjectId, :generation, :orderId, :nativeTaskId, :expectedAttempts, :expectedNextExecuteAt, :reason, :result, :acceptedAt)
-                ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO acquire_recovery_retry_receipt (id, created_at, updated_at, deleted, request_key, caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId, :requestDigest, :kind, :subjectId, :generation, :orderId, :nativeTaskId, :expectedAttempts, :expectedNextExecuteAt, :reason, :result, :acceptedAt)
+            ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("acquire_recovery_retry_receipt business key already exists");
         }

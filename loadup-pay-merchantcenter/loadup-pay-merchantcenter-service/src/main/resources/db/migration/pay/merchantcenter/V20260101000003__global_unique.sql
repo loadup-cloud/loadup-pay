@@ -3,15 +3,15 @@
 
 CREATE TABLE IF NOT EXISTS global_unique
 (
-    id           VARCHAR(64) COLLATE "C"        NOT NULL,
+    id           VARCHAR(64) COLLATE "C"  NOT NULL,
 
-    unique_key   VARCHAR(255) COLLATE "C"       NOT NULL,
-    biz_type     VARCHAR(64) COLLATE "C"        NOT NULL,
-    biz_id       VARCHAR(100) COLLATE "C"                DEFAULT NULL,
-    request_data TEXT                                    DEFAULT NULL,
+    unique_key   VARCHAR(255) COLLATE "C" NOT NULL,
+    biz_type     VARCHAR(64) COLLATE "C"  NOT NULL,
+    biz_id       VARCHAR(100) COLLATE "C"          DEFAULT NULL,
+    request_data TEXT                              DEFAULT NULL,
     created_at   TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at   TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
-    deleted      BOOLEAN                        NOT NULL DEFAULT FALSE,
+    deleted      BOOLEAN                  NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id)
 );
 

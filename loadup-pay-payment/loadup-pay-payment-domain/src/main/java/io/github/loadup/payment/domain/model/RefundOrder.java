@@ -78,13 +78,12 @@ public record RefundOrder(
 
     public RefundOrder recordOutcome(ChannelRefundOutcome verified) {
         require(id.equals(verified.refundId()) && amount.equals(verified.amount()), CONFLICT);
-        var outcome =
-                switch (verified.kind()) {
-                    case ACCEPTED -> RefundState.PROCESSING;
-                    case SUCCEEDED -> RefundState.SUCCEEDED;
-                    case FAILED_WITH_NO_REFUND -> RefundState.FAILED;
-                    case UNKNOWN -> RefundState.UNKNOWN;
-                };
+        var outcome = switch (verified.kind()) {
+            case ACCEPTED -> RefundState.PROCESSING;
+            case SUCCEEDED -> RefundState.SUCCEEDED;
+            case FAILED_WITH_NO_REFUND -> RefundState.FAILED;
+            case UNKNOWN -> RefundState.UNKNOWN;
+        };
         if (terminal()) {
             if (outcome == RefundState.PROCESSING || outcome == RefundState.UNKNOWN) {
                 return this;

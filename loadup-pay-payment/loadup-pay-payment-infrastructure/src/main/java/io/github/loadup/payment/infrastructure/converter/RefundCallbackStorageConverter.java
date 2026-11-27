@@ -36,11 +36,13 @@ public interface RefundCallbackStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(
             target = "originalAmount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(capacity.getSucceededMinor(), capacity.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(capacity.getSucceededMinor(),"
+                            + " capacity.getCurrency()))")
     @Mapping(target = "originalChannelTransactionNo", source = "row.originalChannelTransactionNo")
     PreparedChannelRefund toPrepared(
             RefundOrderDO row, PaymentRefundCapacityDO capacity, ChannelPaymentIdentity original);

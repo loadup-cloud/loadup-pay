@@ -43,8 +43,8 @@ public class AcquireRecoveryOperationsController {
 
     @PostMapping("/detail")
     @Operation(
-            summary =
-                    "Inspect one original acquiring native task; requires the configured operations SERVICE and recovery read permission")
+            summary = "Inspect one original acquiring native task; requires the configured operations SERVICE and"
+                    + " recovery read permission")
     public ResponseEntity<SuccessResponse<AcquireRecoveryTaskDTO>> detail(
             @Valid @RequestBody AcquireRecoveryTaskQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.detail(query)));
@@ -52,8 +52,8 @@ public class AcquireRecoveryOperationsController {
 
     @PostMapping("/retry")
     @Operation(
-            summary =
-                    "Audit and retry a current FAILED task with exact observed preconditions; never changes a financial status")
+            summary = "Audit and retry a current FAILED task with exact observed preconditions; never changes a"
+                    + " financial status")
     public ResponseEntity<SuccessResponse<AcquireRecoveryRetryDTO>> retry(
             @Valid @RequestBody AcquireRecoveryRetryCommand command) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.retry(command)));

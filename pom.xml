@@ -70,7 +70,7 @@
 
         <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
 
-        <palantir-java-format.version>2.98.0</palantir-java-format.version>
+        <palantir-java-format.version>2.103.0</palantir-java-format.version>
 
         <spotless.skip>false</spotless.skip>
 

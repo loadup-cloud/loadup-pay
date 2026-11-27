@@ -30,7 +30,8 @@ public interface PaymentActionStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "executionEpoch", source = "row.executionEpoch")
     @Mapping(target = "action", source = "action")
     @Mapping(target = "source", source = "row.source")

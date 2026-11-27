@@ -127,14 +127,13 @@ public record PaymentAttempt(
         require(identity().equals(outcome.identity()) && amount.equals(outcome.amount()), CONFLICT);
         // A channel reversal with returned funds needs an independent financial fact and compensation.
         require(outcome.kind() != ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED, CONFLICT);
-        var target =
-                switch (outcome.kind()) {
-                    case ACCEPTED -> PaymentAttemptState.PENDING;
-                    case SUCCEEDED -> PaymentAttemptState.SUCCEEDED;
-                    case NO_COLLECTION -> PaymentAttemptState.FAILED;
-                    case UNKNOWN -> PaymentAttemptState.UNKNOWN;
-                    case CLOSED_WITH_FUNDS_RETURNED -> throw new DomainViolation(CONFLICT);
-                };
+        var target = switch (outcome.kind()) {
+            case ACCEPTED -> PaymentAttemptState.PENDING;
+            case SUCCEEDED -> PaymentAttemptState.SUCCEEDED;
+            case NO_COLLECTION -> PaymentAttemptState.FAILED;
+            case UNKNOWN -> PaymentAttemptState.UNKNOWN;
+            case CLOSED_WITH_FUNDS_RETURNED -> throw new DomainViolation(CONFLICT);
+        };
         if (terminal()) {
             // Late intermediate observations cannot undo a verified terminal fact.
             if (target == PaymentAttemptState.PENDING || target == PaymentAttemptState.UNKNOWN) {

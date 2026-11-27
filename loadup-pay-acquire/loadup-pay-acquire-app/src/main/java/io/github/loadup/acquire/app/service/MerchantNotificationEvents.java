@@ -78,12 +78,11 @@ public class MerchantNotificationEvents {
 
     public void order(OrderSnapshotFacts header) {
         writable();
-        String type =
-                switch (header.state()) {
-                    case "PAID" -> "OrderFullyPaid";
-                    case "CLOSED" -> "OrderClosed";
-                    default -> null;
-                };
+        String type = switch (header.state()) {
+            case "PAID" -> "OrderFullyPaid";
+            case "CLOSED" -> "OrderClosed";
+            default -> null;
+        };
         if (type != null) {
             publish(
                     header,

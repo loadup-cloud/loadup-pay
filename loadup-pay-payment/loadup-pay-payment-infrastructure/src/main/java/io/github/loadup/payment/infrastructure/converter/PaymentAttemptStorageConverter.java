@@ -31,7 +31,8 @@ public interface PaymentAttemptStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "beginSubmission", ignore = true)
     @Mapping(target = "closeBeforeSubmission", ignore = true)
     @Mapping(target = "id", source = "row.id")

@@ -164,13 +164,12 @@ public class PaymentAcceptanceHttpClient
             return HttpServiceResponses.requiredData(call.apply("Bearer " + credential()));
         } catch (RuntimeException failure) {
             if (guarded) {
-                var code =
-                        switch (HttpServiceResponses.resultCode(failure)) {
-                            case "PAYMENT_IDEMPOTENCY_CONFLICT", "PAYMENT_INPUT_ALREADY_BOUND" -> IDEMPOTENCY_CONFLICT;
-                            case "PAYMENT_INPUT_EXPIRED" -> PAYMENT_INPUT_EXPIRED;
-                            case "PAYMENT_INVALID_ARGUMENT" -> INVALID_ARGUMENT;
-                            default -> DEPENDENCY_UNAVAILABLE;
-                        };
+                var code = switch (HttpServiceResponses.resultCode(failure)) {
+                    case "PAYMENT_IDEMPOTENCY_CONFLICT", "PAYMENT_INPUT_ALREADY_BOUND" -> IDEMPOTENCY_CONFLICT;
+                    case "PAYMENT_INPUT_EXPIRED" -> PAYMENT_INPUT_EXPIRED;
+                    case "PAYMENT_INVALID_ARGUMENT" -> INVALID_ARGUMENT;
+                    default -> DEPENDENCY_UNAVAILABLE;
+                };
                 throw new CommonException(code);
             }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

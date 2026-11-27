@@ -441,16 +441,15 @@ public class PaymentInitiationOperations {
     }
 
     private void validateInteraction(PaymentStartCommand command) {
-        boolean valid =
-                switch (command.choice().method()) {
-                    case H5 ->
-                        command.interaction() instanceof NoInteractionDTO
-                                || command.interaction() instanceof H5SceneInteractionDTO;
-                    case PAYMENT_CODE -> command.interaction() instanceof PaymentCodeInteractionDTO;
-                    case JSAPI ->
-                        command.interaction() instanceof ChannelIdentityInteractionDTO identity
-                                && identity.channel() == command.choice().channel();
-                };
+        boolean valid = switch (command.choice().method()) {
+            case H5 ->
+                command.interaction() instanceof NoInteractionDTO
+                        || command.interaction() instanceof H5SceneInteractionDTO;
+            case PAYMENT_CODE -> command.interaction() instanceof PaymentCodeInteractionDTO;
+            case JSAPI ->
+                command.interaction() instanceof ChannelIdentityInteractionDTO identity
+                        && identity.channel() == command.choice().channel();
+        };
         if (!valid) {
             throw new CommonException(INVALID_ARGUMENT);
         }

@@ -9,11 +9,11 @@
 </dependency>
 ```
 
-| 类型 | 职责 |
-|---|---|
-| `Channel` | ALIPAY、WECHAT、UNIONPAY 渠道词汇 |
-| `AccessMode` | DIRECT、SERVICE_PROVIDER 接入模式 |
-| `PaymentMethod` | PAYMENT_CODE、JSAPI、H5 交互方式 |
+| 类型             | 职责                                              |
+|------------------|---------------------------------------------------|
+| `Channel`        | ALIPAY、WECHAT、UNIONPAY 渠道词汇                 |
+| `AccessMode`     | DIRECT、SERVICE_PROVIDER 接入模式                 |
+| `PaymentMethod`  | PAYMENT_CODE、JSAPI、H5 交互方式                  |
 | `ChannelAmounts` | 校验非负 CNY 金额，保持领域失败原因与最小单位精度 |
 
 本制品不包含 Facade、Provider SPI、Spring 装配、厂商协议或 Pay 类型。只共享渠道词汇的 DTO、事件与领域数据可以独立消费。

@@ -52,10 +52,10 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
     public Optional<PaymentEventReceipt> find(String deliveryId) {
         var args = new MapSqlParameterSource().addValue("delivery", deliveryId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, delivery_id, business_event_id, payment_id, order_id,
-                       allocation_id, payment_version, evidence_id, request_digest, caller_service_id, order_version, accepted_at
-                FROM acquire_payment_event_receipt WHERE delivery_id = :delivery AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentEventReceiptDO.class)).stream()
+            SELECT id, created_at, updated_at, delivery_id, business_event_id, payment_id, order_id,
+                   allocation_id, payment_version, evidence_id, request_digest, caller_service_id, order_version, accepted_at
+            FROM acquire_payment_event_receipt WHERE delivery_id = :delivery AND deleted = FALSE
+            """, args, BeanPropertyRowMapper.newInstance(PaymentEventReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         try {
@@ -79,13 +79,13 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO acquire_payment_event_receipt (id, created_at, updated_at, deleted, delivery_id,
-                    business_event_id, payment_id, order_id, allocation_id, payment_version, evidence_id, request_digest,
-                    caller_service_id, order_version, accepted_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :deliveryId, :businessEventId, :paymentId, :orderId,
-                    :allocationId, :paymentVersion, :evidenceId, :requestDigest, :callerServiceId, :orderVersion, :acceptedAt)
-                ON CONFLICT (delivery_id) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO acquire_payment_event_receipt (id, created_at, updated_at, deleted, delivery_id,
+                business_event_id, payment_id, order_id, allocation_id, payment_version, evidence_id, request_digest,
+                caller_service_id, order_version, accepted_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :deliveryId, :businessEventId, :paymentId, :orderId,
+                :allocationId, :paymentVersion, :evidenceId, :requestDigest, :callerServiceId, :orderVersion, :acceptedAt)
+            ON CONFLICT (delivery_id) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Payment delivery already exists");
         }

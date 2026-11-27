@@ -92,9 +92,8 @@ class AlipayProtocolCodecTest {
         assertEquals(
                 "app_auth_token=secret-auth-token&app_id=app&biz_content="
                         + business
-                        + "&charset=utf-8&format=json&method=alipay.trade.pay"
-                        + "&notify_url=https://merchant.example/notify?a=b c&sign_type=RSA2&timestamp=2026-10-23 18:11:12"
-                        + "&version=1.0",
+                        + "&charset=utf-8&format=json&method=alipay.trade.pay&notify_url=https://merchant.example/notify?a=b"
+                        + " c&sign_type=RSA2&timestamp=2026-10-23 18:11:12&version=1.0",
                 new String(bytes.getValue(), StandardCharsets.UTF_8));
         assertEquals("AQ==", request.parameters().get("sign"));
         assertTrue(request.formBody().contains("app_auth_token=secret-auth-token"));

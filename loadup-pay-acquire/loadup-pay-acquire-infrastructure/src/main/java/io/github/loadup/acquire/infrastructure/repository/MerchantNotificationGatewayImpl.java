@@ -39,10 +39,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Repository
 public class MerchantNotificationGatewayImpl implements MerchantNotificationGateway {
-    private static final String COLUMNS = "id, created_at, updated_at, event_id, order_id, payee_merchant_id, "
-            + "event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref, timeout_millis, "
-            + "retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts, retry_window_seconds, "
-            + "occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version";
+    private static final String COLUMNS = "id, created_at, updated_at, event_id, order_id, payee_merchant_id,"
+            + " event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref,"
+            + " timeout_millis, retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts,"
+            + " retry_window_seconds, occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint,"
+            + " acknowledged_at, row_version";
     private final Clock clock;
     private final NamedParameterJdbcTemplate jdbc;
     private final MerchantNotificationStorageConverter converter;
@@ -132,16 +133,16 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO merchant_notification_delivery (id, created_at, updated_at, deleted, event_id, order_id,
-                    payee_merchant_id, event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref,
-                    timeout_millis, retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts,
-                    retry_window_seconds, occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :eventId, :orderId, :payeeMerchantId, :eventType, :aggregateId,
-                    :sourceVersion, :body, :bodyDigest, :targetRef, :signingIdentityRef, :timeoutMillis, :retryInitialSeconds,
-                    :retryMultiplier, :retryMaximumSeconds, :retryMaxAttempts, :retryWindowSeconds, :occurredAt, :expiresAt,
-                    :nextAttemptAt, :attemptCount, :state, :routeFingerprint, :acknowledgedAt, :rowVersion)
-                ON CONFLICT (event_id, target_ref) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO merchant_notification_delivery (id, created_at, updated_at, deleted, event_id, order_id,
+                payee_merchant_id, event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref,
+                timeout_millis, retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts,
+                retry_window_seconds, occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :eventId, :orderId, :payeeMerchantId, :eventType, :aggregateId,
+                :sourceVersion, :body, :bodyDigest, :targetRef, :signingIdentityRef, :timeoutMillis, :retryInitialSeconds,
+                :retryMultiplier, :retryMaximumSeconds, :retryMaxAttempts, :retryWindowSeconds, :occurredAt, :expiresAt,
+                :nextAttemptAt, :attemptCount, :state, :routeFingerprint, :acknowledgedAt, :rowVersion)
+            ON CONFLICT (event_id, target_ref) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Notification event target already exists");
         }
@@ -171,11 +172,11 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
                 .addValue("version", patch.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE merchant_notification_delivery SET next_attempt_at = :next, attempt_count = :attempts, state = :state,
-                    route_fingerprint = COALESCE(:fingerprint, route_fingerprint), acknowledged_at = COALESCE(:acknowledged, acknowledged_at),
-                    row_version = :version, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND deleted = FALSE
-                """, args);
+            UPDATE merchant_notification_delivery SET next_attempt_at = :next, attempt_count = :attempts, state = :state,
+                route_fingerprint = COALESCE(:fingerprint, route_fingerprint), acknowledged_at = COALESCE(:acknowledged, acknowledged_at),
+                row_version = :version, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

@@ -32,7 +32,8 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     // A domain transition is not a fluent setter.
     @Mapping(target = "applyAttempt", ignore = true)

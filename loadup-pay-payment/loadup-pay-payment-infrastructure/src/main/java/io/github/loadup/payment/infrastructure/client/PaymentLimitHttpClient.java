@@ -108,14 +108,13 @@ public class PaymentLimitHttpClient implements PaymentLimitExecution, PaymentLim
         try {
             return HttpServiceResponses.requiredData(call.apply("Bearer " + credential()));
         } catch (RuntimeException failure) {
-            var code =
-                    switch (HttpServiceResponses.resultCode(failure)) {
-                        case "LIMIT_EXCEEDED" -> LIMIT_EXCEEDED;
-                        case "LIMIT_RESERVATION_EXPIRED" -> LIMIT_RESERVATION_EXPIRED;
-                        case "LIMIT_EXECUTION_FENCED" -> EXECUTION_FENCED;
-                        case "LIMIT_IDEMPOTENCY_CONFLICT" -> IDEMPOTENCY_CONFLICT;
-                        default -> DEPENDENCY_UNAVAILABLE;
-                    };
+            var code = switch (HttpServiceResponses.resultCode(failure)) {
+                case "LIMIT_EXCEEDED" -> LIMIT_EXCEEDED;
+                case "LIMIT_RESERVATION_EXPIRED" -> LIMIT_RESERVATION_EXPIRED;
+                case "LIMIT_EXECUTION_FENCED" -> EXECUTION_FENCED;
+                case "LIMIT_IDEMPOTENCY_CONFLICT" -> IDEMPOTENCY_CONFLICT;
+                default -> DEPENDENCY_UNAVAILABLE;
+            };
             throw new CommonException(code);
         }
     }

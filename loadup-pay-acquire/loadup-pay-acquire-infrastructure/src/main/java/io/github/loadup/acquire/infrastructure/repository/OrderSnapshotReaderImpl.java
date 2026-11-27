@@ -50,12 +50,12 @@ public class OrderSnapshotReaderImpl implements OrderSnapshotReader {
         }
         var args = new MapSqlParameterSource("id", orderId);
         var row = jdbc.query("""
-                SELECT id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
-                       contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,
-                       successful_payment_count, reserved_payment_count, state, admitted_at, order_due_at, deadline_version,
-                       close_epoch, paid_at, closed_at, row_version
-                FROM acquire_order WHERE id = :id AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
+            SELECT id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
+                   contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,
+                   successful_payment_count, reserved_payment_count, state, admitted_at, order_due_at, deadline_version,
+                   close_epoch, paid_at, closed_at, row_version
+            FROM acquire_order WHERE id = :id AND deleted = FALSE FOR UPDATE
+            """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);
         if (row == null) {

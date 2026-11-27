@@ -227,21 +227,20 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var task = findTask(kind, subject, generation);
-        boolean current =
-                switch (kind) {
-                    case PAYMENT_ALLOCATION ->
-                        allocationCurrent(
-                                order,
-                                allocations
-                                        .findPayment(orderId, subject)
-                                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
-                                located,
-                                subject,
-                                generation,
-                                task);
-                    case ORDER_DEADLINE -> deadlineCurrent(order, generation, task);
-                    case ORDER_CLOSURE -> closureCurrent(order, generation, task);
-                };
+        boolean current = switch (kind) {
+            case PAYMENT_ALLOCATION ->
+                allocationCurrent(
+                        order,
+                        allocations
+                                .findPayment(orderId, subject)
+                                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                        located,
+                        subject,
+                        generation,
+                        task);
+            case ORDER_DEADLINE -> deadlineCurrent(order, generation, task);
+            case ORDER_CLOSURE -> closureCurrent(order, generation, task);
+        };
         return inspection(kind, subject, generation, orderId, task, current);
     }
 
@@ -256,31 +255,29 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var task = findTask(kind, subject, generation);
-        boolean current =
-                switch (kind) {
-                    case PAYMENT_ALLOCATION ->
-                        allocationCurrent(
-                                order,
-                                allocations
-                                        .lockPayment(orderId, subject)
-                                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
-                                cursors.lock(subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
-                                subject,
-                                generation,
-                                task);
-                    case ORDER_DEADLINE -> deadlineCurrent(order, generation, task);
-                    case ORDER_CLOSURE -> closureCurrent(order, generation, task);
-                };
+        boolean current = switch (kind) {
+            case PAYMENT_ALLOCATION ->
+                allocationCurrent(
+                        order,
+                        allocations
+                                .lockPayment(orderId, subject)
+                                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                        cursors.lock(subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                        subject,
+                        generation,
+                        task);
+            case ORDER_DEADLINE -> deadlineCurrent(order, generation, task);
+            case ORDER_CLOSURE -> closureCurrent(order, generation, task);
+        };
         return inspection(kind, subject, generation, orderId, task, current);
     }
 
     private TaskExecution findTask(AcquireRecoveryKind kind, String subject, long generation) {
-        String type =
-                switch (kind) {
-                    case PAYMENT_ALLOCATION -> AllocationRecoveryQueue.TYPE;
-                    case ORDER_DEADLINE -> OrderDeadlineTasks.TYPE;
-                    case ORDER_CLOSURE -> OrderClosureTasks.TYPE;
-                };
+        String type = switch (kind) {
+            case PAYMENT_ALLOCATION -> AllocationRecoveryQueue.TYPE;
+            case ORDER_DEADLINE -> OrderDeadlineTasks.TYPE;
+            case ORDER_CLOSURE -> OrderClosureTasks.TYPE;
+        };
         String bizId = kind == AcquireRecoveryKind.PAYMENT_ALLOCATION
                 ? new AllocationRecoveryKey(subject, generation).bizId()
                 : new OrderTaskKey(subject, generation).bizId();

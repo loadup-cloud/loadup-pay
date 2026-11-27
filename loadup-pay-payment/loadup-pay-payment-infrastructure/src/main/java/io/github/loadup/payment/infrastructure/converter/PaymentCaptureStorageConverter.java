@@ -60,17 +60,19 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     PaymentLedgerLine toLine(PaymentCaptureLineDO row);
 
     @Mapping(
             target = "id",
-            expression =
-                    "java(io.github.loadup.payment.client.support.PaymentCaptureContentHash.rowId(captureId, value.ordinal()))")
+            expression = "java(io.github.loadup.payment.client.support.PaymentCaptureContentHash.rowId(captureId,"
+                    + " value.ordinal()))")
     @Mapping(
             target = "keyHash",
             expression =
-                    "java(io.github.loadup.payment.client.support.PaymentCaptureContentHash.key(value.kind().name(), value.channelTransactionNo(), value.channelRefundNo()))")
+                    "java(io.github.loadup.payment.client.support.PaymentCaptureContentHash.key(value.kind().name(),"
+                            + " value.channelTransactionNo(), value.channelRefundNo()))")
     @Mapping(target = "captureId", source = "captureId")
     @Mapping(target = "ordinal", source = "value.ordinal")
     @Mapping(target = "kind", source = "value.kind")

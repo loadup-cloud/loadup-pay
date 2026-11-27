@@ -39,7 +39,8 @@ public interface RefundStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "apply", ignore = true)
     RefundRequest toRequest(RefundRequestDO row, List<RefundOrder> children);
@@ -51,7 +52,8 @@ public interface RefundStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "recordOutcome", ignore = true)
     RefundOrder toRefund(RefundOrderDO row);

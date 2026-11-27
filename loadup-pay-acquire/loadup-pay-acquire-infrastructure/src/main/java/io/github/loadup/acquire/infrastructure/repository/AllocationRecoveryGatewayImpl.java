@@ -76,9 +76,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO allocation_recovery_cursor (id, created_at, updated_at, deleted, order_id, generation, due_at, completed)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :generation, :dueAt, :completed)
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO allocation_recovery_cursor (id, created_at, updated_at, deleted, order_id, generation, due_at, completed)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :generation, :dueAt, :completed)
+            """, new BeanPropertySqlParameterSource(row));
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -112,10 +112,10 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
                 .addValue("completed", after.completed())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE allocation_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed, updated_at = :updated
-                WHERE id = :id AND deleted = FALSE AND order_id = :order
-                    AND generation = :oldGeneration AND due_at = :oldDue AND completed = FALSE
-                """, args);
+            UPDATE allocation_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed, updated_at = :updated
+            WHERE id = :id AND deleted = FALSE AND order_id = :order
+                AND generation = :oldGeneration AND due_at = :oldDue AND completed = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -126,9 +126,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
         return jdbc
                 .query(
                         """
-                        SELECT id, created_at, updated_at, order_id, generation, due_at, completed
-                        FROM allocation_recovery_cursor WHERE id = :id AND deleted = FALSE
-                        """ + (lock ? " FOR UPDATE" : ""),
+                            SELECT id, created_at, updated_at, order_id, generation, due_at, completed
+                            FROM allocation_recovery_cursor WHERE id = :id AND deleted = FALSE
+                            """ + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(AllocationRecoveryCursorDO.class))
                 .stream()

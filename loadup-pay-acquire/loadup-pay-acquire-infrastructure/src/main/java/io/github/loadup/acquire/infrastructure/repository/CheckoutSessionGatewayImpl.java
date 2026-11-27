@@ -61,11 +61,11 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     private Optional<StoredCheckoutSession> query(String predicate, MapSqlParameterSource args, boolean lock) {
         var rows = jdbc.query(
                 """
-                SELECT id, created_at, updated_at, order_id, payee_merchant_id, request_key, request_digest,
-                       token_hash, token_nonce, token_key_ref, token_key_version, state, expires_at, allowed_origin,
-                       scope_snapshot, row_version, revoked_at
-                FROM checkout_session WHERE deleted = FALSE AND
-                """ + predicate + (lock ? " FOR UPDATE" : ""),
+                    SELECT id, created_at, updated_at, order_id, payee_merchant_id, request_key, request_digest,
+                           token_hash, token_nonce, token_key_ref, token_key_version, state, expires_at, allowed_origin,
+                           scope_snapshot, row_version, revoked_at
+                    FROM checkout_session WHERE deleted = FALSE AND
+                    """ + predicate + (lock ? " FOR UPDATE" : ""),
                 args,
                 BeanPropertyRowMapper.newInstance(CheckoutSessionDO.class));
         return stored(rows.stream().findFirst().orElse(null));
@@ -117,14 +117,14 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO checkout_session (id, created_at, updated_at, deleted, order_id, payee_merchant_id,
-                    request_key, request_digest, token_hash, token_nonce, token_key_ref, token_key_version, state, expires_at,
-                    allowed_origin, scope_snapshot, row_version, revoked_at)
-                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :requestKey,
-                    :requestDigest, :tokenHash, :tokenNonce, :tokenKeyRef, :tokenKeyVersion, :state, :expiresAt,
-                    :allowedOrigin, :scopeSnapshot, :rowVersion, :revokedAt)
-                ON CONFLICT (order_id, request_key) DO NOTHING
-                """, new BeanPropertySqlParameterSource(row));
+            INSERT INTO checkout_session (id, created_at, updated_at, deleted, order_id, payee_merchant_id,
+                request_key, request_digest, token_hash, token_nonce, token_key_ref, token_key_version, state, expires_at,
+                allowed_origin, scope_snapshot, row_version, revoked_at)
+            VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :requestKey,
+                :requestDigest, :tokenHash, :tokenNonce, :tokenKeyRef, :tokenKeyVersion, :state, :expiresAt,
+                :allowedOrigin, :scopeSnapshot, :rowVersion, :revokedAt)
+            ON CONFLICT (order_id, request_key) DO NOTHING
+            """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Checkout session request already exists");
         }
@@ -150,9 +150,9 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
                 .addValue("revokedAt", after.revokedAt())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
-                UPDATE checkout_session SET revoked_at = :revokedAt, row_version = :version, updated_at = :updated
-                WHERE id = :id AND row_version = :expected AND revoked_at IS NULL AND deleted = FALSE
-                """, args);
+            UPDATE checkout_session SET revoked_at = :revokedAt, row_version = :version, updated_at = :updated
+            WHERE id = :id AND row_version = :expected AND revoked_at IS NULL AND deleted = FALSE
+            """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

@@ -41,8 +41,8 @@ public class DirectPaymentRecoveryController {
 
     @PostMapping("/recover")
     @Operation(
-            summary =
-                    "Recover an existing DirectPay creation and its original first action without sensitive payer input")
+            summary = "Recover an existing DirectPay creation and its original first action without sensitive payer"
+                    + " input")
     public ResponseEntity<SuccessResponse<DirectPayRecoveryDTO>> recover(
             @Valid @RequestBody DirectPayRecoverCommand command) {
         return ResponseEntity.ok()

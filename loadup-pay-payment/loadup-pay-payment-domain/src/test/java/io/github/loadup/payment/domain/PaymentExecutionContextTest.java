@@ -86,38 +86,32 @@ class PaymentExecutionContextTest {
     @ParameterizedTest
     @EnumSource(Changed.class)
     void eachGateBindingMismatchIsRejectedBeforeAnExecutionContextCanExist(Changed changed) {
-        boolean parentSide =
-                switch (changed) {
-                    case PARENT_ORDER, PARENT_TARGET, PARENT_MERCHANT, PARENT_CALLER, PARENT_INIT -> true;
-                    default -> false;
-                };
+        boolean parentSide = switch (changed) {
+            case PARENT_ORDER, PARENT_TARGET, PARENT_MERCHANT, PARENT_CALLER, PARENT_INIT -> true;
+            default -> false;
+        };
         var original = parentSide ? parent : child;
-        var order =
-                switch (changed) {
-                    case PARENT_ORDER, PAYMENT_ORDER -> "other-order";
-                    default -> original.gate().orderId();
-                };
-        var target =
-                switch (changed) {
-                    case PARENT_TARGET -> "payment";
-                    case PAYMENT_TARGET -> "other-payment";
-                    default -> original.gate().paymentId();
-                };
-        var merchant =
-                switch (changed) {
-                    case PARENT_MERCHANT, PAYMENT_MERCHANT -> "other-merchant";
-                    default -> original.payeeMerchantId();
-                };
-        var caller =
-                switch (changed) {
-                    case PARENT_CALLER, PAYMENT_CALLER -> "other-caller";
-                    default -> original.callerServiceId();
-                };
-        var state =
-                switch (changed) {
-                    case PARENT_INIT, PAYMENT_INIT -> GateState.INIT;
-                    default -> original.gate().state();
-                };
+        var order = switch (changed) {
+            case PARENT_ORDER, PAYMENT_ORDER -> "other-order";
+            default -> original.gate().orderId();
+        };
+        var target = switch (changed) {
+            case PARENT_TARGET -> "payment";
+            case PAYMENT_TARGET -> "other-payment";
+            default -> original.gate().paymentId();
+        };
+        var merchant = switch (changed) {
+            case PARENT_MERCHANT, PAYMENT_MERCHANT -> "other-merchant";
+            default -> original.payeeMerchantId();
+        };
+        var caller = switch (changed) {
+            case PARENT_CALLER, PAYMENT_CALLER -> "other-caller";
+            default -> original.callerServiceId();
+        };
+        var state = switch (changed) {
+            case PARENT_INIT, PAYMENT_INIT -> GateState.INIT;
+            default -> original.gate().state();
+        };
         var bad = new StoredPaymentGate(
                 original.id(),
                 merchant,

@@ -26,7 +26,7 @@ management:
         readiness:
           include: [ readinessState, db ]
 
-# Shared recovery/query/close admission per JVM and channel; no first-submit decoration.
+      # Shared recovery/query/close admission per JVM and channel; no first-submit decoration.
       probes:
         enabled: true
   otlp:

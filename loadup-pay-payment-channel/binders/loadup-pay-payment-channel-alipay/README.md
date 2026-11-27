@@ -18,13 +18,15 @@
 - 凭证及服务商授权分别按 reference/version 从配置映射的绝对文件路径读取。私钥不落入描述文件；授权令牌由 KMS
   解密。版本化挂载资源需由部署侧保持内容不可变。
 - 参数、令牌、公钥描述与原始响应不进入诊断 toString。
-- 启用前缀为 `loadup.payment.channel.alipay.enabled`（默认关闭）；同级 credentials/authorizations 是 reference → version → 绝对
+- 启用前缀为 `loadup.payment.channel.alipay.enabled`（默认关闭）；同级 credentials/authorizations 是 reference → version →
+  绝对
   Path 的受控映射。启用时应用需组合 loadup-pay-payment-channel-core、HttpTemplate、KmsTemplate 和 JsonMapper。
 - 时间源使用 Spring 共享的 Clock。运行/业务时区仍为系统本地；协议时间按支付宝官方 GMT+8 格式发送，成功时间按 GMT+8
   解释后转换为业务时区，不把无时区文本当成服务器当地时间。依据：[官方 SDK 时间常量](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/AlipayConstants.java)。
 
 启用支付宝后注册 Provider，支持付款码/JSAPI 提交、直连 H5 本地动作、退款提交/查询、支付 query/close 与异步通知。
-动作快照及其客户端返回由 payment 维护。服务商 H5 授权承载、证书模式和真实渠道验收仍未完成。直连 H5 契约见[H5 设计](../../ARCHITECTURE.md)。
+动作快照及其客户端返回由 payment 维护。服务商 H5 授权承载、证书模式和真实渠道验收仍未完成。直连 H5
+契约见[H5 设计](../../ARCHITECTURE.md)。
 
 协议依据：[支付宝官方 Java SDK](https://github.com/alipay/alipay-sdk-java-all/tree/master/v2)、[支付宝退款查询说明](https://aipay.alipay.com/docs/vibe-pay/ai-web-app-payment-qianyi/api-list/alipay-trade-fastpay-refund-query.html)
 。协议成功不等于资金成功；退款查询仍需核验退款状态和原请求身份。
@@ -128,7 +130,8 @@ Y3 提交后才返回 success，失败返回 failure。
 
 ## 原退款号恢复
 
-独立 recoverRefund 先调用原 alipay.trade.fastpay.refund.query，queryRefund 继续只读。只在原版本验签通过、code=10000、refund_status
+独立 recoverRefund 先调用原 alipay.trade.fastpay.refund.query，queryRefund 继续只读。只在原版本验签通过、code=
+10000、refund_status
 未返回，且 trade_no/out_trade_no/out_request_no 三项全部返回并精确匹配原固定退款时，才允许重复原 alipay.trade.refund。若
 refund_amount 返回，必须为合法零值或本次原退款金额；total_amount 若返回必须匹配原 gross
 总额。金额/身份不符、缺字段、业务错误或显式状态不构成重提许可，REFUND_SUCCESS 沿查询正常收敛。
@@ -149,6 +152,7 @@ StatementProvider；现有官方来源仍仅微信。详见 [支付宝账单来�
 
 ## 验收状态与剩余事项
 
-未完成服务商 H5 授权承载、托管 cashier 授权、证书模式，以及账单下载/CSV 解析/支付宝 `StatementProvider`。原号退款恢复只在上文列明的已验签身份与状态条件下重提，`NOT_FOUND` 不能释放容量。
+未完成服务商 H5 授权承载、托管 cashier 授权、证书模式，以及账单下载/CSV 解析/支付宝 `StatementProvider`
+。原号退款恢复只在上文列明的已验签身份与状态条件下重提，`NOT_FOUND` 不能释放容量。
 
 待验收：真实沙箱/渠道的付款、退款、签名通知、原号恢复、关闭成功回复丢失和账单 grant；静态检查或测试源码不代表渠道与资金链路通过。

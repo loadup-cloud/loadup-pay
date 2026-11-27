@@ -9,14 +9,14 @@ channel 和原冻结绑定决定策略。
 
 ## 模块与依赖
 
-| 模块                              | 职责                                                        | 业务依赖                                     |
-|-----------------------------------|-------------------------------------------------------------|----------------------------------------------|
-| loadup-pay-payment-channel-api                       | Facade、Provider SPI、请求/结果、类型化账户身份和动作契约   | loadup commons                               |
-| loadup-pay-payment-channel-core                      | Facade 实现、不可变策略注册表、统一结果核验、动作 codec 注册表 | loadup-pay-payment-channel-api                                  |
-| loadup-pay-payment-channel-alipay                    | 支付宝协议、签名验签、凭证、支付/退款/通知适配              | loadup-pay-payment-channel-api                                  |
-| loadup-pay-payment-channel-wechat                    | 微信协议、签名验签、凭证及后续支付/退款/通知适配            | loadup-pay-payment-channel-api                                  |
-| 消费应用 domain/app/infrastructure | 执行编排、原绑定读取、状态与证据持久化                    | loadup-pay-payment-channel-api |
-| 消费应用 bootstrap                 | 装配 core 与具体插件                                        | core、alipay、wechat |
+| 模块                               | 职责                                                           | 业务依赖                       |
+|------------------------------------|----------------------------------------------------------------|--------------------------------|
+| loadup-pay-payment-channel-api     | Facade、Provider SPI、请求/结果、类型化账户身份和动作契约      | loadup commons                 |
+| loadup-pay-payment-channel-core    | Facade 实现、不可变策略注册表、统一结果核验、动作 codec 注册表 | loadup-pay-payment-channel-api |
+| loadup-pay-payment-channel-alipay  | 支付宝协议、签名验签、凭证、支付/退款/通知适配                 | loadup-pay-payment-channel-api |
+| loadup-pay-payment-channel-wechat  | 微信协议、签名验签、凭证及后续支付/退款/通知适配               | loadup-pay-payment-channel-api |
+| 消费应用 domain/app/infrastructure | 执行编排、原绑定读取、状态与证据持久化                         | loadup-pay-payment-channel-api |
+| 消费应用 bootstrap                 | 装配 core 与具体插件                                           | core、alipay、wechat           |
 
 插件按需依赖 HTTP/KMS 等 loadup 技术组件，不依赖消费应用或 `loadup-pay-payment-channel-core`。应用基础设施仅通过 API
 调用，具体实现由启动模块选择。新增渠道插件不得反向读取消费应用表或调用其内部服务。
@@ -101,7 +101,8 @@ payment 绑定服务中的厂商条件。
 新增渠道时增加 `channel-{vendor}`、对应类型化契约和 Provider 自动装配，在 bootstrap 引入插件并配置。新渠道不需要修改 Facade
 的路由分支。涉及新的公开账户或动作结构时，同步更新 API/客户端 DTO/Facade 和白名单快照编码；这些属于表示契约，不承担支付选路或厂商协议执行。
 
-bootstrap 通过 runtime 依赖装配 core 和具体插件；消费应用业务模块的编译依赖只到 loadup-pay-payment-channel-api。付款、退款和回调均通过 Facade
+bootstrap 通过 runtime 依赖装配 core 和具体插件；消费应用业务模块的编译依赖只到
+loadup-pay-payment-channel-api。付款、退款和回调均通过 Facade
 调用策略，渠道 HTTP operation、凭证解析、签名验签和原生 ACK 归各插件。
 
 通用回调 Controller 不维护厂商签名头白名单，只采集原始 body 和有界、多值 HTTP headers。上限为 64 个头名称、每个名称 8 个值、单值

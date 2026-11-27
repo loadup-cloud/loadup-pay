@@ -44,7 +44,8 @@ public class PaymentRecoveryOperationsController {
     @PostMapping("/detail")
     @Operation(
             summary =
-                    "Inspect one original payment native task; requires the configured operations SERVICE and recovery read permission")
+                    "Inspect one original payment native task; requires the configured operations SERVICE and recovery"
+                            + " read permission")
     public ResponseEntity<SuccessResponse<PaymentRecoveryTaskDTO>> detail(
             @Valid @RequestBody PaymentRecoveryTaskQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.detail(query)));
@@ -52,8 +53,8 @@ public class PaymentRecoveryOperationsController {
 
     @PostMapping("/retry")
     @Operation(
-            summary =
-                    "Audit and retry a current FAILED task with exact observed preconditions; never changes a financial status")
+            summary = "Audit and retry a current FAILED task with exact observed preconditions; never changes a"
+                    + " financial status")
     public ResponseEntity<SuccessResponse<PaymentRecoveryRetryDTO>> retry(
             @Valid @RequestBody PaymentRecoveryRetryCommand command) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.retry(command)));

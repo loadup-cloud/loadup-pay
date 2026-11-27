@@ -27,7 +27,8 @@ public interface OrderSnapshotStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(row.getAmountMinor(),"
+                            + " row.getCurrency()))")
     @Mapping(target = "paidMinor", source = "paidAmountMinor")
     @Mapping(target = "reservedMinor", source = "paymentReservedMinor")
     @Mapping(target = "orderCreatedAt", source = "createdAt")

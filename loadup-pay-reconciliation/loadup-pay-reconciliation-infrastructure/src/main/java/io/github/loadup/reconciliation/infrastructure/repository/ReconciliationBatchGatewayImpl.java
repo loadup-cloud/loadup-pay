@@ -145,27 +145,23 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
                         && !before.batch().ledger().equals(value.batch().ledger())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        boolean allowed =
-                switch (before.batch().state()) {
-                    case INIT ->
-                        (value.batch().state() == ReconciliationState.INIT
-                                        || value.batch().state() == ReconciliationState.READY)
-                                && ((before.batch().channel() == null
-                                                                && value.batch().channel() != null
-                                                        ? 1
-                                                        : 0)
-                                                + (before.batch().ledger() == null
-                                                                && value.batch().ledger() != null
-                                                        ? 1
-                                                        : 0)
-                                        == 1);
-                    case READY -> value.batch().state() == ReconciliationState.RUNNING;
-                    case RUNNING ->
-                        (value.batch().state() == ReconciliationState.MATCHED
-                                        || value.batch().state() == ReconciliationState.DIFFERENCES)
-                                && before.batch().runId().equals(value.batch().runId());
-                    default -> false;
-                };
+        boolean allowed = switch (before.batch().state()) {
+            case INIT ->
+                (value.batch().state() == ReconciliationState.INIT
+                                || value.batch().state() == ReconciliationState.READY)
+                        && ((before.batch().channel() == null && value.batch().channel() != null ? 1 : 0)
+                                        + (before.batch().ledger() == null
+                                                        && value.batch().ledger() != null
+                                                ? 1
+                                                : 0)
+                                == 1);
+            case READY -> value.batch().state() == ReconciliationState.RUNNING;
+            case RUNNING ->
+                (value.batch().state() == ReconciliationState.MATCHED
+                                || value.batch().state() == ReconciliationState.DIFFERENCES)
+                        && before.batch().runId().equals(value.batch().runId());
+            default -> false;
+        };
         if (!allowed) {
             throw new CommonException(INVALID_STATE);
         }

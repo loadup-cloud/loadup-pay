@@ -44,7 +44,8 @@ public interface PaymentInitiationConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(), currency))")
+                    "java(io.github.loadup.components.payment.channel.contract.ChannelAmounts.cnyAmount(command.amountMinor(),"
+                            + " currency))")
     PaymentIntent toIntent(
             PaymentStartCommand command,
             String allocationId,

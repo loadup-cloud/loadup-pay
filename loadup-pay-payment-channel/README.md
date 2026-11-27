@@ -5,13 +5,13 @@ Pay 的支付渠道模块面向收单场景，定义统一契约并将调用路�
 
 ## 模块与能力
 
-| Maven 模块 | 职责 | 能力与限制 |
-|---|---|---|
-| `loadup-pay-payment-channel-contracts` | Channel、AccessMode、PaymentMethod、金额等共享词汇 | 多模块共享类型 |
-| `loadup-pay-payment-channel-api` | Facade、Provider SPI、不可变请求/结果、绑定契约、动作编解码 SPI | 不依赖 Spring、数据库或消费应用业务包 |
-| `loadup-pay-payment-channel-core` | Facade 实现、Provider 注册表、结果核验、动作 codec 注册表 | 重复 Provider/kind/type 明确失败 |
-| `loadup-pay-payment-channel-alipay` | 支付宝协议、验签、凭证及支付/退款/通知适配 | 服务商 H5 未支持；账单下载、解析与统一来源未完成 |
-| `loadup-pay-payment-channel-wechat` | 微信协议、验签、凭证及支付/退款/通知适配 | 付款码撤销补偿未完成；账单来源和消费应用接线待验收 |
+| Maven 模块                             | 职责                                                            | 能力与限制                                         |
+|----------------------------------------|-----------------------------------------------------------------|----------------------------------------------------|
+| `loadup-pay-payment-channel-contracts` | Channel、AccessMode、PaymentMethod、金额等共享词汇              | 多模块共享类型                                     |
+| `loadup-pay-payment-channel-api`       | Facade、Provider SPI、不可变请求/结果、绑定契约、动作编解码 SPI | 不依赖 Spring、数据库或消费应用业务包              |
+| `loadup-pay-payment-channel-core`      | Facade 实现、Provider 注册表、结果核验、动作 codec 注册表       | 重复 Provider/kind/type 明确失败                   |
+| `loadup-pay-payment-channel-alipay`    | 支付宝协议、验签、凭证及支付/退款/通知适配                      | 服务商 H5 未支持；账单下载、解析与统一来源未完成   |
+| `loadup-pay-payment-channel-wechat`    | 微信协议、验签、凭证及支付/退款/通知适配                        | 付款码撤销补偿未完成；账单来源和消费应用接线待验收 |
 
 先导入 `loadup-pay-bom`。只共享枚举和金额策略时引入 `-contracts`。执行渠道调用的模块依赖 `-api`，应用 bootstrap
 以 runtime 依赖装配 core 与所需 binder。
@@ -37,7 +37,8 @@ Pay 的支付渠道模块面向收单场景，定义统一契约并将调用路�
 ## 新增渠道
 
 新增 `loadup-pay-payment-channel-{vendor}` binder，依赖 API 和所需 LoadUp 组件。实现 `ChannelProvider`，并为每种动作类型注册一个
-`ChannelActionTypeCodec` Bean，通过 binder 自身的 Spring Boot auto-configuration 装配。Core 收集 Provider 与 codec 并拒绝重复注册；应用
+`ChannelActionTypeCodec` Bean，通过 binder 自身的 Spring Boot auto-configuration 装配。Core 收集 Provider 与 codec
+并拒绝重复注册；应用
 bootstrap 负责引入 core 和 binder。Core 不维护厂商选路 switch。
 
 Provider 必须验证厂商响应，并保持原身份与金额。未注册或不支持的能力要明确失败；未知结果保持 UNKNOWN，不能换渠道、账户或请求身份来恢复。

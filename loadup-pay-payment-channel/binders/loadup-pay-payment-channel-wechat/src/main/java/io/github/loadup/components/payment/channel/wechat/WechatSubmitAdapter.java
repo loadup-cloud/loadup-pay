@@ -165,12 +165,11 @@ public final class WechatSubmitAdapter {
         final WechatMethod operation;
         if (payment.method() == PaymentMethod.H5) {
             var scene = (ChannelH5Input) request.input();
-            String type =
-                    switch (scene.sceneType()) {
-                        case WAP -> "Wap";
-                        case IOS -> "iOS";
-                        case ANDROID -> "Android";
-                    };
+            String type = switch (scene.sceneType()) {
+                case WAP -> "Wap";
+                case IOS -> "iOS";
+                case ANDROID -> "Android";
+            };
             body.put("scene_info", Map.of("payer_client_ip", scene.payerClientIp(), "h5_info", Map.of("type", type)));
             operation = partner ? WechatMethod.PARTNER_H5 : WechatMethod.DIRECT_H5;
         } else {
